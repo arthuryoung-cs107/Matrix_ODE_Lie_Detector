@@ -1,7 +1,6 @@
 CXX:=g++-13
 CC:=gcc-13
 OS:=OSX
-CFLAGS:= -march=native -O3 -fopenmp -DGSL -DKNUTH
 CFLAGS_EXHIB:= -march=native -O3 -fopenmp -DGSL -DHAVE_INLINE
 
 IBASIC:=-I/usr/local/include/

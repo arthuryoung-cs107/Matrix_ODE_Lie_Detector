@@ -40,6 +40,16 @@ int main()
   sprintf(name_buffer,"%s/%s_true_obs.%s",dir_name,ode.name,dat_suff);
   inputs_gen.write_solution_curves(name_buffer);
 
+  if (write_JFs)
+  {
+
+  }
+  if (write_dnp1xu)
+  {
+
+  }
+
+  sprintf(name_buffer,"%s/%s_true_obs.%s",dir_name,ode.name,dat_suff);
   LD_observations_set Strue(meta0,input_ode_observations(name_buffer));
 
   fspace0.set_Legendre_coeffs(); Strue.configure_centered_domain(fspace0);
@@ -56,13 +66,4 @@ int main()
   fspace0.debugging_description();
   sprintf(name_buffer, "%s/%s_%s.%d.domain_config.%s", dir_name,ode.name,"Chebyshev2",bor,dat_suff);
   fspace0.write_configuration_file(name_buffer);
-
-  if (write_JFs)
-  {
-
-  }
-  if (write_dnp1xu)
-  {
-
-  }
 }
