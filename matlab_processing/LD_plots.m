@@ -65,7 +65,7 @@ classdef LD_plots
     end
     methods (Static)
         function plt = plot_n2q1_solspc(S_,plt_)
-            if (nargin==1)
+            if (nargin<3)
                 plt = LD_plots([S_.dat_name '_n2q1_solspc']);
                 plt = plt.set_screen_posdim([4 4], [1 4], [1 1], 1);
             else
@@ -97,6 +97,8 @@ classdef LD_plots
                     plot(axi,pts_cell{i}(dims_i(1),:),pts_cell{i}(dims_i(2),:), ...
                     'Marker',spc.mspec,'MarkerSize',spc.ms,'LineStyle',spc.lspec,'LineWidth',spc.lw,'Color',spc.color);
                 end
+                xlabel(axi,['$$' dnames{dims_i(1)} '$$'], 'Interpreter','Latex','FontSize',14);
+                ylabel(axi,['$$' dnames{dims_i(2)} '$$'], 'Interpreter','Latex','FontSize',14);
             end
         end
         function specs_out = make_default_plot_specs()

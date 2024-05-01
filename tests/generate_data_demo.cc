@@ -37,7 +37,7 @@ int main()
   inputs_gen.set_random_ICs(LD_rng(9365),ode.get_default_IC_range());  // shay's number
   inputs_gen.generate_solution_curves(ode_integrator, ode.get_default_IC_indep_range());
 
-  sprintf(name_buffer,"%s/%s_true_obs.%s",dir_name,ode.name,dat_suff);
+  sprintf(name_buffer,"%s/%s_%s.%s",dir_name,ode.name,"true_obs",dat_suff);
   inputs_gen.write_solution_curves(name_buffer);
 
   if (write_JFs)
@@ -49,7 +49,7 @@ int main()
 
   }
 
-  sprintf(name_buffer,"%s/%s_true_obs.%s",dir_name,ode.name,dat_suff);
+  sprintf(name_buffer,"%s/%s_%s.%s",dir_name,ode.name,"true_obs",dat_suff);
   LD_observations_set Strue(meta0,input_ode_observations(name_buffer));
 
   fspace0.set_Legendre_coeffs(); Strue.configure_centered_domain(fspace0);

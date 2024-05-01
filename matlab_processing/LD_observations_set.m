@@ -55,6 +55,11 @@ classdef LD_observations_set
         end
     end
     methods (Static)
+        function meta_out = make_meta_data(eor_,ndep_)
+            meta_out = struct(  'eor', eor_, ...
+                                'ndep', ndep_, ...
+                                'ndim', 1+ndep_*(eor_+1));
+        end
         function inds_out = pts_crv_inds(ndim_,npts_per_crv_)
             ncrv = length(npts_per_crv_);
             chunk_len_vec = ndim_*npts_per_crv_;
