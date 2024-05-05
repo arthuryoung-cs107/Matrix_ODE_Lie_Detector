@@ -217,3 +217,39 @@ void LD_matrix::write_matrix(const char name_[])
   fclose(file);
   printf("(LD_matrix::write_matrix) wrote %s\n",name_);
 }
+void LD_matrix::read_matrix(const char name_[])
+{
+  const int hlen_check = 2,
+            Alen_check = net_rows*ndof_full;
+  int hlen_in,
+      Alen_in,
+      header_in[hlen_check],
+      &net_rows_in = header_in[0],
+      &ndof_full_in = header_in[1];
+  FILE * file_in = LD_io::fopen_SAFE(name_,"r");
+  LD_io::fread_SAFE(&hlen_in,sizeof(int),1,file_in);
+  if (hlen_in==hlen_check)
+  {
+    LD_io::fread_SAFE(header_in,sizeof(int),hlen_in,file_in);
+    Alen_in=net_rows_in*ndof_full_in;
+  }
+  else
+  {
+    printf("(LD_matrix::read_matrix) ERROR: hlen_in != hlen_check (%d vs. %d)\n", hlen_in, hlen_check);
+    LD_io::fclose_SAFE(file_in);
+    return;
+  }
+  if (Alen_in<=Alen_check)
+  {
+    if (Alen_in<Alen_check)
+      printf("(LD_matrix::read_matrix) WARNING: Alen_in < Alen_check (%d vs %d). ", Alen_in, Alen_check);
+    LD_io::fread_SAFE(Avec,sizeof(double),Alen_in,file_in);
+    LD_io::fclose_SAFE(file_in);
+    printf("(LD_matrix::read_matrix) read %s\n",name_);
+  }
+  else
+  {
+    printf("(LD_matrix::read_matrix) ERROR: Alen_in > Alen_check (%d vs %d) ", Alen_in, Alen_check);
+    LD_io::fclose_SAFE(file_in);
+  }
+}

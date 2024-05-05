@@ -24,10 +24,13 @@ const int nc = 50, // number of curves
           np = 300; // points per curve
 
 const int bor = 10;
+
 orthopolynomial_space fspace0(meta0,bor);
 
 const bool  write_JFs = true,
             write_dnp1xu = true;
+
+const char exp_name[] = "true_obs";
 
 char name_buffer[200];
 
@@ -37,7 +40,7 @@ int main()
   inputs_gen.set_random_ICs(LD_rng(9365),ode.get_default_IC_range());  // shay's number
   inputs_gen.generate_solution_curves(ode_integrator, ode.get_default_IC_indep_range());
 
-  sprintf(name_buffer,"%s/%s_%s.%s",dir_name,ode.name,"true_obs",dat_suff);
+  sprintf(name_buffer,"%s/%s_%s.%s",dir_name,ode.name,exp_name,dat_suff);
   inputs_gen.write_solution_curves(name_buffer);
 
   if (write_JFs)
@@ -49,7 +52,7 @@ int main()
 
   }
 
-  sprintf(name_buffer,"%s/%s_%s.%s",dir_name,ode.name,"true_obs",dat_suff);
+  sprintf(name_buffer,"%s/%s_%s.%s",dir_name,ode.name,exp_name,dat_suff);
   LD_observations_set Strue(meta0,input_ode_observations(name_buffer));
 
   fspace0.set_Legendre_coeffs(); Strue.configure_centered_domain(fspace0);

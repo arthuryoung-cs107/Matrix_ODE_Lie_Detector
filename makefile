@@ -18,7 +18,10 @@ LDEXHIBGENOBJS:= $(EXHIBOBJS) $(EXHIBGENOBJS) #"Lie Detector reconstruction"
 $(LD_EXHIB_DIR)%.o: $(LD_EXHIB_SRC)%.cc | $(LD_EXHIB_DIR)
 	$(CXX) $(IDIR_EXHIB) $(CFLAGS_EXHIB) -c $< -o $@
 
-denoise_demo: $(TEST_SRC)denoising_demo.cc $(LDEXHIBOBJS)
+encode_demo: $(TEST_SRC)encoding_demo.cc $(LDEXHIBOBJS)
+	$(CXX) $(IDIR_EXHIB) $(CFLAGS_EXHIB) $(LINK) $^ $(LIBS_EXHIB) -o $@
+
+decode_demo: $(TEST_SRC)decoding_demo.cc $(LDEXHIBOBJS)
 	$(CXX) $(IDIR_EXHIB) $(CFLAGS_EXHIB) $(LINK) $^ $(LIBS_EXHIB) -o $@
 
 gendata_demo: $(TEST_SRC)generate_data_demo.cc $(LDEXHIBGENOBJS)

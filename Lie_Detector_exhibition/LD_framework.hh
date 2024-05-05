@@ -1,7 +1,6 @@
 #ifndef LD_EXHIB_HH
 #define LD_EXHIB_HH
 
-// #include "LD_ode.hh"
 #include "LD_function_space.hh"
 #include "LD_aux.hh"
 #include "LD_io.hh"
@@ -127,7 +126,9 @@ struct LD_matrix: public function_space_element, public LD_experiment
     {LD_linalg::print_A("curve i sub matrix",Attns[i_][0],nrows_mat_i(i_),ndof_full);}
   inline void print_matrix_i_submat_j(int i_,int j_)
     {LD_linalg::print_A("curve i, pts j sub matrix",Attns[i_][j_],dim_cnstr,ndof_full);}
+
   void write_matrix(const char name_[]);
+  void read_matrix(const char name_[]);
 };
 
 class LD_R_matrix: public LD_matrix
