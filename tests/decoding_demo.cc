@@ -1,4 +1,4 @@
-#include "LD_framework.hh"
+#include "matrix_Lie_detector.hh"
 
 #ifdef _OPENMP
   #include "omp.h"
@@ -15,8 +15,8 @@ const char dat_suff[] = "lddat";
 const char eqn_name[] = "Duffing";
 ode_solspc_meta meta0(2,1);
 
-const char bse_name[] = "Legendre";
-// const char bse_name[] = "Chebyshev1";
+// const char bse_name[] = "Legendre";
+const char bse_name[] = "Chebyshev1";
 // const char bse_name[] = "Chebyshev2";
 const int bor = 10;
 
@@ -39,10 +39,11 @@ int main()
   sprintf(name_buffer, "%s/%s_%s.%s", dir_name,eqn_name,exp_name,dat_suff);
   LD_observations_set Sdat(meta0,input_ode_observations(name_buffer));
   LD_R_matrix Rmat(fspace0,Sdat);
-  // Rmat.populate_R_matrix<orthopolynomial_basis>(bases0);
   sprintf(name_buffer, "%s/%s_%s.%d.Rmat_%s.%s", dir_name,eqn_name,bse_name,bor,exp_name,dat_suff);
-  // Rmat.write_matrix(name_buffer);
   Rmat.read_matrix(name_buffer);
+
+  matrix_Lie_detector ld(Rmat,fspace0);
+  LD_matrix_svd_result * Rmat_svd_result = ld.compute_curve_svds(Rmat.min_nrow_curve());
 
   free_evaluation_bases<orthopolynomial_basis>(nbases0,bases0);
 }

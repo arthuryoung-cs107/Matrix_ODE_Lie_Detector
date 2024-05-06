@@ -7,6 +7,8 @@
 // #include <cstdlib>
 #include <cmath>
 
+#include <gsl/gsl_matrix.h>
+#include <gsl/gsl_vector.h>
 #include <gsl/gsl_rng.h>
 
 #ifdef _OPENMP
@@ -102,6 +104,19 @@ struct LD_linalg
 {
   LD_linalg();
   ~LD_linalg();
+
+  template <typename T> static T min_val(T *vec_, int len_)
+  {
+    T val_out = vec_[0];
+    for (size_t i = 1; i < len_; i++) if (val_out > vec_[i]) val_out = vec_[i];
+    return val_out;
+  }
+  template <typename T> static T max_val(T *vec_, int len_)
+  {
+    T val_out = vec_[0];
+    for (size_t i = 1; i < len_; i++) if (val_out < vec_[i]) val_out = vec_[i];
+    return val_out;
+  }
 
   static void A_x_b(double **A_, double *x_, double *b_, int m_, int n_)
   {
@@ -267,6 +282,42 @@ struct LD_linalg
     printf("%s (%d x %d)\n", mat_name_, n_, n_);
     for (size_t i = 0, j_cap = n_; i < n_; i++, j_cap--)
       {for (size_t j = 0; j < j_cap; j++) printf("%.2e ", Asym_[i][j]); printf("\n");}
+  }
+};
+
+struct LD_gsl
+{
+  LD_gsl() {}
+  ~LD_gsl() {}
+
+  static void load_gsl_vec(gsl_vector *gsl_vec_, double *vec_)
+    {for (size_t i = 0; i < gsl_vec_->size; i++) gsl_vector_set(gsl_vec_,i,vec_[i]);}
+  static void unpack_gsl_vec(double *vec_, gsl_vector *gsl_vec_)
+    {for (size_t i = 0; i < gsl_vec_->size; i++) vec_[i] = gsl_vector_get(gsl_vec_,i);}
+
+  static void load_gsl_matT(gsl_matrix * gsl_mat_, double ** mat_)
+  {
+    for (size_t i = 0; i < gsl_mat_->size1; i++)
+      for (size_t j = 0; j < gsl_mat_->size2; j++)
+        gsl_matrix_set(gsl_mat_,j,i,mat_[i][j]);
+  }
+  static void load_gsl_mat(gsl_matrix * gsl_mat_, double ** mat_)
+  {
+    for (size_t i = 0; i < gsl_mat_->size1; i++)
+      for (size_t j = 0; j < gsl_mat_->size2; j++)
+        gsl_matrix_set(gsl_mat_,i,j,mat_[i][j]);
+  }
+  static void unpack_gsl_mat(double ** mat_, gsl_matrix * gsl_mat_)
+  {
+    for (size_t i = 0; i < gsl_mat_->size1; i++)
+      for (size_t j = 0; j < gsl_mat_->size2; j++)
+        mat_[i][j] = gsl_matrix_get(gsl_mat_,i,j);
+  }
+  static void unpack_gsl_matT(double ** mat_, gsl_matrix * gsl_mat_)
+  {
+    for (size_t i = 0; i < gsl_mat_->size1; i++)
+      for (size_t j = 0; j < gsl_mat_->size2; j++)
+        mat_[i][j] = gsl_matrix_get(gsl_mat_,j,i);
   }
 };
 

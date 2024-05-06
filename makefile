@@ -1,18 +1,20 @@
 # file names
 
 EXHIB:= LD_aux LD_ode LD_io LD_framework LD_function_space LD_framework
+EXHIBDEC:= matrix_Lie_detector
 EXHIBGEN:= LD_ode_system LD_integrators
 
 include config/includes.mak
 
 # Lie detector object files
-
 EXHIBOBJS:= $(addprefix $(LD_EXHIB_DIR), $(addsuffix .o, $(EXHIB)))
+EXHIBDECOBJS:= $(addprefix $(LD_EXHIB_DIR), $(addsuffix .o, $(EXHIBDEC)))
 EXHIBGENOBJS:= $(addprefix $(LD_EXHIB_DIR), $(addsuffix .o, $(EXHIBGEN)))
 
 # final executable object files
-LDEXHIBOBJS:= $(EXHIBOBJS) #"Lie Detector reconstruction"
-LDEXHIBGENOBJS:= $(EXHIBOBJS) $(EXHIBGENOBJS) #"Lie Detector reconstruction"
+LDEXHIBOBJS:= $(EXHIBOBJS)
+LDEXHIBDECOBJS:= $(EXHIBOBJS) $(EXHIBDECOBJS)
+LDEXHIBGENOBJS:= $(EXHIBOBJS) $(EXHIBGENOBJS)
 
 # Lie detector exhibition rules
 $(LD_EXHIB_DIR)%.o: $(LD_EXHIB_SRC)%.cc | $(LD_EXHIB_DIR)
@@ -21,7 +23,7 @@ $(LD_EXHIB_DIR)%.o: $(LD_EXHIB_SRC)%.cc | $(LD_EXHIB_DIR)
 encode_demo: $(TEST_SRC)encoding_demo.cc $(LDEXHIBOBJS)
 	$(CXX) $(IDIR_EXHIB) $(CFLAGS_EXHIB) $(LINK) $^ $(LIBS_EXHIB) -o $@
 
-decode_demo: $(TEST_SRC)decoding_demo.cc $(LDEXHIBOBJS)
+decode_demo: $(TEST_SRC)decoding_demo.cc $(LDEXHIBDECOBJS)
 	$(CXX) $(IDIR_EXHIB) $(CFLAGS_EXHIB) $(LINK) $^ $(LIBS_EXHIB) -o $@
 
 gendata_demo: $(TEST_SRC)generate_data_demo.cc $(LDEXHIBGENOBJS)

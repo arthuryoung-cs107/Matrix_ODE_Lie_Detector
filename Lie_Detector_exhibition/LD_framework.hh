@@ -105,7 +105,6 @@ struct LD_experiment
 
   ode_solcurve ** const curves = Sset.curves;
   ode_solution ** const sols_full = Sset.sols_full;
-
 };
 
 struct LD_matrix: public function_space_element, public LD_experiment
@@ -122,6 +121,7 @@ struct LD_matrix: public function_space_element, public LD_experiment
           * const Avec = Amat[0];
 
   inline int nrows_mat_i(int i_) {return dim_cnstr*npts_per_crv[i_];}
+  inline double ** Amat_crv_i(int i_) {return Attns[i_][0];}
   inline void print_matrix_i(int i_)
     {LD_linalg::print_A("curve i sub matrix",Attns[i_][0],nrows_mat_i(i_),ndof_full);}
   inline void print_matrix_i_submat_j(int i_,int j_)
@@ -129,6 +129,9 @@ struct LD_matrix: public function_space_element, public LD_experiment
 
   void write_matrix(const char name_[]);
   void read_matrix(const char name_[]);
+
+  inline int min_nrow_curve() {return dim_cnstr*LD_linalg::min_val<int>(npts_per_crv,ncrvs_tot);}
+  inline int max_nrow_curve() {return dim_cnstr*LD_linalg::max_val<int>(npts_per_crv,ncrvs_tot);}
 };
 
 class LD_R_matrix: public LD_matrix
@@ -197,5 +200,7 @@ class LD_R_matrix: public LD_matrix
       i_dof++;
     }
 };
+
+
 
 #endif

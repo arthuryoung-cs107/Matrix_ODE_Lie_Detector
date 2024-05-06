@@ -84,11 +84,14 @@ void input_ode_observations::print_details()
 // LD_observations_set::LD_observations_set(ode_solspc_meta &meta_, input_ode_observations &input_):
 LD_observations_set::LD_observations_set(ode_solspc_meta &meta_, input_ode_observations input_):
 ode_solspc_element(meta_),
-ncrvs_tot(input_.ncrv), nobs_full(input_.nobs), npts_per_crv(input_.npts_per_crv),
-pts_chunk_full(input_.pts_in),
+ncrvs_tot(input_.ncrv), nobs_full(input_.nobs),
+// npts_per_crv(input_.npts_per_crv), pts_chunk_full(input_.pts_in),
+npts_per_crv(new int[ncrvs_tot]), pts_chunk_full(new double[nobs_full*ndim]),
 pts_mat_full(new double*[nobs_full]), pts_tns_full(new double**[ncrvs_tot]),
 curves(new ode_solcurve*[ncrvs_tot]), sols_full(new ode_solution*[nobs_full])
 {
+  LD_linalg::copy_x(input_.npts_per_crv,npts_per_crv,ncrvs_tot);
+  LD_linalg::copy_x(input_.pts_in,pts_chunk_full,nobs_full*ndim);
   for (size_t icrv = 0, ipts=0, idim=0; icrv < ncrvs_tot; icrv++)
   {
     pts_tns_full[icrv] = pts_mat_full+ipts;
@@ -108,6 +111,9 @@ LD_observations_set::~LD_observations_set()
 
   delete [] pts_tns_full;
   delete [] pts_mat_full;
+
+  delete [] npts_per_crv;
+  delete [] pts_chunk_full;
 }
 
 void LD_observations_set::get_solspace_val_extrema(double **sve_g_)

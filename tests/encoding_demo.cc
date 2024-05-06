@@ -15,8 +15,8 @@ const char dat_suff[] = "lddat";
 const char eqn_name[] = "Duffing";
 ode_solspc_meta meta0(2,1);
 
-const char bse_name[] = "Legendre";
-// const char bse_name[] = "Chebyshev1";
+// const char bse_name[] = "Legendre";
+const char bse_name[] = "Chebyshev1";
 // const char bse_name[] = "Chebyshev2";
 const int bor = 10;
 
