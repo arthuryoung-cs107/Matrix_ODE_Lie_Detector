@@ -22,6 +22,8 @@ const int bor = 10;
 
 const char exp_name[] = "true_obs";
 
+const char mat_name[] = "Rmat";
+
 orthopolynomial_space fspace0(meta0, bor);
 
 char name_buffer[200];
@@ -32,18 +34,16 @@ int main()
   fspace0.configure_self(name_buffer);
   fspace0.debugging_description();
 
-  const int nbases0 = numthreads();
-  orthopolynomial_basis ** bases0 = make_evaluation_bases<orthopolynomial_basis,orthopolynomial_space>(fspace0,nbases0);
-  bases0[thread_id()]->debugging_description();
-
   sprintf(name_buffer, "%s/%s_%s.%s", dir_name,eqn_name,exp_name,dat_suff);
   LD_observations_set Sdat(meta0,input_ode_observations(name_buffer));
   LD_R_matrix Rmat(fspace0,Sdat);
-  sprintf(name_buffer, "%s/%s_%s.%d.Rmat_%s.%s", dir_name,eqn_name,bse_name,bor,exp_name,dat_suff);
+  sprintf(name_buffer, "%s/%s_%s.%d.%s_%s.%s", dir_name,eqn_name,bse_name,bor,mat_name,exp_name,dat_suff);
   Rmat.read_matrix(name_buffer);
 
-  matrix_Lie_detector ld(Rmat,fspace0);
-  LD_matrix_svd_result * Rmat_svd_result = ld.compute_curve_svds(Rmat.min_nrow_curve());
+  LD_matrix_svd_result Rmat_svd(Rmat.ncrvs_tot,Rmat.ndof_full);
+  matrix_Lie_detector::compute_curve_svds(Rmat,Rmat_svd,Rmat.min_nrow_curve());
+  Rmat_svd.print_details();
+  sprintf(name_buffer, "%s/%s_%s.%d.%s_%s_svd.%s", dir_name,eqn_name,bse_name,bor,mat_name,exp_name,dat_suff);
+  Rmat_svd.write_svd_results(name_buffer);
 
-  free_evaluation_bases<orthopolynomial_basis>(nbases0,bases0);
 }

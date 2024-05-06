@@ -26,6 +26,9 @@ encode_demo: $(TEST_SRC)encoding_demo.cc $(LDEXHIBOBJS)
 decode_demo: $(TEST_SRC)decoding_demo.cc $(LDEXHIBDECOBJS)
 	$(CXX) $(IDIR_EXHIB) $(CFLAGS_EXHIB) $(LINK) $^ $(LIBS_EXHIB) -o $@
 
+recon_demo: $(TEST_SRC)reconstruction_demo.cc $(LDEXHIBDECOBJS)
+	$(CXX) $(IDIR_EXHIB) $(CFLAGS_EXHIB) $(LINK) $^ $(LIBS_EXHIB) -o $@
+
 gendata_demo: $(TEST_SRC)generate_data_demo.cc $(LDEXHIBGENOBJS)
 	$(CXX) $(IDIR_EXHIB) $(CFLAGS_EXHIB) $(LINK) $^ $(LIBS_EXHIB) -o $@
 

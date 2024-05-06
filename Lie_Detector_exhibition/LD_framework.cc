@@ -2,8 +2,6 @@
 #include "LD_aux.hh"
 #include "LD_io.hh"
 
-#include <cfloat>
-
 ode_curve_observations::ode_curve_observations(int eor_, int ndep_, int ncrv_, int nobs_):
 eor(eor_), ndep(ndep_), ncrv(ncrv_), nobs(nobs_),
 npts_per_crv(new int[ncrv_]), pts_in(new double[(1+ndep_*(eor_+1))*nobs_])

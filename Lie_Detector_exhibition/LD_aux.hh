@@ -7,6 +7,8 @@
 // #include <cstdlib>
 #include <cmath>
 
+#include <cfloat>
+
 #include <gsl/gsl_matrix.h>
 #include <gsl/gsl_vector.h>
 #include <gsl/gsl_rng.h>
@@ -104,6 +106,8 @@ struct LD_linalg
 {
   LD_linalg();
   ~LD_linalg();
+
+  static double eps(double x_=1.0) {return nextafter(x_,DBL_MAX)-x_;}
 
   template <typename T> static T min_val(T *vec_, int len_)
   {

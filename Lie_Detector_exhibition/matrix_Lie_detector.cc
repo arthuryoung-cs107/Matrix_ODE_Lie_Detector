@@ -1,26 +1,14 @@
 #include "matrix_Lie_detector.hh"
-// #include <gsl/gsl_linalg.h>
 
-matrix_Lie_detector::matrix_Lie_detector(LD_matrix &mat_, function_space &fspace_): mat(mat_), fspace(fspace_)
-{}
-matrix_Lie_detector::~matrix_Lie_detector()
-{}
-LD_matrix_svd_result * matrix_Lie_detector::compute_curve_svds(int nrows_)
+void LD_matrix_svd_result::write_svd_results(const char name_[])
 {
-  const int ncrvs = mat.ncrvs_tot,
-            ndof = mat.ndof_full;
-  LD_matrix_svd_result * svd_result = new LD_matrix_svd_result(ncrvs,ndof);
-  double  ** const Smat_out = svd_result->Smat,
-          *** const VTtns_out = svd_result->VTtns;
-  #pragma omp parallel
-  {
-    LD_SVD_space svd_t(nrows_,ndof);
-    #pragma omp for
-    for (size_t i = 0; i < ncrvs; i++)
-    {
-      svd_t.load_and_decompose(mat.Amat_crv_i(i));
-      svd_t.unpack_s_VT(Smat_out[i],VTtns_out[i]);
-    }
-  }
-  return svd_result;
+  FILE * file = LD_io::fopen_SAFE(name_,"wb");
+  int hlen = 2,
+      header[] = {hlen,ncrvs,ndof};
+  fwrite(header, sizeof(int), hlen+1, file);
+  fwrite(rank_vec, sizeof(int), ncrvs, file);
+  fwrite(Smat[0], sizeof(double), ncrvs*ndof, file);
+  fwrite(VTtns[0][0], sizeof(double), ncrvs*ndof*ndof, file);
+  fclose(file);
+  printf("(LD_matrix_svd_result::write_svd_results) wrote %s\n",name_);
 }

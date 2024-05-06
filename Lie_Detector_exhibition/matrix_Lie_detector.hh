@@ -27,29 +27,98 @@ struct LD_SVD_space // assumes M>N
     LD_gsl::unpack_gsl_vec(s_,s_gsl);
     LD_gsl::unpack_gsl_matT(VT_,V_gsl);
   }
+  inline int unpack_rank_s_VT(double *s_, double **VT_)
+  {
+    unpack_s_VT(s_,VT_);
+    double tol_eps = ((double) U_gsl->size1)*(LD_linalg::eps(s_[0]));
+    int rank_out = 0;
+    for (size_t i = 0; i < U_gsl->size2; i++)
+      if (s_[i]>tol_eps) rank_out++;
+      else break;
+    return rank_out;
+  }
 };
 
 struct LD_matrix_svd_result
 {
   LD_matrix_svd_result(int ncrvs_,int ndof_): ncrvs(ncrvs_), ndof(ndof_),
-  Smat(Tmatrix<double>(ncrvs_,ndof_)), VTtns(T3tensor<double>(ncrvs_,ndof_,ndof_)) {}
-  ~LD_matrix_svd_result() {free_Tmatrix<double>(Smat); free_T3tensor<double>(VTtns);}
+  rank_vec(new int[ncrvs_]), Smat(Tmatrix<double>(ncrvs_,ndof_)), VTtns(T3tensor<double>(ncrvs_,ndof_,ndof_)) {}
+  ~LD_matrix_svd_result() {delete [] rank_vec; free_Tmatrix<double>(Smat); free_T3tensor<double>(VTtns);}
+
   const int ncrvs,
             ndof;
+  int * const rank_vec;
   double  ** const Smat,
           *** const VTtns;
+
+  void write_svd_results(const char name_[]);
+  // void read_svd_results(const char name_[]);
+
+  inline void print_details(const char name_[]="Amat_svd")
+  {
+    LD_linalg::print_xT("(LD_matrix_svd_result::print_details) rank_vec",rank_vec,ncrvs);
+    printf("min_nulldim = %d, max_nulldim = %d \n",
+      min_nulldim(),
+      max_nulldim());
+  }
+
+  inline int nulldim_i(int i_) {return ndof-rank_vec[i_];}
+  inline int min_rank() {return LD_linalg::min_val<int>(rank_vec,ncrvs);}
+  inline int max_rank() {return LD_linalg::max_val<int>(rank_vec,ncrvs);}
+  inline int min_nulldim() {return ndof - max_rank();}
+  inline int max_nulldim() {return ndof - min_rank();}
 };
+
+// class infinitesimal_generator: public ode_system
+// {
+//   public:
+//     infinitesimal_generator(function_space_basis &basis_,double **Kmat_,int kappa_): ode_system(1,basis_.ndep," "),
+//     basis(basis_), kappa(kappa_), Kmat(Kmat_)
+//     {}
+//     ~infinitesimal_generator() {}
+//
+//     function_space_basis &basis;
+//
+//     const int kappa;
+//     double ** const Kmat;
+//
+//     virtual void dudx_eval(double x_, double *u_, double *dudx_) {}
+//     virtual void JacF_eval(double x_, double *u_, double **dls_out_) {}
+// };
+
+// class integration_package
+// {
+//   integration_package()
+//   ~integration_package()
+//
+// };
 
 struct matrix_Lie_detector
 {
-  matrix_Lie_detector(LD_matrix &mat_, function_space &fspace_);
-  ~matrix_Lie_detector();
+  matrix_Lie_detector() {}
+  ~matrix_Lie_detector() {}
 
-  LD_matrix &mat;
-  function_space &fspace;
-  const int ndof_full = fspace.ndof_full;
+  static void compute_curve_svds(LD_matrix &mat_,LD_matrix_svd_result &mat_svd_,int nrows_)
+  {
+    const int ndof = mat_.ndof_full,
+              ncrvs = mat_.ncrvs_tot;
+    int * const rank_vec_out = mat_svd_.rank_vec;
+    double  ** const Smat_out = mat_svd_.Smat,
+            *** const VTtns_out = mat_svd_.VTtns;
+    #pragma omp parallel
+    {
+      LD_SVD_space svd_t(nrows_,ndof);
+      #pragma omp for
+      for (size_t i = 0; i < ncrvs; i++)
+      {
+        svd_t.load_and_decompose(mat_.Amat_crv_i(i));
+        rank_vec_out[i] = svd_t.unpack_rank_s_VT(Smat_out[i],VTtns_out[i]);
+      }
+    }
+  }
 
-  LD_matrix_svd_result * compute_curve_svds(int nrows_);
+
+
 };
 
 #endif
