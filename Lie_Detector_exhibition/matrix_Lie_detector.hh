@@ -78,9 +78,7 @@ struct infinitesimal_generator: public ode_system
   ~infinitesimal_generator() {}
 
   function_space &fspace;
-
-  const int nvar = fspace.nvar,
-            perm_len = fspace.perm_len;
+  const int perm_len = fspace.perm_len;
 };
 
 class rspace_infinitesimal_generator: public infinitesimal_generator
@@ -110,15 +108,19 @@ class rspace_infinitesimal_generator: public infinitesimal_generator
     void dudx_eval(double x_, double *u_, double *dudx_)
     {
       xu[0] = x_;
-      for (size_t i = 0; i < ndep; i++) xu[i+1] = u_[i];
+      for (size_t i = 0; i < ndep; i++) xu[i+1] = u_[i] + (dudx_[i] = 0.0);
       fspace.lamvec_eval(xu,lamvec,vxu_wkspc);
       double Vx2 = 0.0;
       for (size_t i_k = 0; i_k < kappa; i_k++)
       {
-        vx_vec[i_k] = 0.0;
-        for (size_t i = 0; i < perm_len; i++) vx_vec[i_k] += Kmat[i_k][i]*lamvec[i];
-        Vx2 += vx_vec[i_k]*vx_vec[i_k];
+        double &vx_ik = vx_vec[i_k] = 0.0;
+        for (size_t i = 0; i < perm_len; i++) vx_ik += Kmat[i_k][i]*lamvec[i];
+        for (size_t idep = 0,i_theta = perm_len; idep < ndep; idep++)
+          for (size_t iperm = 0; iperm < perm_len; iperm++,i_theta++)
+            dudx_[idep] += vx_ik*Kmat[i_k][i_theta]*lamvec[iperm];
+        Vx2 += vx_ik*vx_ik;
       }
+      for (size_t i = 0; i < ndep; i++) dudx_[i] /= Vx2;
     }
     void JacF_eval(double x_, double *u_, double **dls_out_) {}
 
