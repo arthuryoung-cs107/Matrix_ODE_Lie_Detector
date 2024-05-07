@@ -36,6 +36,8 @@ char name_buffer[200];
 
 int main()
 {
+  mkdir(dir_name, S_IRWXU);
+  
   generated_ode_observations inputs_gen(ode,nc,np);
   inputs_gen.set_random_ICs(LD_rng(9365),ode.get_default_IC_range());  // shay's number
   inputs_gen.generate_solution_curves(ode_integrator, ode.get_default_IC_indep_range());
