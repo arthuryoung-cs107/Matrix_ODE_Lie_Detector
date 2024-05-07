@@ -57,9 +57,7 @@ struct LD_matrix_svd_result
   inline void print_details(const char name_[]="Amat_svd")
   {
     LD_linalg::print_xT("(LD_matrix_svd_result::print_details) rank_vec",rank_vec,ncrvs);
-    printf("min_nulldim = %d, max_nulldim = %d \n",
-      min_nulldim(),
-      max_nulldim());
+    printf("min_nulldim = %d, max_nulldim = %d \n", min_nulldim(), max_nulldim());
   }
 
   inline int nulldim_i(int i_) {return ndof-rank_vec[i_];}
@@ -78,7 +76,8 @@ struct infinitesimal_generator: public ode_system
   ~infinitesimal_generator() {}
 
   function_space &fspace;
-  const int perm_len = fspace.perm_len;
+  const int perm_len = fspace.perm_len,
+            ndof = fspace.ndof_full;
 };
 
 class rspace_infinitesimal_generator: public infinitesimal_generator
@@ -90,19 +89,18 @@ class rspace_infinitesimal_generator: public infinitesimal_generator
           * const vx_vec;
   vxu_workspace vxu_wkspc;
 
-
   public:
     rspace_infinitesimal_generator(function_space &fspace_,int kappa_,double ***Ktns_):
     infinitesimal_generator(fspace_), kappa(kappa_), Ktns(Ktns_),
     xu(new double[nvar]), lamvec(new double[perm_len]), vx_vec(new double[kappa_]),
     vxu_wkspc(vxu_workspace(nvar,fspace_.comp_ord_len())),
-    Kmat(Ktns_[0]) {}
+    Kmat(Ktns_[0] + (ndof-kappa_)) {}
     ~rspace_infinitesimal_generator() {delete [] xu; delete [] lamvec; delete [] vx_vec;}
 
     double  ** Kmat;
 
-    void init_dudx_eval(int icrv_) {Kmat = Ktns[icrv_];}
-
+    void init_dudx_eval(int icrv_) {Kmat = Ktns[icrv_] + (ndof-kappa);}
+    
     void dudx_eval(double x_, double *u_, double *dudx_)
     {
       xu[0] = x_;

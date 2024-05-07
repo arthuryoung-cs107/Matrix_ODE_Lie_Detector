@@ -1,4 +1,5 @@
 #include "matrix_Lie_detector.hh"
+#include "LD_integrators.hh"
 
 #ifdef _OPENMP
   #include "omp.h"
@@ -45,6 +46,13 @@ int main()
   Rmat_svd.read_svd_results(name_buffer);
   Rmat_svd.print_details();
 
+  rspace_infinitesimal_generator rinfgen0(fspace0,Rmat_svd.kappa_def(),Rmat_svd.VTtns);
 
+  dop853_settings infgen_integrator_settings;
+  dop853_integrator infgen_integrator(rinfgen0,infgen_integrator_settings);
 
+  generated_ode_observations inputs_recon(rinfgen0,Sdat.ncrvs_tot,Sdat.min_npts_curve());
+
+  inputs_recon.set_solcurve_ICs(Sdat.curves);
+  inputs_recon.generate_solution_curves(infgen_integrator,Sdat.get_default_IC_indep_range());
 }

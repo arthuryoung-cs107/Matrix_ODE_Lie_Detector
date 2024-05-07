@@ -87,7 +87,8 @@ ncrvs_tot(input_.ncrv), nobs_full(input_.nobs),
 // npts_per_crv(input_.npts_per_crv), pts_chunk_full(input_.pts_in),
 npts_per_crv(new int[ncrvs_tot]), pts_chunk_full(new double[nobs_full*ndim]),
 pts_mat_full(new double*[nobs_full]), pts_tns_full(new double**[ncrvs_tot]),
-curves(new ode_solcurve*[ncrvs_tot]), sols_full(new ode_solution*[nobs_full])
+curves(new ode_solcurve*[ncrvs_tot]), sols_full(new ode_solution*[nobs_full]),
+indep_range(new double[2])
 {
   LD_linalg::copy_x(input_.npts_per_crv,npts_per_crv,ncrvs_tot);
   LD_linalg::copy_x(input_.pts_in,pts_chunk_full,nobs_full*ndim);
@@ -113,6 +114,8 @@ LD_observations_set::~LD_observations_set()
 
   delete [] npts_per_crv;
   delete [] pts_chunk_full;
+
+  delete [] indep_range;
 }
 
 void LD_observations_set::get_solspace_val_extrema(double **sve_g_)

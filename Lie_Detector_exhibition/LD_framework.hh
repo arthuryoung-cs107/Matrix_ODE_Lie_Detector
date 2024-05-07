@@ -37,6 +37,12 @@ struct generated_ode_observations: public ode_curve_observations
             ndof_ODE = ode.ndep*ode.eor;
   double ** const pts_IC;
 
+  inline void set_solcurve_ICs(ode_solcurve **crvs_)
+  {
+    for (size_t i = 0; i < ncrv; i++)
+      for (size_t idim = 0; idim <= ndof_ODE; idim++)
+        pts_IC[i][idim] = crvs_[i]->pts0[idim];
+  }
   void set_random_ICs(LD_rng rng_, const double *IC_range_);
   void generate_solution_curves(ode_integrator &integrator_, const double *indep_range_);
   void write_solution_curves(const char name_[]);
@@ -66,6 +72,14 @@ struct LD_observations_set: public ode_solspc_element
   ode_solcurve ** const curves;
   ode_solution ** const sols_full;
 
+  inline double * get_default_IC_indep_range(int icrv_=0)
+  {
+    ode_solcurve &crv_i = *(curves[icrv_]);
+    indep_range[0] = crv_i.pts0[0];
+    indep_range[1] = crv_i.pts_mat[crv_i.nobs-1][0];
+    return indep_range;
+  }
+
   inline void configure_centered_domain(orthopolynomial_space &fspace_, double h_min_=-0.99, double h_max_=0.99)
   {
     double **sve_g = Tmatrix<double>(2,ndim);
@@ -87,6 +101,13 @@ struct LD_observations_set: public ode_solspc_element
   inline ode_solution * get_icrv_jsol(int i_, int j_) {return curves[i_]->sols[j_];}
   inline void print_curve_i(int i_) {curves[i_]->print_curve();}
   inline void print_icrv_jsol(int i_, int j_) {curves[i_]->print_jsol(j_);}
+
+  inline int min_npts_curve() {return LD_linalg::min_val<int>(npts_per_crv,ncrvs_tot);}
+  inline int max_npts_curve() {return LD_linalg::max_val<int>(npts_per_crv,ncrvs_tot);}
+
+  private:
+
+    double * const indep_range;
 };
 
 struct LD_experiment
@@ -105,6 +126,9 @@ struct LD_experiment
 
   ode_solcurve ** const curves = Sset.curves;
   ode_solution ** const sols_full = Sset.sols_full;
+
+  inline int min_npts_curve() {return Sset.min_npts_curve();}
+  inline int max_npts_curve() {return Sset.max_npts_curve();}
 };
 
 struct LD_matrix: public function_space_element, public LD_experiment
@@ -130,8 +154,8 @@ struct LD_matrix: public function_space_element, public LD_experiment
   void write_matrix(const char name_[]);
   void read_matrix(const char name_[]);
 
-  inline int min_nrow_curve() {return dim_cnstr*LD_linalg::min_val<int>(npts_per_crv,ncrvs_tot);}
-  inline int max_nrow_curve() {return dim_cnstr*LD_linalg::max_val<int>(npts_per_crv,ncrvs_tot);}
+  inline int min_nrow_curve() {return dim_cnstr*min_npts_curve();}
+  inline int max_nrow_curve() {return dim_cnstr*max_npts_curve();}
 };
 
 class LD_R_matrix: public LD_matrix
