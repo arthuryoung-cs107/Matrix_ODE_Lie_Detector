@@ -5,6 +5,8 @@
 
 #include "LD_ode.hh"
 
+// #include <cstdio>
+
 #ifdef _OPENMP
   #include "omp.h"
 #endif
@@ -182,8 +184,8 @@ struct orthopolynomial_space: public power_space
   {
     for (size_t ivar = 0; ivar < nvar; ivar++) wkspc_.xu[ivar] = (fmap_m[ivar]*xu_in_[ivar]) + fmap_b[ivar];
     init_xu_vals(wkspc_.xu,wkspc_.xu_vals);
-    for (size_t ivar = ndep; ivar >= 0; ivar--)
-      for (size_t iord = bor; iord >= 0; iord--)
+    for (int ivar = ndep; ivar >= 0; ivar--)
+      for (int iord = bor; iord >= 0; iord--)
         wkspc_.xu_vals[ivar][iord] = eval_Li(wkspc_.xu_vals[ivar],iord);
   }
 

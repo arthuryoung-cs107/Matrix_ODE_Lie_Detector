@@ -22,6 +22,7 @@ const char bse_name[] = "Chebyshev1";
 const int bor = 10;
 
 const char exp_name[] = "true_obs";
+const char rec_name[] = "true_rec";
 
 const char mat_name[] = "Rmat";
 
@@ -54,5 +55,9 @@ int main()
   generated_ode_observations inputs_recon(rinfgen0,Sdat.ncrvs_tot,Sdat.min_npts_curve());
 
   inputs_recon.set_solcurve_ICs(Sdat.curves);
+
   inputs_recon.generate_solution_curves(infgen_integrator,Sdat.get_default_IC_indep_range());
+
+  sprintf(name_buffer,"%s/%s_%s.%s",dir_name,eqn_name,rec_name,dat_suff);
+  inputs_recon.write_solution_curves(name_buffer);
 }

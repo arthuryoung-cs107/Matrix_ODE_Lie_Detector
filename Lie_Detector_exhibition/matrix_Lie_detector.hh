@@ -100,7 +100,7 @@ class rspace_infinitesimal_generator: public infinitesimal_generator
     double  ** Kmat;
 
     void init_dudx_eval(int icrv_) {Kmat = Ktns[icrv_] + (ndof-kappa);}
-    
+
     void dudx_eval(double x_, double *u_, double *dudx_)
     {
       xu[0] = x_;
