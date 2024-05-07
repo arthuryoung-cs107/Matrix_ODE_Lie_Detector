@@ -532,7 +532,7 @@ void dop853_integrator::set_and_solve_time(double tstart_, double tend_, int sna
   if (exit_code==1) printf("(dop853_integrator::set_and_solve_time) Warning - very stiff diffeq. Max stiffness increments reached.\n");
   else if (exit_code==2)
   {
-    printf("(dop853_integrator::set_and_solve_time) ERROR - max count of integration steps reached. (t = %.2e of %.2e, iteration %d of %d)\n", t, tend_, nstep, nmax);
+    printf("(dop853_integrator::set_and_solve_time) ERROR - max count of integration steps reached. (t = %.2e of %.2e, iteration %ld of %ld)\n", t, tend_, nstep, nmax);
     printf("last value\n");
     for (size_t i = 0; i < n; i++) printf("%.2e ", wkspc_[csn][i]);
     printf("\nDerivative value:\n");
