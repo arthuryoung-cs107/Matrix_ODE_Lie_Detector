@@ -30,6 +30,8 @@ char name_buffer[200];
 
 int main()
 {
+  mkdir(dir_name, S_IRWXU);
+  
   sprintf(name_buffer, "%s/%s_%s.%d.domain_config.%s", dir_name,eqn_name,bse_name,bor,dat_suff);
   fspace0.configure_self(name_buffer);
   fspace0.debugging_description();
