@@ -128,7 +128,8 @@ couples(new coupling_term*[eor+1])
     {
       dnxu_val[idep] = dnxu_pow_ptrs+(idep*(eorm2));
       dnxu_val[idep][0] = dxu_pow_chunk + (idep*delchunk);
-      for (int ixp = 1, iskip = eorm2; ixp < eorm2; ixp++, iskip--) dnxu_val[idep][ixp] = dnxu_val[idep][ixp-1] + iskip;
+      for (int ixp = 1, iskip = eorm2; ixp < eorm2; ixp++, iskip--)
+        dnxu_val[idep][ixp] = dnxu_val[idep][ixp-1] + iskip;
     }
   }
 }

@@ -67,28 +67,58 @@ struct LD_matrix_svd_result
   inline int max_rank() {return LD_linalg::max_val<int>(rank_vec,ncrvs);}
   inline int min_nulldim() {return ndof - max_rank();}
   inline int max_nulldim() {return ndof - min_rank();}
+
+  inline int kappa_def() {int min_nulldim_val; return (min_nulldim_val=min_nulldim())?(min_nulldim_val):(1);}
+  inline double ** Kmat_crvi(int icrv_,int kappa_=0) {return VTtns[icrv_]+(ndof-(kappa_)?(kappa_):(kappa_def()));}
 };
 
 struct infinitesimal_generator: public ode_system
 {
-  infinitesimal_generator(function_space_basis &basis_): ode_system(1,basis_.ndep), basis(basis_) {}
+  infinitesimal_generator(function_space &fspace_): ode_system(1,fspace_.ndep), fspace(fspace_) {}
   ~infinitesimal_generator() {}
 
-  function_space_basis &basis;
+  function_space &fspace;
+
+  const int nvar = fspace.nvar,
+            perm_len = fspace.perm_len;
 };
 
 class rspace_infinitesimal_generator: public infinitesimal_generator
 {
   public:
-    rspace_infinitesimal_generator(function_space_basis &basis_, int kappa_): infinitesimal_generator(basis_), kappa(kappa_), vx_vec(new double[kappa_]) {}
-    ~rspace_infinitesimal_generator() {delete [] vx_vec;}
+    rspace_infinitesimal_generator(function_space &fspace_,int kappa_,double **Kmat_):
+    infinitesimal_generator(fspace_),
+    kappa(kappa_), Kmat(Kmat_),
+    xu(new double[nvar]), lamvec(new double[perm_len]),
+    vx_vec(new double[kappa_]),
+    vxu_wkspc(vxu_workspace(nvar,fspace_.comp_ord_len()))
+    {}
+    ~rspace_infinitesimal_generator()
+    {
+      delete [] xu; delete [] lamvec;
+      delete [] vx_vec;
+    }
 
     const int kappa;
-    double * const vx_vec;
+    double  ** const Kmat,
+            * const xu,
+            * const lamvec,
+            * const vx_vec;
+
+    vxu_workspace vxu_wkspc;
 
     void dudx_eval(double x_, double *u_, double *dudx_)
     {
-
+      xu[0] = x_;
+      for (size_t i = 0; i < ndep; i++) xu[i+1] = u_[i];
+      fspace.lamvec_eval(xu,lamvec,vxu_wkspc);
+      double Vx2 = 0.0;
+      for (size_t i_k = 0; i_k < kappa; i_k++)
+      {
+        vx_vec[i_k] = 0.0;
+        for (size_t i = 0; i < perm_len; i++) vx_vec[i_k] += Kmat[i_k][i]*lamvec[i];
+        Vx2 += vx_vec[i_k]*vx_vec[i_k];
+      }
     }
     void JacF_eval(double x_, double *u_, double **dls_out_) {}
 

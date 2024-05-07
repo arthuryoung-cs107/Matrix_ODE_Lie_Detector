@@ -45,8 +45,9 @@ int main()
   Rmat_svd.read_svd_results(name_buffer);
   Rmat_svd.print_details();
 
-  orthopolynomial_basis basis0(fspace0);
-  rspace_infinitesimal_generator rinfgen0(basis0,Rmat_svd.min_nulldim());
+  int icrv_check = 0;
+
+  rspace_infinitesimal_generator rinfgen0(fspace0,Rmat_svd.Kmat_crvi(icrv_check),Rmat_svd.kappa_def());
 
 
 
