@@ -43,6 +43,7 @@ void generated_ode_observations::generate_solution_curves(ode_integrator &integr
   {
     for (size_t i_dof = 0; i_dof < ndof_ODE; i_dof++)
       wvec[i_dof] = pts_IC[icrv][i_dof+1];
+    integrator_.init_curve_integration(icrv);
     integrator_.set_and_solve_time(indep_range_[0],indep_range_[1],npts,integr_wkspc);
     integrator_.unpack_time_sol(indep_range_[0],npts,integr_wkspc,pts_IC[icrv]);
   }

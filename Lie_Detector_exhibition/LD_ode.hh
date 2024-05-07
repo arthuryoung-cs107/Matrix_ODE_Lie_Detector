@@ -67,6 +67,8 @@ struct ode_system: public ode_solspc_meta
   ode_system(int eor_, int ndep_): ode_solspc_meta(eor_,ndep_) {}
   ~ode_system() {}
 
+  virtual void init_dudx_eval(int crv_count_) {}
+
   virtual void dudx_eval(double x_, double *u_, double *dudx_) = 0;
   virtual void JacF_eval(double x_, double *u_, double **dls_out_) = 0;
 };
@@ -85,6 +87,7 @@ struct ode_integrator
   double del_t;
 
   inline void ff(double tt_, double *in_, double *out_) {ode.dudx_eval(tt_,in_,out_);}
+  inline void init_curve_integration(int crv_count_) {ode.init_dudx_eval(crv_count_);}
 
   void unpack_time_sol(double xstart_, int snaps_, double **wkspc_, double *pts_chunk_)
   {

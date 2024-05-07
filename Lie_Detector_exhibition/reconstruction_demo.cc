@@ -45,11 +45,7 @@ int main()
   Rmat_svd.read_svd_results(name_buffer);
   Rmat_svd.print_details();
 
-  int icrv_check = 0;
-
-  rspace_infinitesimal_generator rinfgen0(fspace0,Rmat_svd.Kmat_crvi(icrv_check),Rmat_svd.kappa_def());
-
-
+  rspace_infinitesimal_generator rinfgen0(fspace0,Rmat_svd.VTtns,Rmat_svd.kappa_def());
 
 
   // generated_ode_observations inputs_gen(ode,nc,np);

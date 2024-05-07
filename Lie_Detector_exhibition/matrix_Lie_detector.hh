@@ -83,27 +83,25 @@ struct infinitesimal_generator: public ode_system
 
 class rspace_infinitesimal_generator: public infinitesimal_generator
 {
+  const int kappa;
+  double  *** const Ktns,
+          * const xu,
+          * const lamvec,
+          * const vx_vec;
+  vxu_workspace vxu_wkspc;
+
+
   public:
-    rspace_infinitesimal_generator(function_space &fspace_,int kappa_,double **Kmat_):
-    infinitesimal_generator(fspace_),
-    kappa(kappa_), Kmat(Kmat_),
-    xu(new double[nvar]), lamvec(new double[perm_len]),
-    vx_vec(new double[kappa_]),
-    vxu_wkspc(vxu_workspace(nvar,fspace_.comp_ord_len()))
-    {}
-    ~rspace_infinitesimal_generator()
-    {
-      delete [] xu; delete [] lamvec;
-      delete [] vx_vec;
-    }
+    rspace_infinitesimal_generator(function_space &fspace_,int kappa_,double ***Ktns_):
+    infinitesimal_generator(fspace_), kappa(kappa_), Ktns(Ktns_),
+    xu(new double[nvar]), lamvec(new double[perm_len]), vx_vec(new double[kappa_]),
+    vxu_wkspc(vxu_workspace(nvar,fspace_.comp_ord_len())),
+    Kmat(Ktns_[0]) {}
+    ~rspace_infinitesimal_generator() {delete [] xu; delete [] lamvec; delete [] vx_vec;}
 
-    const int kappa;
-    double  ** const Kmat,
-            * const xu,
-            * const lamvec,
-            * const vx_vec;
+    double  ** Kmat;
 
-    vxu_workspace vxu_wkspc;
+    void init_dudx_eval(int icrv_) {Kmat = Ktns[icrv_];}
 
     void dudx_eval(double x_, double *u_, double *dudx_)
     {
