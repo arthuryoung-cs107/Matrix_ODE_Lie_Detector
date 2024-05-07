@@ -4,7 +4,15 @@
 #include "LD_ode.hh"
 #include "LD_aux.hh"
 
-class Duffing_ode: public ode_system
+struct known_ode: public ode_system
+{
+  known_ode(int eor_, int ndep_, const char name_[]);
+  ~known_ode();
+
+  char * const name;
+};
+
+class Duffing_ode: public known_ode
 {
   public:
     // default parameters inducing chaotic trajectories

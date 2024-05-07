@@ -39,8 +39,8 @@ function_space::~function_space()
 }
 void function_space::vxu_eval(double *xu_,double *vxu_,vxu_workspace &wkspc_)
 {
-  for (int i = 0; i < ndim; i ++) vxu_[i] = 0.0; // clear output v eval space
-  init_vxu(xu_,wkspc_); // precompute powers of variables and derivatives
+  for (int i = 0; i < nvar; i ++) vxu_[i] = 0.0; // clear output v eval space
+  init_vxu(xu_,wkspc_); // precompute powers of variables
   for (size_t ilam = 0; ilam < perm_len; ilam++)
   {
     double  lambda_i = comp_lambda_i(ilam,wkspc_.xu_vals);
@@ -48,6 +48,17 @@ void function_space::vxu_eval(double *xu_,double *vxu_,vxu_workspace &wkspc_)
       if (dof_hot_flags_mat[ivar][ilam])
         vxu_[ivar] += theta_mat[ivar][ilam]*lambda_i;
   }
+}
+void function_space::vx_spc_eval(double *xu_, double *vx_, vxu_workspace &wkspc_, double ** Kmat_, int kappa_)
+{
+  for (int i = 0; i < kappa_; i ++) vx_[i] = 0.0; // clear output v eval space
+  init_vxu(xu_,wkspc_); // precompute powers of variables
+  for (size_t ilam = 0; ilam < perm_len; ilam++)
+    if (dof_hot_flags[ilam])
+    {
+      double  lambda_i = comp_lambda_i(ilam,wkspc_.xu_vals);
+      for (size_t i = 0; i < kappa_; i++) vx_[i] += Kmat_[i][ilam]*lambda_i;
+    }
 }
 
 orthopolynomial_space::orthopolynomial_space(ode_solspc_meta &meta_, int bor_):

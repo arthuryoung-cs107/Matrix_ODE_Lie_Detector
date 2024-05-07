@@ -83,6 +83,7 @@ struct function_space: public ode_solspc_element
   virtual int comp_ord_i_len() = 0;
 
   void vxu_eval(double *s_,double *v_,vxu_workspace &wkspc_);
+  void vx_spc_eval(double *xu_, double *vx_, vxu_workspace &wkspc_, double ** Kmat_, int kappa_);
   virtual void init_vxu(double *xu_in_, vxu_workspace &wkspc_) = 0;
   inline double comp_lambda_i(int ilam_, double **xu_vals_)
   {

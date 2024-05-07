@@ -64,10 +64,8 @@ struct ode_solcurve: public ode_solspc_subset
 
 struct ode_system: public ode_solspc_meta
 {
-  ode_system(int eor_, int ndep_, const char name_[]);
-  ~ode_system();
-
-  char * const name;
+  ode_system(int eor_, int ndep_): ode_solspc_meta(eor_,ndep_) {}
+  ~ode_system() {}
 
   virtual void dudx_eval(double x_, double *u_, double *dudx_) = 0;
   virtual void JacF_eval(double x_, double *u_, double **dls_out_) = 0;

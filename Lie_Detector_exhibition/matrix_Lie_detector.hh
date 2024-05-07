@@ -52,7 +52,7 @@ struct LD_matrix_svd_result
           *** const VTtns;
 
   void write_svd_results(const char name_[]);
-  // void read_svd_results(const char name_[]);
+  void read_svd_results(const char name_[]);
 
   inline void print_details(const char name_[]="Amat_svd")
   {
@@ -69,29 +69,30 @@ struct LD_matrix_svd_result
   inline int max_nulldim() {return ndof - min_rank();}
 };
 
-// class infinitesimal_generator: public ode_system
-// {
-//   public:
-//     infinitesimal_generator(function_space_basis &basis_,double **Kmat_,int kappa_): ode_system(1,basis_.ndep," "),
-//     basis(basis_), kappa(kappa_), Kmat(Kmat_)
-//     {}
-//     ~infinitesimal_generator() {}
-//
-//     function_space_basis &basis;
-//
-//     const int kappa;
-//     double ** const Kmat;
-//
-//     virtual void dudx_eval(double x_, double *u_, double *dudx_) {}
-//     virtual void JacF_eval(double x_, double *u_, double **dls_out_) {}
-// };
+struct infinitesimal_generator: public ode_system
+{
+  infinitesimal_generator(function_space_basis &basis_): ode_system(1,basis_.ndep), basis(basis_) {}
+  ~infinitesimal_generator() {}
 
-// class integration_package
-// {
-//   integration_package()
-//   ~integration_package()
-//
-// };
+  function_space_basis &basis;
+};
+
+class rspace_infinitesimal_generator: public infinitesimal_generator
+{
+  public:
+    rspace_infinitesimal_generator(function_space_basis &basis_, int kappa_): infinitesimal_generator(basis_), kappa(kappa_), vx_vec(new double[kappa_]) {}
+    ~rspace_infinitesimal_generator() {delete [] vx_vec;}
+
+    const int kappa;
+    double * const vx_vec;
+
+    void dudx_eval(double x_, double *u_, double *dudx_)
+    {
+
+    }
+    void JacF_eval(double x_, double *u_, double **dls_out_) {}
+
+};
 
 struct matrix_Lie_detector
 {
@@ -116,8 +117,6 @@ struct matrix_Lie_detector
       }
     }
   }
-
-
 
 };
 

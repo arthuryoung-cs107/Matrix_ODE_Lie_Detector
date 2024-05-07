@@ -1,10 +1,5 @@
 #include "LD_ode.hh"
 #include <cstdio>
-#include <cstring>
-
-ode_system::ode_system(int eor_, int ndep_, const char name_[]): ode_solspc_meta(eor_,ndep_), name(new char[strlen(name_)+1])
-{strcpy(name,name_);}
-ode_system::~ode_system() {delete [] name;}
 
 ode_solspc_subset::ode_solspc_subset(ode_solspc_meta &meta_, int nobs_):
   ode_solspc_element(meta_), nobs(nobs_),

@@ -104,8 +104,8 @@ template <class T> void free_evaluation_bases(int nbases_, T **bases_)
 
 struct LD_linalg
 {
-  LD_linalg();
-  ~LD_linalg();
+  LD_linalg() {}
+  ~LD_linalg() {}
 
   static double eps(double x_=1.0) {return nextafter(x_,DBL_MAX)-x_;}
 

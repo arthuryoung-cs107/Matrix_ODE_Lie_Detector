@@ -1,6 +1,12 @@
 #include "LD_ode_system.hh"
+#include <cstring>
 
-Duffing_ode::Duffing_ode(double alpha_,double beta_,double gamma_,double delta_,double omega_): ode_system(2,1,"Duffing"),
+known_ode::known_ode(int eor_, int ndep_, const char name_[]): ode_system(eor_,ndep_),
+name(new char[strlen(name_)+1])
+{strcpy(name,name_);}
+known_ode::~known_ode() {delete [] name;}
+
+Duffing_ode::Duffing_ode(double alpha_,double beta_,double gamma_,double delta_,double omega_): known_ode(2,1,"Duffing"),
 alpha(alpha_), beta(beta_), gamma(gamma_), delta(delta_), omega(omega_) {}
 void Duffing_ode::dudx_eval(double x_, double *u_, double *dudx_)
 {

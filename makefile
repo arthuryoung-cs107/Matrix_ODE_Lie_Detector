@@ -15,6 +15,7 @@ EXHIBGENOBJS:= $(addprefix $(LD_EXHIB_DIR), $(addsuffix .o, $(EXHIBGEN)))
 LDEXHIBOBJS:= $(EXHIBOBJS)
 LDEXHIBDECOBJS:= $(EXHIBOBJS) $(EXHIBDECOBJS)
 LDEXHIBGENOBJS:= $(EXHIBOBJS) $(EXHIBGENOBJS)
+LDEXHIBRECOBJS:= $(EXHIBOBJS) $(EXHIBGENOBJS) $(EXHIBDECOBJS)
 
 # Lie detector exhibition rules
 $(LD_EXHIB_DIR)%.o: $(LD_EXHIB_SRC)%.cc | $(LD_EXHIB_DIR)
@@ -26,7 +27,7 @@ encode_demo: $(TEST_SRC)encoding_demo.cc $(LDEXHIBOBJS)
 decode_demo: $(TEST_SRC)decoding_demo.cc $(LDEXHIBDECOBJS)
 	$(CXX) $(IDIR_EXHIB) $(CFLAGS_EXHIB) $(LINK) $^ $(LIBS_EXHIB) -o $@
 
-recon_demo: $(TEST_SRC)reconstruction_demo.cc $(LDEXHIBDECOBJS)
+recon_demo: $(TEST_SRC)reconstruction_demo.cc $(LDEXHIBRECOBJS)
 	$(CXX) $(IDIR_EXHIB) $(CFLAGS_EXHIB) $(LINK) $^ $(LIBS_EXHIB) -o $@
 
 gendata_demo: $(TEST_SRC)generate_data_demo.cc $(LDEXHIBGENOBJS)
