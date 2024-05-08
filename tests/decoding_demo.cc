@@ -1,14 +1,5 @@
 #include "matrix_Lie_detector.hh"
 
-#ifdef _OPENMP
-  #include "omp.h"
-  int thread_id() {return omp_get_thread_num();}
-  int numthreads() {return omp_get_max_threads();}
-#else
-  int thread_id() {return 0;}
-  int numthreads() {return 1;}
-#endif
-
 const char dir_name[] = "./data_directory";
 const char dat_suff[] = "lddat";
 
@@ -45,5 +36,4 @@ int main()
   Rmat_svd.print_details();
   sprintf(name_buffer, "%s/%s_%s.%d.%s_%s_svd.%s", dir_name,eqn_name,bse_name,bor,mat_name,exp_name,dat_suff);
   Rmat_svd.write_svd_results(name_buffer);
-
 }

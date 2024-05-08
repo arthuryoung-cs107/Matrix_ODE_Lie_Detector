@@ -1,15 +1,6 @@
 #include "matrix_Lie_detector.hh"
 #include "LD_integrators.hh"
 
-#ifdef _OPENMP
-  #include "omp.h"
-  int thread_id() {return omp_get_thread_num();}
-  int numthreads() {return omp_get_max_threads();}
-#else
-  int thread_id() {return 0;}
-  int numthreads() {return 1;}
-#endif
-
 const char dir_name[] = "./data_directory";
 const char dat_suff[] = "lddat";
 
@@ -58,5 +49,13 @@ int main()
   sprintf(name_buffer,"%s/%s_%s.%s",dir_name,eqn_name,rec_name,dat_suff);
   inputs_recon.write_solution_curves(name_buffer);
 
-  
+  const int nbases0 = LD_threads::numthreads();
+  orthopolynomial_basis ** bases0 = make_evaluation_bases<orthopolynomial_basis,orthopolynomial_space>(fspace0,nbases0);
+  bases0[LD_threads::thread_id()]->debugging_description();
+
+  ode_curve_observations inputs_extnd(meta0.eor,meta0.ndep,inputs_recon.nobs);
+
+  matrix_Lie_detector::extend_ode_observations<orthopolynomial_basis,rspace_infinitesimal_generator>(inputs_recon,inputs_extnd,rinfgen0,bases0);
+
+  free_evaluation_bases<orthopolynomial_basis>(nbases0,bases0);
 }

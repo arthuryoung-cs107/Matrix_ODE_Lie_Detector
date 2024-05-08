@@ -6,6 +6,11 @@ ode_curve_observations::ode_curve_observations(int eor_, int ndep_, int ncrv_, i
 eor(eor_), ndep(ndep_), ncrv(ncrv_), nobs(nobs_),
 npts_per_crv(new int[ncrv_]), pts_in(new double[(1+ndep_*(eor_+1))*nobs_])
 {for (int i = 0, np = nobs_/ncrv_; i < ncrv_; i++) npts_per_crv[i] = np;}
+
+ode_curve_observations::ode_curve_observations(int eor_, int ndep_, int nobs_):
+eor(eor_), ndep(ndep_), nobs(nobs_),
+pts_in(new double[(1+ndep_*(eor_+1))*nobs_]) {}
+
 ode_curve_observations::~ode_curve_observations()
 {
   if (npts_per_crv != NULL) delete [] npts_per_crv;

@@ -17,6 +17,20 @@
   #include "omp.h"
 #endif
 
+struct LD_threads
+{
+  LD_threads() {}
+  ~LD_threads() {}
+
+#ifdef _OPENMP
+  static int thread_id() {return omp_get_thread_num();}
+  static int numthreads() {return omp_get_max_threads();}
+#else
+  static int thread_id() {return 0;}
+  static int numthreads() {return 1;}
+#endif
+};
+
 template <typename T> T ** Tmatrix(int M_, int N_)
 {
   T * chunk = new T[M_*N_],

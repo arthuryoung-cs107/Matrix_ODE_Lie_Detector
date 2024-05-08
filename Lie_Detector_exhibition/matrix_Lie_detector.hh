@@ -88,11 +88,14 @@ class rspace_infinitesimal_generator: public infinitesimal_generator
   vxu_workspace vxu_wkspc;
 
   public:
+
     rspace_infinitesimal_generator(function_space &fspace_,int kappa_,double ***Ktns_):
     infinitesimal_generator(fspace_), kappa(kappa_), Ktns(Ktns_),
     xu(new double[nvar]), lamvec(new double[perm_len]), vx_vec(new double[kappa_]),
     vxu_wkspc(vxu_workspace(nvar,fspace_.comp_ord_len())),
     Kmat(Ktns_[0] + (ndof-kappa_)) {}
+    rspace_infinitesimal_generator(rspace_infinitesimal_generator &rinfgen_):
+    rspace_infinitesimal_generator(rinfgen_.fspace,rinfgen_.kappa,rinfgen_.Ktns) {}
     ~rspace_infinitesimal_generator() {delete [] xu; delete [] lamvec; delete [] vx_vec;}
 
     double  ** Kmat;
@@ -120,8 +123,6 @@ class rspace_infinitesimal_generator: public infinitesimal_generator
 
 };
 
-
-
 struct matrix_Lie_detector
 {
   matrix_Lie_detector() {}
@@ -145,6 +146,23 @@ struct matrix_Lie_detector
       }
     }
   }
+
+  template <class TBSIS, class INFGN> static void extend_ode_observations(ode_curve_observations &obs_out_,ode_curve_observations &obs_in_, INFGN &infgen_, TBSIS **bases_)
+  {
+    #pragma omp parallel
+    {
+      int tid = LD_threads::thread_id();
+      TBSIS &basis_t = *(bases_[tid]);
+      partial_chunk &chunk_t = basis_t.partials;
+      INFGN infgen_t(infgen_);
+      // #pragma omp for
+      // for (size_t i = 0; i < count; i++)
+      // {
+      //   /* code */
+      // }
+    }
+  }
+
 
 };
 

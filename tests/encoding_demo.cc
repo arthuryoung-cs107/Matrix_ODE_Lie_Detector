@@ -1,14 +1,5 @@
 #include "LD_framework.hh"
 
-#ifdef _OPENMP
-  #include "omp.h"
-  int thread_id() {return omp_get_thread_num();}
-  int numthreads() {return omp_get_max_threads();}
-#else
-  int thread_id() {return 0;}
-  int numthreads() {return 1;}
-#endif
-
 const char dir_name[] = "./data_directory";
 const char dat_suff[] = "lddat";
 
@@ -32,9 +23,9 @@ int main()
   fspace0.configure_self(name_buffer);
   fspace0.debugging_description();
 
-  const int nbases0 = numthreads();
+  const int nbases0 = LD_threads::numthreads();
   orthopolynomial_basis ** bases0 = make_evaluation_bases<orthopolynomial_basis,orthopolynomial_space>(fspace0,nbases0);
-  bases0[thread_id()]->debugging_description();
+  bases0[LD_threads::thread_id()]->debugging_description();
 
   sprintf(name_buffer, "%s/%s_%s.%s", dir_name,eqn_name,exp_name,dat_suff);
   LD_observations_set Sdat(meta0,input_ode_observations(name_buffer));

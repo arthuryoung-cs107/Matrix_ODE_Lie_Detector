@@ -103,14 +103,6 @@ struct function_space: public ode_solspc_element
   virtual double eval_dnLi(int n_, double *v_, int O_) = 0;
   virtual double get_dcoeff(int idim_, int O_) = 0;
 
-  #ifdef _OPENMP
-  inline int thread_num() {return omp_get_thread_num();}
-  inline int get_nt() {return omp_get_max_threads();}
-  #else
-  inline int thread_num() {return 0;}
-  inline int get_nt() {return 1;}
-  #endif
-
 };
 
 struct power_space: public function_space
@@ -276,11 +268,6 @@ struct function_space_element: public ode_solspc_element
 
   double  * const theta_full = fspc.theta_full,
           ** const theta_mat = fspc.theta_mat;
-
-  protected:
-
-    inline int thread_num() {return fspc.thread_num();}
-    inline int get_nt() {return fspc.get_nt();}
 };
 
 struct coupling_term: public ode_solspc_element
@@ -331,7 +318,6 @@ class function_space_basis: public function_space_element
 
   void v_eval(double *s_, double *v_);
   void fill_partial_chunk(double *s_);
-  // void fill_partial_chunk(double *s_, double *v_);
 
   protected:
     const bool dxu_pows_allocate = eor > 2;

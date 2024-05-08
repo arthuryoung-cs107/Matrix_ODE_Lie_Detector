@@ -3,15 +3,6 @@
 #include "LD_integrators.hh"
 #include <sys/stat.h>
 
-#ifdef _OPENMP
-  #include "omp.h"
-  int thread_id() {return omp_get_thread_num();}
-  int numthreads() {return omp_get_max_threads();}
-#else
-  int thread_id() {return 0;}
-  int numthreads() {return 1;}
-#endif
-
 const char dir_name[] = "./data_directory";
 const char dat_suff[] = "lddat";
 
