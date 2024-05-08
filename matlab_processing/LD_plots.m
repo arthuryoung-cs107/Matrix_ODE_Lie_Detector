@@ -64,6 +64,40 @@ classdef LD_plots
         end
     end
     methods (Static)
+        function plt = plot_n1q1_solspc(S_,plt_)
+            if (nargin<3)
+                plt = LD_plots([S_.dat_name '_n2q1_solspc']);
+                plt = plt.set_screen_posdim([4 4], [1 4], [4 1], 1);
+            else
+                plt = plt_;
+            end
+            plt = plt.init_tiles_safe(2,3);
+            hold(plt.axs, 'on');
+            box(plt.axs,'on');
+
+            axs = plt.axs;
+
+            dnames = {'x'; 'u'; 'd_x u'};
+            dim_order = [   1,2; ...
+                            1,3; ...
+                            2,3];
+
+            spc = LD_plots.make_default_plot_specs;
+
+            ncrv = S_.ncrv;
+            pts_cell = S_.pts_cell;
+
+            for i_plot = 1:size(dim_order,1)
+                axi = axs(i_plot);
+                dims_i = dim_order(i_plot,:);
+                for i = 1:ncrv
+                    plot(axi,pts_cell{i}(dims_i(1),:),pts_cell{i}(dims_i(2),:), ...
+                    'Marker',spc.mspec,'MarkerSize',spc.ms,'LineStyle',spc.lspec,'LineWidth',spc.lw,'Color',spc.color);
+                end
+                xlabel(axi,['$$' dnames{dims_i(1)} '$$'], 'Interpreter','Latex','FontSize',14);
+                ylabel(axi,['$$' dnames{dims_i(2)} '$$'], 'Interpreter','Latex','FontSize',14);
+            end
+        end
         function plt = plot_n2q1_solspc(S_,plt_)
             if (nargin<3)
                 plt = LD_plots([S_.dat_name '_n2q1_solspc']);
