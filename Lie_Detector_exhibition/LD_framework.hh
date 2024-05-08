@@ -79,7 +79,6 @@ struct LD_observations_set: public ode_solspc_element
     indep_range[1] = crv_i.pts_mat[crv_i.nobs-1][0];
     return indep_range;
   }
-
   inline void configure_centered_domain(orthopolynomial_space &fspace_, double h_min_=-0.99, double h_max_=0.99)
   {
     double **sve_g = Tmatrix<double>(2,ndim);

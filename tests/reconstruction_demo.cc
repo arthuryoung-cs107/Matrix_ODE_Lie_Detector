@@ -53,11 +53,10 @@ int main()
   dop853_integrator infgen_integrator(rinfgen0,infgen_integrator_settings);
 
   generated_ode_observations inputs_recon(rinfgen0,Sdat.ncrvs_tot,Sdat.min_npts_curve());
-
   inputs_recon.set_solcurve_ICs(Sdat.curves);
-
   inputs_recon.generate_solution_curves(infgen_integrator,Sdat.get_default_IC_indep_range());
-
   sprintf(name_buffer,"%s/%s_%s.%s",dir_name,eqn_name,rec_name,dat_suff);
   inputs_recon.write_solution_curves(name_buffer);
+
+  
 }

@@ -80,11 +80,9 @@ void input_ode_observations::print_details()
   printf("(input_ode_observations::print_details) name: %s\n  eor = %d, ndep = %d, ncrv = %d, nobs = %d\n", name,eor,ndep,ncrv,nobs);
 }
 
-// LD_observations_set::LD_observations_set(ode_solspc_meta &meta_, input_ode_observations &input_):
 LD_observations_set::LD_observations_set(ode_solspc_meta &meta_, input_ode_observations input_):
 ode_solspc_element(meta_),
 ncrvs_tot(input_.ncrv), nobs_full(input_.nobs),
-// npts_per_crv(input_.npts_per_crv), pts_chunk_full(input_.pts_in),
 npts_per_crv(new int[ncrvs_tot]), pts_chunk_full(new double[nobs_full*ndim]),
 pts_mat_full(new double*[nobs_full]), pts_tns_full(new double**[ncrvs_tot]),
 curves(new ode_solcurve*[ncrvs_tot]), sols_full(new ode_solution*[nobs_full]),

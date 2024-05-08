@@ -66,7 +66,7 @@ classdef LD_plots
     methods (Static)
         function plt = plot_n1q1_solspc(S_,plt_)
             if (nargin<3)
-                plt = LD_plots([S_.dat_name '_n2q1_solspc']);
+                plt = LD_plots([S_.dat_name '_n1q1_solspc']);
                 plt = plt.set_screen_posdim([4 4], [1 4], [4 1], 1);
             else
                 plt = plt_;

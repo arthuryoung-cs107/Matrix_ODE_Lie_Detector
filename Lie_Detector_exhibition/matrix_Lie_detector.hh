@@ -3,8 +3,6 @@
 
 #include "LD_framework.hh"
 
-// #include <gsl/gsl_matrix.h>
-// #include <gsl/gsl_vector.h>
 #include <gsl/gsl_linalg.h>
 
 struct LD_SVD_space // assumes M>N
@@ -121,6 +119,8 @@ class rspace_infinitesimal_generator: public infinitesimal_generator
     void JacF_eval(double x_, double *u_, double **dls_out_) {}
 
 };
+
+
 
 struct matrix_Lie_detector
 {
