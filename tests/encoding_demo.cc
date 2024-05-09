@@ -9,7 +9,11 @@ ode_solspc_meta meta0(2,1);
 // const char bse_name[] = "Legendre";
 const char bse_name[] = "Chebyshev1";
 // const char bse_name[] = "Chebyshev2";
-const int bor = 10;
+
+// const int bor = 10;
+// const int bor = 8;
+// const int bor = 7;
+const int bor = 6;
 
 const char exp_name[] = "true_obs";
 
