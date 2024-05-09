@@ -136,6 +136,12 @@ struct LD_linalg
     return val_out;
   }
 
+  template <typename T> static void copy_vec(T *out_, T *in_, int len_)
+    {for (size_t i = 0; i < len_; i++) out_[i] = in_[i];}
+
+  template <typename T> static void fill_vec(T *out_, int len_, T val_=0)
+    {for (size_t i = 0; i < len_; i++) out_[i] = val_;}
+
   static void A_x_b(double **A_, double *x_, double *b_, int m_, int n_)
   {
     for (size_t i = 0; i < m_; i++)

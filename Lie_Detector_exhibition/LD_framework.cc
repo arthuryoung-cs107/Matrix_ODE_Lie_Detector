@@ -19,6 +19,17 @@ ode_curve_observations::~ode_curve_observations()
   if (dnp1xu_in != NULL) delete [] dnp1xu_in;
 }
 
+void ode_curve_observations::write_observed_solutions(const char name_[])
+{
+  FILE * file_out = LD_io::fopen_SAFE(name_,"wb");
+  fwrite(ode_meta,sizeof(int),2,file_out);
+  fwrite(obs_meta,sizeof(int),2,file_out);
+  fwrite(npts_per_crv,sizeof(int),ncrv,file_out);
+  fwrite(pts_in,sizeof(double),(1 + ndep*(eor+1))*nobs,file_out);
+  LD_io::fclose_SAFE(file_out);
+  printf("(ode_curve_observations::write_observed_solutions) wrote %s\n",name_);
+}
+
 generated_ode_observations::generated_ode_observations(ode_system &ode_, int nc_, int np_):
 ode_curve_observations(ode_,nc_,nc_*np_), ode(ode_), npts(np_),
 pts_IC(new double*[nc_])
@@ -93,8 +104,8 @@ pts_mat_full(new double*[nobs_full]), pts_tns_full(new double**[ncrvs_tot]),
 curves(new ode_solcurve*[ncrvs_tot]), sols_full(new ode_solution*[nobs_full]),
 indep_range(new double[2])
 {
-  LD_linalg::copy_x(input_.npts_per_crv,npts_per_crv,ncrvs_tot);
-  LD_linalg::copy_x(input_.pts_in,pts_chunk_full,nobs_full*ndim);
+  LD_linalg::copy_vec<int>(npts_per_crv,input_.npts_per_crv,ncrvs_tot);
+  LD_linalg::copy_vec<double>(pts_chunk_full,input_.pts_in,nobs_full*ndim);
   for (size_t icrv = 0, ipts=0, idim=0; icrv < ncrvs_tot; icrv++)
   {
     pts_tns_full[icrv] = pts_mat_full+ipts;

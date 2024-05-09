@@ -317,6 +317,7 @@ class function_space_basis: public function_space_element
             ** const C_u = partials.C_u;
 
   void v_eval(double *s_, double *v_);
+  void v_eval(double *s_,double *v_,double *theta_);
   void fill_partial_chunk(double *s_);
 
   protected:

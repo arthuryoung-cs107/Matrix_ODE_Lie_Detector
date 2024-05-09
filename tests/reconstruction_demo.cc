@@ -14,6 +14,7 @@ const int bor = 10;
 
 const char exp_name[] = "true_obs";
 const char rec_name[] = "true_rec";
+const char ext_name[] = "true_ext";
 
 const char mat_name[] = "Rmat";
 
@@ -54,8 +55,10 @@ int main()
   bases0[LD_threads::thread_id()]->debugging_description();
 
   ode_curve_observations inputs_extnd(meta0.eor,meta0.ndep,inputs_recon.nobs);
-
-  matrix_Lie_detector::extend_ode_observations<orthopolynomial_basis,rspace_infinitesimal_generator>(inputs_recon,inputs_extnd,rinfgen0,bases0);
+  rspace_infinitesimal_generator::init_extended_observations(inputs_extnd,inputs_recon);
+  matrix_Lie_detector::extend_ode_observations<rspace_infinitesimal_generator,orthopolynomial_basis>(inputs_extnd,rinfgen0,bases0);
+  sprintf(name_buffer,"%s/%s_%s.%s",dir_name,eqn_name,ext_name,dat_suff);
+  inputs_extnd.write_observed_solutions(name_buffer);
 
   free_evaluation_bases<orthopolynomial_basis>(nbases0,bases0);
 }

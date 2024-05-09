@@ -24,6 +24,12 @@ struct ode_curve_observations
   double  * pts_in = NULL,
           * JFs_in = NULL,
           * dnp1xu_in = NULL;
+
+  inline int nobs_ioffset(int icrv_)
+    {int ioffset = 0; for (size_t i = 0; i < icrv_; i++) ioffset += npts_per_crv[i]; return ioffset;}
+  inline double *pts_icrv(int icrv_) {return pts_in + (1+ndep*(eor+1))*nobs_ioffset(icrv_);}
+
+  void write_observed_solutions(const char name_[]);
 };
 
 struct generated_ode_observations: public ode_curve_observations
@@ -164,7 +170,7 @@ class LD_R_matrix: public LD_matrix
     LD_R_matrix(function_space &fspc_,LD_observations_set &Sset_): LD_matrix(fspc_,Sset_,fspc_.eor*fspc_.ndep) {}
     ~LD_R_matrix() {}
 
-    template <class TBSIS> void populate_R_matrix(TBSIS ** bases_)
+    template <class TBSIS> void populate_R_matrix(TBSIS **bases_)
     {
       #pragma omp parallel
       {

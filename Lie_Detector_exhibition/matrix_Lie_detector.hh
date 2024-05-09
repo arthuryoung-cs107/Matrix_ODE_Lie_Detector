@@ -101,7 +101,31 @@ class rspace_infinitesimal_generator: public infinitesimal_generator
     double  ** Kmat;
 
     void init_dudx_eval(int icrv_) {Kmat = Ktns[icrv_] + (ndof-kappa);}
+    void JacF_eval(double x_, double *u_, double **dls_out_) {}
 
+    static void init_extended_observations(ode_curve_observations &obs_out_,ode_curve_observations &obs_in_)
+    {
+      int ncrv = obs_out_.ncrv = obs_in_.ncrv,
+          ndep = (obs_out_.ndep!=obs_in_.ndep)?(obs_out_.ndep=obs_in_.ndep):(obs_out_.ndep),
+          nobs = (obs_out_.nobs!=obs_in_.nobs)?(obs_out_.nobs=obs_in_.nobs):(obs_out_.nobs),
+          ndim_in = 1 + ndep*(obs_in_.eor + 1),
+          ndim_out =  1 + ndep*(obs_out_.eor + 1);
+
+      double  * const pts_chunk_in = obs_in_.pts_in,
+              * const pts_chunk_out = obs_out_.pts_in = new double[ndim_out*nobs];
+
+      if (obs_out_.npts_per_crv == NULL) obs_out_.npts_per_crv = new int[ncrv];
+      LD_linalg::copy_vec<int>(obs_out_.npts_per_crv,obs_in_.npts_per_crv,ncrv);
+
+      #pragma omp parallel for
+      for (size_t iobs = 0; iobs < nobs; iobs++)
+      {
+        double  *pts_i_in = pts_chunk_in + ndim_in*iobs,
+                *pts_i_out = pts_chunk_out + ndim_out*iobs;
+        for (size_t idim = 0; idim < ndim_in; idim++) pts_i_out[idim] = pts_i_in[idim];
+        for (size_t idim = ndim_in; idim < ndim_out; idim++) pts_i_out[idim] = 0.0;
+      }
+    }
     void dudx_eval(double x_, double *u_, double *dudx_)
     {
       xu[0] = x_;
@@ -119,14 +143,58 @@ class rspace_infinitesimal_generator: public infinitesimal_generator
       }
       for (size_t i = 0; i < ndep; i++) dudx_[i] /= Vx2;
     }
-    void JacF_eval(double x_, double *u_, double **dls_out_) {}
 
+    inline void extend_curve_observations(function_space_basis &basis_, double *theta_vec_, double *v_, double *pts_, int npts_)
+    {
+      const int ndim_full = basis_.ndim,
+                eor_full = basis_.eor;
+      for (size_t iobs = 0; iobs < npts_; iobs++)
+      {
+        double * const pts_i = pts_ + ndim_full*iobs;
+        fspace.lamvec_eval(pts_i,lamvec,vxu_wkspc);
+        LD_linalg::fill_vec<double>(theta_vec_,ndof);
+        double Vx2 = 0.0;
+        for (size_t i_k = 0; i_k < kappa; i_k++)
+        {
+          double &vx_ik = vx_vec[i_k] = 0.0;
+          for (size_t i = 0; i < perm_len; i++) vx_ik += Kmat[i_k][i]*lamvec[i];
+          for (size_t i = 0; i < ndof; i++) theta_vec_[i] += Kmat[i_k][i]*vx_ik;
+          Vx2 += vx_ik*vx_ik;
+        }
+        for (size_t i = 0; i < ndof; i++) theta_vec_[i] /= Vx2;
+        for (size_t k = 2, ioffset = ndep*k + 1; k <= eor_full; k++, ioffset+=ndep)
+        {
+          basis_.v_eval(pts_i,v_,theta_vec_);
+          for (size_t i = 0, idkxu = i+ioffset; i < ndep; i++, idkxu++) pts_i[idkxu] = v_[idkxu-ndep];
+        }
+      }
+    }
 };
 
 struct matrix_Lie_detector
 {
   matrix_Lie_detector() {}
   ~matrix_Lie_detector() {}
+
+  template <class INFGN, class TBSIS> static void extend_ode_observations(ode_curve_observations &obs_out_, INFGN &infgen_, TBSIS **bases_)
+  {
+    const int ncrv = obs_out_.ncrv,
+              ndof = infgen_.ndof;
+    int * const npts_per_crv = obs_out_.npts_per_crv;
+    #pragma omp parallel
+    {
+      INFGN infgen_t(infgen_);
+      TBSIS &basis_t = *(bases_[LD_threads::thread_id()]);
+      double  theta_vec_t[ndof],
+              v_t[basis_t.ndim];
+      #pragma omp for
+      for (size_t icrv = 0; icrv < ncrv; icrv++)
+      {
+        infgen_t.init_dudx_eval(icrv);
+        infgen_t.extend_curve_observations(basis_t,theta_vec_t,v_t,obs_out_.pts_icrv(icrv),npts_per_crv[icrv]);
+      }
+    }
+  }
 
   static void compute_curve_svds(LD_matrix &mat_,LD_matrix_svd_result &mat_svd_,int nrows_)
   {
@@ -146,23 +214,6 @@ struct matrix_Lie_detector
       }
     }
   }
-
-  template <class TBSIS, class INFGN> static void extend_ode_observations(ode_curve_observations &obs_out_,ode_curve_observations &obs_in_, INFGN &infgen_, TBSIS **bases_)
-  {
-    #pragma omp parallel
-    {
-      int tid = LD_threads::thread_id();
-      TBSIS &basis_t = *(bases_[tid]);
-      partial_chunk &chunk_t = basis_t.partials;
-      INFGN infgen_t(infgen_);
-      // #pragma omp for
-      // for (size_t i = 0; i < count; i++)
-      // {
-      //   /* code */
-      // }
-    }
-  }
-
 
 };
 
