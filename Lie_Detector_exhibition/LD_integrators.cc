@@ -1,7 +1,265 @@
 #include "LD_integrators.hh"
+#include "LD_util.hh"
 #include <cstdio>
 #include <cstring>
 #include <cmath>
+
+runge_kutta_integrator::runge_kutta_integrator(ode_system &ode_, const char name_[], int nk_):
+ode_exponentiator(ode_), u_state(new double[ndof_ODE]), k_wkspc(Tmatrix<double>(nk_,ndof_ODE))
+{strcpy(name,name_);}
+runge_kutta_integrator::~runge_kutta_integrator()
+{delete [] u_state; free_Tmatrix<double>(k_wkspc);}
+
+rk_fixed::rk_fixed(ode_system &ode_, const char name_[], int nk_): runge_kutta_integrator(ode_,name_,nk_)
+{}
+rk_fixed::~rk_fixed() {}
+
+rk_adaptive::rk_adaptive(ode_system &ode_, const char name_[], int nk_, int nrc_):
+runge_kutta_integrator(ode_,name_,nk_), u_state_new(new double[ndof_ODE]), rc_wkspc(Tmatrix<double>(nrc_,ndof_ODE))
+{}
+rk_adaptive::~rk_adaptive()
+{delete [] u_state_new;free_Tmatrix<double>(rc_wkspc);}
+
+void rk_fixed::set_and_solve_time(double tstart_, double tend_, int snaps_, double **wkspc_)
+{
+  if (snaps_>1)
+  {
+    memcpy(*wkspc_,u_state,ndof_ODE*sizeof(double));
+    int nsteps = snaps_-1,
+        nmin = determine_nmin(nsteps,tend_-tstart_);
+    if  (nsteps<nmin)
+    {
+      bool step_after = (bool)( nmin%nsteps );
+      int nstep_int_sub = nmin/(nsteps),
+          snap_count = 0;
+      double  t_dur = tend_-tstart_,
+              del_t_I = t_dur/((double)(nmin)),
+              del_t_O = t_dur/((double)(nsteps)),
+              del_t_diff = del_t_O-(del_t_I*((double) nstep_int_sub));
+      t = tstart_;
+      for (size_t o_step = 0; o_step < nsteps; o_step++)
+      {
+        for (size_t i_step = 0; i_step < nstep_int_sub; i_step++) step(del_t_I);
+        if (step_after)
+        {
+          step(del_t_diff);
+          memcpy(wkspc_[++snap_count],u_state,ndof_ODE*sizeof(double));
+        }
+        else memcpy(wkspc_[++snap_count],u_state,ndof_ODE*sizeof(double));
+      }
+    }
+    else
+    {
+      int snap_count = 0;
+      double del_t_I = (tend_-tstart_)/((double)(nsteps));
+      for (size_t o_step = 0; o_step < nsteps; o_step++)
+      {
+        step(del_t_I);
+        memcpy(wkspc_[++snap_count],u_state,ndof_ODE*sizeof(double));
+      }
+    }
+  }
+  else if (snaps_ == 1) memcpy(*wkspc_,u_state,ndof_ODE*sizeof(double));
+}
+
+Sun5::Sun5(ode_system &ode_): rk_fixed(ode_,"Sun5",3), r6(sqrt(6.0)),
+dq(new double[ndof_ODE]), kb_wkspc(Tmatrix<double>(3,ndof_ODE))
+{}
+Sun5::~Sun5()
+{delete [] dq; free_Tmatrix<double>(kb_wkspc);}
+
+DoPri5::DoPri5(ode_system &ode_): rk_adaptive(ode_,"DoPri5",6,5), ysti(new double[ndof_ODE])
+{}
+DoPri5::~DoPri5()
+{delete [] ysti;}
+
+int DoPri5::solve(double tstart_,double tend_,int snaps_, double **wkspc_)
+{
+  const double  facc1=1.0/fac1,
+                facc2=1.0/fac2,
+                expo1=0.2-beta*0.75;
+                // expo1=1.0/8.0-beta*0.2;
+  double  posneg=(tend_>tstart_)?(1.0):(-1.0),
+          facold=1e-4,
+          hmax=fabs(tend_-tstart_),
+          sf = (snaps_>1)?((tend_-tstart_)/(snaps_-1)):(0.0),
+          isf = (snaps_>1)?(1.0/sf):(0.0),
+          hlamb = 0.0;
+  bool  last=false,
+        reject=false;
+  t=tstart_; csn=0;
+  int nsn;
+
+  init_counters();
+
+  if(snaps_>0) memcpy(wkspc_[0],u_state,ndof_ODE*sizeof(double));
+  ff(t,u_state,k1); nff++;
+  h=hinit(hmax,posneg);
+
+  while (true)
+  {
+    if (nstep>nmax)
+    {
+      if (snaps_>1) memcpy(wkspc_[++csn],u_state,ndof_ODE*sizeof(double));
+      return 2;
+    }
+    if (0.1*fabs(h)<=fabs(t)*uround)
+    {
+      if(snaps_>1) memcpy(wkspc_[++csn],u_state,ndof_ODE*sizeof(double));
+      return 3;
+    }
+    if ((t+1.01*h-tend_)*posneg>0.0)
+    {
+      h=tend_-t;
+      last=true;
+    }
+
+    nstep++;
+
+    // the first 6 stages
+    for (int i = 0; i < ndof_ODE; i++) yy1[i] = y[i] + h*a21*k1[i];
+    ff(t+c2*h, yy1, k2);
+
+    for (int i = 0; i < ndof_ODE; i++) yy1[i] = y[i] + h*(a31*k1[i] + a32*k2[i]);
+    ff(t+c3*h, yy1, k3);
+
+    for (int i = 0; i < ndof_ODE; i++) yy1[i] = y[i] + h*(a41*k1[i] + a42*k2[i] + a43*k3[i]);
+    ff(t+c4*h, yy1, k4);
+
+    for (int i = 0; i < ndof_ODE; i++) yy1[i] = y[i] + h*(a51*k1[i] + a52*k2[i] + a53*k3[i] + a54*k4[i]);
+    ff(t+c5*h, yy1, k5);
+
+    for (int i = 0; i < ndof_ODE; i++) ysti[i] = y[i] + h*(a61*k1[i] + a62*k2[i] + a63*k3[i] + a64*k4[i] + a65*k5[i]);
+    ff(t+h, ysti, k6);
+
+    for (int i = 0; i < ndof_ODE; i++) yy1[i] = y[i] + h*(a71*k1[i] + a73*k3[i] + a74*k4[i] + a75*k5[i] + a76*k6[i]);
+    ff(t+h, yy1, k2);
+
+    // dense output prep
+    if (snaps_>1)
+      for (int i = 0; i < ndof_ODE; i++) rc5[i] = h*(d1*k1[i] + d3*k3[i] + d4*k4[i] + d5*k5[i] + d6*k6[i] + d7*k2[i]);
+
+    for (int i = 0; i < ndof_ODE; i++) k4[i] = h*(e1*k1[i] + e3*k3[i] + e4*k4[i] + e5*k5[i] + e6*k6[i] + e7*k2[i]);
+    nfcn += 6;
+
+    double err = 0.0;
+    for (int i = 0; i < ndof_ODE; i++)
+    {
+      double sqr = k4[i]/(atoli + rtoli*max_d(fabs(y[i], fabs(yy1[i]))));
+      err += sqr*sqr;
+    }
+    err = sqrt(err/((double)ndof_ODE));
+
+    double  fac11 = pow(err,expo1),
+            fac = fac11/pow(facold,beta);
+    fac = max_d(facc2,min_d(facc1,fac/safe));
+    double hnew = h/fac;
+
+    if (err <= 1.0)
+    {
+      facold = max(err, 1.0e-4);
+      naccpt++;
+
+      // stiffness detection
+			if (!(naccpt % nstiff) || (iasti > 0))
+      {
+				double stnum = 0.0, stden = 0.0;
+				for (int i = 0; i < ndof_ODE; i++)
+        {
+					double sqr = k2[i] - k6[i];
+					stnum += sqr*sqr;
+					sqr = yy1[i] - ysti[i];
+					stden += sqr*sqr;
+				}
+				if (stden > 0.0) hlamb = h*sqrt(stnum/stden);
+				if (hlamb > 3.25)
+        {
+					nonsti = 0;
+					iasti++;
+					if (iasti == 15)
+          {
+            if(snaps_>1) memcpy(wkspc_[++csn],u_state,ndof_ODE*sizeof(double));
+						return 1;
+					}
+				}
+				else
+        {
+					nonsti++;
+					if (nonsti == 6) iasti = 0;
+				}
+			}
+
+      if (snaps_>1)
+      {
+        for (int i = 0; i < ndof_ODE; i++)
+        {
+          double  yd0 = y[i],
+                  ydiff = yy1[i] - yd0,
+                  bspl = h*k1[i] - ydiff;
+          rc1[i] = y[i];
+          rc2[i] = ydiff;
+          rc3[i] = bspl;
+          rc4[i] = -h*k2[i] + ydiff - bspl;
+        }
+      }
+      memcpy(k1, k2, ndof_ODEs*sizeof(double));
+      memcpy(y, yy1, ndof_ODEs*sizeof(double));
+
+      if (snaps_>1)
+      {
+        hold = h;
+        told = t;
+        t += h;
+
+      }
+    }
+}
+
+void Sun5::step(double dt)
+{
+  int iter=0;
+  double  delsq,
+          del,
+          *c;
+
+  // Clear steps
+  for(int i=0;i<ndof_ODE;i++) k1[i]=k2[i]=k3[i]=0.0;
+
+  do
+  {
+      // Check for too many iterations
+      if(++iter>1000)
+      {
+          fputs("Too many iterations in IRK\n",stderr);
+          exit(1);
+      }
+      // Perform update
+      for(int i=0;i<ndof_ODE;i++) dq[i]=q[i]+dt*(a11*k1[i]+a12*k2[i]+a13*k3[i]);
+      ff(t+(4-r6)/10*dt,dq,k1b);
+      for(int i=0;i<ndof_ODE;i++) dq[i]=q[i]+dt*(a21*k1[i]+a22*k2[i]+a23*k3[i]);
+      ff(t+(4+r6)/10*dt,dq,k2b);
+      for(int i=0;i<ndof_ODE;i++) dq[i]=q[i]+dt*(a31*k1[i]+a32*k2[i]+a33*k3[i]);
+      ff(t+dt,dq,k3b);
+      nff+=3;
+      // Find size of step from previous iteration
+      delsq=0;
+      for(int i=0;i<ndof_ODE;i++)
+      {
+          del=k1[i]-k1b[i]; delsq+=del*del;
+          del=k2[i]-k2b[i]; delsq+=del*del;
+          del=k3[i]-k3b[i]; delsq+=del*del;
+      }
+      // Switch k1<->k1b and k2<->k2b array pointers. This will make k1 & k2
+      // be used as the new values on the next iteration.
+      c=k1b;k1b=k1;k1=c;
+      c=k2b;k2b=k2;k2=c;
+      c=k3b;k3b=k3;k3=c;
+  } while(delsq>1e-25);
+
+  // Complete solution
+  for(int i=0;i<ndof_ODE;i++) q[i]+=dt*((16-r6)/36*k1[i]+(16+r6)/36*k2[i]+1./9*k3[i]);
+  t+=dt;
+}
 
 // DOP853 integrator re-written as a C++ class
 //
@@ -66,11 +324,20 @@ void dop853_integrator::init_counters()
  * \param[in] ws an array of pointers to where to store the snapshots. */
 int dop853_integrator::solve(double tstart,double tend,int snaps,double **ws)
 {
-    const double facc1=1/fac1,facc2=1/fac2,expo1=1.0/8-beta*0.2;
-    double fac11,fac,posneg=tend>tstart?1:-1,facold=1e-4,hmax=fabs(tend-tstart),
-           hnew,err,sf=snaps>1?(tend-tstart)/(snaps-1):0,isf=snaps>1?1.0/sf:0;
-    bool last=false,reject=false;
-    // t=0;csn=0;int nsn;
+    const double  facc1=1/fac1,
+                  facc2=1/fac2,
+                  expo1=1.0/8-beta*0.2;
+    double  fac11,
+            fac,
+            posneg=tend>tstart?1:-1,
+            facold=1e-4,
+            hmax=fabs(tend-tstart),
+            hnew,
+            err,
+            sf=snaps>1?(tend-tstart)/(snaps-1):0,
+            isf=snaps>1?1.0/sf:0;
+    bool  last=false,
+          reject=false;
     t=tstart; csn=0; int nsn;
 
     init_counters();

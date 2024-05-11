@@ -89,7 +89,7 @@ struct ode_integrator
   inline void ff(double tt_, double *in_, double *out_) {ode.dudx_eval(tt_,in_,out_);}
   inline void init_curve_integration(int crv_count_) {ode.init_dudx_eval(crv_count_);}
 
-  void unpack_time_sol(double xstart_, int snaps_, double **wkspc_, double *pts_chunk_)
+  inline void unpack_time_sol(double xstart_, int snaps_, double **wkspc_, double *pts_chunk_)
   {
     const int ndep = ode.ndep,
               nvar = 1 + ndep,

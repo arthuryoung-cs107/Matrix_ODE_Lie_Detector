@@ -7,10 +7,10 @@
 
 struct LD_io
 {
-  // LD_io() {}
-  // ~LD_io() {}
-  LD_io();
-  ~LD_io();
+  LD_io() {}
+  ~LD_io() {}
+  // LD_io();
+  // ~LD_io();
 
   static char * duplicate_string(const char in_[])
     {char * out = new char[strlen(in_)]; strcpy(out,in_); return out;}

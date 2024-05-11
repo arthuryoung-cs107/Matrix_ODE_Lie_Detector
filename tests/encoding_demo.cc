@@ -28,7 +28,7 @@ int main()
   fspace0.debugging_description();
 
   const int nbases0 = LD_threads::numthreads();
-  orthopolynomial_basis ** bases0 = make_evaluation_bases<orthopolynomial_basis,orthopolynomial_space>(fspace0,nbases0);
+  orthopolynomial_basis ** bases0 = make_evaluation_bases<orthopolynomial_basis, orthopolynomial_space>(fspace0,nbases0);
   bases0[LD_threads::thread_id()]->debugging_description();
 
   sprintf(name_buffer, "%s/%s_%s.%s", dir_name,eqn_name,exp_name,dat_suff);

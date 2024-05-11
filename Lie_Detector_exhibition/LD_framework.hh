@@ -101,8 +101,8 @@ struct LD_observations_set: public ode_solspc_element
     free_Tmatrix<double>(sme_g);
   }
 
-  void get_solspace_val_extrema(double ** sve_g_);
-  void get_solspace_mag_extrema(double ** sme_g_);
+  void get_solspace_val_extrema(double **sve_g_);
+  void get_solspace_mag_extrema(double **sme_g_);
 
   inline ode_solution * get_icrv_jsol(int i_, int j_) {return curves[i_]->sols[j_];}
   inline void print_curve_i(int i_) {curves[i_]->print_curve();}

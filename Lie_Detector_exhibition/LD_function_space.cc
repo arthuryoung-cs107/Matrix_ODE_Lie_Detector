@@ -489,7 +489,7 @@ void orthopolynomial_space::configure_self(const char name_[])
   if (len_sym == slen_check) LD_io::fread_SAFE(poly_coeffs[0],sizeof(double),len_sym,file);
     else
     {
-      printf("(orthopolynomial_space::configure_self) skipped mapping mat (len = %d)\n", len_sym);
+      printf("(orthopolynomial_space::configure_self) skipped coeffs mat (len = %d)\n", len_sym);
       LD_io::fseek_SAFE(file,len_sym*sizeof(double), SEEK_CUR);
     }
   LD_io::fclose_SAFE(file);
