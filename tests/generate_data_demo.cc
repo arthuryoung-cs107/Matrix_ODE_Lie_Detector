@@ -15,10 +15,11 @@ dop853_integrator ode_integrator(ode,ode_integrator_settings);
 const int nc = 50, // number of curves
           np = 300; // points per curve
 
-// const int bor = 10;
+const int bor = 10;
+// const int bor = 9;
 // const int bor = 8;
 // const int bor = 7;
-const int bor = 6;
+// const int bor = 6;
 
 orthopolynomial_space fspace0(meta0,bor);
 
