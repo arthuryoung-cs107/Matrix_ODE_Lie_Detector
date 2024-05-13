@@ -161,8 +161,13 @@ class Sun5: public rk_fixed
 
 struct DoPri5_settings: public rk_adaptive_settings
 {
+  // DoPri5_settings(  int nmax_=100000,int nstiff_=1000,
+  //                   double atoli_=1e-7,double rtoli_=1e-7, // default tolerances by Ashby
+  //                   double fac1_=0.2,double fac2_=10.0,
+  //                   double safe_=0.9,double beta_=0.04,double uround_=1e-16):
+  //     rk_adaptive_settings(nmax_,nstiff_,atoli_,rtoli_,fac1_,fac2_,safe_,beta_,uround_) {}
   DoPri5_settings(  int nmax_=100000,int nstiff_=1000,
-                    double atoli_=1e-7,double rtoli_=1e-7,
+                    double atoli_=1e-12,double rtoli_=1e-10,
                     double fac1_=0.2,double fac2_=10.0,
                     double safe_=0.9,double beta_=0.04,double uround_=1e-16):
       rk_adaptive_settings(nmax_,nstiff_,atoli_,rtoli_,fac1_,fac2_,safe_,beta_,uround_) {}
