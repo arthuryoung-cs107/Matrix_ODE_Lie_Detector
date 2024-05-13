@@ -49,8 +49,10 @@ int main()
 
   rspace_infinitesimal_generator rinfgen0(fspace0,Rmat_svd.kappa_def(),Rmat_svd.VTtns);
 
-  dop853_settings infgen_integrator_settings;
-  dop853_integrator infgen_integrator(rinfgen0,infgen_integrator_settings);
+  // dop853_settings infgen_integrator_settings;
+  // dop853_integrator infgen_integrator(rinfgen0,infgen_integrator_settings);
+  DoPri5_settings infgen_integrator_settings;
+  DoPri5 infgen_integrator(rinfgen0,infgen_integrator_settings);
 
   generated_ode_observations inputs_recon(rinfgen0,Sdat.ncrvs_tot,Sdat.min_npts_curve());
   inputs_recon.set_solcurve_ICs(Sdat.curves);
