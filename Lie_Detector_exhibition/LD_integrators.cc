@@ -140,24 +140,24 @@ int DoPri5::solve(double tstart_,double tend_,int snaps_, double **wkspc_)
       for (int i = 0; i < ndof_ODE; i++) rc5[i] = h*(d1*k1[i] + d3*k3[i] + d4*k4[i] + d5*k5[i] + d6*k6[i] + d7*k2[i]);
 
     for (int i = 0; i < ndof_ODE; i++) k4[i] = h*(e1*k1[i] + e3*k3[i] + e4*k4[i] + e5*k5[i] + e6*k6[i] + e7*k2[i]);
-    nfcn += 6;
+    nff += 6;
 
     double err = 0.0;
     for (int i = 0; i < ndof_ODE; i++)
     {
-      double sqr = k4[i]/(atoli + rtoli*max_d(fabs(y[i], fabs(yy1[i]))));
+      double sqr = k4[i]/(atoli + rtoli*max_d(fabs(y[i]), fabs(yy1[i])));
       err += sqr*sqr;
     }
     err = sqrt(err/((double)ndof_ODE));
 
     double  fac11 = pow(err,expo1),
-            fac = fac11/pow(facold,beta);
+            fac = fac11*pow(facold,-beta);
     fac = max_d(facc2,min_d(facc1,fac/safe));
     double hnew = h/fac;
 
     if (err <= 1.0)
     {
-      facold = max(err, 1.0e-4);
+      facold = max_d(err, 1.0e-4);
       naccpt++;
 
       // stiffness detection
@@ -191,28 +191,109 @@ int DoPri5::solve(double tstart_,double tend_,int snaps_, double **wkspc_)
 
       if (snaps_>1)
       {
-        for (int i = 0; i < ndof_ODE; i++)
-        {
-          double  yd0 = y[i],
-                  ydiff = yy1[i] - yd0,
-                  bspl = h*k1[i] - ydiff;
-          rc1[i] = y[i];
-          rc2[i] = ydiff;
-          rc3[i] = bspl;
-          rc4[i] = -h*k2[i] + ydiff - bspl;
-        }
+        nsn=int(((t + h)-tstart_)*isf);
+        if(nsn>=snaps_-1) nsn=snaps_-2;
+        if(nsn>csn)
+          for (int i = 0; i < ndof_ODE; i++)
+          {
+            double  yd0 = y[i],
+                    ydiff = yy1[i] - yd0,
+                    bspl = h*k1[i] - ydiff;
+            rc1[i] = y[i];
+            rc2[i] = ydiff;
+            rc3[i] = bspl;
+            rc4[i] = -h*k2[i] + ydiff - bspl;
+          }
       }
-      memcpy(k1, k2, ndof_ODEs*sizeof(double));
-      memcpy(y, yy1, ndof_ODEs*sizeof(double));
+      memcpy(k1, k2, ndof_ODE*sizeof(double));
+      memcpy(y, yy1, ndof_ODE*sizeof(double));
+      told = t;
+      t += h;
 
       if (snaps_>1)
       {
-        hold = h;
-        told = t;
-        t += h;
-
+        while (csn<nsn)
+        {
+          csn++;
+          double  ti = tstart_ + csn*sf,
+                  theta = (ti-told)/h,
+                  theta1 = 1.0 - theta;
+          for (size_t i = 0; i < ndof_ODE; i++)
+            wkspc_[csn][i] = rc1[i] + theta*(rc2[i] + theta1*(rc3[i] + theta*(rc4[i] + theta1*rc5[i])));
+        }
+        if (last)
+        {
+          memcpy(wkspc_[++csn],y,ndof_ODE*sizeof(double));
+          return 0;
+        }
       }
+
+      if (fabs(hnew)>hmax) hnew = posneg*hmax;
+      if (reject) hnew = posneg*min_d(fabs(hnew),fabs(h));
+      reject = false;
     }
+    else
+    {
+      hnew = h/min_d(facc1,fac11/safe);
+      reject = true;
+      if (naccpt>=1) nrejct;
+      last = false;
+    }
+    h = hnew;
+  }
+}
+void DoPri5::init_counters()
+{
+  nstep = 0;
+  naccpt = 0;
+  nrejct = 0;
+  nff=0;
+  nonsti=0;
+  iasti=0;
+}
+double DoPri5::hinit(double hmax_, double posneg_)
+{
+  double  dnf = 0.0,
+          dny = 0.0;
+  for (size_t i = 0; i < ndof_ODE; i++)
+  {
+    double  sk = atoli + rtoli * fabs(y[i]),
+            sqr = k1[i]/sk;
+    dnf += sqr*sqr;
+    sqr = y[i]/sk;
+    dny += sqr*sqr;
+  }
+
+  h=min_d(dnf<=1E-10||dny<=1E-10?1.0E-6:sqrt(dny/dnf)*0.01,hmax_)*posneg_;
+	for (int i = 0; i < ndof_ODE; i++) k3[i] = y[i] + h * k1[i];
+
+  ff(t+h,k3,k2); nff++;
+
+  double der2 = 0.0;
+  for (int i = 0; i < ndof_ODE; i++)
+  {
+    double  sk = atoli + rtoli * fabs(y[i]),
+	          sqr = (k2[i] - k1[i])/sk;
+    der2 += sqr*sqr;
+  }
+  der2 = sqrt(der2)/h;
+
+  double  der12 = max_d(fabs(der2),sqrt(dnf)),
+          h1=((der12<=1.0E-15)?max_d(1.0E-6,fabs(h)*1.0E-3):pow(0.01/der12,0.2));
+  return min_d(100.0*fabs(h),min_d(h1,hmax_))*posneg_;
+}
+void DoPri5::set_and_solve_time(double tstart_, double tend_, int snaps_, double **wkspc_)
+{
+  int exit_code = solve(tstart_,tend_,snaps_,wkspc_);
+  if (exit_code==1) printf("(DoPri5::set_and_solve_time) Warning - very stiff diffeq. Max stiffness increments reached.\n");
+  else if (exit_code==2)
+  {
+    printf("(DoPri5::set_and_solve_time) ERROR - max count of integration steps reached. (t = %.2e of %.2e, iteration %ld of %ld)\n", t, tend_, nstep, nmax);
+    printf("last value\n");
+    for (size_t i = 0; i < ndof_ODE; i++) printf("%.2e ", wkspc_[csn][i]);
+    printf("\nDerivative value:\n");
+  }
+  else if (exit_code==3) printf("(dop853_integrator::set_and_solve_time) ERROR - time step has vanished below tolerance.\n");
 }
 
 void Sun5::step(double dt)

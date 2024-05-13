@@ -64,20 +64,56 @@ class rk_adaptive: public runge_kutta_integrator
     double  fac1,
             fac2,
             beta,
-            uround;
-
-    void set_and_solve_time(double tstart_, double tend_, int snaps_, double **wkspc_);
+            uround,
+            atoli,
+            rtoli,
+            safe;
 
   protected:
 
     int csn,
         nff,
-        nstep;
-    double h;
+        nstep,
+        naccpt,
+        nrejct,
+        nstiff;
+    double  h,
+            told;
 
     double * u_state_new,
             ** rc_wkspc;
 
+    inline double max_d(double a_, double b_) {return (a_>b_)?(a_):(b_);}
+    inline double min_d(double a_, double b_) {return (a_<b_)?(a_):(b_);}
+};
+
+class Sun5: public rk_fixed
+{
+  public:
+
+    Sun5(ode_system &ode_);
+    ~Sun5();
+
+  protected:
+
+    void step(double dt_);
+
+  private:
+
+    const double  r6,
+                  a11=(16-r6)/72.,a12=(328-167*r6)/1800,a13=(-2+3*r6)/450,
+                  a21=(328+167*r6)/1800,a22=(16+r6)/72,a23=(-2-3*r6)/450,
+                  a31=(85-10*r6)/180,a32=(85+10*r6)/180,a33=1/18.;
+
+    double  * const q = u_state,
+            * const dq,
+            * k1 = k_wkspc[0],
+            * k2 = k_wkspc[1],
+            * k3 = k_wkspc[2],
+            ** const kb_wkspc,
+            * k1b = kb_wkspc[0],
+            * k2b = kb_wkspc[1],
+            * k3b = kb_wkspc[2];
 };
 
 class DoPri5: public rk_adaptive
@@ -89,6 +125,9 @@ class DoPri5: public rk_adaptive
     void set_and_solve_time(double tstart_, double tend_, int snaps_, double **wkspc_);
 
   protected:
+
+    int nonsti,
+        iasti;
 
     double  * k1 = k_wkspc[0],
             * k2 = k_wkspc[1],
@@ -123,37 +162,9 @@ class DoPri5: public rk_adaptive
 			            d4=-10690763975.0/1880347072.0, d5=701980252875.0/199316789632.0,
 			            d6=-1453857185.0/822651844.0, d7=69997945.0/29380423.0;
 
-    inline double max_d(double a_, double b_) {return (a_>b_)?(a_):(b_);}
-    inline double min_d(double a_, double b_) {return (a_<b_)?(a_):(b_);}
-};
-
-class Sun5: public rk_fixed
-{
-  public:
-
-    Sun5(ode_system &ode_);
-    ~Sun5();
-
-  protected:
-
-    void step(double dt_);
-
-  private:
-
-    const double  r6,
-                  a11=(16-r6)/72.,a12=(328-167*r6)/1800,a13=(-2+3*r6)/450,
-                  a21=(328+167*r6)/1800,a22=(16+r6)/72,a23=(-2-3*r6)/450,
-                  a31=(85-10*r6)/180,a32=(85+10*r6)/180,a33=1/18.;
-
-    double  * const q = u_state,
-            * const dq,
-            * k1 = k_wkspc[0],
-            * k2 = k_wkspc[1],
-            * k3 = k_wkspc[2],
-            ** const kb_wkspc,
-            * k1b = kb_wkspc[0],
-            * k2b = kb_wkspc[1],
-            * k3b = kb_wkspc[2];
+    int solve(double tstart_,double tend_,int snaps_, double **wkspc_);
+    void init_counters();
+    double hinit(double hmax_, double posneg_);
 };
 
 struct dop853_settings
