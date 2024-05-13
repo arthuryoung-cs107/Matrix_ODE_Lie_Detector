@@ -6,7 +6,7 @@
 
 runge_kutta_integrator::runge_kutta_integrator(ode_system &ode_, const char name_[], int nk_):
 // ode_exponentiator(ode_),
-ode_integrator(ode_), 
+ode_integrator(ode_),
 u_state(new double[ndof_ODE]), k_wkspc(Tmatrix<double>(nk_,ndof_ODE))
 {strcpy(name,name_);}
 runge_kutta_integrator::~runge_kutta_integrator()
@@ -88,6 +88,11 @@ DoPri5::DoPri5(ode_system &ode_): rk_adaptive(ode_,"DoPri5",6,5), ysti(new doubl
 {}
 DoPri5::~DoPri5()
 {delete [] ysti;}
+
+DoP853::DoP853(ode_system &ode_): rk_adaptive(ode_,"DoP853",10,8)
+{}
+DoP853::~DoP853()
+{}
 
 void Sun5::step(double dt)
 {
@@ -268,7 +273,7 @@ int DoPri5::solve(double tstart_,double tend_,int snaps_, double **wkspc_)
           }
       }
       memcpy(k1, k2, ndof_ODE*sizeof(double));
-      memcpy(y, yy1, ndof_ODE*sizeof(double));
+      memcpy(u_state, yy1, ndof_ODE*sizeof(double));
       told = t;
       t += h;
 
@@ -317,10 +322,10 @@ double DoPri5::hinit(double hmax_, double posneg_)
     dny += sqr*sqr;
   }
 
-  h=min_d(dnf<=1E-10||dny<=1E-10?1.0E-6:sqrt(dny/dnf)*0.01,hmax_)*posneg_;
-	for (int i = 0; i < ndof_ODE; i++) k3[i] = y[i] + h * k1[i];
+  double h0=min_d(dnf<=1E-10||dny<=1E-10?1.0E-6:sqrt(dny/dnf)*0.01,hmax_)*posneg_;
+	for (int i = 0; i < ndof_ODE; i++) k3[i] = y[i] + h0 * k1[i];
 
-  ff(t+h,k3,k2); nff++;
+  ff(t+h0,k3,k2); nff++;
 
   double der2 = 0.0;
   for (int i = 0; i < ndof_ODE; i++)
@@ -329,12 +334,290 @@ double DoPri5::hinit(double hmax_, double posneg_)
 	          sqr = (k2[i] - k1[i])/sk;
     der2 += sqr*sqr;
   }
-  der2 = sqrt(der2)/h;
+  der2 = sqrt(der2)/h0;
 
   double  der12 = max_d(fabs(der2),sqrt(dnf)),
-          h1=((der12<=1.0E-15)?max_d(1.0E-6,fabs(h)*1.0E-3):pow(0.01/der12,0.2));
-  return min_d(100.0*fabs(h),min_d(h1,hmax_))*posneg_;
+          h1 = (der12<=1.0E-15)?max_d(1.0E-6,fabs(h0)*1.0E-3):pow(0.01/der12,0.2);
+  return min_d(100.0*fabs(h0),min_d(h1,hmax_))*posneg_;
 }
+
+int DoP853::solve(double tstart_,double tend_,int snaps_,double **wkspc_)
+{
+  const double  facc1=1.0/fac1,
+                facc2=1.0/fac2,
+                expo1=1.0/8-beta*0.2;
+  double  posneg=(tend_>tstart_)?(1.0):(-1.0),
+          facold=1e-4,
+          hmax=fabs(tend_-tstart_),
+          hnew,
+          err,
+          sf = (snaps_>1)?((tend_-tstart_)/(snaps_-1)):(0.0),
+          isf = (snaps_>1)?(1.0/sf):(0.0);
+  bool  last=false,
+        reject=false;
+  t=tstart_; csn=0;
+
+  init_counters();
+
+  if(snaps_>0) memcpy(wkspc_[0],u_state,ndof_ODE*sizeof(double));
+
+  ff(t,u_state,k1); nff++;
+  h=hinit(hmax,posneg);
+
+  while(true)
+  {
+    if (nstep>nmax)
+    {
+      if (snaps_>1) memcpy(wkspc_[++csn],u_state,ndof_ODE*sizeof(double));
+      return 2;
+    }
+    if (0.1*fabs(h)<=fabs(t)*uround)
+    {
+      if(snaps_>1) memcpy(wkspc_[++csn],u_state,ndof_ODE*sizeof(double));
+      return 3;
+    }
+    if ((t+1.01*h-tend_)*posneg>0.0)
+    {
+      h=tend_-t;
+      last=true;
+    }
+
+    // Perform the eighth-order integration step, and estimate the local
+    // error
+    nstep++;
+
+    step12(k5);
+    err=fabs(h)*error_estimation();
+
+    // Estimate new timestep based on the local error
+    double  fac11=pow(err,expo1),
+            fac=fac11*pow(facold,-beta);
+    fac=max_d(facc2,min_d(facc1,fac/safe));
+    hnew=h/fac;
+
+    // Check whether the estimated error is within the tolerance
+    if(err<=1.0)
+    {
+
+      // If the error is within the tolerance, then accept the step
+      facold=max_d(err,1.0E-4);
+      naccpt++;
+      ff(tph,k5,k4);
+      nff++;
+
+      // Carry out stiffness detection at periodic intervals, or if
+      // stiffness has previously been detected
+      if((!(naccpt%nstiff)||(iasti>0))&&detect_stiffness())
+      {
+        if(snaps_>1) memcpy(wkspc_[++csn],u_state,ndof_ODE*sizeof(double));
+        return 1;
+      }
+
+      // Check whether snapshots are required over this integration step,
+      // and if so, compute the dense output formulae
+      int nsn= (int)((tph-tstart_)*isf);
+      if(nsn>=snaps_-1) nsn=snaps_-2;
+      if(nsn>csn) dense_output();
+
+      // Copy the computed step into the state vector, and the last
+      // Runge--Kutta step into the new first Runge--Kutta step. Update
+      // the time.
+      memcpy(k1,k4,ndof_ODE*sizeof(double));
+      memcpy(u_state,k5,ndof_ODE*sizeof(double));
+      told=t;
+      t=tph;
+
+      // Compute any snapshots using the dense output
+      while(csn<nsn) {csn++; dense(wkspc_[csn],tstart_+csn*sf);}
+
+      // If this is the last timestep, then store a snapshot and return
+      if (last)
+      {
+        if(snaps_>1) memcpy(wkspc_[++csn],u_state,ndof_ODE*sizeof(double));
+        return 0;
+      }
+
+      // Check for special cases for timestep choice
+      if (fabs(hnew)>hmax) hnew=posneg*hmax;
+      if (reject) hnew=posneg*min_d(fabs(hnew),fabs(h));
+      reject=false;
+    }
+    else
+    {
+      // If the local error exceeded the tolerance, then compute a new
+      // timestep and try again. Note that as in the original DOP853.F,
+      // rejected steps at the start of the computation are not counted.
+      hnew = h/min_d(facc1,fac11/safe);
+      reject=true;
+      if(naccpt >=1 ) nrejct++;
+      last=false;
+    }
+    h=hnew;
+  }
+}
+double DoP853::hinit(double hmax_,double posneg_)
+{
+  double  dnf=0.0,
+          dny=0.0;
+
+  // Compute preliminary step size estimate
+  for (size_t i = 0; i < ndof_ODE; i++)
+  {
+      double  sk = atoli + rtoli*fabs(u_state[i]),
+              sqr = k1[i]/sk;
+      dnf += sqr*sqr;
+      sqr = u_state[i]/sk;
+      dny += sqr*sqr;
+  }
+  double h0=min_d(dnf<=1E-10||dny<=1E-10?1.0E-6:sqrt(dny/dnf)*0.01,hmax_)*posneg_;
+
+  // Perform an explicit Euler step
+  for (size_t i = 0; i < ndof_ODE; i++) u_state_new[i] = u_state[i] + h0 * k1[i];
+
+  ff(t+h0,u_state_new,k2); nff++;
+
+  double der2 = 0.0;
+  // Estimate the second derivative of the solution
+  for (size_t i = 0; i < ndof_ODE; i++)
+  {
+    double sqr = (k2[i]-k1[i])/(atoli + rtoli*fabs(u_state[i]));
+    der2 += sqr*sqr;
+  }
+  der2=sqrt(der2)/h0;
+
+  // The step size is computed such that h**8*max_d(norm(f0),norm(der2))=0.01
+  double  der12 = max_d(fabs(der2),sqrt(dnf)),
+          h1=(der12<=1.0E-15)?max_d(1.0E-6,fabs(h0)*1.0E-3):pow(0.01/der12,0.125);
+  return min_d(100.0*fabs(h0),min_d(h1,hmax_))*posneg_;
+}
+void DoP853::step12(double *p1_)
+{
+  const int n = ndof_ODE;
+  int i;
+  for(i=0;i<n;i++) ww1[i]=w[i]+h*a21*k1[i];
+  ff(t+c2*h,ww1,k2);
+  for(i=0;i<n;i++) ww1[i]=w[i]+h*(a31*k1[i]+a32*k2[i]);
+  ff(t+c3*h,ww1,k3);
+  for(i=0;i<n;i++) ww1[i]=w[i]+h*(a41*k1[i]+a43*k3[i]);
+  ff(t+c4*h,ww1,k4);
+  for(i=0;i <n;i++) ww1[i]=w[i]+h*(a51*k1[i]+a53*k3[i]+a54*k4[i]);
+  ff(t+c5*h,ww1,k5);
+  for(i=0;i<n;i++) ww1[i]=w[i]+h*(a61*k1[i]+a64*k4[i]+a65*k5[i]);
+  ff(t+c6*h,ww1,k6);
+  for(i=0;i<n;i++) ww1[i]=w[i]+h*(a71*k1[i]+a74*k4[i]+a75*k5[i]+a76*k6[i]);
+  ff(t+c7*h,ww1,k7);
+  for(i=0;i<n;i++) ww1[i]=w[i]+h*(a81*k1[i]+a84*k4[i]+a85*k5[i]+a86*k6[i]+a87*k7[i]);
+  ff(t+c8*h,ww1,k8);
+  for(i=0;i<n;i++) ww1[i]=w[i]+h*(a91*k1[i]+a94*k4[i]+a95*k5[i]+a96*k6[i]+a97*k7[i]+a98*k8[i]);
+  ff(t+c9*h,ww1,k9);
+  for(i=0;i<n;i++)
+    ww1[i]=w[i]+h*(a101*k1[i]+a104*k4[i]+a105*k5[i]+a106*k6[i]+a107*k7[i]+a108*k8[i]+a109*k9[i]);
+  ff(t+c10*h,ww1,k10);
+  for(i=0;i<n;i++)
+    ww1[i]=w[i]+h*(a111*k1[i]+a114*k4[i]+a115*k5[i]+a116*k6[i] +a117*k7[i]+a118*k8[i]+a119*k9[i]+a1110*k10[i]);
+  ff(t+c11*h,ww1,k2);
+  tph=t+h;
+  for(i=0;i<n;i++)
+    ww1[i]=w[i]+h*(a121*k1[i]+a124*k4[i]+a125*k5[i]+a126*k6[i]+a127*k7[i]+a128*k8[i]+a129*k9[i]+a1210*k10[i]+a1211*k2[i]);
+  ff(tph,ww1,k3);
+  nff+=11;
+  for(i=0;i<n;i++)
+  {
+    k4[i]=b1*k1[i]+b6*k6[i]+b7*k7[i]+b8*k8[i]+b9*k9[i]+b10*k10[i]+b11*k2[i]+b12*k3[i];
+    p1_[i]=w[i]+h*k4[i];
+  }
+}
+double DoP853::error_estimation()
+{
+  double  err=0.0,
+          err2=0.0;
+  // Calculate the contribution to the error from each variable
+  for(int i=0;i<ndof_ODE;i++)
+  {
+    double  sk=1.0/(atoli+rtoli*max_d(fabs(w[i]),fabs(k5[i]))),
+            sqr=k4[i]-bhh1*k1[i]-bhh2*k9[i]-bhh3*k3[i];
+    sqr*=sk;
+    err2+=sqr*sqr;
+    sqr=er1*k1[i]+er6*k6[i]+er7*k7[i]+er8*k8[i]+er9*k9[i]+er10*k10[i]+er11*k2[i]+er12*k3[i];
+    sqr*=sk;
+    err+=sqr*sqr;
+  }
+
+  // Assemble the combination of the third-order and fifth-order estimators
+  double deno=err+0.01*err2;
+  return err*sqrt(1.0/(deno<=0.0?((double)ndof_ODE):(deno*((double)ndof_ODE))));
+}
+bool DoP853::detect_stiffness()
+{
+  double sqr,stnum=0.0,stden=0.0;
+
+  // Calculate the measure of stiffness, using previously computed RK steps
+  for (int i=0;i<ndof_ODE;i++)
+  {
+    sqr=k4[i]-k3[i]; stnum+=sqr*sqr;
+    sqr=k5[i]-ww1[i]; stden+=sqr*sqr;
+  }
+
+  // If the stiffness criterion is met, and many recent steps have been
+  // stiff, then bail out
+  if ((stden>0.0)&&(h*h*stnum>37.21*stden))
+  {
+    nonsti=0;
+    iasti++;
+    if(iasti==15) return true;
+  }
+
+  // If the system is not stiff after several tests, then reset the stiffness
+  // counter
+  if (++nonsti==6) iasti=0;
+  return false;
+}
+void DoP853::dense_output()
+{
+  const int n = ndof_ODE;
+  int i;
+  double ydiff,bspl;
+
+  // Calculate the contributions to the dense output corrections using
+  // the previously computed RK steps
+  for(i=0;i<n;i++)
+  {
+    rc1[i]=w[i];
+    double  ydiff=rc2[i]=k5[i]-w[i],
+            bspl=rc3[i]=h*k1[i]-ydiff;
+    rc4[i]=ydiff-h*k4[i]-bspl;
+    rc5[i]=d41*k1[i]+d46*k6[i]+d47*k7[i]+d48*k8[i]+d49*k9[i]+d410*k10[i]+d411*k2[i]+d412*k3[i];
+    rc6[i]=d51*k1[i]+d56*k6[i]+d57*k7[i]+d58*k8[i]+d59*k9[i]+d510*k10[i]+d511*k2[i]+d512*k3[i];
+    rc7[i]=d61*k1[i]+d66*k6[i]+d67*k7[i]+d68*k8[i]+d69*k9[i]+d610*k10[i]+d611*k2[i]+d612*k3[i];
+    rc8[i]=d71*k1[i]+d76*k6[i]+d77*k7[i]+d78*k8[i]+d79*k9[i]+d710*k10[i]+d711*k2[i]+d712*k3[i];
+  }
+
+  // Carry out the next three function evaluations (steps 14 to 16)
+  for(i=0;i<n;i++) ww1[i]=w[i]+h*(a141*k1[i]+a147*k7[i]+a148*k8[i]+a149*k9[i]
+                 +a1410*k10[i]+a1411*k2[i]+a1412*k3[i]+a1413*k4[i]);
+  ff(t+c14*h,ww1,k10);
+  for(i=0;i<n;i++) ww1[i]=w[i]+h*(a151*k1[i]+a156*k6[i]+a157*k7[i]+a158*k8[i]
+                 +a1511*k2[i]+a1512*k3[i]+a1513*k4[i]+a1514*k10[i]);
+  ff(t+c15*h,ww1,k2);
+  for(i=0;i<n;i++) ww1[i]=w[i]+h*(a161*k1[i]+a166*k6[i]+a167*k7[i]+a168*k8[i]
+                 +a169*k9[i]+a1613*k4[i]+a1614*k10[i]+a1615*k2[i]);
+  ff(t+c16*h,ww1,k3);
+  nff+=3;
+
+  // Use the newly computed steps to complete the calculation of the dense
+  // output corrections
+  for(i=0;i<n;i++)
+  {
+    rc5[i]=h*(rc5[i]+d413*k4[i]+d414*k10[i]+d415*k2[i]+d416*k3[i]);
+    rc6[i]=h*(rc6[i]+d513*k4[i]+d514*k10[i]+d515*k2[i]+d516*k3[i]);
+    rc7[i]=h*(rc7[i]+d613*k4[i]+d614*k10[i]+d615*k2[i]+d616*k3[i]);
+    rc8[i]=h*(rc8[i]+d713*k4[i]+d714*k10[i]+d715*k2[i]+d716*k3[i]);
+  }
+}
+
+
+
+
 
 // DOP853 integrator re-written as a C++ class
 //
