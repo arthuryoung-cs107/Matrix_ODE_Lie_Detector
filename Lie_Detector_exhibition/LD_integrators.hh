@@ -19,17 +19,20 @@ struct ode_exponentiator
   virtual void set_and_solve_time(double tstart_, double tend_, int snaps_, double **wkspc_) = 0;
 };
 
-struct runge_kutta_integrator: public ode_exponentiator
+// struct runge_kutta_integrator: public ode_exponentiator
+struct runge_kutta_integrator: public ode_integrator
 {
   runge_kutta_integrator(ode_system &ode_, const char name_[], int nk_);
   ~runge_kutta_integrator();
 
-  int nff;
-
-  double  t,
-          * const u_state;
+  double * get_u_state() {return u_state;};
 
   protected:
+
+    int nff;
+
+    double  t,
+            * const u_state;
 
     double ** const k_wkspc;
 };
@@ -54,35 +57,75 @@ struct rk_fixed: public runge_kutta_integrator
     virtual void step(double dt_) = 0;
 };
 
+struct rk_adaptive_settings
+{
+  rk_adaptive_settings( int nmax_,int nstiff_,
+                        double atoli_,double rtoli_,double fac1_,double fac2_,double safe_,double beta_,double uround_):
+    nmax(nmax_),nstiff(nstiff_),
+    atoli(atoli_), rtoli(rtoli_), fac1(fac1_), fac2(fac2_), safe(safe_), beta(beta_), uround(uround_) {}
+  rk_adaptive_settings(rk_adaptive_settings &s_):
+    rk_adaptive_settings(s_.nmax,s_.nstiff,s_.atoli,s_.rtoli,s_.fac1,s_.fac2,s_.safe,s_.beta,s_.uround) {}
+  ~rk_adaptive_settings() {}
+
+  const size_t  ilen = 2,
+                dlen = 7;
+  const int nmax,
+            nstiff,
+            * const ivec = &nmax;
+  const double  atoli,
+                rtoli,
+                fac1,
+                fac2,
+                safe,
+                beta,
+                uround,
+                * const dvec = &atoli;
+};
+
 class rk_adaptive: public runge_kutta_integrator
 {
   public:
     rk_adaptive(ode_system &ode_, const char name_[], int nk_, int nrc_);
     ~rk_adaptive();
 
-    int nmax;
-    double  fac1,
+    int nmax,
+        nstiff,
+        * const ivec = &nmax;
+    double  atoli,
+            rtoli,
+            fac1,
             fac2,
+            safe,
             beta,
             uround,
-            atoli,
-            rtoli,
-            safe;
+            * const dvec = &atoli;
+
+    inline void init_settings(rk_adaptive_settings &s_)
+    {
+      for (size_t i = 0; i < s_.ilen; i++) ivec[i] = s_.ivec[i];
+      for (size_t i = 0; i < s_.dlen; i++) dvec[i] = s_.dvec[i];
+    }
+
+    void set_and_solve_time(double tstart_, double tend_, int snaps_, double **wkspc_);
 
   protected:
 
-    int csn,
-        nff,
-        nstep,
+    int nstep,
         naccpt,
         nrejct,
-        nstiff;
+        nff,
+        nonsti,
+        iasti,
+        csn;
     double  h,
             told;
 
     double * u_state_new,
             ** rc_wkspc;
 
+    virtual int solve(double tstart_, double tend_, int snaps_, double **wkspc_) = 0;
+
+    inline void init_counters() {nstep=naccpt=nrejct=nff=nonsti=iasti=0;}
     inline double max_d(double a_, double b_) {return (a_>b_)?(a_):(b_);}
     inline double min_d(double a_, double b_) {return (a_<b_)?(a_):(b_);}
 };
@@ -116,18 +159,25 @@ class Sun5: public rk_fixed
             * k3b = kb_wkspc[2];
 };
 
+struct DoPri5_settings: public rk_adaptive_settings
+{
+  DoPri5_settings(  int nmax_=100000,int nstiff_=1000,
+                    double atoli_=1e-7,double rtoli_=1e-7,
+                    double fac1_=0.2,double fac2_=10.0,
+                    double safe_=0.9,double beta_=0.04,double uround_=1e-16):
+      rk_adaptive_settings(nmax_,nstiff_,atoli_,rtoli_,fac1_,fac2_,safe_,beta_,uround_) {}
+  DoPri5_settings(rk_adaptive_settings &s_): rk_adaptive_settings(s_) {}
+  ~DoPri5_settings() {}
+};
+
 class DoPri5: public rk_adaptive
 {
   public:
     DoPri5(ode_system &ode_);
+    DoPri5(ode_system &ode_,rk_adaptive_settings &s_): DoPri5(ode_) {init_settings(s_);}
     ~DoPri5();
 
-    void set_and_solve_time(double tstart_, double tend_, int snaps_, double **wkspc_);
-
   protected:
-
-    int nonsti,
-        iasti;
 
     double  * k1 = k_wkspc[0],
             * k2 = k_wkspc[1],
@@ -163,7 +213,6 @@ class DoPri5: public rk_adaptive
 			            d6=-1453857185.0/822651844.0, d7=69997945.0/29380423.0;
 
     int solve(double tstart_,double tend_,int snaps_, double **wkspc_);
-    void init_counters();
     double hinit(double hmax_, double posneg_);
 };
 
@@ -247,7 +296,8 @@ class dop853_integrator: public ode_integrator, public dop853_settings
     void init_counters();
     virtual void output() {};
 
-    double * get_wvec() {return w;}
+    // double * get_wvec() {return w;}
+    double * get_u_state() {return w;}
     void set_and_solve_time(double tstart_, double tend_, int snaps_, double **wkspc_);
 
   private:

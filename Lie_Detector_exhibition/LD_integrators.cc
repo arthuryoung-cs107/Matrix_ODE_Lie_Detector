@@ -5,7 +5,9 @@
 #include <cmath>
 
 runge_kutta_integrator::runge_kutta_integrator(ode_system &ode_, const char name_[], int nk_):
-ode_exponentiator(ode_), u_state(new double[ndof_ODE]), k_wkspc(Tmatrix<double>(nk_,ndof_ODE))
+// ode_exponentiator(ode_),
+ode_integrator(ode_), 
+u_state(new double[ndof_ODE]), k_wkspc(Tmatrix<double>(nk_,ndof_ODE))
 {strcpy(name,name_);}
 runge_kutta_integrator::~runge_kutta_integrator()
 {delete [] u_state; free_Tmatrix<double>(k_wkspc);}
@@ -62,6 +64,20 @@ void rk_fixed::set_and_solve_time(double tstart_, double tend_, int snaps_, doub
   else if (snaps_ == 1) memcpy(*wkspc_,u_state,ndof_ODE*sizeof(double));
 }
 
+void rk_adaptive::set_and_solve_time(double tstart_, double tend_, int snaps_, double **wkspc_)
+{
+  int exit_code = solve(tstart_,tend_,snaps_,wkspc_);
+  if (exit_code==1) printf("(rk_adaptive::set_and_solve_time) Warning - very stiff diffeq. Max stiffness increments reached.\n");
+  else if (exit_code==2)
+  {
+    printf("(rk_adaptive::set_and_solve_time) ERROR - max count of integration steps reached. (t = %.2e of %.2e, iteration %ld of %ld)\n", t, tend_, nstep, nmax);
+    printf("last value\n");
+    for (size_t i = 0; i < ndof_ODE; i++) printf("%.2e ", wkspc_[csn][i]);
+    printf("\nDerivative value:\n");
+  }
+  else if (exit_code==3) printf("(rk_adaptive::set_and_solve_time) ERROR - time step has vanished below tolerance.\n");
+}
+
 Sun5::Sun5(ode_system &ode_): rk_fixed(ode_,"Sun5",3), r6(sqrt(6.0)),
 dq(new double[ndof_ODE]), kb_wkspc(Tmatrix<double>(3,ndof_ODE))
 {}
@@ -72,6 +88,52 @@ DoPri5::DoPri5(ode_system &ode_): rk_adaptive(ode_,"DoPri5",6,5), ysti(new doubl
 {}
 DoPri5::~DoPri5()
 {delete [] ysti;}
+
+void Sun5::step(double dt)
+{
+  int iter=0;
+  double  delsq,
+          del,
+          *c;
+
+  // Clear steps
+  for(int i=0;i<ndof_ODE;i++) k1[i]=k2[i]=k3[i]=0.0;
+
+  do
+  {
+      // Check for too many iterations
+      if(++iter>1000)
+      {
+          fputs("Too many iterations in IRK\n",stderr);
+          exit(1);
+      }
+      // Perform update
+      for(int i=0;i<ndof_ODE;i++) dq[i]=q[i]+dt*(a11*k1[i]+a12*k2[i]+a13*k3[i]);
+      ff(t+(4-r6)/10*dt,dq,k1b);
+      for(int i=0;i<ndof_ODE;i++) dq[i]=q[i]+dt*(a21*k1[i]+a22*k2[i]+a23*k3[i]);
+      ff(t+(4+r6)/10*dt,dq,k2b);
+      for(int i=0;i<ndof_ODE;i++) dq[i]=q[i]+dt*(a31*k1[i]+a32*k2[i]+a33*k3[i]);
+      ff(t+dt,dq,k3b);
+      nff+=3;
+      // Find size of step from previous iteration
+      delsq=0;
+      for(int i=0;i<ndof_ODE;i++)
+      {
+          del=k1[i]-k1b[i]; delsq+=del*del;
+          del=k2[i]-k2b[i]; delsq+=del*del;
+          del=k3[i]-k3b[i]; delsq+=del*del;
+      }
+      // Switch k1<->k1b and k2<->k2b array pointers. This will make k1 & k2
+      // be used as the new values on the next iteration.
+      c=k1b;k1b=k1;k1=c;
+      c=k2b;k2b=k2;k2=c;
+      c=k3b;k3b=k3;k3=c;
+  } while(delsq>1e-25);
+
+  // Complete solution
+  for(int i=0;i<ndof_ODE;i++) q[i]+=dt*((16-r6)/36*k1[i]+(16+r6)/36*k2[i]+1./9*k3[i]);
+  t+=dt;
+}
 
 int DoPri5::solve(double tstart_,double tend_,int snaps_, double **wkspc_)
 {
@@ -242,15 +304,6 @@ int DoPri5::solve(double tstart_,double tend_,int snaps_, double **wkspc_)
     h = hnew;
   }
 }
-void DoPri5::init_counters()
-{
-  nstep = 0;
-  naccpt = 0;
-  nrejct = 0;
-  nff=0;
-  nonsti=0;
-  iasti=0;
-}
 double DoPri5::hinit(double hmax_, double posneg_)
 {
   double  dnf = 0.0,
@@ -281,65 +334,6 @@ double DoPri5::hinit(double hmax_, double posneg_)
   double  der12 = max_d(fabs(der2),sqrt(dnf)),
           h1=((der12<=1.0E-15)?max_d(1.0E-6,fabs(h)*1.0E-3):pow(0.01/der12,0.2));
   return min_d(100.0*fabs(h),min_d(h1,hmax_))*posneg_;
-}
-void DoPri5::set_and_solve_time(double tstart_, double tend_, int snaps_, double **wkspc_)
-{
-  int exit_code = solve(tstart_,tend_,snaps_,wkspc_);
-  if (exit_code==1) printf("(DoPri5::set_and_solve_time) Warning - very stiff diffeq. Max stiffness increments reached.\n");
-  else if (exit_code==2)
-  {
-    printf("(DoPri5::set_and_solve_time) ERROR - max count of integration steps reached. (t = %.2e of %.2e, iteration %ld of %ld)\n", t, tend_, nstep, nmax);
-    printf("last value\n");
-    for (size_t i = 0; i < ndof_ODE; i++) printf("%.2e ", wkspc_[csn][i]);
-    printf("\nDerivative value:\n");
-  }
-  else if (exit_code==3) printf("(dop853_integrator::set_and_solve_time) ERROR - time step has vanished below tolerance.\n");
-}
-
-void Sun5::step(double dt)
-{
-  int iter=0;
-  double  delsq,
-          del,
-          *c;
-
-  // Clear steps
-  for(int i=0;i<ndof_ODE;i++) k1[i]=k2[i]=k3[i]=0.0;
-
-  do
-  {
-      // Check for too many iterations
-      if(++iter>1000)
-      {
-          fputs("Too many iterations in IRK\n",stderr);
-          exit(1);
-      }
-      // Perform update
-      for(int i=0;i<ndof_ODE;i++) dq[i]=q[i]+dt*(a11*k1[i]+a12*k2[i]+a13*k3[i]);
-      ff(t+(4-r6)/10*dt,dq,k1b);
-      for(int i=0;i<ndof_ODE;i++) dq[i]=q[i]+dt*(a21*k1[i]+a22*k2[i]+a23*k3[i]);
-      ff(t+(4+r6)/10*dt,dq,k2b);
-      for(int i=0;i<ndof_ODE;i++) dq[i]=q[i]+dt*(a31*k1[i]+a32*k2[i]+a33*k3[i]);
-      ff(t+dt,dq,k3b);
-      nff+=3;
-      // Find size of step from previous iteration
-      delsq=0;
-      for(int i=0;i<ndof_ODE;i++)
-      {
-          del=k1[i]-k1b[i]; delsq+=del*del;
-          del=k2[i]-k2b[i]; delsq+=del*del;
-          del=k3[i]-k3b[i]; delsq+=del*del;
-      }
-      // Switch k1<->k1b and k2<->k2b array pointers. This will make k1 & k2
-      // be used as the new values on the next iteration.
-      c=k1b;k1b=k1;k1=c;
-      c=k2b;k2b=k2;k2=c;
-      c=k3b;k3b=k3;k3=c;
-  } while(delsq>1e-25);
-
-  // Complete solution
-  for(int i=0;i<ndof_ODE;i++) q[i]+=dt*((16-r6)/36*k1[i]+(16+r6)/36*k2[i]+1./9*k3[i]);
-  t+=dt;
 }
 
 // DOP853 integrator re-written as a C++ class

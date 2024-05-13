@@ -9,8 +9,10 @@ const char dat_suff[] = "lddat";
 Duffing_ode ode(-1.0,1.0,0.5,0.3,1.2); // chaos
 ode_solspc_meta meta0(ode.eor,ode.ndep);
 
-dop853_settings ode_integrator_settings;
-dop853_integrator ode_integrator(ode,ode_integrator_settings);
+// dop853_settings ode_integrator_settings;
+// dop853_integrator ode_integrator(ode,ode_integrator_settings);
+DoPri5_settings ode_integrator_settings;
+DoPri5 ode_integrator(ode,ode_integrator_settings);
 
 const int nc = 50, // number of curves
           np = 300; // points per curve
@@ -26,7 +28,8 @@ orthopolynomial_space fspace0(meta0,bor);
 const bool  write_JFs = true,
             write_dnp1xu = true;
 
-const char exp_name[] = "true_obs";
+// const char exp_name[] = "true_obs";
+const char exp_name[] = "DoPri5_true_obs";
 
 char name_buffer[200];
 

@@ -16,7 +16,8 @@ const int bor = 10;
 // const int bor = 7;
 // const int bor = 6;
 
-const char exp_name[] = "true_obs";
+// const char exp_name[] = "true_obs";
+const char exp_name[] = "DoPri5_true_obs";
 
 orthopolynomial_space fspace0(meta0, bor);
 

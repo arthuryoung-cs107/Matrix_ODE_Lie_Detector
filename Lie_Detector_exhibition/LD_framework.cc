@@ -53,12 +53,13 @@ void generated_ode_observations::set_random_ICs(LD_rng rng_, const double *ICR_)
 void generated_ode_observations::generate_solution_curves(ode_integrator &integrator_, const double * indep_range_)
 {
   integrator_.del_t = (indep_range_[1]-indep_range_[0])/((double)(npts-1));
-  double  * const wvec = integrator_.get_wvec(),
+  // double  * const wvec = integrator_.get_wvec(),
+  double  * const u_state = integrator_.get_u_state(),
           ** const integr_wkspc = Tmatrix<double>(npts,ndof_ODE);
   for (size_t icrv = 0; icrv < ncrv; icrv++)
   {
     for (size_t i_dof = 0; i_dof < ndof_ODE; i_dof++)
-      wvec[i_dof] = pts_IC[icrv][i_dof+1];
+      u_state[i_dof] = pts_IC[icrv][i_dof+1];
     integrator_.init_curve_integration(icrv);
     integrator_.set_and_solve_time(indep_range_[0],indep_range_[1],npts,integr_wkspc);
     integrator_.unpack_time_sol(indep_range_[0],npts,integr_wkspc,pts_IC[icrv]);
