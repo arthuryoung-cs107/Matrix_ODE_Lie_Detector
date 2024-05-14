@@ -71,6 +71,7 @@ struct ode_system: public ode_solspc_meta
 
   virtual void dudx_eval(double x_, double *u_, double *dudx_) = 0;
   virtual void JacF_eval(double x_, double *u_, double **dls_out_) = 0;
+  virtual void dnp1xu_eval(double x_, double *u_, double *dnp1xu_) = 0;
 };
 
 struct ode_integrator
@@ -104,7 +105,6 @@ struct ode_integrator
   }
 
   virtual double * get_u_state() = 0;
-  // virtual double * get_wvec() = 0;
   virtual void set_and_solve_time(double tstart_, double tend_, int snaps_, double **wkspc_) = 0;
 
 };

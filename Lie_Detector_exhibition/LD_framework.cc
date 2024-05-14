@@ -66,7 +66,6 @@ void generated_ode_observations::generate_solution_curves(ode_integrator &integr
   }
   free_Tmatrix<double>(integr_wkspc);
 }
-
 void generated_ode_observations::write_solution_curves(const char name_[])
 {
   FILE * file_out = LD_io::fopen_SAFE(name_,"wb");
@@ -78,9 +77,68 @@ void generated_ode_observations::write_solution_curves(const char name_[])
   printf("(generated_ode_observations::write_solution_curves) wrote %s\n",name_);
 }
 
+void generated_ode_observations::generate_JFs()
+{
+  const int len_JFs_i = ndep*ndim;
+  double  * const Jac_chunk = JFs_in = new double[len_JFs_i*nobs],
+          ** const JFs_mat_i = new double*[ndep];
+  for (size_t iobs = 0; iobs < nobs; iobs++)
+  {
+    double  * const Jac_mat_i_start = Jac_chunk + (iobs*len_JFs_i),
+            * const pts_i = pts_in + (iobs*ndim);
+    for (size_t idep = 0; idep < ndep; idep++) JFs_mat_i[idep] = Jac_mat_i_start + (idep*ndim);
+    ode.JacF_eval(pts_i[0],pts_i+1,JFs_mat_i);
+  }
+  delete [] JFs_mat_i;
+}
+void generated_ode_observations::write_JFs(const char name_[])
+{
+  int hlen = 4,
+      len_JFs = ndep*ndim*nobs,
+      header[] = {hlen,len_JFs,nobs,ndep,ndim};
+  FILE * file_out = LD_io::fopen_SAFE(name_,"wb");
+  fwrite(header,sizeof(int),hlen+1,file_out);
+  fwrite(JFs_in,sizeof(double),len_JFs,file_out);
+  LD_io::fclose_SAFE(file_out);
+  printf("(generated_ode_observations::write_JFs) wrote %s\n",name_);
+}
+
+void generated_ode_observations::generate_dnp1xu()
+{
+  dnp1xu_in = new double[ndep*nobs];
+  for (size_t iobs = 0; iobs < nobs; iobs++)
+  {
+    double  * const pts_i = pts_in + (iobs*ndim);
+    ode.dnp1xu_eval(pts_i[0],pts_i+1,dnp1xu_in + (iobs*ndep));
+  }
+}
+void generated_ode_observations::write_dnp1xu(const char name_[])
+{
+  int hlen = 3,
+      len_dnp1xu = ndep*nobs,
+      header[] = {hlen,len_dnp1xu,nobs,ndep};
+  FILE * file_out = LD_io::fopen_SAFE(name_,"wb");
+  fwrite(header,sizeof(int),hlen+1,file_out);
+  fwrite(dnp1xu_in,sizeof(double),len_dnp1xu,file_out);
+  LD_io::fclose_SAFE(file_out);
+  printf("(generated_ode_observations::write_dnp1xu) wrote %s\n",name_);
+}
+
 input_ode_observations::input_ode_observations(const char name_[]): ode_curve_observations(), name(LD_io::duplicate_string(name_))
 {
   FILE * file_in = LD_io::fopen_SAFE(name,"r");
+  LD_io::fread_SAFE(ode_meta,sizeof(int),2,file_in);
+  LD_io::fread_SAFE(obs_meta,sizeof(int),2,file_in);
+  npts_per_crv = new int[ncrv];
+  int ndim = 1+(ndep*(eor+1));
+  pts_in = new double[ndim*nobs];
+  LD_io::fread_SAFE(npts_per_crv,sizeof(int),ncrv,file_in);
+  LD_io::fread_SAFE(pts_in,sizeof(double),ndim*nobs,file_in);
+  LD_io::fclose_SAFE(file_in);
+}
+input_ode_observations::input_ode_observations(const char name_[],const char name1_[]): input_ode_observations(name_)
+{
+  FILE * file_in = LD_io::fopen_SAFE(name1_,"r");
   LD_io::fread_SAFE(ode_meta,sizeof(int),2,file_in);
   LD_io::fread_SAFE(obs_meta,sizeof(int),2,file_in);
   npts_per_crv = new int[ncrv];

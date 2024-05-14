@@ -21,6 +21,7 @@ class Duffing_ode: public known_ode
 
     void dudx_eval(double x_, double *u_, double *dudx_);
     void JacF_eval(double x_, double *u_, double **Jac_out_);
+    void dnp1xu_eval(double x_, double *u_, double *dnp1xu_);
 
     inline const double * get_default_IC_indep_range() {return Duffing_x_range_def;}
     inline const double * get_default_IC_range() {return Duffing_IC_range_def[0];}

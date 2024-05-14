@@ -49,11 +49,15 @@ int main()
 
   if (write_JFs)
   {
-
+    inputs_gen.generate_JFs();
+    sprintf(name_buffer,"%s/%s_%s_%s.%s",dir_name,ode.name,exp_name,"JFs",dat_suff);
+    inputs_gen.write_JFs(name_buffer);
   }
   if (write_dnp1xu)
   {
-
+    inputs_gen.generate_dnp1xu();
+    sprintf(name_buffer,"%s/%s_%s_%s.%s",dir_name,ode.name,exp_name,"dnp1xu",dat_suff);
+    inputs_gen.write_dnp1xu(name_buffer);
   }
 
   sprintf(name_buffer,"%s/%s_%s.%s",dir_name,ode.name,exp_name,dat_suff);

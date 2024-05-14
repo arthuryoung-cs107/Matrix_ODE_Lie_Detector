@@ -101,7 +101,9 @@ class rspace_infinitesimal_generator: public infinitesimal_generator
     double  ** Kmat;
 
     void init_dudx_eval(int icrv_) {Kmat = Ktns[icrv_] + (ndof-kappa);}
-    void JacF_eval(double x_, double *u_, double **dls_out_) {}
+
+    void JacF_eval(double x_, double *u_, double **dls_out_) {} // do later
+    void dnp1xu_eval(double x_, double *u_, double *dnp1xu_) {} // do later
 
     static void init_extended_observations(ode_curve_observations &obs_out_,ode_curve_observations &obs_in_)
     {
