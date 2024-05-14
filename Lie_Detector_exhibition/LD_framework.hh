@@ -64,11 +64,19 @@ struct generated_ode_observations: public ode_curve_observations
 struct input_ode_observations: public ode_curve_observations
 {
   input_ode_observations(const char name_[]);
-  input_ode_observations(const char name_[], const char name1_[]);
+
+  input_ode_observations(const char name_[], const char name1_[]):
+    input_ode_observations(name_)
+    {read_additional_observations(name1_);}
+
+  input_ode_observations(const char name_[], const char name1_[], const char name2_[]):
+    input_ode_observations(name_,name1_)
+    {read_additional_observations(name2_);}
   ~input_ode_observations();
 
   char * const name;
   void print_details();
+  void read_additional_observations(const char name_addtl_[]);
 };
 
 struct LD_observations_set: public ode_solspc_element

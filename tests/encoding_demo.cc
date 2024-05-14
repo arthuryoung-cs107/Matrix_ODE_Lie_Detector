@@ -22,7 +22,9 @@ const char exp_name[] = "DoPri5_true_obs";
 
 orthopolynomial_space fspace0(meta0, bor);
 
-char name_buffer[200];
+char  name_buffer[200],
+      name_JFs_buffer[200],
+      name_dnp1xu_buffer[200];
 
 int main()
 {
@@ -35,7 +37,14 @@ int main()
   bases0[LD_threads::thread_id()]->debugging_description();
 
   sprintf(name_buffer, "%s/%s_%s.%s", dir_name,eqn_name,exp_name,dat_suff);
-  LD_observations_set Sdat(meta0,input_ode_observations(name_buffer));
+  sprintf(name_JFs_buffer, "%s/%s_%s_%s.%s", dir_name,eqn_name,exp_name,"JFs",dat_suff);
+  sprintf(name_dnp1xu_buffer, "%s/%s_%s_%s.%s", dir_name,eqn_name,exp_name,"dnp1xu",dat_suff);
+
+  // LD_observations_set Sdat(meta0,input_ode_observations(name_buffer));
+  // LD_observations_set Sdat(meta0,input_ode_observations(name_buffer,name_JFs_buffer));
+  // LD_observations_set Sdat(meta0,input_ode_observations(name_buffer,name_dnp1xu_buffer));
+  LD_observations_set Sdat(meta0,input_ode_observations(name_buffer,name_dnp1xu_buffer,name_JFs_buffer));
+
   LD_R_matrix Rmat(fspace0,Sdat);
   Rmat.populate_R_matrix<orthopolynomial_basis>(bases0);
   sprintf(name_buffer, "%s/%s_%s.%d.Rmat_%s.%s", dir_name,eqn_name,bse_name,bor,exp_name,dat_suff);
