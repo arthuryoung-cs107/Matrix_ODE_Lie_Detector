@@ -79,20 +79,14 @@ void rk_adaptive::set_and_solve_time(double tstart_, double tend_, int snaps_, d
 }
 
 Sun5::Sun5(ode_system &ode_): rk_fixed(ode_,"Sun5",3), r6(sqrt(6.0)),
-dq(new double[ndof_ODE]), kb_wkspc(Tmatrix<double>(3,ndof_ODE))
-{}
-Sun5::~Sun5()
-{delete [] dq; free_Tmatrix<double>(kb_wkspc);}
+dq(new double[ndof_ODE]), kb_wkspc(Tmatrix<double>(3,ndof_ODE)) {}
+Sun5::~Sun5() {delete [] dq; free_Tmatrix<double>(kb_wkspc);}
 
-DoPri5::DoPri5(ode_system &ode_): rk_adaptive(ode_,"DoPri5",6,5), ysti(new double[ndof_ODE])
-{}
-DoPri5::~DoPri5()
-{delete [] ysti;}
+DoPri5::DoPri5(ode_system &ode_): rk_adaptive(ode_,"DoPri5",6,5), ysti(new double[ndof_ODE]) {}
+DoPri5::~DoPri5() {delete [] ysti;}
 
-DoP853::DoP853(ode_system &ode_): rk_adaptive(ode_,"DoP853",10,8)
-{}
-DoP853::~DoP853()
-{}
+DoP853::DoP853(ode_system &ode_): rk_adaptive(ode_,"DoP853",10,8) {}
+DoP853::~DoP853() {}
 
 void Sun5::step(double dt)
 {
@@ -313,7 +307,7 @@ double DoPri5::hinit(double hmax_, double posneg_)
 {
   double  dnf = 0.0,
           dny = 0.0;
-  for (size_t i = 0; i < ndof_ODE; i++)
+  for (int i = 0; i < ndof_ODE; i++)
   {
     double  sk = atoli + rtoli * fabs(y[i]),
             sqr = k1[i]/sk;

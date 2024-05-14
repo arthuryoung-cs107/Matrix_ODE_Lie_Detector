@@ -20,9 +20,12 @@ const int bor = 10;
 // const char exp_name[] = "true_obs";
 // const char rec_name[] = "true_rec";
 // const char ext_name[] = "true_ext";
-const char exp_name[] = "DoPri5_true_obs";
-const char rec_name[] = "DoPri5_true_rec";
-const char ext_name[] = "DoPri5_true_ext";
+// const char exp_name[] = "DoPri5_true_obs";
+// const char rec_name[] = "DoPri5_true_rec";
+// const char ext_name[] = "DoPri5_true_ext";
+const char exp_name[] = "DoP853_true_obs";
+const char rec_name[] = "DoP853_true_rec";
+const char ext_name[] = "DoP853_true_ext";
 
 const char mat_name[] = "Rmat";
 
@@ -51,8 +54,10 @@ int main()
 
   // dop853_settings infgen_integrator_settings;
   // dop853_integrator infgen_integrator(rinfgen0,infgen_integrator_settings);
-  DoPri5_settings infgen_integrator_settings;
-  DoPri5 infgen_integrator(rinfgen0,infgen_integrator_settings);
+  // DoPri5_settings infgen_integrator_settings;
+  // DoPri5 infgen_integrator(rinfgen0,infgen_integrator_settings);
+  DoP853_settings infgen_integrator_settings;
+  DoP853 infgen_integrator(rinfgen0,infgen_integrator_settings);
 
   generated_ode_observations inputs_recon(rinfgen0,Sdat.ncrvs_tot,Sdat.min_npts_curve());
   inputs_recon.set_solcurve_ICs(Sdat.curves);
