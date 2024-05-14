@@ -17,19 +17,15 @@ const int bor = 10;
 // const int bor = 7;
 // const int bor = 6;
 
-// const char exp_name[] = "true_obs";
-// const char rec_name[] = "true_rec";
-// const char ext_name[] = "true_ext";
-const char exp_name[] = "DoPri5_true_obs";
-const char rec_name[] = "DoPri5_true_rec";
-const char ext_name[] = "DoPri5_true_ext";
-// const char exp_name[] = "DoP853_true_obs";
-// const char rec_name[] = "DoP853_true_rec";
-// const char ext_name[] = "DoP853_true_ext";
+// const char exp_name[] = "true_obs"; const char rec_name[] = "true_rec"; const char ext_name[] = "true_ext";
+// const char exp_name[] = "DoPri5_true_obs"; const char rec_name[] = "DoPri5_true_rec"; const char ext_name[] = "DoPri5_true_ext";
+const char exp_name[] = "DoP853_true_obs"; const char rec_name[] = "DoP853_true_rec"; const char ext_name[] = "DoP853_true_ext";
 
 const char mat_name[] = "Rmat";
 
 orthopolynomial_space fspace0(meta0, bor);
+
+const bool  extend_observations = true;
 
 char name_buffer[200];
 
@@ -52,12 +48,9 @@ int main()
 
   rspace_infinitesimal_generator rinfgen0(fspace0,Rmat_svd.kappa_def(),Rmat_svd.VTtns);
 
-  // dop853_settings infgen_integrator_settings;
-  // dop853_integrator infgen_integrator(rinfgen0,infgen_integrator_settings);
-  DoPri5_settings infgen_integrator_settings;
-  DoPri5 infgen_integrator(rinfgen0,infgen_integrator_settings);
-  // DoP853_settings infgen_integrator_settings;
-  // DoP853 infgen_integrator(rinfgen0,infgen_integrator_settings);
+  // dop853_settings integrator_settings; dop853_integrator infgen_integrator(rinfgen0,integrator_settings);
+  DoPri5_settings integrator_settings; DoPri5 infgen_integrator(rinfgen0,integrator_settings);
+  // DoP853_settings integrator_settings; DoP853 infgen_integrator(rinfgen0,integrator_settings);
 
   generated_ode_observations inputs_recon(rinfgen0,Sdat.ncrvs_tot,Sdat.min_npts_curve());
   inputs_recon.set_solcurve_ICs(Sdat.curves);
@@ -69,11 +62,14 @@ int main()
   orthopolynomial_basis ** bases0 = make_evaluation_bases<orthopolynomial_basis,orthopolynomial_space>(fspace0,nbases0);
   bases0[LD_threads::thread_id()]->debugging_description();
 
-  ode_curve_observations inputs_extnd(meta0.eor,meta0.ndep,inputs_recon.nobs);
-  rspace_infinitesimal_generator::init_extended_observations(inputs_extnd,inputs_recon);
-  matrix_Lie_detector::extend_ode_observations<rspace_infinitesimal_generator,orthopolynomial_basis>(inputs_extnd,rinfgen0,bases0);
-  sprintf(name_buffer,"%s/%s_%s.%s",dir_name,eqn_name,ext_name,dat_suff);
-  inputs_extnd.write_observed_solutions(name_buffer);
+  if (extend_observations)
+  {
+    ode_curve_observations inputs_extnd(meta0.eor,meta0.ndep,inputs_recon.nobs);
+    rspace_infinitesimal_generator::init_extended_observations(inputs_extnd,inputs_recon);
+    matrix_Lie_detector::extend_ode_observations<rspace_infinitesimal_generator,orthopolynomial_basis>(inputs_extnd,rinfgen0,bases0);
+    sprintf(name_buffer,"%s/%s_%s.%s",dir_name,eqn_name,ext_name,dat_suff);
+    inputs_extnd.write_observed_solutions(name_buffer);    
+  }
 
   free_evaluation_bases<orthopolynomial_basis>(nbases0,bases0);
 }

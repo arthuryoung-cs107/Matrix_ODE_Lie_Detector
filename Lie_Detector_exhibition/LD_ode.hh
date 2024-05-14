@@ -106,7 +106,6 @@ struct ode_integrator
 
   virtual double * get_u_state() = 0;
   virtual void set_and_solve_time(double tstart_, double tend_, int snaps_, double **wkspc_) = 0;
-
 };
 
 #endif
