@@ -1,6 +1,8 @@
 #ifndef LD_UTIL_HH
 #define LD_UTIL_HH
 
+#include <cstddef>
+
 #ifdef _OPENMP
   #include "omp.h"
 #endif
