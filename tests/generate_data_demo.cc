@@ -11,10 +11,10 @@ ode_solspc_meta meta0(ode.eor,ode.ndep);
 
 // dop853_settings ode_integrator_settings;
 // dop853_integrator ode_integrator(ode,ode_integrator_settings);
-// DoPri5_settings ode_integrator_settings;
-// DoPri5 ode_integrator(ode,ode_integrator_settings);
-DoP853_settings ode_integrator_settings;
-DoP853 ode_integrator(ode,ode_integrator_settings);
+DoPri5_settings ode_integrator_settings;
+DoPri5 ode_integrator(ode,ode_integrator_settings);
+// DoP853_settings ode_integrator_settings;
+// DoP853 ode_integrator(ode,ode_integrator_settings);
 
 const int nc = 50, // number of curves
           np = 300; // points per curve
@@ -31,8 +31,8 @@ const bool  write_JFs = true,
             write_dnp1xu = true;
 
 // const char exp_name[] = "true_obs";
-// const char exp_name[] = "DoPri5_true_obs";
-const char exp_name[] = "DoP853_true_obs";
+const char exp_name[] = "DoPri5_true_obs";
+// const char exp_name[] = "DoP853_true_obs";
 
 char name_buffer[200];
 
