@@ -22,8 +22,8 @@ struct ode_curve_observations
 
   int * npts_per_crv = NULL;
   double  * pts_in = NULL,
-          * JFs_in = NULL,
-          * dnp1xu_in = NULL;
+          * dnp1xu_in = NULL,
+          * JFs_in = NULL;
 
   inline int nobs_ioffset(int icrv_)
     {int ioffset = 0; for (size_t i = 0; i < icrv_; i++) ioffset += npts_per_crv[i]; return ioffset;}
@@ -64,14 +64,10 @@ struct generated_ode_observations: public ode_curve_observations
 struct input_ode_observations: public ode_curve_observations
 {
   input_ode_observations(const char name_[]);
-
   input_ode_observations(const char name_[], const char name1_[]):
-    input_ode_observations(name_)
-    {read_additional_observations(name1_);}
-
+    input_ode_observations(name_) {read_additional_observations(name1_);}
   input_ode_observations(const char name_[], const char name1_[], const char name2_[]):
-    input_ode_observations(name_,name1_)
-    {read_additional_observations(name2_);}
+    input_ode_observations(name_,name1_) {read_additional_observations(name2_);}
   ~input_ode_observations();
 
   char * const name;
@@ -79,20 +75,19 @@ struct input_ode_observations: public ode_curve_observations
   void read_additional_observations(const char name_addtl_[]);
 };
 
-struct LD_observations_set: public ode_solspc_element
+struct LD_observations_set: public solspc_data_chunk
 {
   LD_observations_set(ode_solspc_meta &meta_, input_ode_observations input_);
   ~LD_observations_set();
 
-  const int ncrvs_tot,
-            nobs_full;
-  int * const npts_per_crv;
-  double  * const pts_chunk_full,
-          ** const pts_mat_full,
-          *** const pts_tns_full;
+  const int ncrvs_tot;
 
+  int * const npts_per_crv;
+  double  *** const pts_tns;
   ode_solcurve ** const curves;
-  ode_solution ** const sols_full;
+
+  double  *** dnp1xu_tns = NULL,
+          **** JFs_crv = NULL;
 
   inline double * get_default_IC_indep_range(int icrv_=0)
   {
@@ -128,7 +123,9 @@ struct LD_observations_set: public ode_solspc_element
 
   private:
 
-    double * const indep_range;
+    // double * const indep_range;
+    double indep_range[2];
+
 };
 
 struct LD_experiment
@@ -139,14 +136,14 @@ struct LD_experiment
   LD_observations_set &Sset;
 
   const int ncrvs_tot = Sset.ncrvs_tot,
-            nobs_full = Sset.nobs_full;
+            nobs_full = Sset.nobs;
   int * const npts_per_crv = Sset.npts_per_crv;
-  double  * const pts_chunk_full = Sset.pts_chunk_full,
-          ** const pts_mat_full = Sset.pts_mat_full,
-          *** const pts_tns_full = Sset.pts_tns_full;
+  double  * const pts_chunk = Sset.pts_chunk,
+          ** const pts_mat = Sset.pts_mat,
+          *** const pts_tns = Sset.pts_tns;
 
   ode_solcurve ** const curves = Sset.curves;
-  ode_solution ** const sols_full = Sset.sols_full;
+  ode_solution ** const sols_full = Sset.sols;
 
   inline int min_npts_curve() {return Sset.min_npts_curve();}
   inline int max_npts_curve() {return Sset.max_npts_curve();}
@@ -220,7 +217,7 @@ class LD_R_matrix: public LD_matrix
         {
           fill_x_Rn_columns(i_dof,Rmat_i_,dxu,lambda_x_vec[i_L],Jac_xtheta_vdxu_tns[i_L]);
           i_dof++;
-        };
+        }
 
       for (size_t idep = 0; idep < ndep; idep++)
         for (size_t i_L = 0; i_L < perm_len; i_L++)
@@ -242,7 +239,6 @@ class LD_R_matrix: public LD_matrix
       Rmat_[idep][i_dof] = -(lambda_);
       for (size_t k = 1, i_R = idep + ndep; k < eor; k++, i_R += ndep)
         Rmat_[i_R][i_dof] = -(del_utheta_i[k-1]);
-      i_dof++;
     }
 };
 
@@ -271,12 +267,11 @@ class LD_G_matrix: public LD_matrix
 
   protected:
 
-    inline void fill_G_rows(partial_chunk &chunk_, ode_solution &sol_, double **Rmat_i_)
+    inline void fill_G_rows(partial_chunk &chunk_, ode_solution &sol_, double **Gmat_i_)
     {
       int i_dof = 0;
       double  &x = sol_.x,
-              * const u = sol_.u,
-              * const dxu = sol_.dxu,
+              ** const JFs = sol_.JFs,
               * const lambda_x_vec = chunk_.Jac_mat[0],
               ** const Lambda_xu_mat = chunk_.Jac_mat,
               *** const Jac_xtheta_vdxu_tns = chunk_.C_x,
@@ -285,31 +280,36 @@ class LD_G_matrix: public LD_matrix
       for (size_t i_L = 0; i_L < perm_len; i_L++)
         if (dof_tun_flags[i_L])
         {
-          fill_x_Rn_columns(i_dof,Rmat_i_,dxu,lambda_x_vec[i_L],Jac_xtheta_vdxu_tns[i_L]);
+          fill_x_G_columns(i_dof,Gmat_i_,JFs,lambda_x_vec[i_L],Jac_xtheta_vdxu_tns[i_L]);
           i_dof++;
-        };
+        }
 
       for (size_t idep = 0; idep < ndep; idep++)
         for (size_t i_L = 0; i_L < perm_len; i_L++)
           if (dof_tun_flags[i_L])
           {
-            fill_u_Rn_columns(i_dof,idep,Rmat_i_,Lambda_xu_mat[idep+1][i_L],Jac_utheta_vdxu_mat[i_L]);
+            fill_u_G_columns(i_dof,idep,Gmat_i_,JFs,Lambda_xu_mat[idep+1][i_L],Jac_utheta_vdxu_mat[i_L]);
             i_dof++;
           }
     }
-    inline void fill_x_Rn_columns(int i_dof, double **Rmat_, double *dxu_, double &lambda_, double **Jac_xtheta_i_vdxu_)
+    inline void fill_x_G_columns(int i_dof,double **Gmat_,double **JFs_,double &lambda_,double **Jac_xtheta_i_vdxu_)
     {
-      for (size_t idep = 0; idep < ndep; idep++) Rmat_[idep][i_dof] = dxu_[idep]*lambda_; // 1st order contribution
-      for (size_t k = 1, i_R = ndep; k < eor; k++)
-        for (size_t idep = 0; idep < ndep; idep++, i_R++)
-          Rmat_[i_R][i_dof] = dxu_[i_R]*lambda_ - Jac_xtheta_i_vdxu_[k-1][idep]; // subtract contribution to v1n
+      for (size_t idep = 0; idep < ndep; idep++) // tangent space constraint
+      {
+        Gmat_[idep][i_dof] = JFs_[idep][0]*lambda_;
+        for (size_t k = 1, idim = nvar; k <= eor; k++)
+          for (size_t jdep = 0; jdep < ndep; jdep++, idim++)
+            Gmat_[idep][i_dof] += JFs_[idep][idim]*Jac_xtheta_i_vdxu_[k-1][jdep];
+      }
     }
-    inline void fill_u_Rn_columns(int i_dof, int idep, double **Rmat_, double &lambda_, double *del_utheta_i)
+    inline void fill_u_G_columns(int i_dof,int idep,double **Gmat_,double **JFs_,double &lambda_,double *del_utheta_i)
     {
-      Rmat_[idep][i_dof] = -(lambda_);
-      for (size_t k = 1, i_R = idep + ndep; k < eor; k++, i_R += ndep)
-        Rmat_[i_R][i_dof] = -(del_utheta_i[k-1]);
-      i_dof++;
+      for (size_t jdep = 0; jdep < ndep; jdep++) // tangent space contraint
+      {
+        Gmat_[jdep][i_dof] = JFs_[jdep][1+idep]*lambda_;
+        for (size_t k = 1, idim = nvar+idep; k <= eor; k++, idim+=ndep)
+          Gmat_[jdep][i_dof] += JFs_[jdep][idim]*del_utheta_i[k-1];
+      }
     }
 };
 

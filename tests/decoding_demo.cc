@@ -17,14 +17,16 @@ const int bor = 10;
 // const int bor = 6;
 
 // const char exp_name[] = "true_obs";
-const char exp_name[] = "DoPri5_true_obs";
-// const char exp_name[] = "DoP853_true_obs";
+// const char exp_name[] = "DoPri5_true_obs";
+const char exp_name[] = "DoP853_true_obs";
 
 const char mat_name[] = "Rmat";
 
 orthopolynomial_space fspace0(meta0, bor);
 
-char name_buffer[200];
+char  name_buffer[200],
+      name_dnp1xu_buffer[200],
+      name_JFs_buffer[200];
 
 int main()
 {

@@ -33,31 +33,81 @@ struct ode_solution: public ode_solspc_element
   double  * const pts,
           &x = pts[0],
           * const u = pts + 1,
-          * const dxu = pts + nvar;
+          * const dxu = pts + nvar,
+          * dnp1xu = NULL,
+          ** JFs = NULL;
+
   void print_sol();
 };
 
-struct ode_solspc_subset: public ode_solspc_element
+struct ode_solspc_subset: public ode_solspc_element // when the data is not necessarily contiguous
 {
-  ode_solspc_subset(ode_solspc_meta &meta_, int nobs_);
+  ode_solspc_subset(ode_solspc_meta &meta_,int nobs_,bool palloc_=true,bool Jalloc_=true);
+  ode_solspc_subset(ode_solspc_meta &meta_,int nobs_,double **pts_mat_,ode_solution **sols_,double **dnp1xu_mat_=NULL,double ***JFs_tns_=NULL);
+  ode_solspc_subset(ode_solspc_subset &s_):
+    ode_solspc_subset(s_.meta,s_.nobs,s_.pts_mat,s_.sols,s_.dnp1xu_mat,s_.JFs_tns) {}
+
   ~ode_solspc_subset();
 
+  const bool local_data;
   const int nobs;
   double  ** const pts_mat;
   ode_solution ** const sols;
+
+  double  ** dnp1xu_mat = NULL,
+          *** JFs_tns = NULL;
+
+  inline  void initialize_solutions(bool force_alloc_=false)
+  {
+    for (size_t i = 0; i < nobs; i++)
+      if (force_alloc_||(sols[i] == NULL)) sols[i] = new ode_solution(meta,pts_mat[i]);
+    if (dnp1xu_mat != NULL)
+      for (size_t i = 0; i < nobs; i++) sols[i]->dnp1xu = dnp1xu_mat[i];
+    if (JFs_tns != NULL)
+      for (size_t i = 0; i < nobs; i++) sols[i]->JFs = JFs_tns[i];
+  }
 
   inline void print_jsol(int j_) {sols[j_]->print_sol();}
   inline void print_subset() {for (size_t i = 0; i < nobs; i++) print_jsol(i);}
 };
 
-struct ode_solcurve: public ode_solspc_subset
+struct solspc_data_chunk: public ode_solspc_subset // when data is vectorized
 {
-  ode_solcurve(ode_solspc_meta &meta_, int nobs_, double *pts_chunk_, int icrv_);
+  solspc_data_chunk(ode_solspc_meta &meta_,int nobs_,bool palloc_=true,bool Jalloc_=true);
+  solspc_data_chunk(ode_solspc_meta &meta_,int nobs_,double **pts_mat_,ode_solution **sols_,double **dnp1xu_mat_=NULL,double ***JFs_tns_=NULL);
+  solspc_data_chunk(ode_solspc_subset &s_):
+    solspc_data_chunk(s_.meta,s_.nobs,s_.pts_mat,s_.sols,s_.dnp1xu_mat,s_.JFs_tns) {}
+  ~solspc_data_chunk();
+
+  const bool data_owner;
+  double  * const pts_chunk = pts_mat[0],
+          * dnp1xu_chunk = NULL,
+          * JFs_chunk = NULL,
+          ** JFs_rows = NULL;
+
+  inline void initialize_additional_data()
+  {
+    if (dnp1xu_mat != NULL) dnp1xu_chunk = dnp1xu_mat[0];
+    if (JFs_tns != NULL) {JFs_rows = JFs_tns[0]; JFs_chunk = JFs_rows[0];}
+  }
+};
+
+struct ode_solcurve: public solspc_data_chunk // data is vectorized, and on a one dimensional flow
+{
+  ode_solcurve(int icrv_,ode_solspc_meta &meta_,int nobs_,bool palloc_=true,bool Jalloc_=true);
+  ode_solcurve(int icrv_,ode_solspc_meta &meta_,int nobs_,double **pts_mat_,ode_solution **sols_,double **dnp1xu_mat_=NULL,double ***JFs_tns_=NULL);
+  ode_solcurve(int icrv_,ode_solspc_subset &s_):
+    ode_solcurve(icrv_,s_.meta,s_.nobs,s_.pts_mat,s_.sols,s_.dnp1xu_mat,s_.JFs_tns) {}
+  ode_solcurve(ode_solcurve &c_):
+    ode_solcurve(c_.icrv,c_.meta,c_.nobs,c_.pts_mat,c_.sols,c_.dnp1xu_mat,c_.JFs_tns) {}
   ~ode_solcurve();
 
   const int icrv;
-  double  * const pts_chunk,
-          * const pts0 = pts_chunk;
+  double  * const pts0 = pts_chunk,
+          * const eps_vec;
+
+  ode_solution  * const sol_0 = sols[0],
+                * const sol_f = sols[nobs-1];
 
   inline void print_curve() {print_subset();}
 };

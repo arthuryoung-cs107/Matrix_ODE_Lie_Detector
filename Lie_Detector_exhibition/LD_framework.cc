@@ -53,7 +53,6 @@ void generated_ode_observations::set_random_ICs(LD_rng rng_, const double *ICR_)
 void generated_ode_observations::generate_solution_curves(ode_integrator &integrator_, const double * indep_range_)
 {
   integrator_.del_t = (indep_range_[1]-indep_range_[0])/((double)(npts-1));
-  // double  * const wvec = integrator_.get_wvec(),
   double  * const u_state = integrator_.get_u_state(),
           ** const integr_wkspc = Tmatrix<double>(npts,ndof_ODE);
   for (size_t icrv = 0; icrv < ncrv; icrv++)
@@ -195,39 +194,28 @@ void input_ode_observations::print_details()
 }
 
 LD_observations_set::LD_observations_set(ode_solspc_meta &meta_, input_ode_observations input_):
-ode_solspc_element(meta_),
-ncrvs_tot(input_.ncrv), nobs_full(input_.nobs),
-npts_per_crv(new int[ncrvs_tot]), pts_chunk_full(new double[nobs_full*ndim]),
-pts_mat_full(new double*[nobs_full]), pts_tns_full(new double**[ncrvs_tot]),
-curves(new ode_solcurve*[ncrvs_tot]), sols_full(new ode_solution*[nobs_full]),
-indep_range(new double[2])
+solspc_data_chunk(meta_,input_.nobs,true,true),
+ncrvs_tot(input_.ncrv), npts_per_crv(new int[ncrvs_tot]), pts_tns(new double**[ncrvs_tot]), curves(new ode_solcurve*[ncrvs_tot]),
+dnp1xu_tns(new double**[ncrvs_tot]), JFs_crv(new double***[ncrvs_tot])
 {
-  LD_linalg::copy_vec<int>(npts_per_crv,input_.npts_per_crv,ncrvs_tot);
-  LD_linalg::copy_vec<double>(pts_chunk_full,input_.pts_in,nobs_full*ndim);
-  for (size_t icrv = 0, ipts=0, idim=0; icrv < ncrvs_tot; icrv++)
-  {
-    pts_tns_full[icrv] = pts_mat_full+ipts;
-    curves[icrv] = new ode_solcurve(meta_,npts_per_crv[icrv],pts_chunk_full+idim,icrv);
-    for (size_t ipts_crv = 0; ipts_crv < npts_per_crv[icrv]; ipts_crv++, ipts++, idim+=ndim)
-    {
-      pts_mat_full[ipts] = pts_chunk_full + idim;
-      sols_full[ipts] = curves[icrv]->sols[ipts_crv];
-    }
-  }
+  if (input_.npts_per_crv != NULL) LD_linalg::copy_vec<int>(npts_per_crv,input_.npts_per_crv,ncrvs_tot);
+  if (input_.pts_in != NULL) LD_linalg::copy_vec<double>(pts_chunk,input_.pts_in,nobs*ndim);
+  if (input_.dnp1xu_in != NULL) LD_linalg::copy_vec<double>(dnp1xu_chunk,input_.dnp1xu_in,nobs*ndep*ndim);
+  if (input_.JFs_in != NULL) LD_linalg::copy_vec<double>(JFs_chunk,input_.JFs_in,nobs*ndep*ndim);
+  for (size_t icrv = 0, ipts=0; icrv < ncrvs_tot; ipts+=npts_per_crv[icrv++])
+    curves[icrv] = new ode_solcurve(icrv,meta_,npts_per_crv[icrv],pts_tns[icrv] = pts_mat+ipts,
+                                                                  sols+ipts,
+                                                                  dnp1xu_tns[icrv] = dnp1xu_mat+ipts,
+                                                                  JFs_crv[icrv] = JFs_tns+ipts);
 }
 
 LD_observations_set::~LD_observations_set()
 {
   for (size_t i = 0; i < ncrvs_tot; i++) delete curves[i];
-  delete [] curves; delete [] sols_full;
+  delete [] curves;
 
-  delete [] pts_tns_full;
-  delete [] pts_mat_full;
-
+  delete [] pts_tns; delete [] JFs_crv; delete [] dnp1xu_tns;
   delete [] npts_per_crv;
-  delete [] pts_chunk_full;
-
-  delete [] indep_range;
 }
 
 void LD_observations_set::get_solspace_val_extrema(double **sve_g_)
@@ -242,9 +230,9 @@ void LD_observations_set::get_solspace_val_extrema(double **sve_g_)
       sve_t[1][l] = -1.0*DBL_MAX;
     }
     #pragma omp for nowait
-    for (int j = 0; j < nobs_full; j++)
+    for (int j = 0; j < nobs; j++)
     {
-      double * const pts_j = sols_full[j]->pts;
+      double * const pts_j = sols[j]->pts;
       for (int l = 0; l < ndim; l++)
       {
         if (sve_t[0][l]>pts_j[l]) sve_t[0][l]=pts_j[l];
@@ -284,9 +272,9 @@ void LD_observations_set::get_solspace_mag_extrema(double **sme_g_)
       sme_t[1][l] = 0.0;
     }
     #pragma omp for nowait
-    for (int j = 0; j < nobs_full; j++)
+    for (int j = 0; j < nobs; j++)
     {
-      double * const pts_j = sols_full[j]->pts;
+      double * const pts_j = sols[j]->pts;
       for (int l = 0; l < ndim; l++)
       {
         double mpjl = fabs(pts_j[l]);
