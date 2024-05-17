@@ -223,8 +223,18 @@ void LD_observations_set::load_additional_inputs(input_ode_observations input_, 
     if (input_.npts_per_crv != NULL) LD_linalg::copy_vec<int>(npts_per_crv,input_.npts_per_crv,ncrvs_tot);
     if (input_.pts_in != NULL) LD_linalg::copy_vec<double>(pts_chunk,input_.pts_in,nobs*ndim);
   }
-  if (input_.dnp1xu_in != NULL) alloc_dnp1xu_safe(input_.dnp1xu_in);
-  if (input_.JFs_in != NULL) alloc_JFs_safe(input_.JFs_in);
+  if (input_.dnp1xu_in != NULL)
+  {
+    alloc_dnp1xu_safe(input_.dnp1xu_in);
+    dnp1xu_tns = new double**[ncrvs_tot];
+    for (size_t icrv = 0, ipts=0; icrv < ncrvs_tot; ipts+=npts_per_crv[icrv++]) dnp1xu_tns[icrv] = dnp1xu_mat+ipts;
+  }
+  if (input_.JFs_in != NULL)
+  {
+    alloc_JFs_safe(input_.JFs_in);
+    JFs_crv = new double***[ncrvs_tot];
+    for (size_t icrv = 0, ipts=0; icrv < ncrvs_tot; ipts+=npts_per_crv[icrv++]) JFs_crv[icrv] = JFs_tns+ipts;
+  }
 }
 
 void LD_observations_set::get_solspace_val_extrema(double **sve_g_)

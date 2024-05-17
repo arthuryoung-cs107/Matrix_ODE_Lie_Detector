@@ -11,6 +11,7 @@ struct ode_curve_observations
   ode_curve_observations(int eor_, int ndep_, int nobs_);
   ode_curve_observations(int eor_, int ndep_, int ncrv_, int nobs_);
   ode_curve_observations(ode_solspc_meta &meta_, int ncrv_, int nobs_): ode_curve_observations(meta_.eor,meta_.ndep,ncrv_,nobs_) {}
+
   ~ode_curve_observations();
 
   int eor,
