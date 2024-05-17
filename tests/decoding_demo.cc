@@ -21,6 +21,7 @@ const char exp_name[] = "DoP853_true_obs";
 
 const char Rmat_name[] = "Rmat";
 const char Pmat_name[] = "Pmat";
+const char Qmat_name[] = "Qmat";
 const char Gmat_name[] = "Gmat";
 
 orthopolynomial_space fspace0(meta0, bor);
@@ -58,6 +59,15 @@ int main()
   Pmat_svd.print_details();
   sprintf(name_buffer, "%s/%s_%s.%d.%s_%s_svd.%s", dir_name,eqn_name,bse_name,bor,Pmat_name,exp_name,dat_suff);
   Pmat_svd.write_svd_results(name_buffer);
+
+  LD_Q_matrix Qmat(fspace0,Sdat);
+  sprintf(name_buffer, "%s/%s_%s.%d.%s_%s.%s", dir_name,eqn_name,bse_name,bor,Qmat_name,exp_name,dat_suff);
+  Qmat.read_matrix(name_buffer);
+  LD_matrix_svd_result Qmat_svd(Qmat.ncrvs_tot,Qmat.ndof_full);
+  matrix_Lie_detector::compute_curve_svds(Qmat,Qmat_svd,Qmat.min_nrow_curve());
+  Qmat_svd.print_details();
+  sprintf(name_buffer, "%s/%s_%s.%d.%s_%s_svd.%s", dir_name,eqn_name,bse_name,bor,Qmat_name,exp_name,dat_suff);
+  Qmat_svd.write_svd_results(name_buffer);
 
   LD_G_matrix Gmat(fspace0,Sdat);
   sprintf(name_buffer, "%s/%s_%s.%d.%s_%s.%s", dir_name,eqn_name,bse_name,bor,Gmat_name,exp_name,dat_suff);

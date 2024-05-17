@@ -21,6 +21,7 @@ const char exp_name[] = "DoP853_true_obs";
 
 const char Rmat_name[] = "Rmat";
 const char Pmat_name[] = "Pmat";
+const char Qmat_name[] = "Qmat";
 const char Gmat_name[] = "Gmat";
 
 orthopolynomial_space fspace0(meta0, bor);
@@ -54,6 +55,11 @@ int main()
   Pmat.populate_P_matrix<orthopolynomial_basis>(bases0);
   sprintf(name_buffer, "%s/%s_%s.%d.%s_%s.%s", dir_name,eqn_name,bse_name,bor,Pmat_name,exp_name,dat_suff);
   Pmat.write_matrix(name_buffer);
+
+  LD_Q_matrix Qmat(fspace0,Sdat);
+  Qmat.populate_Q_matrix<orthopolynomial_basis>(bases0);
+  sprintf(name_buffer, "%s/%s_%s.%d.%s_%s.%s", dir_name,eqn_name,bse_name,bor,Qmat_name,exp_name,dat_suff);
+  Qmat.write_matrix(name_buffer);
 
   LD_G_matrix Gmat(fspace0,Sdat);
   Gmat.populate_G_matrix<orthopolynomial_basis>(bases0);
