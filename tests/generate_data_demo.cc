@@ -54,7 +54,7 @@ int main()
   }
 
   sprintf(name_buffer,"%s/%s_%s.%s",dir_name,ode.name,exp_name,dat_suff);
-  LD_observations_set Strue(meta0,input_ode_observations(name_buffer));
+  LD_observations_set Strue(meta0,ode_curve_observations(name_buffer));
 
   fspace0.set_Legendre_coeffs(); Strue.configure_centered_domain(fspace0);
   fspace0.debugging_description();

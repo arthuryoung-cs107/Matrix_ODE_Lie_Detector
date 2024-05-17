@@ -11,7 +11,11 @@ struct ode_curve_observations
   ode_curve_observations(int eor_, int ndep_, int nobs_);
   ode_curve_observations(int eor_, int ndep_, int ncrv_, int nobs_);
   ode_curve_observations(ode_solspc_meta &meta_, int ncrv_, int nobs_): ode_curve_observations(meta_.eor,meta_.ndep,ncrv_,nobs_) {}
-
+  ode_curve_observations(const char name_[]);
+  ode_curve_observations(const char name_[], const char name1_[]):
+    ode_curve_observations(name_) {read_additional_observations(name1_);}
+  ode_curve_observations(const char name_[], const char name1_[], const char name2_[]):
+    ode_curve_observations(name_,name1_) {read_additional_observations(name2_);}
   ~ode_curve_observations();
 
   int eor,
@@ -32,6 +36,8 @@ struct ode_curve_observations
 
   inline bool palloc() {return dnp1xu_in!=NULL;}
   inline bool Jalloc() {return JFs_in!=NULL;}
+
+  void read_additional_observations(const char name_addtl_[]);
 
   void write_observed_solutions(const char name_[]);
 };
@@ -65,23 +71,9 @@ struct generated_ode_observations: public ode_curve_observations
   void write_dnp1xu(const char name_[]);
 };
 
-struct input_ode_observations: public ode_curve_observations
-{
-  input_ode_observations(const char name_[]);
-  input_ode_observations(const char name_[], const char name1_[]):
-    input_ode_observations(name_) {read_additional_observations(name1_);}
-  input_ode_observations(const char name_[], const char name1_[], const char name2_[]):
-    input_ode_observations(name_,name1_) {read_additional_observations(name2_);}
-  ~input_ode_observations();
-
-  char * const name;
-  void print_details();
-  void read_additional_observations(const char name_addtl_[]);
-};
-
 struct LD_observations_set: public solspc_data_chunk
 {
-  LD_observations_set(ode_solspc_meta &meta_, input_ode_observations input_);
+  LD_observations_set(ode_solspc_meta &meta_, ode_curve_observations input_);
   ~LD_observations_set();
 
   const int ncrvs_tot;
@@ -93,7 +85,7 @@ struct LD_observations_set: public solspc_data_chunk
   double  *** dnp1xu_tns = NULL,
           **** JFs_crv = NULL;
 
-  void load_additional_inputs(input_ode_observations input_, bool overwrite_basics_=false);
+  void load_additional_inputs(ode_curve_observations input_, bool overwrite_basics_=false);
 
   inline double * get_default_IC_indep_range(int icrv_=0)
   {

@@ -37,7 +37,7 @@ int main()
   fspace0.debugging_description();
 
   sprintf(name_buffer, "%s/%s_%s.%s", dir_name,eqn_name,exp_name,dat_suff);
-  LD_observations_set Sdat(meta0,input_ode_observations(name_buffer));
+  LD_observations_set Sdat(meta0,ode_curve_observations(name_buffer));
   LD_R_matrix Rmat(fspace0,Sdat);
   sprintf(name_buffer, "%s/%s_%s.%d.%s_%s.%s", dir_name,eqn_name,bse_name,bor,mat_name,exp_name,dat_suff);
   Rmat.read_matrix(name_buffer);

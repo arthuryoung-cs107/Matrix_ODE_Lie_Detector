@@ -39,7 +39,7 @@ int main()
   sprintf(name_dnp1xu_buffer, "%s/%s_%s_%s.%s", dir_name,eqn_name,exp_name,"dnp1xu",dat_suff);
   sprintf(name_JFs_buffer, "%s/%s_%s_%s.%s", dir_name,eqn_name,exp_name,"JFs",dat_suff);
 
-  LD_observations_set Sdat(meta0,input_ode_observations(name_buffer,name_dnp1xu_buffer,name_JFs_buffer));
+  LD_observations_set Sdat(meta0,ode_curve_observations(name_buffer,name_dnp1xu_buffer,name_JFs_buffer));
 
   LD_R_matrix Rmat(fspace0,Sdat);
   sprintf(name_buffer, "%s/%s_%s.%d.%s_%s.%s", dir_name,eqn_name,bse_name,bor,Rmat_name,exp_name,dat_suff);
