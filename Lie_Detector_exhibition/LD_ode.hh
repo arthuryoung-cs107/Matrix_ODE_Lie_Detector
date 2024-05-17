@@ -1,6 +1,6 @@
 #ifndef LD_ODE_HH
 #define LD_ODE_HH
-#include <cstddef>
+#include "LD_util.hh"
 
 struct ode_solspc_meta
 {
@@ -46,7 +46,6 @@ struct ode_solspc_subset: public ode_solspc_element // when the data is not nece
   ode_solspc_subset(ode_solspc_meta &meta_,int nobs_,double **pts_mat_,ode_solution **sols_,double **dnp1xu_mat_=NULL,double ***JFs_tns_=NULL);
   ode_solspc_subset(ode_solspc_subset &s_):
     ode_solspc_subset(s_.meta,s_.nobs,s_.pts_mat,s_.sols,s_.dnp1xu_mat,s_.JFs_tns) {}
-
   ~ode_solspc_subset();
 
   const bool local_data;
@@ -66,7 +65,6 @@ struct ode_solspc_subset: public ode_solspc_element // when the data is not nece
     if (JFs_tns != NULL)
       for (size_t i = 0; i < nobs; i++) sols[i]->JFs = JFs_tns[i];
   }
-
   inline void print_jsol(int j_) {sols[j_]->print_sol();}
   inline void print_subset() {for (size_t i = 0; i < nobs; i++) print_jsol(i);}
 };
@@ -85,6 +83,20 @@ struct solspc_data_chunk: public ode_solspc_subset // when data is vectorized
           * JFs_chunk = NULL,
           ** JFs_rows = NULL;
 
+  inline void alloc_dnp1xu_safe(double *dnp1xu_in_=NULL)
+  {
+    if ((dnp1xu_mat==NULL)&&data_owner&&(!local_data)) dnp1xu_mat=Tmatrix<double>(nobs,ndep);
+    initialize_solutions(false);
+    initialize_additional_data();
+    if (dnp1xu_in_!=NULL) for (size_t i = 0; i < nobs*ndep; i++) dnp1xu_chunk[i] = dnp1xu_in_[i];
+  }
+  inline void alloc_JFs_safe(double *JFs_in_=NULL)
+  {
+    if ((JFs_tns==NULL)&&data_owner&&(!local_data)) JFs_tns=T3tensor<double>(nobs,ndep,ndim);
+    initialize_solutions(false);
+    initialize_additional_data();
+    if (JFs_in_!=NULL) for (size_t i = 0; i < nobs*ndep*ndim; i++) JFs_chunk[i] = JFs_in_[i];
+  }
   inline void initialize_additional_data()
   {
     if (dnp1xu_mat != NULL) dnp1xu_chunk = dnp1xu_mat[0];

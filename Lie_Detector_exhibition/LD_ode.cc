@@ -1,5 +1,4 @@
 #include "LD_ode.hh"
-#include "LD_util.hh"
 #include <cstdio>
 
 ode_solspc_subset::ode_solspc_subset(ode_solspc_meta &meta_,int nobs_,bool palloc_,bool Jalloc_):

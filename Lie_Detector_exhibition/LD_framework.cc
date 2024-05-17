@@ -1,6 +1,4 @@
 #include "LD_framework.hh"
-#include "LD_aux.hh"
-#include "LD_io.hh"
 
 ode_curve_observations::ode_curve_observations(int eor_, int ndep_, int ncrv_, int nobs_):
 eor(eor_), ndep(ndep_), ncrv(ncrv_), nobs(nobs_),
@@ -194,28 +192,39 @@ void input_ode_observations::print_details()
 }
 
 LD_observations_set::LD_observations_set(ode_solspc_meta &meta_, input_ode_observations input_):
-solspc_data_chunk(meta_,input_.nobs,true,true),
+solspc_data_chunk(meta_,input_.nobs,input_.palloc(),input_.Jalloc()),
 ncrvs_tot(input_.ncrv), npts_per_crv(new int[ncrvs_tot]), pts_tns(new double**[ncrvs_tot]), curves(new ode_solcurve*[ncrvs_tot]),
-dnp1xu_tns(new double**[ncrvs_tot]), JFs_crv(new double***[ncrvs_tot])
+dnp1xu_tns((input_.palloc())?( new double**[ncrvs_tot] ):NULL),
+JFs_crv((input_.Jalloc())?( new double***[ncrvs_tot] ):NULL)
 {
   if (input_.npts_per_crv != NULL) LD_linalg::copy_vec<int>(npts_per_crv,input_.npts_per_crv,ncrvs_tot);
   if (input_.pts_in != NULL) LD_linalg::copy_vec<double>(pts_chunk,input_.pts_in,nobs*ndim);
-  if (input_.dnp1xu_in != NULL) LD_linalg::copy_vec<double>(dnp1xu_chunk,input_.dnp1xu_in,nobs*ndep*ndim);
+  if (input_.dnp1xu_in != NULL) LD_linalg::copy_vec<double>(dnp1xu_chunk,input_.dnp1xu_in,nobs*ndep);
   if (input_.JFs_in != NULL) LD_linalg::copy_vec<double>(JFs_chunk,input_.JFs_in,nobs*ndep*ndim);
   for (size_t icrv = 0, ipts=0; icrv < ncrvs_tot; ipts+=npts_per_crv[icrv++])
-    curves[icrv] = new ode_solcurve(icrv,meta_,npts_per_crv[icrv],pts_tns[icrv] = pts_mat+ipts,
+    curves[icrv] = new ode_solcurve(icrv,meta,npts_per_crv[icrv], pts_tns[icrv] = pts_mat+ipts,
                                                                   sols+ipts,
-                                                                  dnp1xu_tns[icrv] = dnp1xu_mat+ipts,
-                                                                  JFs_crv[icrv] = JFs_tns+ipts);
+                                                                  (dnp1xu_tns!=NULL)?(dnp1xu_tns[icrv] = dnp1xu_mat+ipts):NULL,
+                                                                  (JFs_crv!=NULL)?(JFs_crv[icrv] = JFs_tns+ipts):NULL);
 }
-
 LD_observations_set::~LD_observations_set()
 {
   for (size_t i = 0; i < ncrvs_tot; i++) delete curves[i];
   delete [] curves;
-
-  delete [] pts_tns; delete [] JFs_crv; delete [] dnp1xu_tns;
   delete [] npts_per_crv;
+  delete [] pts_tns;
+  if (dnp1xu_tns != NULL) delete [] dnp1xu_tns;
+  if (JFs_crv != NULL) delete [] JFs_crv;
+}
+void LD_observations_set::load_additional_inputs(input_ode_observations input_, bool overwrite_basics_)
+{
+  if (overwrite_basics_)
+  {
+    if (input_.npts_per_crv != NULL) LD_linalg::copy_vec<int>(npts_per_crv,input_.npts_per_crv,ncrvs_tot);
+    if (input_.pts_in != NULL) LD_linalg::copy_vec<double>(pts_chunk,input_.pts_in,nobs*ndim);
+  }
+  if (input_.dnp1xu_in != NULL) alloc_dnp1xu_safe(input_.dnp1xu_in);
+  if (input_.JFs_in != NULL) alloc_JFs_safe(input_.JFs_in);
 }
 
 void LD_observations_set::get_solspace_val_extrema(double **sve_g_)

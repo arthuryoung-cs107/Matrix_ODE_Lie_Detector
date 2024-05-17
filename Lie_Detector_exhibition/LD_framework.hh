@@ -29,6 +29,9 @@ struct ode_curve_observations
     {int ioffset = 0; for (size_t i = 0; i < icrv_; i++) ioffset += npts_per_crv[i]; return ioffset;}
   inline double *pts_icrv(int icrv_) {return pts_in + (1+ndep*(eor+1))*nobs_ioffset(icrv_);}
 
+  inline bool palloc() {return dnp1xu_in!=NULL;}
+  inline bool Jalloc() {return JFs_in!=NULL;}
+
   void write_observed_solutions(const char name_[]);
 };
 
@@ -89,6 +92,8 @@ struct LD_observations_set: public solspc_data_chunk
   double  *** dnp1xu_tns = NULL,
           **** JFs_crv = NULL;
 
+  void load_additional_inputs(input_ode_observations input_, bool overwrite_basics_=false);
+
   inline double * get_default_IC_indep_range(int icrv_=0)
   {
     ode_solcurve &crv_i = *(curves[icrv_]);
@@ -123,9 +128,7 @@ struct LD_observations_set: public solspc_data_chunk
 
   private:
 
-    // double * const indep_range;
     double indep_range[2];
-
 };
 
 struct LD_experiment
