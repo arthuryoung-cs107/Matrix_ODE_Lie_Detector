@@ -70,4 +70,6 @@ int main()
   fspace0.debugging_description();
   sprintf(name_buffer, "%s/%s_%s.%d.domain_config.%s", dir_name,ode.name,"Chebyshev2",bor,dat_suff);
   fspace0.write_configuration_file(name_buffer);
+
+  return 0;
 }

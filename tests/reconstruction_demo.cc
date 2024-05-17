@@ -4,8 +4,7 @@
 const char dir_name[] = "./data_directory";
 const char dat_suff[] = "lddat";
 
-const char eqn_name[] = "Duffing";
-ode_solspc_meta meta0(2,1);
+const char eqn_name[] = "Duffing"; ode_solspc_meta meta0(2,1);
 
 // const char bse_name[] = "Legendre";
 const char bse_name[] = "Chebyshev1";
@@ -74,4 +73,6 @@ int main()
   }
 
   free_evaluation_bases<orthopolynomial_basis>(nbases0,bases0);
+
+  return 0;
 }

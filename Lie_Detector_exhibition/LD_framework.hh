@@ -184,6 +184,7 @@ class LD_R_matrix: public LD_matrix
 
     template <class TBSIS> void populate_R_matrix(TBSIS **bases_)
     {
+      LD_linalg::fill_vec<double>(Avec,net_eles,0.0);
       #pragma omp parallel
       {
         int tid = LD_threads::thread_id();
@@ -204,8 +205,7 @@ class LD_R_matrix: public LD_matrix
     inline void fill_Rn_rows(partial_chunk &chunk_, ode_solution &sol_, double **Rmat_i_)
     {
       int i_dof = 0;
-      double  &x = sol_.x,
-              * const u = sol_.u,
+      double  * const u = sol_.u,
               * const dxu = sol_.dxu,
               * const lambda_x_vec = chunk_.Jac_mat[0],
               ** const Lambda_xu_mat = chunk_.Jac_mat,
@@ -242,6 +242,63 @@ class LD_R_matrix: public LD_matrix
     }
 };
 
+class LD_P_matrix: public LD_matrix
+{
+  public:
+    LD_P_matrix(function_space &fspc_,LD_observations_set &Sset_): LD_matrix(fspc_,Sset_,fspc_.ndep) {}
+    ~LD_P_matrix() {}
+
+    template <class TBSIS> void populate_P_matrix(TBSIS **bases_)
+    {
+      LD_linalg::fill_vec<double>(Avec,net_eles,0.0);
+      #pragma omp parallel
+      {
+        int tid = LD_threads::thread_id();
+        TBSIS &basis_t = *(bases_[tid]);
+        partial_chunk &chunk_t = basis_t.partials;
+        #pragma omp for
+        for (size_t iobs = 0; iobs < nobs_full; iobs++)
+        {
+          ode_solution &sol_i = *(sols_full[iobs]);
+          basis_t.fill_partial_chunk(sol_i.pts);
+          fill_P_rows(chunk_t,sol_i,Atns[iobs]);
+        }
+      }
+    }
+
+  protected:
+
+    inline void fill_P_rows(partial_chunk &chunk_, ode_solution &sol_, double **Pmat_i_)
+    {
+      int i_dof = 0;
+      double  * const dnp1xu = sol_.dnp1xu,
+              * const lambda_x_vec = chunk_.Jac_mat[0],
+              *** const Jac_xtheta_vdxu_tns = chunk_.C_x,
+              ** const Jac_utheta_vdxu_mat = chunk_.C_u;
+
+      for (size_t i_L = 0; i_L < perm_len; i_L++)
+        if (dof_tun_flags[i_L])
+        {
+          fill_x_P_columns(i_dof,Pmat_i_,dnp1xu,lambda_x_vec[i_L],Jac_xtheta_vdxu_tns[i_L][eor-1]);
+          i_dof++;
+        }
+
+      for (size_t idep = 0; idep < ndep; idep++)
+        for (size_t i_L = 0; i_L < perm_len; i_L++)
+          if (dof_tun_flags[i_L])
+          {
+            fill_u_P_columns(Pmat_i_[idep][i_dof],Jac_utheta_vdxu_mat[i_L][eor-1]);
+            i_dof++;
+          }
+    }
+    inline void fill_x_P_columns(int i_dof, double **Pmat_, double *dnp1xu_, double &lambda_, double *Jac_xtheta_i_vdnxu_)
+    {
+      for (size_t idep = 0; idep < ndep; idep++)
+        Pmat_[idep][i_dof] = dnp1xu_[idep]*lambda_ - Jac_xtheta_i_vdnxu_[idep];
+    }
+    inline void fill_u_P_columns(double &Pmat_ij_,double par_utheta_i) {Pmat_ij_ = -(par_utheta_i);}
+};
+
 class LD_G_matrix: public LD_matrix
 {
   public:
@@ -250,6 +307,7 @@ class LD_G_matrix: public LD_matrix
 
     template <class TBSIS> void populate_G_matrix(TBSIS **bases_)
     {
+      LD_linalg::fill_vec<double>(Avec,net_eles,0.0);
       #pragma omp parallel
       {
         int tid = LD_threads::thread_id();
@@ -270,8 +328,7 @@ class LD_G_matrix: public LD_matrix
     inline void fill_G_rows(partial_chunk &chunk_, ode_solution &sol_, double **Gmat_i_)
     {
       int i_dof = 0;
-      double  &x = sol_.x,
-              ** const JFs = sol_.JFs,
+      double  ** const JFs = sol_.JFs,
               * const lambda_x_vec = chunk_.Jac_mat[0],
               ** const Lambda_xu_mat = chunk_.Jac_mat,
               *** const Jac_xtheta_vdxu_tns = chunk_.C_x,
