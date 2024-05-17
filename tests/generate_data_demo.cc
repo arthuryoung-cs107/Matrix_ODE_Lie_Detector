@@ -9,9 +9,8 @@ const char dat_suff[] = "lddat";
 Duffing_ode ode(-1.0,1.0,0.5,0.3,1.2); // chaos
 ode_solspc_meta meta0(ode.eor,ode.ndep);
 
-// dop853_settings integrator_settings; dop853_integrator ode_integrator(ode,integrator_settings); const char exp_name[] = "true_obs";
-// DoPri5_settings integrator_settings; DoPri5 ode_integrator(ode,integrator_settings); const char exp_name[] = "DoPri5_true_obs";
-DoP853_settings integrator_settings; DoP853 ode_integrator(ode,integrator_settings); const char exp_name[] = "DoP853_true_obs";
+DoPri5_settings integrator_settings; DoPri5 ode_integrator(ode,integrator_settings); const char exp_name[] = "DoPri5_true_obs";
+// DoP853_settings integrator_settings; DoP853 ode_integrator(ode,integrator_settings); const char exp_name[] = "DoP853_true_obs";
 
 const int nc = 50, // number of curves
           np = 300; // points per curve
