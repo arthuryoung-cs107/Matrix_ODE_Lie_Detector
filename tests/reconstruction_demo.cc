@@ -20,7 +20,10 @@ const int bor = 10;
 // const char exp_name[] = "DoPri5_true_obs"; const char rec_name[] = "DoPri5_true_rec"; const char ext_name[] = "DoPri5_true_ext";
 const char exp_name[] = "DoP853_true_obs"; const char rec_name[] = "DoP853_true_rec"; const char ext_name[] = "DoP853_true_ext";
 
-const char mat_name[] = "Rmat";
+// const char mat_name[] = "Rmat";
+// const char mat_name[] = "Pmat";
+const char mat_name[] = "Qmat";
+// const char mat_name[] = "Gmat";
 
 orthopolynomial_space fspace0(meta0, bor);
 
@@ -38,16 +41,19 @@ int main()
 
   sprintf(name_buffer, "%s/%s_%s.%s", dir_name,eqn_name,exp_name,dat_suff);
   LD_observations_set Sdat(meta0,ode_curve_observations(name_buffer));
-  LD_R_matrix Rmat(fspace0,Sdat);
+  // LD_R_matrix Amat(fspace0,Sdat);
+  // LD_P_matrix Amat(fspace0,Sdat);
+  LD_Q_matrix Amat(fspace0,Sdat);
+  // LD_G_matrix Amat(fspace0,Sdat);
   sprintf(name_buffer, "%s/%s_%s.%d.%s_%s.%s", dir_name,eqn_name,bse_name,bor,mat_name,exp_name,dat_suff);
-  Rmat.read_matrix(name_buffer);
+  Amat.read_matrix(name_buffer);
 
-  LD_matrix_svd_result Rmat_svd(Rmat.ncrvs_tot,Rmat.ndof_full);
+  LD_matrix_svd_result Amat_svd(Amat.ncrvs_tot,Amat.ndof_full);
   sprintf(name_buffer, "%s/%s_%s.%d.%s_%s_svd.%s", dir_name,eqn_name,bse_name,bor,mat_name,exp_name,dat_suff);
-  Rmat_svd.read_svd_results(name_buffer);
-  Rmat_svd.print_details();
+  Amat_svd.read_svd_results(name_buffer);
+  Amat_svd.print_details();
 
-  rspace_infinitesimal_generator rinfgen0(fspace0,Rmat_svd.kappa_def(),Rmat_svd.VTtns);
+  rspace_infinitesimal_generator rinfgen0(fspace0,Amat_svd.kappa_def(),Amat_svd.VTtns);
 
   // dop853_settings integrator_settings; dop853_integrator infgen_integrator(rinfgen0,integrator_settings);
   // DoPri5_settings integrator_settings; DoPri5 infgen_integrator(rinfgen0,integrator_settings);
