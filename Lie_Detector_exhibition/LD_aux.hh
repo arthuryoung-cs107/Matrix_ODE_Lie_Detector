@@ -4,9 +4,7 @@
 #include "LD_util.hh"
 
 #include <cstddef>
-// #include <cstring>
 #include <cstdio>
-// #include <cstdlib>
 #include <cmath>
 
 #include <cfloat>
@@ -14,6 +12,7 @@
 #include <gsl/gsl_matrix.h>
 #include <gsl/gsl_vector.h>
 #include <gsl/gsl_rng.h>
+#include <gsl/gsl_randist.h>
 
 template <class T, class Y> T ** make_evaluation_bases(Y &fspace_, int nbases_)
 {
@@ -271,8 +270,10 @@ struct LD_rng
   inline void set_seed(int seed_)
     {old_seed=current_seed; gsl_rng_set(gsl_gen,seed_); current_seed=seed_;}
 
-  double rand_uni(double low_=0.0,double high_=1.0);
-  double rand_gau(double mu_=0.0, double sigma_=1.0);
+  inline double rand_uni(double low_=0.0,double high_=1.0)
+    {return (gsl_rng_uniform(gsl_gen)-0.5)*(high_-low_) + 0.5*(high_+low_);}
+  inline double rand_gau(double mu_=0.0, double sigma_=1.0)
+    {return mu_+gsl_ran_gaussian(gsl_gen,sigma_);}
 
   inline void set_vec_rand_uni(double *v_, int n_, double low_=0.0, double high_=1.0)
     {for (size_t i = 0; i < n_; i++) v_[i] = rand_uni(low_,high_);}

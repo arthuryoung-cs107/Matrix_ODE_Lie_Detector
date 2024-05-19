@@ -1,9 +1,10 @@
 # file names
 
 # EXHIB:= LD_aux LD_ode LD_io LD_framework LD_function_space LD_framework
-EXHIB:= LD_aux LD_ode LD_framework LD_function_space LD_framework
+EXHIB:= LD_ode LD_framework LD_function_space LD_framework
 EXHIBDEC:= matrix_Lie_detector
 EXHIBGEN:= LD_ode_system LD_integrators
+# EXHIBGEN:= LD_ode_system LD_integrators dop853
 
 include config/includes.mak
 

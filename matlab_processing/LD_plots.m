@@ -11,14 +11,34 @@ classdef LD_plots
         tile;
     end
     methods
-        function obj = LD_plots(name_)
+        function obj = LD_plots(name_,grid_dim_,tile_dim_,origin_tile_,screen_)
             obj.name = name_;
+            if (nargin == 2)
+                posdim_specs_ = grid_dim_;
+                obj = obj.set_screen_posdim(posdim_specs_);
+            elseif (nargin == 4)
+                obj = obj.set_screen_posdim(grid_dim_,tile_dim_,origin_tile_);
+            elseif (nargin == 5)
+                obj = obj.set_screen_posdim(grid_dim_,tile_dim_,origin_tile_,screen_);
+            end
         end
         function obj_out = set_screen_posdim(obj,grid_dim_,tile_dim_,origin_tile_,screen_)
-            if (nargin==4)
-                screen = 1;
-            else
+            if (nargin==5)
+                grid_dim = grid_dim_;
+                tile_dim = tile_dim_;
+                origin_tile = origin_tile_;
                 screen = screen_;
+            elseif (nargin == 4)
+                grid_dim = grid_dim_;
+                tile_dim = tile_dim_;
+                origin_tile = origin_tile_;
+                screen = 1;
+            elseif(nargin == 2)
+                specs = grid_dim_;
+                grid_dim = specs.grid_dim;
+                tile_dim = specs.tile_dim;
+                origin_tile = specs.origin_tile;
+                screen = specs.screen;
             end
 
             if (screen>size(LD_plots.screens,1))
@@ -28,11 +48,11 @@ classdef LD_plots
             end
 
             [o_screen d_screen] = deal(screen_specs(1:2), screen_specs(3:4)-1);
-            dels_grid = (d_screen)./[grid_dim_(2) grid_dim_(1)];
-            dels_tile = dels_grid.*[tile_dim_(2) tile_dim_(1)];
+            dels_grid = (d_screen)./[grid_dim(2) grid_dim(1)];
+            dels_tile = dels_grid.*[tile_dim(2) tile_dim(1)];
 
-            oy_plot = floor(o_screen(2) + dels_grid(2)*(grid_dim_(1) - origin_tile_(1)));
-            ox_plot = floor(o_screen(1) + dels_grid(1)*(origin_tile_(2)-1));
+            oy_plot = floor(o_screen(2) + dels_grid(2)*(grid_dim(1) - origin_tile(1)));
+            ox_plot = floor(o_screen(1) + dels_grid(1)*(origin_tile(2)-1));
             ly_plot = floor(dels_tile(2));
             lx_plot = floor(dels_tile(1));
 
@@ -64,10 +84,64 @@ classdef LD_plots
         end
     end
     methods (Static)
+        function [plt,err_res] = plot_S_relative_errors(Sarray_,Sref_,plt_)
+            plt = plt_;
+
+            pts_mat_ref = Sref_.pts_mat;
+            pts_nrmlz = abs(pts_mat_ref);
+            pts_nrmlz(pts_nrmlz==0) = 1.0;
+
+            [nc,ndep] = deal(Sref_.ncrv,Sref_.ndep);
+            nset = length(Sarray_);
+            [ndim,nobs] = size(pts_mat_ref);
+            np = nobs/nc;
+
+            plt = plt.init_tiles_safe(2,3);
+            hold(plt.axs, 'on');
+            box(plt.axs,'on');
+            axs = plt.axs;
+
+            mspc = 'none';
+            ms = 1;
+            lspc = '-';
+            lw = 1;
+            colors = turbo(nset);
+
+            abs_rel_diff = nan(ndim,nobs,nset);
+            for i = 1:nset
+                abs_rel_diff_i = abs(pts_mat_ref-Sarray_(i).pts_mat)./(pts_nrmlz);
+                abs_rel_diff(:,:,i) = abs_rel_diff_i;
+            end
+
+            re_net = reshape(sum(abs_rel_diff,1),np,nc,nset);
+            re_u = reshape(sum(abs_rel_diff(2:(ndep+1),:,:),1),np,nc,nset);
+            re_dnxu = reshape(sum(abs_rel_diff((end-ndep+1):end,:,:),1),np,nc,nset);
+
+            for i = 1:nset
+                leg1(i) = plot(axs(1),1:np,median(re_net(:,:,i),2), ...
+                'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc,'LineWidth',lw,'Color',colors(i,:), ...
+                'DisplayName', fixlabel(Sarray_(i).dat_name));
+            end
+            for i = 1:nset
+                leg2(i) = plot(axs(2),1:np,median(re_u(:,:,i),2), ...
+                'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc,'LineWidth',lw,'Color',colors(i,:), ...
+                'DisplayName', fixlabel(Sarray_(i).dat_name));
+            end
+            for i = 1:nset
+                leg3(i) = plot(axs(3),1:np,median(re_dnxu(:,:,i),2), ...
+                'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc,'LineWidth',lw,'Color',colors(i,:), ...
+                'DisplayName', fixlabel(Sarray_(i).dat_name));
+            end
+
+            set(axs(1:3),'YScale', 'log', 'XScale', 'linear', 'TickLabelInterpreter','Latex','FontSize',12);
+            legend(axs(2), leg2,'Location', 'SouthOutside', 'Interpreter', 'Latex', 'NumColumns',nset);
+
+            err_res = struct(   'pts_nrmlz',pts_nrmlz, ...
+                                'abs_rel_diff',abs_rel_diff);
+        end
         function plt = plot_n1q1_solspc(S_,plt_)
-            if (nargin<3)
-                plt = LD_plots([S_.dat_name '_n1q1_solspc']);
-                plt = plt.set_screen_posdim([4 4], [1 4], [4 1], 1);
+            if (nargin<2)
+                plt = LD_plots([ S_.dat_name '_n2q1_solspc'],LD_plots.posdim_specs([4 4], [1 4], [4 1], 1));
             else
                 plt = plt_;
             end
@@ -99,9 +173,8 @@ classdef LD_plots
             end
         end
         function plt = plot_n2q1_solspc(S_,plt_)
-            if (nargin<3)
-                plt = LD_plots([S_.dat_name '_n2q1_solspc']);
-                plt = plt.set_screen_posdim([4 4], [1 4], [1 1], 1);
+            if (nargin<2)
+                plt = LD_plots([ S_.dat_name '_n2q1_solspc'],LD_plots.posdim_specs([4 4], [1 4], [1 1], 1));
             else
                 plt = plt_;
             end
@@ -135,6 +208,22 @@ classdef LD_plots
                 ylabel(axi,['$$' dnames{dims_i(2)} '$$'], 'Interpreter','Latex','FontSize',14);
             end
         end
+        function specs_out = posdim_specs(grid_dim_,tile_dim_,origin_tile_,screen_)
+            if (nargin==3)
+                screen = 1;
+            else
+                screen = screen_;
+            end
+            if (screen>size(LD_plots.screens,1))
+                screen_specs = LD_plots.screens(1,:);
+            else
+                screen_specs = LD_plots.screens(screen,:);
+            end
+            specs_out = struct( 'grid_dim',grid_dim_, ...
+                                'tile_dim',tile_dim_, ...
+                                'origin_tile',origin_tile_, ...
+                                'screen',screen);
+        end
         function specs_out = make_default_plot_specs()
             specs_out = struct( 'lspec', '-', ...
                                 'mspec', 'none', ...
@@ -146,4 +235,8 @@ classdef LD_plots
             struct_out = {'Name', name_in_; 'Renderer', 'painters'; 'Position', pos_in_;};
         end
     end
+end
+
+function label_out = fixlabel(label_in_)
+    label_out = replace(label_in_,'_',' ');
 end

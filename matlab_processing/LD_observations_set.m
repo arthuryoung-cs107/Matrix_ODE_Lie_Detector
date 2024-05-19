@@ -20,6 +20,8 @@ classdef LD_observations_set
 
         ndim;
 
+        pts_mat;
+
         JFs_in;
         dnp1xu_in;
     end
@@ -44,6 +46,20 @@ classdef LD_observations_set
             obj.pts_in = pts_struct.pts_in;
 
             obj.ndim = 1 + obj.ndep*(obj.eor+1);
+
+            obj.pts_mat = reshape(obj.pts_in,obj.ndim,[]);
+        end
+        function obj_out = read_additional_observations(obj,name1_)
+            obj_out = obj;
+            file = fopen(name1_);
+            hlen = fread(file,1,'int=>int');
+            header = fread(file,hlen,'int=>int');
+            if (hlen==3)
+                obj_out.dnp1xu_in = fread(file,header(1),'double=>double');
+            elseif (hlen==4)
+                obj_out.JFs_in = fread(file,header(1),'double=>double');
+            end
+            fclose(file);
         end
         function pts_cell_out = pts_cell(obj)
             [ncrv,ndim,pts_in] = deal(obj.ncrv,obj.ndim,obj.pts_in);

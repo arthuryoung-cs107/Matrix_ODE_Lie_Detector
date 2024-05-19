@@ -16,8 +16,8 @@ const int bor = 10;
 // const int bor = 7;
 // const int bor = 6;
 
-const char exp_name[] = "DoPri5_true_obs"; const char rec_name[] = "DoPri5_true_rec"; const char ext_name[] = "DoPri5_true_ext";
-// const char exp_name[] = "DoP853_true_obs"; const char rec_name[] = "DoP853_true_rec"; const char ext_name[] = "DoP853_true_ext";
+const char exp_name[] = "DoP853_true_obs"; const char rec_name[] = "DoP853_true_rec"; const char ext_name[] = "DoP853_true_ext";
+// const char exp_name[] = "DoPri5_true_obs"; const char rec_name[] = "DoPri5_true_rec"; const char ext_name[] = "DoPri5_true_ext";
 
 const char Rmat_name[] = "Rmat";
 const char Pmat_name[] = "Pmat";
@@ -40,9 +40,9 @@ int main()
 
   sprintf(name_buffer, "%s/%s_%s.%s", dir_name,eqn_name,exp_name,dat_suff);
   LD_observations_set Sdat(meta0,ode_curve_observations(name_buffer));
-  LD_R_matrix Amat(fspace0,Sdat); const char * const mat_name = Rmat_name;
+  // LD_R_matrix Amat(fspace0,Sdat); const char * const mat_name = Rmat_name;
   // LD_P_matrix Amat(fspace0,Sdat); const char * const mat_name = Pmat_name;
-  // LD_Q_matrix Amat(fspace0,Sdat); const char * const mat_name = Qmat_name;
+  LD_Q_matrix Amat(fspace0,Sdat); const char * const mat_name = Qmat_name;
   // LD_G_matrix Amat(fspace0,Sdat); const char * const mat_name = Gmat_name;
   sprintf(name_buffer, "%s/%s_%s.%d.%s_%s.%s", dir_name,eqn_name,bse_name,bor,mat_name,exp_name,dat_suff);
   Amat.read_matrix(name_buffer);
@@ -54,8 +54,8 @@ int main()
 
   rspace_infinitesimal_generator rinfgen0(fspace0,Amat_svd.kappa_def(),Amat_svd.VTtns);
 
-  DoPri5_settings integrator_settings; DoPri5 infgen_integrator(rinfgen0,integrator_settings);
-  // DoP853_settings integrator_settings; DoP853 infgen_integrator(rinfgen0,integrator_settings);
+  DoP853_settings integrator_settings; DoP853 infgen_integrator(rinfgen0,integrator_settings);
+  // DoPri5_settings integrator_settings; DoPri5 infgen_integrator(rinfgen0,integrator_settings);
 
   generated_ode_observations inputs_recon(rinfgen0,Sdat.ncrvs_tot,Sdat.min_npts_curve());
   inputs_recon.set_solcurve_ICs(Sdat.curves);

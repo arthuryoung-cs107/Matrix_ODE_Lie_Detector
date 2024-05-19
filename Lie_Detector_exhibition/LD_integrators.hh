@@ -71,6 +71,8 @@ class rk_adaptive: public runge_kutta_integrator
     rk_adaptive(ode_system &ode_, const char name_[], int nk_, int nrc_);
     ~rk_adaptive();
 
+    const size_t  ilen = 2,
+                  dlen = 7;
     int nmax,
         nstiff,
         * const ivec = &nmax;
@@ -85,8 +87,13 @@ class rk_adaptive: public runge_kutta_integrator
 
     inline void init_settings(rk_adaptive_settings &s_)
     {
-      for (size_t i = 0; i < s_.ilen; i++) ivec[i] = s_.ivec[i];
-      for (size_t i = 0; i < s_.dlen; i++) dvec[i] = s_.dvec[i];
+      for (size_t i = 0; i < ilen; i++) ivec[i] = s_.ivec[i];
+      for (size_t i = 0; i < dlen; i++) dvec[i] = s_.dvec[i];
+    }
+    inline void init_settings(rk_adaptive &intgr_)
+    {
+      for (size_t i = 0; i < ilen; i++) ivec[i] = intgr_.ivec[i];
+      for (size_t i = 0; i < dlen; i++) dvec[i] = intgr_.dvec[i];
     }
 
     void set_and_solve_time(double tstart_, double tend_, int snaps_, double **wkspc_);
@@ -111,6 +118,7 @@ class rk_adaptive: public runge_kutta_integrator
     inline void init_counters() {nstep=naccpt=nrejct=nff=nonsti=iasti=0;}
     inline double max_d(double a_, double b_) {return (a_>b_)?(a_):(b_);}
     inline double min_d(double a_, double b_) {return (a_<b_)?(a_):(b_);}
+
 };
 
 class Sun5: public rk_fixed
@@ -161,6 +169,7 @@ class DoPri5: public rk_adaptive
 
     DoPri5(ode_system &ode_);
     DoPri5(ode_system &ode_,rk_adaptive_settings &s_): DoPri5(ode_) {init_settings(s_);}
+    DoPri5(ode_system &ode_,DoPri5 &intgr_): DoPri5(ode_) {init_settings(intgr_);}
     ~DoPri5();
 
   protected:
@@ -219,6 +228,7 @@ class DoP853: public rk_adaptive
 
     DoP853(ode_system &ode_);
     DoP853(ode_system &ode_,rk_adaptive_settings &s_): DoP853(ode_) {init_settings(s_);}
+    DoP853(ode_system &ode_,DoP853 &intgr_): DoP853(ode_) {init_settings(intgr_);}
     ~DoP853();
 
   protected:

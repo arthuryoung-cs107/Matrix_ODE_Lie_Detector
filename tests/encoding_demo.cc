@@ -15,8 +15,8 @@ const int bor = 10;
 // const int bor = 7;
 // const int bor = 6;
 
-const char exp_name[] = "DoPri5_true_obs";
-// const char exp_name[] = "DoP853_true_obs";
+const char exp_name[] = "DoP853_true_obs";
+// const char exp_name[] = "DoPri5_true_obs";
 
 const char Rmat_name[] = "Rmat";
 const char Pmat_name[] = "Pmat";

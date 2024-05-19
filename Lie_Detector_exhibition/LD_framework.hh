@@ -54,6 +54,28 @@ struct generated_ode_observations: public ode_curve_observations
             ndof_ODE = ode.ndep*ode.eor;
   double ** const pts_IC;
 
+  template <class INFGN, class INTGR> void parallel_generate_solution_curves(INFGN &infgn_, INTGR &intgr_, const double *indep_range_)
+  {
+    #pragma omp parallel
+    {
+      INFGN infgn_t(infgn_);
+      INTGR intgr_t(infgn_t,intgr_);
+
+      intgr_t.del_t = (indep_range_[1]-indep_range_[0])/((double)(npts-1));
+
+      double  * const u_state_t = intgr_t.get_u_state(),
+              ** const integr_wkspc_t = Tmatrix<double>(npts,ndof_ODE);
+      for (size_t icrv = 0; icrv < ncrv; icrv++)
+      {
+        for (size_t i_dof = 0; i_dof < ndof_ODE; i_dof++)
+          u_state_t[i_dof] = pts_IC[icrv][i_dof+1];
+        intgr_t.init_curve_integration(icrv);
+        intgr_t.set_and_solve_time(indep_range_[0],indep_range_[1],npts,integr_wkspc_t);
+        intgr_t.unpack_time_sol(indep_range_[0],npts,integr_wkspc_t,pts_IC[icrv]);
+      }
+      free_Tmatrix<double>(integr_wkspc_t);
+    }
+  }
   inline void set_solcurve_ICs(ode_solcurve **crvs_)
   {
     for (size_t i = 0; i < ncrv; i++)

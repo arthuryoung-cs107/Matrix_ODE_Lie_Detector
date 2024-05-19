@@ -83,7 +83,6 @@ class dop853_integrator: public ode_integrator, public dop853_settings
     void init_counters();
     virtual void output() {};
 
-    // double * get_wvec() {return w;}
     double * get_u_state() {return w;}
     void set_and_solve_time(double tstart_, double tend_, int snaps_, double **wkspc_);
 
