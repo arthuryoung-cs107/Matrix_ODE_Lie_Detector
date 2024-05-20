@@ -25,8 +25,8 @@ const int noise_level = -1;
 LD_observations_set Sobs(meta0,nc,np,write_dnp1xu,write_JFs);
 
 // specify runge kutta integrator for the generation of synthetic data
-DoP853_settings integrator_settings; DoP853 ode_integrator(ode,integrator_settings);
-// DoPri5_settings integrator_settings; DoPri5 ode_integrator(ode,integrator_settings);
+// DoP853_settings integrator_settings; DoP853 ode_integrator(ode,integrator_settings);
+DoPri5_settings integrator_settings; DoPri5 ode_integrator(ode,integrator_settings);
 
 // specify order of embedding function space
 const int bor = 10;
@@ -216,8 +216,8 @@ int main()
   generated_ode_observations inputs_recon(rinfgen0,Sobs.ncrvs_tot,Sobs.min_npts_curve());
   inputs_recon.set_solcurve_ICs(Sobs.curves);
 
-  // inputs_recon.generate_solution_curves(intgr_rec,Sobs.get_default_IC_indep_range());
   inputs_recon.parallel_generate_solution_curves<rspace_infinitesimal_generator,DoP853>(rinfgen0,intgr_rec,Sobs.get_default_IC_indep_range());
+  // inputs_recon.parallel_generate_solution_curves<rspace_infinitesimal_generator,DoPri5>(rinfgen0,intgr_rec,Sobs.get_default_IC_indep_range());
 
   sprintf(name_buffer, "%s/%s_%s.%s.%srec.%s", dir_name,data_name,bse_name,Amat_name,intrec_name,dat_suff);
   inputs_recon.write_solution_curves(name_buffer);
