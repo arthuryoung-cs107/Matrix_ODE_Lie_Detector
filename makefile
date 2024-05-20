@@ -35,6 +35,9 @@ recon_demo: $(TEST_SRC)reconstruction_demo.cc $(LDEXHIBRECOBJS)
 gendata_demo: $(TEST_SRC)generate_data_demo.cc $(LDEXHIBGENOBJS)
 	$(CXX) $(IDIR_EXHIB) $(CFLAGS_EXHIB) $(LINK) $^ $(LIBS_EXHIB) -o $@
 
+full_demo: $(TEST_SRC)full_demo.cc $(LDEXHIBRECOBJS)
+	$(CXX) $(IDIR_EXHIB) $(CFLAGS_EXHIB) $(LINK) $^ $(LIBS_EXHIB) -o $@
+
 $(LD_EXHIB_DIR):
 	mkdir -p $@
 

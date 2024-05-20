@@ -64,7 +64,7 @@ int main()
   inputs_recon.write_solution_curves(name_buffer);
 
   const int nbases0 = LD_threads::numthreads();
-  orthopolynomial_basis ** bases0 = make_evaluation_bases<orthopolynomial_basis,orthopolynomial_space>(fspace0,nbases0);
+  orthopolynomial_basis ** bases0 = make_evaluation_bases<orthopolynomial_basis,orthopolynomial_space>(fspace0);
   bases0[LD_threads::thread_id()]->debugging_description();
 
   if (extend_observations)
@@ -76,7 +76,7 @@ int main()
     inputs_extnd.write_observed_solutions(name_buffer);
   }
 
-  free_evaluation_bases<orthopolynomial_basis>(nbases0,bases0);
+  free_evaluation_bases<orthopolynomial_basis>(bases0);
 
   return 0;
 }

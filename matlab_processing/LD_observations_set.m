@@ -19,6 +19,7 @@ classdef LD_observations_set
         pts_in;
 
         ndim;
+        npts_uniform;
 
         pts_mat;
 
@@ -46,6 +47,7 @@ classdef LD_observations_set
             obj.pts_in = pts_struct.pts_in;
 
             obj.ndim = 1 + obj.ndep*(obj.eor+1);
+            obj.npts_uniform = prod(double(obj.npts_per_crv==obj.npts_per_crv(1)));
 
             obj.pts_mat = reshape(obj.pts_in,obj.ndim,[]);
         end

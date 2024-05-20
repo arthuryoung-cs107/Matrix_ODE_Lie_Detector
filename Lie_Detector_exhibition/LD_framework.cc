@@ -198,6 +198,19 @@ JFs_crv((input_.Jalloc())?( new double***[ncrvs_tot] ):NULL)
                                                                   (dnp1xu_tns!=NULL)?(dnp1xu_tns[icrv] = dnp1xu_mat+ipts):NULL,
                                                                   (JFs_crv!=NULL)?(JFs_crv[icrv] = JFs_tns+ipts):NULL);
 }
+LD_observations_set::LD_observations_set(ode_solspc_meta &meta_, int ncrv_, int npts_, bool palloc_, bool Jalloc_):
+solspc_data_chunk(meta_,ncrv_*npts_,palloc_,Jalloc_),
+ncrvs_tot(ncrv_), npts_per_crv(new int[ncrvs_tot]), pts_tns(new double**[ncrvs_tot]), curves(new ode_solcurve*[ncrvs_tot]),
+dnp1xu_tns((palloc_)?( new double**[ncrvs_tot] ):NULL),
+JFs_crv((Jalloc_)?( new double***[ncrvs_tot] ):NULL)
+{
+  for (size_t icrv = 0, ipts=0; icrv < ncrvs_tot; ipts+=npts_per_crv[icrv++])
+    curves[icrv] = new ode_solcurve(icrv,meta,  npts_per_crv[icrv] = npts_,
+                                                pts_tns[icrv] = pts_mat+ipts,
+                                                sols+ipts,
+                                                (dnp1xu_tns!=NULL)?(dnp1xu_tns[icrv] = dnp1xu_mat+ipts):NULL,
+                                                (JFs_crv!=NULL)?(JFs_crv[icrv] = JFs_tns+ipts):NULL);
+}
 LD_observations_set::~LD_observations_set()
 {
   for (size_t i = 0; i < ncrvs_tot; i++) delete curves[i];
@@ -216,15 +229,31 @@ void LD_observations_set::load_additional_inputs(ode_curve_observations input_, 
   }
   if (input_.dnp1xu_in != NULL)
   {
-    alloc_dnp1xu_safe(input_.dnp1xu_in);
-    dnp1xu_tns = new double**[ncrvs_tot];
-    for (size_t icrv = 0, ipts=0; icrv < ncrvs_tot; ipts+=npts_per_crv[icrv++]) dnp1xu_tns[icrv] = dnp1xu_mat+ipts;
+    if (dnp1xu_tns==NULL)
+    {
+      alloc_dnp1xu_safe(input_.dnp1xu_in); // allocate contiguous dnp1xu data, set pointers for solutions
+      dnp1xu_tns = new double**[ncrvs_tot]; // allocate dnp1xu pointers for each curve
+      for (size_t icrv = 0, ipts=0; icrv < ncrvs_tot; ipts+=npts_per_crv[icrv++])
+      {
+        curves[icrv]->dnp1xu_mat = dnp1xu_tns[icrv] = dnp1xu_mat+ipts; // set each curve's pointer to dnp1xu data
+        curves[icrv]->initialize_additional_data(); // set each curve's pointer to contiguous dnp1xu data
+      }
+    }
+    else LD_linalg::copy_vec<double>(dnp1xu_chunk,input_.dnp1xu_in,nobs*ndep); // just copy data, pointers already initialized
   }
   if (input_.JFs_in != NULL)
   {
-    alloc_JFs_safe(input_.JFs_in);
-    JFs_crv = new double***[ncrvs_tot];
-    for (size_t icrv = 0, ipts=0; icrv < ncrvs_tot; ipts+=npts_per_crv[icrv++]) JFs_crv[icrv] = JFs_tns+ipts;
+    if (JFs_crv==NULL)
+    {
+      alloc_JFs_safe(input_.JFs_in); // allocate contiguous JFs data, set pointers for solutions
+      JFs_crv = new double***[ncrvs_tot]; // allocate JFs pointers for each curve
+      for (size_t icrv = 0, ipts=0; icrv < ncrvs_tot; ipts+=npts_per_crv[icrv++])
+      {
+        curves[icrv]->JFs_tns = JFs_crv[icrv] = JFs_tns+ipts; // set each curve's pointer to JFs data
+        curves[icrv]->initialize_additional_data(); // set each curve's pointer to contiguous JFs data
+      }
+    }
+    else LD_linalg::copy_vec<double>(JFs_chunk,input_.JFs_in,nobs*ndep*ndim); // just copy data, pointers already initialized
   }
 }
 

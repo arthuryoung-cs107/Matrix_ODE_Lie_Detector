@@ -14,15 +14,17 @@
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_randist.h>
 
-template <class T, class Y> T ** make_evaluation_bases(Y &fspace_, int nbases_)
+template <class T, class Y> T ** make_evaluation_bases(Y &fspace_, int nbases_=-1)
 {
-  T ** bases_out = new T*[nbases_];
-  for (size_t i = 0; i < nbases_; i++) bases_out[i] = new T(fspace_);
+  const int nbases = (nbases_<0)?(LD_threads::numthreads()):(nbases_);
+  T ** bases_out = new T*[nbases];
+  for (size_t i = 0; i < nbases; i++) bases_out[i] = new T(fspace_);
   return bases_out;
 }
-template <class T> void free_evaluation_bases(int nbases_, T **bases_)
+template <class T> void free_evaluation_bases(T **bases_, int nbases_=-1)
 {
-  for (size_t i = 0; i < nbases_; i++) delete bases_[i];
+  const int nbases = (nbases_<0)?(LD_threads::numthreads()):(nbases_);
+  for (size_t i = 0; i < nbases; i++) delete bases_[i];
   delete [] bases_;
 }
 

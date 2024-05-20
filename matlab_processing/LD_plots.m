@@ -87,16 +87,18 @@ classdef LD_plots
         function [plt,err_res] = plot_S_relative_errors(Sarray_,Sref_,plt_)
             plt = plt_;
 
+            [ndim,nobs,nc,ndep] = deal(Sref_.ndim,Sref_.nobs,Sref_.ncrv,Sref_.ndep);
+            np = nobs/nc;
+            nset = length(Sarray_);
+
             pts_mat_ref = Sref_.pts_mat;
+            pts_tns_ref = reshape(pts_mat_ref,ndim,[],nc);
+            x_vec = pts_tns_ref(1,:,1);
+
             pts_nrmlz = abs(pts_mat_ref);
             pts_nrmlz(pts_nrmlz==0) = 1.0;
 
-            [nc,ndep] = deal(Sref_.ncrv,Sref_.ndep);
-            nset = length(Sarray_);
-            [ndim,nobs] = size(pts_mat_ref);
-            np = nobs/nc;
-
-            plt = plt.init_tiles_safe(2,3);
+            plt = plt.init_tiles_safe(1,3);
             hold(plt.axs, 'on');
             box(plt.axs,'on');
             axs = plt.axs;
@@ -117,21 +119,25 @@ classdef LD_plots
             re_u = reshape(sum(abs_rel_diff(2:(ndep+1),:,:),1),np,nc,nset);
             re_dnxu = reshape(sum(abs_rel_diff((end-ndep+1):end,:,:),1),np,nc,nset);
 
+            xlabel(axs,['$$ x $$'], 'Interpreter','Latex','FontSize',14);
             for i = 1:nset
-                leg1(i) = plot(axs(1),1:np,median(re_net(:,:,i),2), ...
+                leg1(i) = plot(axs(1),x_vec,median(re_net(:,:,i),2), ...
                 'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc,'LineWidth',lw,'Color',colors(i,:), ...
                 'DisplayName', fixlabel(Sarray_(i).dat_name));
             end
+            ylabel(axs(1),['med. $$ \mathrm{err} (\hat{s} | s ) $$'], 'Interpreter','Latex','FontSize',14);
             for i = 1:nset
-                leg2(i) = plot(axs(2),1:np,median(re_u(:,:,i),2), ...
+                leg2(i) = plot(axs(2),x_vec,median(re_u(:,:,i),2), ...
                 'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc,'LineWidth',lw,'Color',colors(i,:), ...
                 'DisplayName', fixlabel(Sarray_(i).dat_name));
             end
+            ylabel(axs(2),['med. $$ \mathrm{err} (\hat{u} | u ) $$'], 'Interpreter','Latex','FontSize',14);
             for i = 1:nset
-                leg3(i) = plot(axs(3),1:np,median(re_dnxu(:,:,i),2), ...
+                leg3(i) = plot(axs(3),x_vec,median(re_dnxu(:,:,i),2), ...
                 'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc,'LineWidth',lw,'Color',colors(i,:), ...
                 'DisplayName', fixlabel(Sarray_(i).dat_name));
             end
+            ylabel(axs(3),['med. $$ \mathrm{err} (d_{\hat{x}}^n \hat{u} | d_x^n u ) $$'], 'Interpreter','Latex','FontSize',14);
 
             set(axs(1:3),'YScale', 'log', 'XScale', 'linear', 'TickLabelInterpreter','Latex','FontSize',12);
             legend(axs(2), leg2,'Location', 'SouthOutside', 'Interpreter', 'Latex', 'NumColumns',nset);

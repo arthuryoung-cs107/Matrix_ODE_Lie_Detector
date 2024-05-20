@@ -36,7 +36,7 @@ int main()
   fspace0.debugging_description();
 
   const int nbases0 = LD_threads::numthreads();
-  orthopolynomial_basis ** bases0 = make_evaluation_bases<orthopolynomial_basis, orthopolynomial_space>(fspace0,nbases0);
+  orthopolynomial_basis ** bases0 = make_evaluation_bases<orthopolynomial_basis, orthopolynomial_space>(fspace0);
   bases0[LD_threads::thread_id()]->debugging_description();
 
   sprintf(name_buffer, "%s/%s_%s.%s", dir_name,eqn_name,exp_name,dat_suff);
@@ -65,7 +65,7 @@ int main()
   sprintf(name_buffer, "%s/%s_%s.%d.%s_%s.%s", dir_name,eqn_name,bse_name,bor,Gmat_name,exp_name,dat_suff);
   Gmat.write_matrix(name_buffer);
 
-  free_evaluation_bases<orthopolynomial_basis>(nbases0,bases0);
+  free_evaluation_bases<orthopolynomial_basis>(bases0);
 
   return 0;
 }

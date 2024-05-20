@@ -65,10 +65,10 @@ struct generated_ode_observations: public ode_curve_observations
 
       double  * const u_state_t = intgr_t.get_u_state(),
               ** const integr_wkspc_t = Tmatrix<double>(npts,ndof_ODE);
+      #pragma omp for
       for (size_t icrv = 0; icrv < ncrv; icrv++)
       {
-        for (size_t i_dof = 0; i_dof < ndof_ODE; i_dof++)
-          u_state_t[i_dof] = pts_IC[icrv][i_dof+1];
+        for (size_t i_dof = 0; i_dof < ndof_ODE; i_dof++) u_state_t[i_dof] = pts_IC[icrv][i_dof+1];
         intgr_t.init_curve_integration(icrv);
         intgr_t.set_and_solve_time(indep_range_[0],indep_range_[1],npts,integr_wkspc_t);
         intgr_t.unpack_time_sol(indep_range_[0],npts,integr_wkspc_t,pts_IC[icrv]);
@@ -96,6 +96,7 @@ struct generated_ode_observations: public ode_curve_observations
 struct LD_observations_set: public solspc_data_chunk
 {
   LD_observations_set(ode_solspc_meta &meta_, ode_curve_observations input_);
+  LD_observations_set(ode_solspc_meta &meta_, int ncrv_, int npts_, bool palloc_=false, bool Jalloc_=false);
   ~LD_observations_set();
 
   const int ncrvs_tot;
