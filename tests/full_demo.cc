@@ -25,8 +25,8 @@ const int noise_level = -1;
 LD_observations_set Sobs(meta0,nc,np,write_dnp1xu,write_JFs);
 
 // specify runge kutta integrator for the generation of synthetic data
-// DoP853_settings integrator_settings; DoP853 ode_integrator(ode,integrator_settings);
-DoPri5_settings integrator_settings; DoPri5 ode_integrator(ode,integrator_settings);
+DoP853_settings integrator_settings; DoP853 ode_integrator(ode,integrator_settings);
+// DoPri5_settings integrator_settings; DoPri5 ode_integrator(ode,integrator_settings);
 
 // specify order of embedding function space
 // const int bor = 10;
@@ -47,9 +47,9 @@ const char Pmat_name[] = "Pmat";
 const char Qmat_name[] = "Qmat";
 const char Gmat_name[] = "Gmat";
 
-LD_R_matrix Amat(fspace0,Sobs); const char * const Amat_name = Rmat_name;
+// LD_R_matrix Amat(fspace0,Sobs); const char * const Amat_name = Rmat_name;
 // LD_P_matrix Amat(fspace0,Sobs); const char * const Amat_name = Pmat_name;
-// LD_Q_matrix Amat(fspace0,Sobs); const char * const Amat_name = Qmat_name;
+LD_Q_matrix Amat(fspace0,Sobs); const char * const Amat_name = Qmat_name;
 // LD_G_matrix Amat(fspace0,Sobs); const char * const Amat_name = Gmat_name;
 
 LD_matrix_svd_result Amat_svd(Amat.ncrvs_tot,Amat.ndof_full);
@@ -57,12 +57,14 @@ LD_matrix_svd_result Amat_svd(Amat.ncrvs_tot,Amat.ndof_full);
 const bool  write_gen_obs_data = true,
             write_fspace_config = true,
             write_encoded_mats = true,
-            write_decoded_mats = true;
+            write_decoded_mats = true,
+            write_recon_data = true;
 
 rspace_infinitesimal_generator rinfgen0(fspace0,Amat_svd.VTtns);
 
-DoP853_settings intgr_rec_settings; DoP853 intgr_rec(rinfgen0,intgr_rec_settings);
-// DoPri5_settings intgr_rec_settings; DoPri5 intgr_rec(rinfgen0,intgr_rec_settings);
+// runge kutta integrator for the reconstruction of observational data
+// DoP853_settings intgr_rec_settings; DoP853 intgr_rec(rinfgen0,intgr_rec_settings); // 8th order accurate, 7th order interpolation
+DoPri5_settings intgr_rec_settings; DoPri5 intgr_rec(rinfgen0,intgr_rec_settings); // 5th order accurate, 4th order interpolation
 
 // buffers for writing file names via meta strings
 char  eqn_name[50],
@@ -98,7 +100,7 @@ int generate_observational_data(bool write_data_)
   if (write_data_)
   {
     sprintf(name_buffer,"%s/%s.%s",dir_name,data_name,dat_suff);
-    inputs_gen.write_solution_curves(name_buffer);
+    inputs_gen.write_observed_solutions(name_buffer);
     if (write_dnp1xu)
     {
       inputs_gen.generate_dnp1xu();
@@ -202,6 +204,34 @@ int decode_data_matrices(bool write_data_)
   return 0;
 }
 
+template <class BSIS> int reconstruct_data(BSIS ** bases_, bool write_recon_data_)
+{
+  rinfgen0.kappa = Amat_svd.kappa_def(); // can be set after Amat_svd is loaded
+
+  strcpy(intrec_name,intgr_rec.name);
+
+  generated_ode_observations inputs_recon(rinfgen0,Sobs.ncrvs_tot,Sobs.min_npts_curve());
+  sprintf(name_buffer, "%s/%s_%s.%s.%srec.%s", dir_name,data_name,bse_name,Amat_name,intrec_name,dat_suff);
+
+  if (write_recon_data_)
+  {
+    inputs_recon.set_solcurve_ICs(Sobs.curves);
+    inputs_recon.parallel_generate_solution_curves(rinfgen0,intgr_rec,Sobs.get_default_IC_indep_range());
+    inputs_recon.write_observed_solutions(name_buffer);
+  }
+  else inputs_recon.read_basic_observations(name_buffer);
+
+  ode_curve_observations inputs_extnd(meta0.eor,meta0.ndep,inputs_recon.nobs);
+  rspace_infinitesimal_generator::init_extended_observations(inputs_extnd,inputs_recon);
+  matrix_Lie_detector::extend_ode_observations<rspace_infinitesimal_generator,BSIS>(inputs_extnd,rinfgen0,bases_);
+
+  sprintf(name_buffer, "%s/%s_%s.%s.%sext.%s", dir_name,data_name,bse_name,Amat_name,intrec_name,dat_suff);
+
+  if (write_recon_data_) inputs_extnd.write_observed_solutions(name_buffer);
+
+  return 0;
+}
+
 int main()
 {
   orthopolynomial_basis **bases0 = make_evaluation_bases<orthopolynomial_basis, orthopolynomial_space>(fspace0);
@@ -209,27 +239,8 @@ int main()
   int gen_check = generate_observational_data(write_gen_obs_data),
       cnf_check = configure_function_space(write_fspace_config),
       enc_check = encode_data_matrices<orthopolynomial_basis>(bases0,write_encoded_mats),
-      dec_check = decode_data_matrices(write_decoded_mats);
-
-  rinfgen0.kappa = Amat_svd.kappa_def();
-
-  strcpy(intrec_name,intgr_rec.name);
-
-  generated_ode_observations inputs_recon(rinfgen0,Sobs.ncrvs_tot,Sobs.min_npts_curve());
-  inputs_recon.set_solcurve_ICs(Sobs.curves);
-
-  const double * IC_indep_range = Sobs.get_default_IC_indep_range();
-
-  inputs_recon.parallel_generate_solution_curves(rinfgen0,intgr_rec,IC_indep_range);
-
-  sprintf(name_buffer, "%s/%s_%s.%s.%srec.%s", dir_name,data_name,bse_name,Amat_name,intrec_name,dat_suff);
-  inputs_recon.write_solution_curves(name_buffer);
-
-  ode_curve_observations inputs_extnd(meta0.eor,meta0.ndep,inputs_recon.nobs);
-  rspace_infinitesimal_generator::init_extended_observations(inputs_extnd,inputs_recon);
-  matrix_Lie_detector::extend_ode_observations<rspace_infinitesimal_generator,orthopolynomial_basis>(inputs_extnd,rinfgen0,bases0);
-  sprintf(name_buffer, "%s/%s_%s.%s.%sext.%s", dir_name,data_name,bse_name,Amat_name,intrec_name,dat_suff);
-  inputs_extnd.write_observed_solutions(name_buffer);
+      dec_check = decode_data_matrices(write_decoded_mats),
+      rec_check = reconstruct_data<orthopolynomial_basis>(bases0,write_recon_data);
 
   free_evaluation_bases<orthopolynomial_basis>(bases0);
   return 0;

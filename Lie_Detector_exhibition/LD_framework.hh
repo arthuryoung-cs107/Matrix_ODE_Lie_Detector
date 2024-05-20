@@ -37,9 +37,15 @@ struct ode_curve_observations
   inline bool palloc() {return dnp1xu_in!=NULL;}
   inline bool Jalloc() {return JFs_in!=NULL;}
 
+  void read_basic_observations(const char name_addtl_[], bool force_overwrite_=false);
   void read_additional_observations(const char name_addtl_[]);
 
   void write_observed_solutions(const char name_[]);
+
+  private:
+
+    inline int comp_ndim(int eor_, int ndep_) {return 1 + ndep_*(eor_+1);}
+
 };
 
 struct generated_ode_observations: public ode_curve_observations
@@ -75,6 +81,7 @@ struct generated_ode_observations: public ode_curve_observations
       }
       free_Tmatrix<double>(integr_wkspc_t);
     }
+    printf("(generated_ode_observations::parallel_generate_solution_curves) exponentiated %d integral curves\n", ncrv);
   }
   inline void set_solcurve_ICs(ode_solcurve **crvs_)
   {
@@ -84,7 +91,7 @@ struct generated_ode_observations: public ode_curve_observations
   }
   void set_random_ICs(LD_rng rng_, const double *IC_range_);
   void generate_solution_curves(ode_integrator &integrator_, const double *indep_range_);
-  void write_solution_curves(const char name_[]);
+  // void write_solution_curves(const char name_[]);
 
   void generate_JFs();
   void write_JFs(const char name_[]);

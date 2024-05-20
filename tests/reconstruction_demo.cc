@@ -52,7 +52,7 @@ int main()
   Amat_svd.read_svd_results(name_buffer);
   Amat_svd.print_details();
 
-  rspace_infinitesimal_generator rinfgen0(fspace0,Amat_svd.kappa_def(),Amat_svd.VTtns);
+  rspace_infinitesimal_generator rinfgen0(fspace0,Amat_svd.VTtns,Amat_svd.kappa_def());
 
   DoP853_settings integrator_settings; DoP853 infgen_integrator(rinfgen0,integrator_settings);
   // DoPri5_settings integrator_settings; DoPri5 infgen_integrator(rinfgen0,integrator_settings);
@@ -61,7 +61,7 @@ int main()
   inputs_recon.set_solcurve_ICs(Sdat.curves);
   inputs_recon.generate_solution_curves(infgen_integrator,Sdat.get_default_IC_indep_range());
   sprintf(name_buffer,"%s/%s_%s.%s",dir_name,eqn_name,rec_name,dat_suff);
-  inputs_recon.write_solution_curves(name_buffer);
+  inputs_recon.write_observed_solutions(name_buffer);
 
   const int nbases0 = LD_threads::numthreads();
   orthopolynomial_basis ** bases0 = make_evaluation_bases<orthopolynomial_basis,orthopolynomial_space>(fspace0);

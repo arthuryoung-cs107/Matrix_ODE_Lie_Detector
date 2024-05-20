@@ -28,6 +28,48 @@ ode_curve_observations::~ode_curve_observations()
   if (dnp1xu_in != NULL) delete [] dnp1xu_in;
 }
 
+void ode_curve_observations::read_basic_observations(const char name_[], bool force_overwrite_)
+{
+  int ode_meta_in[2],
+      &eor_in = ode_meta_in[0],
+      &ndep_in = ode_meta_in[1],
+      obs_meta_in[2],
+      &ncrv_in = obs_meta_in[0],
+      &nobs_in = obs_meta_in[1];
+
+  FILE * file_in = LD_io::fopen_SAFE(name_,"r");
+  LD_io::fread_SAFE(ode_meta_in,sizeof(int),2,file_in);
+  LD_io::fread_SAFE(obs_meta_in,sizeof(int),2,file_in);
+  if ((eor_in==eor)&&(ndep_in==ndep)&&(ncrv_in==ncrv)&&(nobs_in==nobs)) // everything matches, can read directly
+  {
+    int ndim = 1+(ndep*(eor+1));
+    if (npts_per_crv==NULL) npts_per_crv = new int[ncrv];
+    LD_io::fread_SAFE(npts_per_crv,sizeof(int),ncrv,file_in);
+    if (pts_in==NULL) pts_in = new double[ndim*nobs];
+    LD_io::fread_SAFE(pts_in,sizeof(double),ndim*nobs,file_in);
+  }
+  else if ((pts_in!=NULL)&&( (comp_ndim(eor,ndep)*nobs) == (comp_ndim(eor_in,ndep_in)*nobs_in) )) // if the pts buffers are same size
+  {
+    if (npts_per_crv==NULL) npts_per_crv = new int[ncrv=ncrv_in];
+    if (ncrv_in<=ncrv) LD_io::fread_SAFE(npts_per_crv,sizeof(int),ncrv=ncrv_in,file_in);
+    LD_io::fread_SAFE(pts_in,sizeof(double),comp_ndim(eor=eor_in,ndep=ndep_in)*(nobs=nobs_in),file_in); // reconfigure system dims
+  }
+  else if (force_overwrite_)
+  {
+    eor=eor_in; ndep=ndep_in; ncrv=ncrv_in; nobs=nobs_in;
+    int ndim_in = 1 + ndep*(eor+1);
+    if ((npts_per_crv==NULL)&&(pts_in==NULL)) // can do a clean initialization
+    {
+      npts_per_crv = new int[ncrv];
+      pts_in = new double[ndim_in*nobs];
+    }
+    LD_io::fread_SAFE(npts_per_crv,sizeof(int),ncrv,file_in);
+    LD_io::fread_SAFE(pts_in,sizeof(double),ndim_in*nobs,file_in);
+  }
+  LD_io::fclose_SAFE(file_in);
+  printf("(ode_curve_observations::read_basic_observations) read %s\n",name_);
+}
+
 void ode_curve_observations::read_additional_observations(const char name_addtl_[])
 {
   const char fcn_name[] = "ode_curve_observations::read_additional_observations";
@@ -123,16 +165,7 @@ void generated_ode_observations::generate_solution_curves(ode_integrator &integr
     integrator_.unpack_time_sol(indep_range_[0],npts,integr_wkspc,pts_IC[icrv]);
   }
   free_Tmatrix<double>(integr_wkspc);
-}
-void generated_ode_observations::write_solution_curves(const char name_[])
-{
-  FILE * file_out = LD_io::fopen_SAFE(name_,"wb");
-  fwrite(ode_meta,sizeof(int),2,file_out);
-  fwrite(obs_meta,sizeof(int),2,file_out);
-  fwrite(npts_per_crv,sizeof(int),ncrv,file_out);
-  fwrite(pts_in,sizeof(double),ndim*nobs,file_out);
-  LD_io::fclose_SAFE(file_out);
-  printf("(generated_ode_observations::write_solution_curves) wrote %s\n",name_);
+  printf("(generated_ode_observations::generate_solution_curves) exponentiated %d integral curves\n", ncrv);
 }
 
 void generated_ode_observations::generate_JFs()

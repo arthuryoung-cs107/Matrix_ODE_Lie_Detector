@@ -88,13 +88,14 @@ class rspace_infinitesimal_generator: public infinitesimal_generator
 
   public:
 
-    rspace_infinitesimal_generator(function_space &fspace_,double ***Ktns_):
+    rspace_infinitesimal_generator(function_space &fspace_,double ***Ktns_,int kappa_=1):
     infinitesimal_generator(fspace_), Ktns(Ktns_),
     xu(new double[nvar]), lamvec(new double[perm_len]), vx_vec(new double[ndof]),
-    vxu_wkspc(vxu_workspace(nvar,fspace_.comp_ord_len())) {}
+    vxu_wkspc(vxu_workspace(nvar,fspace_.comp_ord_len())), kappa(kappa_) {}
 
     rspace_infinitesimal_generator(rspace_infinitesimal_generator &rinfgen_):
-    rspace_infinitesimal_generator(rinfgen_.fspace,rinfgen_.Ktns) {kappa = rinfgen_.kappa;}
+    rspace_infinitesimal_generator(rinfgen_.fspace,rinfgen_.Ktns,rinfgen_.kappa) {}
+
     ~rspace_infinitesimal_generator() {delete [] xu; delete [] lamvec; delete [] vx_vec;}
 
     int kappa = 1;
@@ -178,7 +179,7 @@ struct matrix_Lie_detector
   matrix_Lie_detector() {}
   ~matrix_Lie_detector() {}
 
-  template <class INFGN, class TBSIS> static void extend_ode_observations(ode_curve_observations &obs_out_, INFGN &infgen_, TBSIS **bases_)
+  template <class INFGN, class BSIS> static void extend_ode_observations(ode_curve_observations &obs_out_, INFGN &infgen_, BSIS **bases_)
   {
     const int ncrv = obs_out_.ncrv,
               ndof = infgen_.ndof;
@@ -186,7 +187,7 @@ struct matrix_Lie_detector
     #pragma omp parallel
     {
       INFGN infgen_t(infgen_);
-      TBSIS &basis_t = *(bases_[LD_threads::thread_id()]);
+      BSIS &basis_t = *(bases_[LD_threads::thread_id()]);
       double  theta_vec_t[ndof],
               v_t[basis_t.ndim];
       #pragma omp for

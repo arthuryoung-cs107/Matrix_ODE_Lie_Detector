@@ -40,7 +40,7 @@ int main()
   inputs_gen.generate_solution_curves(ode_integrator, ode.get_default_IC_indep_range());
 
   sprintf(name_buffer,"%s/%s_%s.%s",dir_name,ode.name,exp_name,dat_suff);
-  inputs_gen.write_solution_curves(name_buffer);
+  inputs_gen.write_observed_solutions(name_buffer);
 
   if (write_JFs)
   {
