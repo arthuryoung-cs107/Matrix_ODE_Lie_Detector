@@ -29,9 +29,9 @@ LD_observations_set Sobs(meta0,nc,np,write_dnp1xu,write_JFs);
 DoPri5_settings integrator_settings; DoPri5 ode_integrator(ode,integrator_settings);
 
 // specify order of embedding function space
-const int bor = 10;
+// const int bor = 10;
 // const int bor = 9;
-// const int bor = 8;
+const int bor = 8;
 
 // class of embedding function space
 orthopolynomial_space fspace0(meta0,bor);
@@ -58,6 +58,11 @@ const bool  write_gen_obs_data = true,
             write_fspace_config = true,
             write_encoded_mats = true,
             write_decoded_mats = true;
+
+rspace_infinitesimal_generator rinfgen0(fspace0,Amat_svd.VTtns);
+
+DoP853_settings intgr_rec_settings; DoP853 intgr_rec(rinfgen0,intgr_rec_settings);
+// DoPri5_settings intgr_rec_settings; DoPri5 intgr_rec(rinfgen0,intgr_rec_settings);
 
 // buffers for writing file names via meta strings
 char  eqn_name[50],
@@ -206,18 +211,16 @@ int main()
       enc_check = encode_data_matrices<orthopolynomial_basis>(bases0,write_encoded_mats),
       dec_check = decode_data_matrices(write_decoded_mats);
 
-  rspace_infinitesimal_generator rinfgen0(fspace0,Amat_svd.kappa_def(),Amat_svd.VTtns);
-
-  DoP853_settings intgr_rec_settings; DoP853 intgr_rec(rinfgen0,intgr_rec_settings);
-  // DoPri5_settings intgr_rec_settings; DoPri5 intgr_rec(rinfgen0,intgr_rec_settings);
+  rinfgen0.kappa = Amat_svd.kappa_def();
 
   strcpy(intrec_name,intgr_rec.name);
 
   generated_ode_observations inputs_recon(rinfgen0,Sobs.ncrvs_tot,Sobs.min_npts_curve());
   inputs_recon.set_solcurve_ICs(Sobs.curves);
 
-  inputs_recon.parallel_generate_solution_curves<rspace_infinitesimal_generator,DoP853>(rinfgen0,intgr_rec,Sobs.get_default_IC_indep_range());
-  // inputs_recon.parallel_generate_solution_curves<rspace_infinitesimal_generator,DoPri5>(rinfgen0,intgr_rec,Sobs.get_default_IC_indep_range());
+  const double * IC_indep_range = Sobs.get_default_IC_indep_range();
+
+  inputs_recon.parallel_generate_solution_curves(rinfgen0,intgr_rec,IC_indep_range);
 
   sprintf(name_buffer, "%s/%s_%s.%s.%srec.%s", dir_name,data_name,bse_name,Amat_name,intrec_name,dat_suff);
   inputs_recon.write_solution_curves(name_buffer);

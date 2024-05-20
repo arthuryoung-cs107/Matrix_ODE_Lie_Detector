@@ -140,7 +140,7 @@ classdef LD_plots
             ylabel(axs(3),['med. $$ \mathrm{err} (d_{\hat{x}}^n \hat{u} | d_x^n u ) $$'], 'Interpreter','Latex','FontSize',14);
 
             set(axs(1:3),'YScale', 'log', 'XScale', 'linear', 'TickLabelInterpreter','Latex','FontSize',12);
-            legend(axs(2), leg2,'Location', 'SouthOutside', 'Interpreter', 'Latex', 'NumColumns',nset);
+            legend(axs(2), leg2,'Location', 'SouthOutside', 'Interpreter', 'Latex', 'NumColumns',min([nset,6]));
 
             err_res = struct(   'pts_nrmlz',pts_nrmlz, ...
                                 'abs_rel_diff',abs_rel_diff);
