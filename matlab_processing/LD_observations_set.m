@@ -4,6 +4,23 @@ classdef LD_observations_set
         obs_meta_len = 2;
     end
     properties
+        reconstructed_set=false;
+        eqn_name;
+        nse_name;
+        gen_name;
+        fam_name;
+        bor_name;
+        mat_name;
+        rec_name;
+
+        nrow;
+        ndof;
+        matT;
+
+        rvec;
+        smat;
+        Vtns;
+
         dir_name;
         dat_suff;
         dat_name;
@@ -27,15 +44,45 @@ classdef LD_observations_set
         dnp1xu_in;
     end
     methods
-        function obj = LD_observations_set(dir_name_,dat_name_,dat_suff_)
-            name_ = [dir_name_ '/' dat_name_ '.' dat_suff_];
+        function obj = LD_observations_set(dir_name_,eqn_,nse_,gen_,fam_,bor_,mat_,rec_,suf_,dat_suff_)
+            if (nargin == 3)
+                dat_name = eqn_;
+                dat_suff = nse_;
+            elseif (nargin == 5)
+                obj.eqn_name = eqn_;
+                obj.nse_name = nse_;
+                obj.gen_name = gen_;
+                dat_name = asmbl_gen_name(eqn_,nse_,gen_);
+                dat_suff = fam_;
+            else
+                obj.reconstructed_set = true;
+                obj.eqn_name = eqn_;
+                obj.nse_name = nse_;
+                obj.gen_name = gen_;
+                obj.fam_name = fam_;
+                obj.bor_name = bor_;
+                obj.mat_name = mat_;
+                obj.rec_name = rec_;
+                [dat_name,mat_file_name] = asmbl_rec_name(eqn_,nse_,gen_,fam_,bor_,mat_,rec_,suf_);
+                mat_svd_pckg = read_mat_svd_struct([dir_name_ '/' mat_file_name],dat_suff_);
+                obj.nrow = mat_svd_pckg.nrow;
+                obj.ndof = mat_svd_pckg.ndof;
+                obj.matT = mat_svd_pckg.matT;
+                obj.rvec = mat_svd_pckg.rvec;
+                obj.smat = mat_svd_pckg.smat;
+                obj.Vtns = mat_svd_pckg.Vtns;
+
+                dat_suff = dat_suff_;
+            end
+
+            name_ = [dir_name_ '/' dat_name '.' dat_suff];
 
             fprintf('(LD_observations_set::LD_observations_set) reading %s\n', name_);
             pts_struct = read_pts_struct(name_);
 
             obj.dir_name = dir_name_;
-            obj.dat_name = dat_name_;
-            obj.dat_suff = dat_suff_;
+            obj.dat_name = dat_name;
+            obj.dat_suff = dat_suff;
 
             obj.name = name_;
 
@@ -62,6 +109,18 @@ classdef LD_observations_set
                 obj_out.JFs_in = fread(file,header(1),'double=>double');
             end
             fclose(file);
+        end
+        function pckg_out = mat_package(obj)
+            nconstr_dim = obj.nrow/obj.nobs;
+            pckg_out = struct(  'mat', obj.matT', ...
+                                'nconstr_dim', nconstr_dim, ...
+                                'npts_per_crv', obj.npts_per_crv);
+        end
+        function pckg_out = mat_svd_pckg(obj)
+            pckg_out = obj.mat_package;
+            pckg_out.rvec = obj.rvec;
+            pckg_out.smat = obj.smat;
+            pckg_out.Vtns = obj.Vtns;
         end
         function pts_cell_out = pts_cell(obj)
             [ncrv,ndim,pts_in] = deal(obj.ncrv,obj.ndim,obj.pts_in);
@@ -91,6 +150,53 @@ classdef LD_observations_set
     end
 end
 
+function str_out = asmbl_gen_name(eqn_,nse_,gen_)
+    str_out = [eqn_ '_' nse_ '_' gen_ 'gen'];
+end
+function [str_out,gen_name_out] = asmbl_mat_name(eqn_,nse_,gen_,fam_,bor_,mat_)
+    gen_name_out = asmbl_gen_name(eqn_,nse_,gen_);
+    str_out = [gen_name_out '_' fam_ '.' num2str(bor_) '.' mat_];
+end
+function [str_out,mat_name_out,gen_name_out] = asmbl_rec_name(eqn_,nse_,gen_,fam_,bor_,mat_,rec_,suf_)
+    [mat_name_out,gen_name_out] = asmbl_mat_name(eqn_,nse_,gen_,fam_,bor_,mat_);
+    str_out = [mat_name_out '.' rec_ suf_];
+end
+function mat_struct = read_mat_struct(name_,suf_)
+    file = fopen([name_ '.' suf_]);
+    hlen = fread(file,1,'int=>int');
+    header = fread(file,hlen,'int=>int');
+    if (hlen==2)
+        [nrow,ndof] = deal(header(1),header(2));
+        mat_in = fread(file,prod(header),'double=>double');
+        mat_struct = struct(    'nrow', nrow, ...
+                                'ndof', ndof, ...
+                                'matT', reshape(mat_in,ndof,nrow));
+    else
+        fprintf('(read_mat_struct) : ERROR - attempted to read improperly formatted file (hlen=%d)',hlen);
+        mat_struct = 0;
+    end
+    fclose(file);
+end
+function mat_svd_struct = read_mat_svd_struct(name_,suf_)
+    mat_svd_struct = read_mat_struct(name_,suf_);
+    file = fopen([name_ '_svd.' suf_]);
+    hlen = fread(file,1,'int=>int');
+    header = fread(file,hlen,'int=>int');
+    if (hlen==2)
+        [ncrv,ndof] = deal(header(1),header(2));
+        rvec = fread(file,ncrv,'int=>int');
+        s_in = fread(file,ncrv*ndof,'double=>double');
+        V_in = fread(file,ncrv*ndof*ndof,'double=>double');
+        mat_svd_struct.rvec = rvec;
+        mat_svd_struct.smat = reshape(s_in,ndof,ncrv);
+        mat_svd_struct.Vtns = reshape(V_in,ndof,ndof,ncrv);
+    else
+        fprintf('(read_mat_svd_struct) : ERROR - attempted to read improperly formatted file (hlen=%d)',hlen);
+        mat_struct = 0;
+    end
+    fclose(file);
+
+end
 function pts_struct = read_pts_struct(name_)
     file = fopen(name_);
     ode_meta = fread(file,LD_observations_set.ode_meta_len,'int=>int');

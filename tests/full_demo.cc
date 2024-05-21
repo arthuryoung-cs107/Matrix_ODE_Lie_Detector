@@ -29,9 +29,9 @@ DoP853_settings integrator_settings; DoP853 ode_integrator(ode,integrator_settin
 // DoPri5_settings integrator_settings; DoPri5 ode_integrator(ode,integrator_settings);
 
 // specify order of embedding function space
-// const int bor = 10;
+const int bor = 10;
 // const int bor = 9;
-const int bor = 8;
+// const int bor = 8;
 
 // class of embedding function space
 orthopolynomial_space fspace0(meta0,bor);
@@ -63,8 +63,8 @@ const bool  write_gen_obs_data = true,
 rspace_infinitesimal_generator rinfgen0(fspace0,Amat_svd.VTtns);
 
 // runge kutta integrator for the reconstruction of observational data
-// DoP853_settings intgr_rec_settings; DoP853 intgr_rec(rinfgen0,intgr_rec_settings); // 8th order accurate, 7th order interpolation
-DoPri5_settings intgr_rec_settings; DoPri5 intgr_rec(rinfgen0,intgr_rec_settings); // 5th order accurate, 4th order interpolation
+DoP853_settings intgr_rec_settings; DoP853 intgr_rec(rinfgen0,intgr_rec_settings); // 8th order accurate, 7th order interpolation
+// DoPri5_settings intgr_rec_settings; DoPri5 intgr_rec(rinfgen0,intgr_rec_settings); // 5th order accurate, 4th order interpolation
 
 // buffers for writing file names via meta strings
 char  eqn_name[50],
@@ -217,6 +217,7 @@ template <class BSIS> int reconstruct_data(BSIS ** bases_, bool write_recon_data
   {
     inputs_recon.set_solcurve_ICs(Sobs.curves);
     inputs_recon.parallel_generate_solution_curves(rinfgen0,intgr_rec,Sobs.get_default_IC_indep_range());
+    // inputs_recon.generate_solution_curves(intgr_rec,Sobs.get_default_IC_indep_range());
     inputs_recon.write_observed_solutions(name_buffer);
   }
   else inputs_recon.read_basic_observations(name_buffer);

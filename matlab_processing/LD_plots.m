@@ -84,12 +84,69 @@ classdef LD_plots
         end
     end
     methods (Static)
+        function plt = plot_S_svds(Sarray_,plt_)
+            plt = plt_.init_tiles_safe(1,3);
+            hold(plt.axs, 'on');
+            box(plt.axs,'on');
+            axs = plt.axs;
+
+            S0 = Sarray_(1);
+            nset = length(Sarray_);
+
+            mspc = 'none';
+            ms = 1;
+            lspc_min = '-';
+            lspc_med = '-';
+            lspc_max = '-';
+            lw = 1;
+            colors = turbo(nset);
+
+            mat_stats = @(mat_) deal(min(mat_,[],2),median(mat_,2),max(mat_,[],2), 1:size(mat_,1));
+
+            xlabel(axs,['$$ i $$'], 'Interpreter','Latex','FontSize',14);
+            for i = 1:nset
+                leg1(i) = plot(axs(1),1:(Sarray_(i).ndof),min(Sarray_(i).smat,[],2), ...
+                'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc_min,'LineWidth',lw,'Color',colors(i,:), ...
+                'DisplayName', fixlabel(Sarray_(i).dat_name));
+            end
+            ylabel(axs(1),['min $$ \sigma^{\mathbf{A}}_i $$'], 'Interpreter','Latex','FontSize',14);
+
+            for i = 1:nset
+                leg2(i) = plot(axs(2),1:(Sarray_(i).ndof),median(Sarray_(i).smat,2), ...
+                'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc_med,'LineWidth',lw,'Color',colors(i,:), ...
+                'DisplayName', fixlabel(Sarray_(i).dat_name));
+            end
+            ylabel(axs(2),['med. $$ \sigma^{\mathbf{A}}_i $$'], 'Interpreter','Latex','FontSize',14);
+
+            for i = 1:nset
+                leg3(i) = plot(axs(3),1:(Sarray_(i).ndof),max(Sarray_(i).smat,[],2), ...
+                'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc_max,'LineWidth',lw,'Color',colors(i,:), ...
+                'DisplayName', fixlabel(Sarray_(i).dat_name));
+            end
+            ylabel(axs(3),['max $$ \sigma^{\mathbf{A}}_i $$'], 'Interpreter','Latex','FontSize',14);
+
+            legend(axs(2), leg2,'Location', 'SouthOutside', 'Interpreter', 'Latex', 'NumColumns',min([nset,4]));
+
+            set(axs,'YScale', 'log','XScale','linear','TickLabelInterpreter','Latex','FontSize',12);
+
+        end
         function [plt,err_res] = plot_S_relative_errors(Sarray_,Sref_,plt_)
-            plt = plt_;
+            plt = plt_.init_tiles_safe(1,3);
+            hold(plt.axs, 'on');
+            box(plt.axs,'on');
+            axs = plt.axs;
+
+            nset = length(Sarray_);
+
+            mspc = 'none';
+            ms = 1;
+            lspc_med = '-';
+            lspc_max = ':';
+            lw = 1;
+            colors = turbo(nset);
 
             [ndim,nobs,nc,ndep] = deal(Sref_.ndim,Sref_.nobs,Sref_.ncrv,Sref_.ndep);
             np = nobs/nc;
-            nset = length(Sarray_);
 
             pts_mat_ref = Sref_.pts_mat;
             pts_tns_ref = reshape(pts_mat_ref,ndim,[],nc);
@@ -97,17 +154,6 @@ classdef LD_plots
 
             pts_nrmlz = abs(pts_mat_ref);
             pts_nrmlz(pts_nrmlz==0) = 1.0;
-
-            plt = plt.init_tiles_safe(1,3);
-            hold(plt.axs, 'on');
-            box(plt.axs,'on');
-            axs = plt.axs;
-
-            mspc = 'none';
-            ms = 1;
-            lspc = '-';
-            lw = 1;
-            colors = turbo(nset);
 
             abs_rel_diff = nan(ndim,nobs,nset);
             for i = 1:nset
@@ -120,21 +166,31 @@ classdef LD_plots
             re_dnxu = reshape(sum(abs_rel_diff((end-ndep+1):end,:,:),1),np,nc,nset);
 
             xlabel(axs,['$$ x $$'], 'Interpreter','Latex','FontSize',14);
+            set(axs,'XLim',[min(x_vec) max(x_vec)]);
             for i = 1:nset
                 leg1(i) = plot(axs(1),x_vec,median(re_net(:,:,i),2), ...
-                'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc,'LineWidth',lw,'Color',colors(i,:), ...
+                'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc_med,'LineWidth',lw,'Color',colors(i,:), ...
+                'DisplayName', fixlabel(Sarray_(i).dat_name));
+                plot(axs(1),x_vec,max(re_net(:,:,i),[],2), ...
+                'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc_max,'LineWidth',lw,'Color',colors(i,:), ...
                 'DisplayName', fixlabel(Sarray_(i).dat_name));
             end
             ylabel(axs(1),['med. $$ \mathrm{err} (\hat{s} | s ) $$'], 'Interpreter','Latex','FontSize',14);
             for i = 1:nset
                 leg2(i) = plot(axs(2),x_vec,median(re_u(:,:,i),2), ...
-                'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc,'LineWidth',lw,'Color',colors(i,:), ...
+                'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc_med,'LineWidth',lw,'Color',colors(i,:), ...
+                'DisplayName', fixlabel(Sarray_(i).dat_name));
+                plot(axs(2),x_vec,max(re_u(:,:,i),[],2), ...
+                'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc_max,'LineWidth',lw,'Color',colors(i,:), ...
                 'DisplayName', fixlabel(Sarray_(i).dat_name));
             end
             ylabel(axs(2),['med. $$ \mathrm{err} (\hat{u} | u ) $$'], 'Interpreter','Latex','FontSize',14);
             for i = 1:nset
                 leg3(i) = plot(axs(3),x_vec,median(re_dnxu(:,:,i),2), ...
-                'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc,'LineWidth',lw,'Color',colors(i,:), ...
+                'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc_med,'LineWidth',lw,'Color',colors(i,:), ...
+                'DisplayName', fixlabel(Sarray_(i).dat_name));
+                plot(axs(3),x_vec,max(re_dnxu(:,:,i),[],2), ...
+                'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc_max,'LineWidth',lw,'Color',colors(i,:), ...
                 'DisplayName', fixlabel(Sarray_(i).dat_name));
             end
             ylabel(axs(3),['med. $$ \mathrm{err} (d_{\hat{x}}^n \hat{u} | d_x^n u ) $$'], 'Interpreter','Latex','FontSize',14);
@@ -146,12 +202,7 @@ classdef LD_plots
                                 'abs_rel_diff',abs_rel_diff);
         end
         function plt = plot_n1q1_solspc(S_,plt_)
-            if (nargin<2)
-                plt = LD_plots([ S_.dat_name '_n2q1_solspc'],LD_plots.posdim_specs([4 4], [1 4], [4 1], 1));
-            else
-                plt = plt_;
-            end
-            plt = plt.init_tiles_safe(2,3);
+            plt = plt_.init_tiles_safe(2,3);
             hold(plt.axs, 'on');
             box(plt.axs,'on');
 
@@ -179,12 +230,7 @@ classdef LD_plots
             end
         end
         function plt = plot_n2q1_solspc(S_,plt_)
-            if (nargin<2)
-                plt = LD_plots([ S_.dat_name '_n2q1_solspc'],LD_plots.posdim_specs([4 4], [1 4], [1 1], 1));
-            else
-                plt = plt_;
-            end
-            plt = plt.init_tiles_safe(2,3);
+            plt = plt_.init_tiles_safe(2,3);
             hold(plt.axs, 'on');
             box(plt.axs,'on');
 
@@ -239,6 +285,20 @@ classdef LD_plots
         end
         function struct_out = make_posdim_plot_specs(name_in_, pos_in_)
             struct_out = {'Name', name_in_; 'Renderer', 'painters'; 'Position', pos_in_;};
+        end
+        function plt = plot_solspc(S_,plt_)
+            switch S_.eor
+                case 1
+                    switch S_.ndep
+                        case 1
+                            LD_plots.plot_n1q1_solspc(S_,plt_);
+                    end
+                case 2
+                    switch S_.ndep
+                        case 1
+                            LD_plots.plot_n2q1_solspc(S_,plt_);
+                    end
+            end
         end
     end
 end
