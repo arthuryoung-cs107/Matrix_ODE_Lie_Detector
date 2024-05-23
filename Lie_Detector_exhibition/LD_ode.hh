@@ -33,7 +33,8 @@ struct ode_solution: public ode_solspc_element
   double  * const pts,
           &x = pts[0],
           * const u = pts + 1,
-          * const dxu = pts + nvar,
+          * const dxu = u + ndep,
+          * const dnxu = u + ndep*eor,
           * dnp1xu = NULL,
           ** JFs = NULL;
 

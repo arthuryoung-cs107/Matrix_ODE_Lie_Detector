@@ -318,9 +318,15 @@ class function_space_basis: public function_space_element
 
   void v_eval(double *s_, double *v_);
   void v_eval(double *s_,double *v_,double *theta_);
-  void fill_partial_chunk(double *s_);
+  inline void fill_partial_chunk(double *s_)
+  {
+    for (size_t i = 0; i < ndof_full; i++)
+      if (!(dof_hot_flags[i])) {fill_partial_chunk_sparse(s_); return;}
+    fill_partial_chunk_full(s_);
+  }
 
   protected:
+
     const bool dxu_pows_allocate = eor > 2;
 
     const int eorm2 = eor-2,
@@ -476,6 +482,11 @@ class function_space_basis: public function_space_element
     inline double update_product(double prod_old_, double old_, double new_) {return (prod_old_/old_)*new_;}
 
     inline bool is_zero(double in_) {return ((in_+0.0)==0.0);}
+
+  private:
+     
+    void fill_partial_chunk_full(double *s_);
+    void fill_partial_chunk_sparse(double *s_);
 };
 
 class power_basis: public function_space_basis

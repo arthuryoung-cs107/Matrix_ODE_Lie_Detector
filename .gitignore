@@ -1,3 +1,5 @@
 *.lddat
 *.mat
+*.o
+*_demo
 *.DS_Store

@@ -14,7 +14,7 @@ classdef LD_observations_set
         rec_name;
 
         nrow;
-        ndof;
+        ncol;
         matT;
 
         rvec;
@@ -66,7 +66,7 @@ classdef LD_observations_set
                 [dat_name,mat_file_name] = asmbl_rec_name(eqn_,nse_,gen_,fam_,bor_,mat_,rec_,suf_);
                 mat_svd_pckg = read_mat_svd_struct([dir_name_ '/' mat_file_name],dat_suff_);
                 obj.nrow = mat_svd_pckg.nrow;
-                obj.ndof = mat_svd_pckg.ndof;
+                obj.ncol = mat_svd_pckg.ncol;
                 obj.matT = mat_svd_pckg.matT;
                 obj.rvec = mat_svd_pckg.rvec;
                 obj.smat = mat_svd_pckg.smat;
@@ -97,6 +97,14 @@ classdef LD_observations_set
             obj.npts_uniform = prod(double(obj.npts_per_crv==obj.npts_per_crv(1)));
 
             obj.pts_mat = reshape(obj.pts_in,obj.ndim,[]);
+        end
+        function mat_pckg_out = read_mat_package(obj,fam_,bor_,mat_)
+            mat_pckg_out = read_mat_struct([obj.dir_name '/' obj.dat_name '_' fam_ '.' num2str(bor_) '.' mat_],obj.dat_suff);
+            mat_svd_pckg_out.dat_name = [obj.dat_name '_' fam_ '.' num2str(bor_) '.' mat_];
+        end
+        function mat_svd_pckg_out = read_mat_svd_package(obj,fam_,bor_,mat_)
+            mat_svd_pckg_out = read_mat_svd_struct([obj.dir_name '/' obj.dat_name '_' fam_ '.' num2str(bor_) '.' mat_],obj.dat_suff);
+            mat_svd_pckg_out.dat_name = [obj.dat_name '_' fam_ '.' num2str(bor_) '.' mat_];
         end
         function obj_out = read_additional_observations(obj,name1_)
             obj_out = obj;
@@ -162,40 +170,51 @@ function [str_out,mat_name_out,gen_name_out] = asmbl_rec_name(eqn_,nse_,gen_,fam
     str_out = [mat_name_out '.' rec_ suf_];
 end
 function mat_struct = read_mat_struct(name_,suf_)
-    file = fopen([name_ '.' suf_]);
-    hlen = fread(file,1,'int=>int');
-    header = fread(file,hlen,'int=>int');
-    if (hlen==2)
-        [nrow,ndof] = deal(header(1),header(2));
-        mat_in = fread(file,prod(header),'double=>double');
-        mat_struct = struct(    'nrow', nrow, ...
-                                'ndof', ndof, ...
-                                'matT', reshape(mat_in,ndof,nrow));
-    else
-        fprintf('(read_mat_struct) : ERROR - attempted to read improperly formatted file (hlen=%d)',hlen);
+    name_full = [name_ '.' suf_];
+    file = fopen(name_full);
+    if (file == -1)
+        fprintf('(read_mat_struct) : ERROR - failed to read %s \n',name_full);
         mat_struct = 0;
+    else
+        hlen = fread(file,1,'int=>int');
+        header = fread(file,hlen,'int=>int');
+        if (hlen==2)
+            [nrow,ncol] = deal(header(1),header(2));
+            mat_in = fread(file,prod(header),'double=>double');
+            mat_struct = struct(    'nrow', nrow, ...
+                                    'ncol', ncol, ...
+                                    'matT', reshape(mat_in,ncol,nrow));
+        else
+            fprintf('(read_mat_struct) : ERROR - attempted to read improperly formatted file from %s (hlen=%d) \n',name_full,hlen);
+            mat_struct = 0;
+        end
+        fclose(file);
     end
-    fclose(file);
 end
 function mat_svd_struct = read_mat_svd_struct(name_,suf_)
     mat_svd_struct = read_mat_struct(name_,suf_);
-    file = fopen([name_ '_svd.' suf_]);
-    hlen = fread(file,1,'int=>int');
-    header = fread(file,hlen,'int=>int');
-    if (hlen==2)
-        [ncrv,ndof] = deal(header(1),header(2));
-        rvec = fread(file,ncrv,'int=>int');
-        s_in = fread(file,ncrv*ndof,'double=>double');
-        V_in = fread(file,ncrv*ndof*ndof,'double=>double');
-        mat_svd_struct.rvec = rvec;
-        mat_svd_struct.smat = reshape(s_in,ndof,ncrv);
-        mat_svd_struct.Vtns = reshape(V_in,ndof,ndof,ncrv);
+    name_full = [name_ '_svd.' suf_];
+    file = fopen(name_full);
+    if (file==-1)
+        fprintf('(read_mat_struct) : ERROR - failed to read %s \n',name_full);
+        mat_svd_struct = 0;
     else
-        fprintf('(read_mat_svd_struct) : ERROR - attempted to read improperly formatted file (hlen=%d)',hlen);
-        mat_struct = 0;
+        hlen = fread(file,1,'int=>int');
+        header = fread(file,hlen,'int=>int');
+        if (hlen==2)
+            [ncrv,ncol] = deal(header(1),header(2));
+            rvec = fread(file,ncrv,'int=>int');
+            s_in = fread(file,ncrv*ncol,'double=>double');
+            V_in = fread(file,ncrv*ncol*ncol,'double=>double');
+            mat_svd_struct.rvec = rvec;
+            mat_svd_struct.smat = reshape(s_in,ncol,ncrv);
+            mat_svd_struct.Vtns = reshape(V_in,ncol,ncol,ncrv);
+        else
+            fprintf('(read_mat_svd_struct) : ERROR - attempted to read improperly formatted file from %s (hlen=%d) \n',name_full,hlen);
+            mat_struct = 0;
+        end
+        fclose(file);
     end
-    fclose(file);
-
 end
 function pts_struct = read_pts_struct(name_)
     file = fopen(name_);

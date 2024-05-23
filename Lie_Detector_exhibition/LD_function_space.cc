@@ -200,7 +200,31 @@ void function_space_basis::v_eval(double *s_,double *v_)
     }
   }
 }
-void function_space_basis::fill_partial_chunk(double *s_)
+void function_space_basis::fill_partial_chunk_full(double *s_)
+{
+  init_workspace(s_);
+  coupling_term &c0 = *(couples[0]);
+  for (int ixord = 0, i_L_start = 0; ixord < ord_len; i_L_start+=ord_i_len, ixord++)
+  {
+    double Li_x = stage_indep_var(ixord);
+    for (int iu_perm = 0, i_L = i_L_start; iu_perm < ord_i_len; iu_perm++, i_L++)
+    {
+      double  Li_u = stage_dep_var(i_L),
+              Li = Jac_mat[0][i_L] = Li_x*Li_u;
+      for (int ivar = 1; ivar <= ndep; ivar++) Jac_mat[ivar][i_L] = Li;
+
+      stage_coupling(-1.0); compute_x_coupling(c0); // perform dxde couplings
+        // accumulate dxde contribution to v, store partial derivative
+      for (int idnxu = nvar, iparx = 0; idnxu < ndim; idnxu++, iparx++) C_x[i_L][0][iparx] = v_j[idnxu];
+
+      // perform dude couplings
+      stage_coupling(1.0); compute_u_coupling(1,c0);
+      for (int ider = 1, idnxu = nvar, idnxu_skip = idnxu; ider <= eor; ider++, idnxu_skip+=ndep)
+        C_u[i_L][ider-1] = v_j[idnxu_skip];
+    }
+  }
+}
+void function_space_basis::fill_partial_chunk_sparse(double *s_)
 {
   init_workspace(s_);
   coupling_term &c0 = *(couples[0]);
@@ -211,7 +235,7 @@ void function_space_basis::fill_partial_chunk(double *s_)
     {
       double  Li_u = stage_dep_var(i_L),
               Li = Li_x*Li_u;
-      // store Ltxi data for later processing
+      // store Lxu_i data for later processing
       bool  indep_i_tun = false,
             any_dep_i_tun = false;
       if (indep_i_tun = dof_tun_flags_mat[0][i_L]) Jac_mat[0][i_L] = Li;
@@ -222,12 +246,12 @@ void function_space_basis::fill_partial_chunk(double *s_)
       }
       if (indep_i_tun)
       {
-        stage_coupling(-1.0); compute_x_coupling(c0); // perform dtde couplings
-        // accumulate dt/de contribution De, store partial derivative
+        stage_coupling(-1.0); compute_x_coupling(c0); // perform dxde couplings
+        // accumulate dxde contribution to v, store partial derivative
         for (int idnxu = nvar, iparx = 0; idnxu < ndim; idnxu++, iparx++)
           C_x[i_L][0][iparx] = v_j[idnxu];
       }
-      // perform dxde couplings
+      // perform dude couplings
       if (any_dep_i_tun)
       {
         stage_coupling(1.0); compute_u_coupling(1,c0);

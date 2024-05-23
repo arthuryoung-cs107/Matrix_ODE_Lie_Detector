@@ -375,9 +375,9 @@ void LD_observations_set::get_solspace_mag_extrema(double **sme_g_)
   }
 }
 
-LD_matrix::LD_matrix(function_space &fspc_, LD_observations_set &Sset_, int dim_cnstr_):
-function_space_element(fspc_), LD_experiment(Sset_), dim_cnstr(dim_cnstr_),
-Attns(new double***[ncrvs_tot]), Atns(T3tensor<double>(nobs_full,dim_cnstr,ndof_full))
+LD_matrix::LD_matrix(function_space &fspc_, LD_observations_set &Sset_, int dim_cnstr_, int net_cols_):
+function_space_element(fspc_), LD_experiment(Sset_), dim_cnstr(dim_cnstr_), net_cols(net_cols_),
+Attns(new double***[ncrvs_tot]), Atns(T3tensor<double>(nobs_full,dim_cnstr,net_cols))
 {
   for (size_t icrv = 0, idim_crv = 0; icrv < ncrvs_tot; idim_crv+=npts_per_crv[icrv++])
     Attns[icrv] = Atns + idim_crv;
@@ -391,27 +391,27 @@ void LD_matrix::write_matrix(const char name_[])
 {
   FILE * file = LD_io::fopen_SAFE(name_,"wb");
   int hlen = 2,
-      header[] = {hlen,net_rows,ndof_full};
+      header[] = {hlen,net_rows,net_cols};
   fwrite(header, sizeof(int), hlen+1, file);
-  fwrite(Avec, sizeof(double), net_rows*ndof_full, file);
+  fwrite(Avec, sizeof(double), net_rows*net_cols, file);
   fclose(file);
   printf("(LD_matrix::write_matrix) wrote %s\n",name_);
 }
 void LD_matrix::read_matrix(const char name_[])
 {
   const int hlen_check = 2,
-            Alen_check = net_rows*ndof_full;
+            Alen_check = net_rows*net_cols;
   int hlen_in,
       Alen_in,
       header_in[hlen_check],
       &net_rows_in = header_in[0],
-      &ndof_full_in = header_in[1];
+      &net_cols_in = header_in[1];
   FILE * file_in = LD_io::fopen_SAFE(name_,"r");
   LD_io::fread_SAFE(&hlen_in,sizeof(int),1,file_in);
   if (hlen_in==hlen_check)
   {
     LD_io::fread_SAFE(header_in,sizeof(int),hlen_in,file_in);
-    Alen_in=net_rows_in*ndof_full_in;
+    Alen_in=net_rows_in*net_cols_in;
   }
   else
   {

@@ -39,12 +39,12 @@ struct LD_SVD_space // assumes M>N
 
 struct LD_matrix_svd_result
 {
-  LD_matrix_svd_result(int ncrvs_,int ndof_): ncrvs(ncrvs_), ndof(ndof_),
-  rank_vec(new int[ncrvs_]), Smat(Tmatrix<double>(ncrvs_,ndof_)), VTtns(T3tensor<double>(ncrvs_,ndof_,ndof_)) {}
+  LD_matrix_svd_result(int ncrvs_,int ncols_): ncrvs(ncrvs_), ncols(ncols_),
+  rank_vec(new int[ncrvs_]), Smat(Tmatrix<double>(ncrvs_,ncols_)), VTtns(T3tensor<double>(ncrvs_,ncols_,ncols_)) {}
   ~LD_matrix_svd_result() {delete [] rank_vec; free_Tmatrix<double>(Smat); free_T3tensor<double>(VTtns);}
 
   const int ncrvs,
-            ndof;
+            ncols;
   int * const rank_vec;
   double  ** const Smat,
           *** const VTtns;
@@ -58,14 +58,14 @@ struct LD_matrix_svd_result
     printf("min_nulldim = %d, max_nulldim = %d \n", min_nulldim(), max_nulldim());
   }
 
-  inline int nulldim_i(int i_) {return ndof-rank_vec[i_];}
+  inline int nulldim_i(int i_) {return ncols-rank_vec[i_];}
   inline int min_rank() {return LD_linalg::min_val<int>(rank_vec,ncrvs);}
   inline int max_rank() {return LD_linalg::max_val<int>(rank_vec,ncrvs);}
-  inline int min_nulldim() {return ndof - max_rank();}
-  inline int max_nulldim() {return ndof - min_rank();}
+  inline int min_nulldim() {return ncols - max_rank();}
+  inline int max_nulldim() {return ncols - min_rank();}
 
   inline int kappa_def() {int min_nulldim_val; return (min_nulldim_val=min_nulldim())?(min_nulldim_val):(1);}
-  inline double ** Kmat_crvi(int icrv_,int kappa_=0) {return VTtns[icrv_]+(ndof-(kappa_)?(kappa_):(kappa_def()));}
+  inline double ** Kmat_crvi(int icrv_,int kappa_=0) {return VTtns[icrv_]+(ncols-(kappa_)?(kappa_):(kappa_def()));}
 };
 
 struct infinitesimal_generator: public ode_system
@@ -179,6 +179,25 @@ struct matrix_Lie_detector
   matrix_Lie_detector() {}
   ~matrix_Lie_detector() {}
 
+  static void compute_curve_svds(LD_matrix &mat_,LD_matrix_svd_result &mat_svd_,int nrows_)
+  {
+    const int ncols = mat_svd_.ncols,
+              ncrvs = mat_.ncrvs_tot;
+    int * const rank_vec_out = mat_svd_.rank_vec;
+    double  ** const Smat_out = mat_svd_.Smat,
+            *** const VTtns_out = mat_svd_.VTtns;
+    #pragma omp parallel
+    {
+      LD_SVD_space svd_t(nrows_,ncols);
+      #pragma omp for
+      for (size_t i = 0; i < ncrvs; i++)
+      {
+        svd_t.load_and_decompose(mat_.Amat_crv_i(i));
+        rank_vec_out[i] = svd_t.unpack_rank_s_VT(Smat_out[i],VTtns_out[i]);
+      }
+    }
+  }
+
   template <class INFGN, class BSIS> static void extend_ode_observations(ode_curve_observations &obs_out_, INFGN &infgen_, BSIS **bases_)
   {
     const int ncrv = obs_out_.ncrv,
@@ -195,25 +214,6 @@ struct matrix_Lie_detector
       {
         infgen_t.init_dudx_eval(icrv);
         infgen_t.extend_curve_observations(basis_t,theta_vec_t,v_t,obs_out_.pts_icrv(icrv),npts_per_crv[icrv]);
-      }
-    }
-  }
-
-  static void compute_curve_svds(LD_matrix &mat_,LD_matrix_svd_result &mat_svd_,int nrows_)
-  {
-    const int ndof = mat_.ndof_full,
-              ncrvs = mat_.ncrvs_tot;
-    int * const rank_vec_out = mat_svd_.rank_vec;
-    double  ** const Smat_out = mat_svd_.Smat,
-            *** const VTtns_out = mat_svd_.VTtns;
-    #pragma omp parallel
-    {
-      LD_SVD_space svd_t(nrows_,ndof);
-      #pragma omp for
-      for (size_t i = 0; i < ncrvs; i++)
-      {
-        svd_t.load_and_decompose(mat_.Amat_crv_i(i));
-        rank_vec_out[i] = svd_t.unpack_rank_s_VT(Smat_out[i],VTtns_out[i]);
       }
     }
   }
