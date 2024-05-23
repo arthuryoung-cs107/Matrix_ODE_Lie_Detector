@@ -49,8 +49,8 @@ const char Pmat_name[] = "Pmat";
 const char Qmat_name[] = "Qmat";
 const char Gmat_name[] = "Gmat";
 
-LD_R_matrix Amat(fspace0,Sobs); const char * const Amat_name = Rmat_name;
-// LD_Q_matrix Amat(fspace0,Sobs); const char * const Amat_name = Qmat_name;
+// LD_R_matrix Amat(fspace0,Sobs); const char * const Amat_name = Rmat_name;
+LD_Q_matrix Amat(fspace0,Sobs); const char * const Amat_name = Qmat_name;
 
 LD_matrix_svd_result Amat_svd(Amat.ncrvs_tot,Amat.net_cols);
 
@@ -80,7 +80,7 @@ char  name_buffer[200],
       name_dnp1xu_buffer[200],
       name_JFs_buffer[200];
 
-int generate_observational_data(bool write_data_)
+int generate_observational_data()
 {
   mkdir(dir_name, S_IRWXU); strcpy(eqn_name,ode.name); strcpy(intgen_name,ode_integrator.name);
 
@@ -97,7 +97,7 @@ int generate_observational_data(bool write_data_)
 
   sprintf(data_name,"%s_%s_%sgen",eqn_name,noise_name,intgen_name);
 
-  if (write_data_)
+  if (write_gen_obs_data)
   {
     sprintf(name_buffer,"%s/%s.%s",dir_name,data_name,dat_suff);
     inputs_gen.write_observed_solutions(name_buffer);
@@ -117,12 +117,12 @@ int generate_observational_data(bool write_data_)
   return 0;
 }
 
-int configure_function_space(bool write_data_,bool check_fspaces_=false)
+int configure_function_space(bool check_fspaces_=false)
 {
   sprintf(name_buffer,"%s/%s.%s",dir_name,data_name,dat_suff);
   Sobs.load_additional_inputs(ode_curve_observations(name_buffer),true);
 
-  if (write_data_)
+  if (write_fspace_config)
   {
     fspace0.set_Legendre_coeffs(); Sobs.configure_centered_domain(fspace0);
     if (check_fspaces_) fspace0.debugging_description();
@@ -147,11 +147,11 @@ int configure_function_space(bool write_data_,bool check_fspaces_=false)
   return 0;
 }
 
-template<class BSIS> int encode_data_matrices(BSIS **bases_, bool write_data_)
+template<class BSIS> int encode_data_matrices(BSIS **bases_)
 {
   bases_[LD_threads::thread_id()]->debugging_description();
 
-  if (write_data_)
+  if (write_encoded_mats)
   {
     LD_L_matrix Lmat(fspace0,Sobs); Lmat.populate_L_matrix<orthopolynomial_basis>(bases_);
     sprintf(name_buffer, "%s/%s_%s.%s.%s", dir_name,data_name,bse_name,Lmat_name,dat_suff);
@@ -206,12 +206,12 @@ template <class MAT> void comp_crv_svd(MAT mat_, const char * const mat_name_)
   Amat_svd.write_svd_results(name_buffer);
 }
 
-int decode_data_matrices(bool write_data_,bool write_all_svds_)
+int decode_data_matrices()
 {
   sprintf(name_buffer, "%s/%s_%s.%s_svd.%s", dir_name,data_name,bse_name,mat_name,dat_suff);
-  if (write_data_)
+  if (write_decoded_mats)
   {
-    if (write_all_svds_)
+    if (write_all_svds)
     {
       LD_L_matrix Lmat(fspace0,Sobs);
       sprintf(name_buffer, "%s/%s_%s.%s.%s", dir_name,data_name,bse_name,Lmat_name,dat_suff);
@@ -256,7 +256,7 @@ int decode_data_matrices(bool write_data_,bool write_all_svds_)
   return 0;
 }
 
-template <class BSIS> int reconstruct_data(BSIS ** bases_, bool write_recon_data_)
+template <class BSIS> int reconstruct_data(BSIS ** bases_)
 {
   rinfgen0.kappa = Amat_svd.kappa_def(); // can be set after Amat_svd is loaded
 
@@ -265,7 +265,7 @@ template <class BSIS> int reconstruct_data(BSIS ** bases_, bool write_recon_data
   generated_ode_observations inputs_recon(rinfgen0,Sobs.ncrvs_tot,Sobs.min_npts_curve());
   sprintf(name_buffer, "%s/%s_%s.%s.%srec.%s", dir_name,data_name,bse_name,mat_name,intrec_name,dat_suff);
 
-  if (write_recon_data_)
+  if (write_recon_data)
   {
     inputs_recon.set_solcurve_ICs(Sobs.curves);
     inputs_recon.parallel_generate_solution_curves(rinfgen0,intgr_rec,Sobs.get_default_IC_indep_range());
@@ -280,7 +280,7 @@ template <class BSIS> int reconstruct_data(BSIS ** bases_, bool write_recon_data
 
   sprintf(name_buffer, "%s/%s_%s.%s.%sext.%s", dir_name,data_name,bse_name,mat_name,intrec_name,dat_suff);
 
-  if (write_recon_data_) inputs_extnd.write_observed_solutions(name_buffer);
+  if (write_recon_data) inputs_extnd.write_observed_solutions(name_buffer);
 
   return 0;
 }
@@ -289,11 +289,11 @@ int main()
 {
   orthopolynomial_basis **bases0 = make_evaluation_bases<orthopolynomial_basis, orthopolynomial_space>(fspace0);
 
-  int gen_check = generate_observational_data(write_gen_obs_data),
-      cnf_check = configure_function_space(write_fspace_config),
-      enc_check = encode_data_matrices<orthopolynomial_basis>(bases0,write_encoded_mats),
-      dec_check = decode_data_matrices(write_decoded_mats,write_all_svds),
-      rec_check = reconstruct_data<orthopolynomial_basis>(bases0,write_recon_data);
+  int gen_check = generate_observational_data(),
+      cnf_check = configure_function_space(),
+      enc_check = encode_data_matrices<orthopolynomial_basis>(bases0),
+      dec_check = decode_data_matrices(),
+      rec_check = reconstruct_data<orthopolynomial_basis>(bases0);
 
   free_evaluation_bases<orthopolynomial_basis>(bases0);
   return 0;

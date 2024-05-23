@@ -47,6 +47,9 @@ clean_:
 clean_LD_EXHIB:
 	rm -f $(LD_EXHIB_DIR)*.o
 
+clean_data_directory:
+	rm -f ./data_directory/*.lddat
+
 clean: clean_
 
 clean_all: clean_ clean_LD_EXHIB

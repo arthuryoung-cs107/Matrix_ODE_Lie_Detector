@@ -218,18 +218,23 @@ function mat_svd_struct = read_mat_svd_struct(name_,suf_)
 end
 function pts_struct = read_pts_struct(name_)
     file = fopen(name_);
-    ode_meta = fread(file,LD_observations_set.ode_meta_len,'int=>int');
-    [eor,ndep] = deal(ode_meta(1),ode_meta(2));
-    obs_meta = fread(file,LD_observations_set.obs_meta_len,'int=>int');
-    [ncrv,nobs] = deal(obs_meta(1),obs_meta(2));
-    npts_per_crv = fread(file,ncrv,'int=>int');
-    pts_in = fread(file,(1 + ndep*(eor+1))*nobs,'double=>double');
-    fclose(file);
+    if (file == -1)
+        fprintf('(read_pts_struct) : ERROR - failed to read %s \n',name_);
+        pts_struct = 0; 
+    else
+        ode_meta = fread(file,LD_observations_set.ode_meta_len,'int=>int');
+        [eor,ndep] = deal(ode_meta(1),ode_meta(2));
+        obs_meta = fread(file,LD_observations_set.obs_meta_len,'int=>int');
+        [ncrv,nobs] = deal(obs_meta(1),obs_meta(2));
+        npts_per_crv = fread(file,ncrv,'int=>int');
+        pts_in = fread(file,(1 + ndep*(eor+1))*nobs,'double=>double');
+        fclose(file);
 
-    pts_struct = struct(    'eor', eor, ...
-                            'ndep', ndep, ...
-                            'ncrv', ncrv, ...
-                            'nobs', nobs, ...
-                            'npts_per_crv', npts_per_crv, ...
-                            'pts_in', pts_in);
+        pts_struct = struct(    'eor', eor, ...
+                                'ndep', ndep, ...
+                                'ncrv', ncrv, ...
+                                'nobs', nobs, ...
+                                'npts_per_crv', npts_per_crv, ...
+                                'pts_in', pts_in);
+    end
 end
