@@ -131,6 +131,15 @@ struct LD_observations_set: public solspc_data_chunk
     fspace_.set_centered_domain(sve_g,h_min_,h_max_);
     free_Tmatrix<double>(sve_g);
   }
+  inline void configure_center_mass_domain(orthopolynomial_space &fspace_, double h_min_=-0.99, double h_max_=0.99)
+  {
+    double **sve_g = Tmatrix<double>(2,ndim),
+            scm_g[ndim];
+    get_solspace_val_extrema(sve_g);
+    get_solspace_center_mass(scm_g);
+    fspace_.set_center_mass_domain(sve_g,scm_g,h_min_,h_max_);
+    free_Tmatrix<double>(sve_g);
+  }
   inline void configure_0maxmag_0pi05_domain(orthopolynomial_space &fspace_, double h_max_tru_=1.0, double h_max_scl_=0.99)
   {
     double **sme_g = Tmatrix<double>(2,ndim);
@@ -141,6 +150,7 @@ struct LD_observations_set: public solspc_data_chunk
 
   void get_solspace_val_extrema(double **sve_g_);
   void get_solspace_mag_extrema(double **sme_g_);
+  void get_solspace_center_mass(double *scm_g_);
 
   inline ode_solution * get_icrv_jsol(int i_, int j_) {return curves[i_]->sols[j_];}
   inline void print_curve_i(int i_) {curves[i_]->print_curve();}

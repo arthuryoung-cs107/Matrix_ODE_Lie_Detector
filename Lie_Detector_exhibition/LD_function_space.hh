@@ -154,6 +154,20 @@ struct orthopolynomial_space: public power_space
               bvmap_b = bmap_b[ivar] = (-1.0*fvmap_b)/(fvmap_m);
     }
   }
+  inline void set_center_mass_domain(double **sve_, double *scm_, double h_min_, double h_max_)
+  {
+    for (int ivar = 0; ivar <= ndep; ivar++)
+    {
+      double  delv_l = scm_[ivar] - sve_[0][ivar],
+              delv_h = sve_[1][ivar] - scm_[ivar],
+              v_min = (delv_l>delv_h)?(sve_[0][ivar]):(scm_[ivar] - delv_h),
+              v_max = (delv_l>delv_h)?(scm_[ivar] + delv_l):(sve_[1][ivar]),
+              fvmap_m = fmap_m[ivar] = (h_max_-h_min_)/(v_max-v_min),
+              fvmap_b = fmap_b[ivar] = 0.5*(h_min_+h_max_+((h_min_-h_max_)*(v_max+v_min)/(v_max-v_min))),
+              bvmap_m = bmap_m[ivar] = 1.0/fvmap_m,
+              bvmap_b = bmap_b[ivar] = (-1.0*fvmap_b)/(fvmap_m);
+    }
+  }
   inline void set_0maxmag_0pi05_domain(double **sme_, double h_max_tru_, double h_max_scl_)
   {
     // map the time domain to be be 0 - max magnitude, always,
@@ -484,7 +498,7 @@ class function_space_basis: public function_space_element
     inline bool is_zero(double in_) {return ((in_+0.0)==0.0);}
 
   private:
-     
+
     void fill_partial_chunk_full(double *s_);
     void fill_partial_chunk_sparse(double *s_);
 };

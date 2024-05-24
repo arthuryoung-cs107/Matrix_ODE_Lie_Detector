@@ -35,6 +35,24 @@ struct LD_linalg
 
   static double eps(double x_=1.0) {return nextafter(x_,DBL_MAX)-x_;}
 
+  template <typename T> static T min_val(T *vec_, int len_, int &ind_, int ind_offset_=0)
+  {
+    T val_out = vec_[ind_=0];
+    for (size_t i = 1; i < len_; i++)
+      if (val_out > vec_[i])
+        val_out = vec_[ind_ = i];
+    ind_ += ind_offset_;
+    return val_out;
+  }
+  template <typename T> static T max_val(T *vec_, int len_, int &ind_, int ind_offset_=0)
+  {
+    T val_out = vec_[ind_=0];
+    for (size_t i = 1; i < len_; i++)
+      if (val_out < vec_[i])
+        val_out = vec_[ind_ = i];
+    ind_ += ind_offset_;
+    return val_out;
+  }
   template <typename T> static T min_val(T *vec_, int len_)
   {
     T val_out = vec_[0];
@@ -51,8 +69,27 @@ struct LD_linalg
   template <typename T> static void copy_vec(T *out_, T *in_, int len_)
     {for (size_t i = 0; i < len_; i++) out_[i] = in_[i];}
 
-  template <typename T> static void fill_vec(T *out_, int len_, T val_=0)
+  template <typename T> static void fill_vec(T *out_, int len_, T val_)
     {for (size_t i = 0; i < len_; i++) out_[i] = val_;}
+
+  template <typename T> static void sort_vec_inc(T *vec_, int len_, int &ind_m_)
+  {
+    if (len_>1)
+    {
+      T vm = LD_linalg::min_val<T>(vec_,len_,ind_m_);
+      vec_[ind_m_] = vec_[0]; vec_[0] = vm;
+    }
+    if (len_>2) LD_linalg::sort_vec_inc<T>(vec_+1,len_-1,ind_m_);
+  }
+  template <typename T> static void sort_vec_dec(T *vec_, int len_, int &ind_m_)
+  {
+    if (len_>1)
+    {
+      T vm = LD_linalg::max_val<T>(vec_,len_,ind_m_);
+      vec_[ind_m_] = vec_[0]; vec_[0] = vm;
+    }
+    if (len_>2) LD_linalg::sort_vec_dec<T>(vec_+1,len_-1,ind_m_);
+  }
 
   static void A_x_b(double **A_, double *x_, double *b_, int m_, int n_)
   {
@@ -121,12 +158,6 @@ struct LD_linalg
     {for (size_t i = 0; i < n_; i++) x_[i] = ((double)(i)) + offset_;}
   static void fill_x_012(int *x_, int n_, int offset_=0)
     {for (size_t i = 0; i < n_; i++) x_[i] = i + offset_;}
-  static void fill_x(double *x_, int n_, double val_=0.0)
-    {for (size_t i = 0; i < n_; i++) x_[i] = val_;}
-  static void fill_x(int *x_, int n_, int val_=0)
-    {for (size_t i = 0; i < n_; i++) x_[i] = val_;}
-  static void fill_x(bool *x_, int n_, bool val_=false)
-    {for (size_t i = 0; i < n_; i++) x_[i] = val_;}
 
   static void copy_x(double *x_in_, double *x_out_, int n_)
     {for (size_t i = 0; i < n_; i++) x_out_[i] = x_in_[i];}

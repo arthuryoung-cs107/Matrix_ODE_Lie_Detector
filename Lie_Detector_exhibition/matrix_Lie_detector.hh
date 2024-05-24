@@ -155,7 +155,7 @@ class rspace_infinitesimal_generator: public infinitesimal_generator
       {
         double * const pts_i = pts_ + ndim_full*iobs;
         fspace.lamvec_eval(pts_i,lamvec,vxu_wkspc);
-        LD_linalg::fill_vec<double>(theta_vec_,ndof);
+        LD_linalg::fill_vec<double>(theta_vec_,ndof,0.0);
         double Vx2 = 0.0;
         for (size_t i_k = 0; i_k < kappa; i_k++)
         {

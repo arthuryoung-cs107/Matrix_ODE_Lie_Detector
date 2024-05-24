@@ -375,6 +375,24 @@ void LD_observations_set::get_solspace_mag_extrema(double **sme_g_)
   }
 }
 
+void LD_observations_set::get_solspace_center_mass(double *scm_g_)
+{
+  const int ind_1 = (nobs%2)?(nobs/2):((nobs/2) - 1),
+            ind_2 = (nobs%2)?(nobs/2):(nobs/2);
+  #pragma omp parallel
+  {
+    int ind_work;
+    double scm_t[nobs];
+    #pragma omp for
+    for (size_t idim = 0; idim < ndim; idim++)
+    {
+      for (size_t iobs = 0, iind = idim; iobs < nobs; iobs++, iind+=ndim) scm_t[iobs] = pts_chunk[iind];
+      LD_linalg::sort_vec_inc<double>(scm_t,nobs,ind_work);
+      scm_g_[idim] = 0.5*(scm_t[ind_1] + scm_t[ind_1]);
+    }
+  }
+}
+
 LD_matrix::LD_matrix(function_space &fspc_, LD_observations_set &Sset_, int dim_cnstr_, int net_cols_):
 function_space_element(fspc_), LD_experiment(Sset_), dim_cnstr(dim_cnstr_), net_cols(net_cols_),
 Attns(new double***[ncrvs_tot]), Atns(T3tensor<double>(nobs_full,dim_cnstr,net_cols))

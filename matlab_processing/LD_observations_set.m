@@ -138,6 +138,11 @@ classdef LD_observations_set
                 pts_cell_out{i,1} = reshape(pts_in(inds(1,i):inds(2,i)),ndim,[]);
             end
         end
+        function pts_mat_out = pts_mat_crvi(obj,i_)
+            [ncrv,ndim,pts_in] = deal(obj.ncrv,obj.ndim,obj.pts_in);
+            inds = LD_observations_set.pts_crv_inds(ndim,obj.npts_per_crv);
+            pts_mat_out = reshape(pts_in(inds(1,i_):inds(2,i_)),ndim,[]);
+        end
     end
     methods (Static)
         function meta_out = make_meta_data(eor_,ndep_)
@@ -220,7 +225,7 @@ function pts_struct = read_pts_struct(name_)
     file = fopen(name_);
     if (file == -1)
         fprintf('(read_pts_struct) : ERROR - failed to read %s \n',name_);
-        pts_struct = 0; 
+        pts_struct = 0;
     else
         ode_meta = fread(file,LD_observations_set.ode_meta_len,'int=>int');
         [eor,ndep] = deal(ode_meta(1),ode_meta(2));

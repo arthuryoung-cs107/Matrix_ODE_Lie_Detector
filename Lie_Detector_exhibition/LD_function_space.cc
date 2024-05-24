@@ -23,8 +23,7 @@ theta_mat(new double*[nvar])
     dof_tun_indices_mat[i] = dof_tun_indices + itheta;
     theta_mat[i] = theta_full + itheta;
   }
-  LD_linalg::fill_x(dof_hot_flags,ndof_full,true);
-  LD_linalg::fill_x(dof_tun_flags,ndof_full,true);
+  LD_linalg::fill_vec<bool>(dof_flags_mat[0],2*ndof_full,true);
   LD_linalg::fill_x_012(dof_hot_indices,ndof_full);
   LD_linalg::fill_x_012(dof_tun_indices,ndof_full);
 }

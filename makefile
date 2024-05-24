@@ -1,10 +1,8 @@
 # file names
 
-# EXHIB:= LD_aux LD_ode LD_io LD_framework LD_function_space LD_framework
 EXHIB:= LD_ode LD_framework LD_function_space LD_framework
 EXHIBDEC:= matrix_Lie_detector
 EXHIBGEN:= LD_ode_system LD_integrators
-# EXHIBGEN:= LD_ode_system LD_integrators dop853
 
 include config/includes.mak
 
@@ -37,6 +35,10 @@ gendata_demo: $(TEST_SRC)generate_data_demo.cc $(LDEXHIBGENOBJS)
 
 full_demo: $(TEST_SRC)full_demo.cc $(LDEXHIBRECOBJS)
 	$(CXX) $(IDIR_EXHIB) $(CFLAGS_EXHIB) $(LINK) $^ $(LIBS_EXHIB) -o $@
+
+transfer_demo: $(TEST_SRC)transfer_learning_demo.cc $(LDEXHIBRECOBJS)
+	$(CXX) $(IDIR_EXHIB) $(CFLAGS_EXHIB) $(LINK) $^ $(LIBS_EXHIB) -o $@
+
 
 $(LD_EXHIB_DIR):
 	mkdir -p $@

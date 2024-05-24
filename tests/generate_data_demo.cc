@@ -1,7 +1,6 @@
 #include "LD_framework.hh"
 #include "LD_ode_system.hh"
 #include "LD_integrators.hh"
-// #include "dop853.hh"
 #include <sys/stat.h>
 
 const char dir_name[] = "./data_directory";
@@ -10,19 +9,12 @@ const char dat_suff[] = "lddat";
 Duffing_ode ode(-1.0,1.0,0.5,0.3,1.2); // chaos
 ode_solspc_meta meta0(ode.eor,ode.ndep);
 
-// dop853_settings integrator_settings; dop853_integrator ode_integrator(ode,integrator_settings); const char exp_name[] = "true_obs";
-
 DoP853_settings integrator_settings; DoP853 ode_integrator(ode,integrator_settings); const char exp_name[] = "DoP853_true_obs";
-// DoPri5_settings integrator_settings; DoPri5 ode_integrator(ode,integrator_settings); const char exp_name[] = "DoPri5_true_obs";
 
 const int nc = 50, // number of curves
           np = 300; // points per curve
 
 const int bor = 10;
-// const int bor = 9;
-// const int bor = 8;
-// const int bor = 7;
-// const int bor = 6;
 
 orthopolynomial_space fspace0(meta0,bor);
 

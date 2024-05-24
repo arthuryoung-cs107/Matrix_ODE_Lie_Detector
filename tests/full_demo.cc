@@ -38,8 +38,8 @@ orthopolynomial_space fspace0(meta0,bor);
 
 // orthogonal polynomial family for function space configuration
 // const char fam_name[] = "Legendre";
-const char fam_name[] = "Chebyshev1";
-// const char fam_name[] = "Chebyshev2";
+// const char fam_name[] = "Chebyshev1";
+const char fam_name[] = "Chebyshev2";
 
 // names of encoded data matrices
 const char Lmat_name[] = "Lmat";
@@ -135,6 +135,8 @@ int configure_function_space(bool check_fspaces_=false)
     fspace0.write_configuration_file(name_buffer);
 
     fspace0.set_Chebyshev2_coeffs(); Sobs.configure_0maxmag_0pi05_domain(fspace0);
+    // fspace0.set_Chebyshev2_coeffs(); Sobs.configure_centered_domain(fspace0);
+    // fspace0.set_Chebyshev2_coeffs(); Sobs.configure_center_mass_domain(fspace0);
     if (check_fspaces_) fspace0.debugging_description();
     sprintf(name_buffer, "%s/%s_%s.%d.domain_config.%s",dir_name,data_name,"Chebyshev2",bor,dat_suff);
     fspace0.write_configuration_file(name_buffer);
