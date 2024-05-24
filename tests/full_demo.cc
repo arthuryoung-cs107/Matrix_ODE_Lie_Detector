@@ -1,3 +1,4 @@
+#include "LD_matrices.hh"
 #include "matrix_Lie_detector.hh"
 #include "LD_ode_system.hh"
 #include "LD_integrators.hh"
@@ -49,10 +50,13 @@ const char Pmat_name[] = "Pmat";
 const char Qmat_name[] = "Qmat";
 const char Gmat_name[] = "Gmat";
 
+LD_L_matrix Lmat(fspace0,Sobs);
+
 // LD_R_matrix Amat(fspace0,Sobs); const char * const Amat_name = Rmat_name;
 LD_Q_matrix Amat(fspace0,Sobs); const char * const Amat_name = Qmat_name;
 
-LD_matrix_svd_result Amat_svd(Amat.ncrvs_tot,Amat.net_cols);
+LD_matrix_svd_result Lmat_svd(Lmat);
+LD_matrix_svd_result Amat_svd(Amat);
 
 const bool  write_gen_obs_data = true,
             write_fspace_config = true,
@@ -80,6 +84,8 @@ char  name_buffer[200],
       name_dnp1xu_buffer[200],
       name_JFs_buffer[200];
 
+bool  dnp1xu_empty = true,
+      JFs_empty = true;
 int generate_observational_data()
 {
   mkdir(dir_name, S_IRWXU); strcpy(eqn_name,ode.name); strcpy(intgen_name,ode_integrator.name);
@@ -134,9 +140,9 @@ int configure_function_space(bool check_fspaces_=false)
     sprintf(name_buffer, "%s/%s_%s.%d.domain_config.%s",dir_name,data_name,"Chebyshev1",bor,dat_suff);
     fspace0.write_configuration_file(name_buffer);
 
-    fspace0.set_Chebyshev2_coeffs(); Sobs.configure_0maxmag_0pi05_domain(fspace0);
+    // fspace0.set_Chebyshev2_coeffs(); Sobs.configure_0maxmag_0pi05_domain(fspace0);
     // fspace0.set_Chebyshev2_coeffs(); Sobs.configure_centered_domain(fspace0);
-    // fspace0.set_Chebyshev2_coeffs(); Sobs.configure_center_mass_domain(fspace0);
+    fspace0.set_Chebyshev2_coeffs(); Sobs.configure_center_mass_domain(fspace0);
     if (check_fspaces_) fspace0.debugging_description();
     sprintf(name_buffer, "%s/%s_%s.%d.domain_config.%s",dir_name,data_name,"Chebyshev2",bor,dat_suff);
     fspace0.write_configuration_file(name_buffer);
@@ -153,45 +159,53 @@ template<class BSIS> int encode_data_matrices(BSIS **bases_)
 {
   bases_[LD_threads::thread_id()]->debugging_description();
 
+  sprintf(name_buffer, "%s/%s_%s.%s.%s", dir_name,data_name,bse_name,Lmat_name,dat_suff);
+
   if (write_encoded_mats)
   {
-    LD_L_matrix Lmat(fspace0,Sobs); Lmat.populate_L_matrix<orthopolynomial_basis>(bases_);
-    sprintf(name_buffer, "%s/%s_%s.%s.%s", dir_name,data_name,bse_name,Lmat_name,dat_suff);
-    Lmat.write_matrix(name_buffer);
+    Lmat.populate_L_matrix<BSIS>(bases_); Lmat.write_matrix(name_buffer);
 
-    LD_R_matrix Rmat(fspace0,Sobs); Rmat.populate_R_matrix<orthopolynomial_basis>(bases_);
+    LD_R_matrix Rmat(fspace0,Sobs); Rmat.populate_R_matrix<BSIS>(bases_);
     sprintf(name_buffer, "%s/%s_%s.%s.%s", dir_name,data_name,bse_name,Rmat_name,dat_suff);
     Rmat.write_matrix(name_buffer);
 
-    LD_O_matrix Omat(fspace0,Sobs); Omat.populate_O_matrix<orthopolynomial_basis>(bases_);
+    LD_O_matrix Omat(fspace0,Sobs); Omat.populate_O_matrix<BSIS>(bases_);
     sprintf(name_buffer, "%s/%s_%s.%s.%s", dir_name,data_name,bse_name,Omat_name,dat_suff);
     Omat.write_matrix(name_buffer);
 
     if (write_dnp1xu)
     {
-      sprintf(name_buffer, "%s/%s.%s",dir_name,data_name,dat_suff);
-      sprintf(name_dnp1xu_buffer, "%s/%s_dnp1xu.%s",dir_name,data_name,dat_suff);
-      Sobs.load_additional_inputs(ode_curve_observations(name_buffer,name_dnp1xu_buffer),false);
+      if (dnp1xu_empty)
+      {
+        sprintf(name_buffer, "%s/%s.%s",dir_name,data_name,dat_suff);
+        sprintf(name_dnp1xu_buffer, "%s/%s_dnp1xu.%s",dir_name,data_name,dat_suff);
+        Sobs.load_additional_inputs(ode_curve_observations(name_buffer,name_dnp1xu_buffer),false);
+      }
 
-      LD_P_matrix Pmat(fspace0,Sobs); Pmat.populate_P_matrix<orthopolynomial_basis>(bases_);
+      LD_P_matrix Pmat(fspace0,Sobs); Pmat.populate_P_matrix<BSIS>(bases_);
       sprintf(name_buffer, "%s/%s_%s.%s.%s", dir_name,data_name,bse_name,Pmat_name,dat_suff);
       Pmat.write_matrix(name_buffer);
 
-      LD_Q_matrix Qmat(fspace0,Sobs); Qmat.populate_Q_matrix<orthopolynomial_basis>(bases_);
+      LD_Q_matrix Qmat(fspace0,Sobs); Qmat.populate_Q_matrix<BSIS>(bases_);
       sprintf(name_buffer, "%s/%s_%s.%s.%s", dir_name,data_name,bse_name,Qmat_name,dat_suff);
       Qmat.write_matrix(name_buffer);
     }
     if (write_JFs)
     {
-      sprintf(name_buffer, "%s/%s.%s",dir_name,data_name,dat_suff);
-      sprintf(name_JFs_buffer, "%s/%s_JFs.%s",dir_name,data_name,dat_suff);
-      Sobs.load_additional_inputs(ode_curve_observations(name_buffer,name_JFs_buffer),false);
+      if (JFs_empty)
+      {
+        sprintf(name_buffer, "%s/%s.%s",dir_name,data_name,dat_suff);
+        sprintf(name_JFs_buffer, "%s/%s_JFs.%s",dir_name,data_name,dat_suff);
+        Sobs.load_additional_inputs(ode_curve_observations(name_buffer,name_JFs_buffer),false);
+      }
 
-      LD_G_matrix Gmat(fspace0,Sobs); Gmat.populate_G_matrix<orthopolynomial_basis>(bases_);
+      LD_G_matrix Gmat(fspace0,Sobs); Gmat.populate_G_matrix<BSIS>(bases_);
       sprintf(name_buffer, "%s/%s_%s.%s.%s", dir_name,data_name,bse_name,Gmat_name,dat_suff);
       Gmat.write_matrix(name_buffer);
     }
   }
+  else Lmat.read_matrix(name_buffer);
+
   strcpy(mat_name,Amat_name);
   sprintf(name_buffer, "%s/%s_%s.%s.%s", dir_name,data_name,bse_name,mat_name,dat_suff);
   Amat.read_matrix(name_buffer);
@@ -210,35 +224,35 @@ template <class MAT> void comp_crv_svd(MAT mat_, const char * const mat_name_)
 
 int decode_data_matrices()
 {
-  sprintf(name_buffer, "%s/%s_%s.%s_svd.%s", dir_name,data_name,bse_name,mat_name,dat_suff);
+  sprintf(name_buffer, "%s/%s_%s.%s_svd.%s", dir_name,data_name,bse_name,Lmat_name,dat_suff);
   if (write_decoded_mats)
   {
+    matrix_Lie_detector::compute_curve_svds(Lmat,Lmat_svd,Lmat.min_nrow_curve());
+    Lmat_svd.write_svd_results(name_buffer);
     if (write_all_svds)
     {
-      LD_L_matrix Lmat(fspace0,Sobs);
-      sprintf(name_buffer, "%s/%s_%s.%s.%s", dir_name,data_name,bse_name,Lmat_name,dat_suff);
-      Lmat.read_matrix(name_buffer);
-      LD_matrix_svd_result Lmat_svd(Lmat.ncrvs_tot,Lmat.net_cols);
-      matrix_Lie_detector::compute_curve_svds(Lmat,Lmat_svd,Lmat.min_nrow_curve());
-      sprintf(name_buffer, "%s/%s_%s.%s_svd.%s", dir_name,data_name,bse_name,Lmat_name,dat_suff);
-      Lmat_svd.write_svd_results(name_buffer);
-
       comp_crv_svd<LD_R_matrix>(LD_R_matrix(fspace0,Sobs),Rmat_name);
       comp_crv_svd<LD_O_matrix>(LD_O_matrix(fspace0,Sobs),Omat_name);
       if (write_dnp1xu)
       {
-        sprintf(name_buffer, "%s/%s.%s",dir_name,data_name,dat_suff);
-        sprintf(name_dnp1xu_buffer, "%s/%s_dnp1xu.%s",dir_name,data_name,dat_suff);
-        Sobs.load_additional_inputs(ode_curve_observations(name_buffer,name_dnp1xu_buffer),false);
+        if (dnp1xu_empty)
+        {
+          sprintf(name_buffer, "%s/%s.%s",dir_name,data_name,dat_suff);
+          sprintf(name_dnp1xu_buffer, "%s/%s_dnp1xu.%s",dir_name,data_name,dat_suff);
+          Sobs.load_additional_inputs(ode_curve_observations(name_buffer,name_dnp1xu_buffer),false);
+        }
 
         comp_crv_svd<LD_P_matrix>(LD_P_matrix(fspace0,Sobs),Pmat_name);
         comp_crv_svd<LD_Q_matrix>(LD_Q_matrix(fspace0,Sobs),Qmat_name);
       }
       if (write_JFs)
       {
-        sprintf(name_buffer, "%s/%s.%s",dir_name,data_name,dat_suff);
-        sprintf(name_JFs_buffer, "%s/%s_JFs.%s",dir_name,data_name,dat_suff);
-        Sobs.load_additional_inputs(ode_curve_observations(name_buffer,name_JFs_buffer),false);
+        if (JFs_empty)
+        {
+          sprintf(name_buffer, "%s/%s.%s",dir_name,data_name,dat_suff);
+          sprintf(name_JFs_buffer, "%s/%s_JFs.%s",dir_name,data_name,dat_suff);
+          Sobs.load_additional_inputs(ode_curve_observations(name_buffer,name_JFs_buffer),false);
+        }
         comp_crv_svd<LD_G_matrix>(LD_G_matrix(fspace0,Sobs),Gmat_name);
       }
 
@@ -248,11 +262,17 @@ int decode_data_matrices()
     else
     {
       matrix_Lie_detector::compute_curve_svds(Amat,Amat_svd,Amat.min_nrow_curve());
+      sprintf(name_buffer, "%s/%s_%s.%s_svd.%s", dir_name,data_name,bse_name,mat_name,dat_suff);
       Amat_svd.write_svd_results(name_buffer);
     }
   }
-  else Amat_svd.read_svd_results(name_buffer);
-
+  else
+  {
+    Lmat_svd.read_svd_results(name_buffer);
+    sprintf(name_buffer, "%s/%s_%s.%s_svd.%s", dir_name,data_name,bse_name,mat_name,dat_suff);
+    Amat_svd.read_svd_results(name_buffer);
+  }
+  Lmat_svd.print_details();
   Amat_svd.print_details();
 
   return 0;
@@ -260,7 +280,7 @@ int decode_data_matrices()
 
 template <class BSIS> int reconstruct_data(BSIS ** bases_)
 {
-  rinfgen0.kappa = Amat_svd.kappa_def(); // can be set after Amat_svd is loaded
+  rinfgen0.init_svd_default(Amat_svd);
 
   strcpy(intrec_name,intgr_rec.name);
 

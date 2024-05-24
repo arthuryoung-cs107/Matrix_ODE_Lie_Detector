@@ -41,6 +41,7 @@ struct LD_matrix_svd_result
 {
   LD_matrix_svd_result(int ncrvs_,int ncols_): ncrvs(ncrvs_), ncols(ncols_),
   rank_vec(new int[ncrvs_]), Smat(Tmatrix<double>(ncrvs_,ncols_)), VTtns(T3tensor<double>(ncrvs_,ncols_,ncols_)) {}
+  LD_matrix_svd_result(LD_matrix &mat_): LD_matrix_svd_result(mat_.ncrvs_tot,mat_.net_cols) {}
   ~LD_matrix_svd_result() {delete [] rank_vec; free_Tmatrix<double>(Smat); free_T3tensor<double>(VTtns);}
 
   const int ncrvs,
@@ -172,6 +173,8 @@ class rspace_infinitesimal_generator: public infinitesimal_generator
         }
       }
     }
+
+    inline void init_svd_default(LD_matrix_svd_result &svd_) {kappa = svd_.kappa_def(); init_dudx_eval(0);}
 };
 
 struct matrix_Lie_detector

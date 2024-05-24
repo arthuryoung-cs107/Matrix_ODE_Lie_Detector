@@ -250,11 +250,11 @@ classdef LD_plots
             xlabel(axs(4),['$$ \mathrm{err} (s_0^j | s_0^i) $$'], 'Interpreter','Latex','FontSize',14);
             xlabel([axs(2:3) axs(5:6)],['$$ x $$'], 'Interpreter','Latex','FontSize',14);
 
-            ylabel([axs(1) axs(4)],['$$ \sum \mathbf{A}^j \mathbf{K}^i $$'], 'Interpreter','Latex','FontSize',14);
+            ylabel([axs(1) axs(4)],['$$ \sum | \mathbf{A}^j \mathbf{K}^i | $$'], 'Interpreter','Latex','FontSize',14);
             ylabel(axs(2),['$$ \int \mathrm{err} (s^j | s^i) dx $$'], 'Interpreter','Latex','FontSize',14);
             ylabel(axs(3),['$$ \mathrm{err} (s^j | s^i) $$'], 'Interpreter','Latex','FontSize',14);
-            ylabel(axs(5),['$$ \int \sum \mathbf{A}^j \mathbf{K}^i dx $$'], 'Interpreter','Latex','FontSize',14);
-            ylabel(axs(6),['$$ \sum \mathbf{A}^j \mathbf{K}^i $$'], 'Interpreter','Latex','FontSize',14);
+            ylabel(axs(5),['$$ \int \sum | \mathbf{A}^j \mathbf{K}^i | dx $$'], 'Interpreter','Latex','FontSize',14);
+            ylabel(axs(6),['$$ \sum | \mathbf{A}^j \mathbf{K}^i | $$'], 'Interpreter','Latex','FontSize',14);
 
 
             % set(axs(1),'YScale', 'log','XScale','log','TickLabelInterpreter','Latex','FontSize',12);

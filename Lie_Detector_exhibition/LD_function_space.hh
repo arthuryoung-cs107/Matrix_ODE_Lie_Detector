@@ -1,13 +1,7 @@
 #ifndef LD_FCN_SPC_HH
 #define LD_FCN_SPC_HH
 
-// #define M_PI 3.14159265358979323846
-
 #include "LD_ode.hh"
-
-#ifdef _OPENMP
-  #include "omp.h"
-#endif
 
 struct permutation_computer
 {
