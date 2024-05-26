@@ -103,7 +103,7 @@ classdef LD_plots
             end
         end
         function obj_out = init_tiles_safe(obj,tdim1_,tdim2_)
-            if (length(obj.axs))
+            if (~isempty(obj.axs))
                 obj_out = obj;
             else
                 obj_out = obj;
@@ -262,6 +262,57 @@ classdef LD_plots
             set([axs(2:3) axs(5:6)],'YScale', 'log','XScale','linear','TickLabelInterpreter','Latex','FontSize',12);
         end
         function plt = plot_S_svds(Sarray_,plt_)
+            plt = plt_.init_tiles_safe(1,3);
+            hold(plt.axs, 'on');
+            box(plt.axs,'on');
+            axs = plt.axs;
+
+            S0 = Sarray_(1);
+            nset = length(Sarray_);
+
+            mspc = 'none';
+            ms = 1;
+            lspc = '-';
+            lw = 1;
+            colors = turbo(nset);
+
+            mat_stats = @(mat_) deal(min(mat_,[],2),median(mat_,2),max(mat_,[],2), 1:size(mat_,1));
+
+            [smin_cell,smed_cell,smax_cell,inds_cell] = deal(cell(nset,1));
+            for i = 1:nset
+                % [smin_cell{i},smed_cell{i},smax_cell{i},inds_cell{i}] = mat_stats(Sarray_(i).smat);
+                [smin_cell{i},smed_cell{i},smax_cell{i},inds_cell{i}] = mat_stats(Sarray_(i).smat ./ Sarray_(i).smat(1,:) );
+                mat_i = Sarray_(i).matT';
+            end
+
+
+            for i = 1:nset
+                leg1(i) = plot(axs(1),inds_cell{i},smin_cell{i}, ...
+                'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc,'LineWidth',lw,'Color',colors(i,:), ...
+                'DisplayName', fixlabel(Sarray_(i).dat_name));
+            end
+            for i = 1:nset
+                leg2(i) = plot(axs(2),inds_cell{i},smed_cell{i}, ...
+                'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc,'LineWidth',lw,'Color',colors(i,:), ...
+                'DisplayName', fixlabel(Sarray_(i).dat_name));
+            end
+            for i = 1:nset
+                leg3(i) = plot(axs(3),inds_cell{i},smax_cell{i}, ...
+                'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc,'LineWidth',lw,'Color',colors(i,:), ...
+                'DisplayName', fixlabel(Sarray_(i).dat_name));
+            end
+
+            xlabel(axs(1:3),['$$ i $$'], 'Interpreter','Latex','FontSize',14);
+            ylabel(axs(1),['min $$ \sigma^{\mathbf{A}}_i $$'], 'Interpreter','Latex','FontSize',14);
+            ylabel(axs(2),['med. $$ \sigma^{\mathbf{A}}_i $$'], 'Interpreter','Latex','FontSize',14);
+            ylabel(axs(3),['max $$ \sigma^{\mathbf{A}}_i $$'], 'Interpreter','Latex','FontSize',14);
+
+            legend(axs(2), leg1,'Location', 'SouthOutside', 'Interpreter', 'Latex', 'NumColumns',min([nset,4]));
+
+            set(axs,'YScale', 'log','XScale','linear','TickLabelInterpreter','Latex','FontSize',12);
+
+        end
+        function plt = plot_S_svds_w_global(Sarray_,plt_)
             plt = plt_.init_tiles_safe(2,3);
             hold(plt.axs, 'on');
             box(plt.axs,'on');

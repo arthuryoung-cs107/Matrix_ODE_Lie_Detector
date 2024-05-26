@@ -18,8 +18,10 @@ struct LD_SVD_space // assumes M>N
   inline void load_and_decompose(double **mat_)
   {
     LD_gsl::load_gsl_mat(U_gsl,mat_);
-    int status_decomp = gsl_linalg_SV_decomp(U_gsl,V_gsl,s_gsl,w_gsl);
+    decompose_loaded_U();
   }
+  inline void decompose_loaded_U()
+    {int status_decomp = gsl_linalg_SV_decomp(U_gsl,V_gsl,s_gsl,w_gsl);}
   inline void unpack_s_VT(double *s_, double **VT_)
   {
     LD_gsl::unpack_gsl_vec(s_,s_gsl);
@@ -46,27 +48,28 @@ struct LD_matrix_svd_result
 
   const int ncrvs,
             ncols;
-  int * const rank_vec;
+  int ncol_use = ncols,
+      * const rank_vec;
   double  ** const Smat,
           *** const VTtns;
 
   void write_svd_results(const char name_[]);
   void read_svd_results(const char name_[]);
 
-  inline void print_details(const char name_[]="Amat_svd")
+  inline void print_details()
   {
     LD_linalg::print_xT("(LD_matrix_svd_result::print_details) rank_vec",rank_vec,ncrvs);
-    printf("min_nulldim = %d, max_nulldim = %d \n", min_nulldim(), max_nulldim());
+    printf("ncols = %d, min_nulldim = %d, max_nulldim = %d \n", ncols, min_nulldim(), max_nulldim());
   }
 
-  inline int nulldim_i(int i_) {return ncols-rank_vec[i_];}
+  inline int nulldim_i(int i_) {return ncol_use-rank_vec[i_];}
   inline int min_rank() {return LD_linalg::min_val<int>(rank_vec,ncrvs);}
   inline int max_rank() {return LD_linalg::max_val<int>(rank_vec,ncrvs);}
-  inline int min_nulldim() {return ncols - max_rank();}
-  inline int max_nulldim() {return ncols - min_rank();}
+  inline int min_nulldim() {return ncol_use - max_rank();}
+  inline int max_nulldim() {return ncol_use - min_rank();}
 
   inline int kappa_def() {int min_nulldim_val; return (min_nulldim_val=min_nulldim())?(min_nulldim_val):(1);}
-  inline double ** Kmat_crvi(int icrv_,int kappa_=0) {return VTtns[icrv_]+(ncols-(kappa_)?(kappa_):(kappa_def()));}
+  inline double ** Kmat_crvi(int icrv_,int kappa_=0) {return VTtns[icrv_]+(ncol_use-(kappa_)?(kappa_):(kappa_def()));}
 };
 
 struct infinitesimal_generator: public ode_system
@@ -76,105 +79,180 @@ struct infinitesimal_generator: public ode_system
 
   function_space &fspace;
   const int perm_len = fspace.perm_len,
-            ndof = fspace.ndof_full;
+            ndof_full = fspace.ndof_full;
 };
 
-class rspace_infinitesimal_generator: public infinitesimal_generator
+struct rspace_infinitesimal_generator: public infinitesimal_generator
 {
-  double  *** const Ktns,
-          * const xu,
-          * const lamvec,
-          * const vx_vec;
-  vxu_workspace vxu_wkspc;
+  rspace_infinitesimal_generator(function_space &fspace_,double ***V_crv_tns_,int kappa_=1):
+  infinitesimal_generator(fspace_), V_crv_tns(V_crv_tns_),
+  xu(new double[nvar]), lamvec(new double[perm_len]), vx_vec(new double[ndof_full]),
+  vxu_wkspc(vxu_workspace(nvar,fspace_.comp_ord_len())), kappa(kappa_) {}
 
-  public:
+  rspace_infinitesimal_generator(rspace_infinitesimal_generator &rinfgen_):
+  rspace_infinitesimal_generator(rinfgen_.fspace,rinfgen_.V_crv_tns,rinfgen_.kappa) {ncol_use = rinfgen_.ncol_use;}
 
-    rspace_infinitesimal_generator(function_space &fspace_,double ***Ktns_,int kappa_=1):
-    infinitesimal_generator(fspace_), Ktns(Ktns_),
-    xu(new double[nvar]), lamvec(new double[perm_len]), vx_vec(new double[ndof]),
-    vxu_wkspc(vxu_workspace(nvar,fspace_.comp_ord_len())), kappa(kappa_) {}
+  ~rspace_infinitesimal_generator() {delete [] xu; delete [] lamvec; delete [] vx_vec;}
 
-    rspace_infinitesimal_generator(rspace_infinitesimal_generator &rinfgen_):
-    rspace_infinitesimal_generator(rinfgen_.fspace,rinfgen_.Ktns,rinfgen_.kappa) {}
+  int kappa = 1;
+  double  ** Kmat;
 
-    ~rspace_infinitesimal_generator() {delete [] xu; delete [] lamvec; delete [] vx_vec;}
+  void init_dudx_eval(int icrv_) {Kmat = V_crv_tns[icrv_] + (ncol_use-kappa);}
 
-    int kappa = 1;
-    double  ** Kmat;
+  void JacF_eval(double x_, double *u_, double **dls_out_) {} // do later
+  void dnp1xu_eval(double x_, double *u_, double *dnp1xu_) {} // do later
 
-    void init_dudx_eval(int icrv_) {Kmat = Ktns[icrv_] + (ndof-kappa);}
+  static void init_extended_observations(ode_curve_observations &obs_out_,ode_curve_observations &obs_in_)
+  {
+    int ncrv = obs_out_.ncrv = obs_in_.ncrv,
+        ndep = (obs_out_.ndep!=obs_in_.ndep)?(obs_out_.ndep=obs_in_.ndep):(obs_out_.ndep),
+        nobs = (obs_out_.nobs!=obs_in_.nobs)?(obs_out_.nobs=obs_in_.nobs):(obs_out_.nobs),
+        ndim_in = 1 + ndep*(obs_in_.eor + 1),
+        ndim_out =  1 + ndep*(obs_out_.eor + 1);
 
-    void JacF_eval(double x_, double *u_, double **dls_out_) {} // do later
-    void dnp1xu_eval(double x_, double *u_, double *dnp1xu_) {} // do later
+    double  * const pts_chunk_in = obs_in_.pts_in,
+            * const pts_chunk_out = obs_out_.pts_in = new double[ndim_out*nobs];
 
-    static void init_extended_observations(ode_curve_observations &obs_out_,ode_curve_observations &obs_in_)
+    if (obs_out_.npts_per_crv == NULL) obs_out_.npts_per_crv = new int[ncrv];
+    LD_linalg::copy_vec<int>(obs_out_.npts_per_crv,obs_in_.npts_per_crv,ncrv);
+
+    #pragma omp parallel for
+    for (size_t iobs = 0; iobs < nobs; iobs++)
     {
-      int ncrv = obs_out_.ncrv = obs_in_.ncrv,
-          ndep = (obs_out_.ndep!=obs_in_.ndep)?(obs_out_.ndep=obs_in_.ndep):(obs_out_.ndep),
-          nobs = (obs_out_.nobs!=obs_in_.nobs)?(obs_out_.nobs=obs_in_.nobs):(obs_out_.nobs),
-          ndim_in = 1 + ndep*(obs_in_.eor + 1),
-          ndim_out =  1 + ndep*(obs_out_.eor + 1);
-
-      double  * const pts_chunk_in = obs_in_.pts_in,
-              * const pts_chunk_out = obs_out_.pts_in = new double[ndim_out*nobs];
-
-      if (obs_out_.npts_per_crv == NULL) obs_out_.npts_per_crv = new int[ncrv];
-      LD_linalg::copy_vec<int>(obs_out_.npts_per_crv,obs_in_.npts_per_crv,ncrv);
-
-      #pragma omp parallel for
-      for (size_t iobs = 0; iobs < nobs; iobs++)
-      {
-        double  *pts_i_in = pts_chunk_in + ndim_in*iobs,
-                *pts_i_out = pts_chunk_out + ndim_out*iobs;
-        for (size_t idim = 0; idim < ndim_in; idim++) pts_i_out[idim] = pts_i_in[idim];
-        for (size_t idim = ndim_in; idim < ndim_out; idim++) pts_i_out[idim] = 0.0;
-      }
+      double  *pts_i_in = pts_chunk_in + ndim_in*iobs,
+              *pts_i_out = pts_chunk_out + ndim_out*iobs;
+      for (size_t idim = 0; idim < ndim_in; idim++) pts_i_out[idim] = pts_i_in[idim];
+      for (size_t idim = ndim_in; idim < ndim_out; idim++) pts_i_out[idim] = 0.0;
     }
-    void dudx_eval(double x_, double *u_, double *dudx_)
+  }
+  void dudx_eval(double x_, double *u_, double *dudx_)
+  {
+    xu[0] = x_;
+    for (size_t i = 0; i < ndep; i++) xu[i+1] = u_[i] + (dudx_[i] = 0.0);
+    fspace.lamvec_eval(xu,lamvec,vxu_wkspc);
+    double Vx2 = 0.0;
+    for (size_t i_k = 0; i_k < kappa; i_k++)
     {
-      xu[0] = x_;
-      for (size_t i = 0; i < ndep; i++) xu[i+1] = u_[i] + (dudx_[i] = 0.0);
-      fspace.lamvec_eval(xu,lamvec,vxu_wkspc);
+      double &vx_ik = vx_vec[i_k] = 0.0;
+      for (size_t i = 0; i < perm_len; i++) vx_ik += Kmat[i_k][i]*lamvec[i];
+      for (size_t idep = 0,i_theta = perm_len; idep < ndep; idep++)
+        for (size_t iperm = 0; iperm < perm_len; iperm++,i_theta++)
+          dudx_[idep] += vx_ik*Kmat[i_k][i_theta]*lamvec[iperm];
+      Vx2 += vx_ik*vx_ik;
+    }
+    for (size_t i = 0; i < ndep; i++) dudx_[i] /= Vx2;
+  }
+
+  inline void extend_curve_observations(function_space_basis &basis_, double *theta_vec_, double *v_, double *pts_, int npts_)
+  {
+    const int ndim_full = basis_.ndim,
+              eor_full = basis_.eor;
+    for (size_t iobs = 0; iobs < npts_; iobs++)
+    {
+      double * const pts_i = pts_ + ndim_full*iobs;
+      fspace.lamvec_eval(pts_i,lamvec,vxu_wkspc);
+      LD_linalg::fill_vec<double>(theta_vec_,ndof_full,0.0);
       double Vx2 = 0.0;
       for (size_t i_k = 0; i_k < kappa; i_k++)
       {
         double &vx_ik = vx_vec[i_k] = 0.0;
         for (size_t i = 0; i < perm_len; i++) vx_ik += Kmat[i_k][i]*lamvec[i];
-        for (size_t idep = 0,i_theta = perm_len; idep < ndep; idep++)
-          for (size_t iperm = 0; iperm < perm_len; iperm++,i_theta++)
-            dudx_[idep] += vx_ik*Kmat[i_k][i_theta]*lamvec[iperm];
+        for (size_t i = 0; i < ndof_full; i++) theta_vec_[i] += Kmat[i_k][i]*vx_ik;
         Vx2 += vx_ik*vx_ik;
       }
-      for (size_t i = 0; i < ndep; i++) dudx_[i] /= Vx2;
-    }
-
-    inline void extend_curve_observations(function_space_basis &basis_, double *theta_vec_, double *v_, double *pts_, int npts_)
-    {
-      const int ndim_full = basis_.ndim,
-                eor_full = basis_.eor;
-      for (size_t iobs = 0; iobs < npts_; iobs++)
+      for (size_t i = 0; i < ndof_full; i++) theta_vec_[i] /= Vx2;
+      for (size_t k = 2, ioffset = ndep*k + 1; k <= eor_full; k++, ioffset+=ndep)
       {
-        double * const pts_i = pts_ + ndim_full*iobs;
-        fspace.lamvec_eval(pts_i,lamvec,vxu_wkspc);
-        LD_linalg::fill_vec<double>(theta_vec_,ndof,0.0);
-        double Vx2 = 0.0;
-        for (size_t i_k = 0; i_k < kappa; i_k++)
-        {
-          double &vx_ik = vx_vec[i_k] = 0.0;
-          for (size_t i = 0; i < perm_len; i++) vx_ik += Kmat[i_k][i]*lamvec[i];
-          for (size_t i = 0; i < ndof; i++) theta_vec_[i] += Kmat[i_k][i]*vx_ik;
-          Vx2 += vx_ik*vx_ik;
-        }
-        for (size_t i = 0; i < ndof; i++) theta_vec_[i] /= Vx2;
-        for (size_t k = 2, ioffset = ndep*k + 1; k <= eor_full; k++, ioffset+=ndep)
-        {
-          basis_.v_eval(pts_i,v_,theta_vec_);
-          for (size_t i = 0, idkxu = i+ioffset; i < ndep; i++, idkxu++) pts_i[idkxu] = v_[idkxu-ndep];
-        }
+        basis_.v_eval(pts_i,v_,theta_vec_);
+        for (size_t i = 0, idkxu = i+ioffset; i < ndep; i++, idkxu++) pts_i[idkxu] = v_[idkxu-ndep];
       }
     }
+  }
 
-    inline void init_svd_default(LD_matrix_svd_result &svd_) {kappa = svd_.kappa_def(); init_dudx_eval(0);}
+  inline void init_svd_default(LD_matrix_svd_result &svd_) {kappa = svd_.kappa_def(); init_dudx_eval(0);}
+
+  protected:
+
+    int ncol_use = ndof_full;
+    double  *** const V_crv_tns,
+            * const xu,
+            * const lamvec,
+            * const vx_vec;
+
+    vxu_workspace vxu_wkspc;
+};
+
+struct restricted_rspace_infgen: public rspace_infinitesimal_generator
+{
+  restricted_rspace_infgen(function_space &fspace_,int ncrvs_,LD_matrix_svd_result &AY_L_svd_):
+    rspace_infinitesimal_generator(fspace_,T3tensor<double>(ncrvs_,fspace_.ndof_full,fspace_.ndof_full)),
+    AY_L_svd(AY_L_svd_), V_crv_tns_owner(true) {}
+  restricted_rspace_infgen(restricted_rspace_infgen &rrinfgen_):
+    rspace_infinitesimal_generator(rrinfgen_),
+    AY_L_svd(rrinfgen_.AY_L_svd), V_crv_tns_owner(false) {rho_L = rrinfgen_.rho_L; ncols_PL = rrinfgen_.ncols_PL;}
+  ~restricted_rspace_infgen() {if (V_crv_tns_owner) free_T3tensor<double>(V_crv_tns);}
+
+  LD_matrix_svd_result &AY_L_svd;
+
+  const bool V_crv_tns_owner;
+  const int ncrvs = AY_L_svd.ncrvs,
+            ncols = AY_L_svd.ncols;
+  int * const rank_vec = AY_L_svd.rank_vec;
+  double  ** const Smat = AY_L_svd.Smat,
+          *** const VTtns = AY_L_svd.VTtns;
+
+  void compute_restricted_curve_svds(LD_matrix &Amat_, LD_matrix_svd_result &Lsvd_, int nrows_)
+  {
+    rho_L = Lsvd_.min_rank(),
+    ncols_PL = AY_L_svd.ncol_use = nvar*rho_L;
+
+    double  **** const Attns = Amat_.Attns,
+            *** const VTtns_L = Lsvd_.VTtns;
+    #pragma omp parallel
+    {
+      LD_SVD_space svd_t(nrows_,ncols_PL);
+      gsl_matrix * const U_gsl_t = svd_t.U_gsl;
+      #pragma omp for
+      for (size_t icrv = 0; icrv < ncrvs; icrv++)
+      {
+        fill_AY_mat_icrv(U_gsl_t,Attns[icrv][0],VTtns_L[icrv],nrows_);
+        svd_t.decompose_loaded_U();
+        rank_vec[icrv] = svd_t.unpack_rank_s_VT(Smat[icrv],VTtns[icrv]);
+        fill_YV_mat_icrv(V_crv_tns[icrv],VTtns_L[icrv],VTtns[icrv]);
+      }
+    }
+  }
+
+  inline void init_svd_default() {kappa = AY_L_svd.kappa_def(); init_dudx_eval(0);}
+
+  protected:
+
+    int rho_L = perm_len - 1,
+        &ncols_PL = ncol_use = nvar*rho_L;
+
+    inline void fill_AY_mat_icrv(gsl_matrix *AY_t_,double **Amat_rows_,double **Ycols_L_,int nrows_)
+    {
+      for (size_t irow = 0; irow < nrows_; irow++)
+        for (size_t ivar = 0, jcolA_start = 0, jcolAY = 0; ivar < nvar; ivar++, jcolA_start+=perm_len)
+          for (size_t kcolY_L = 0; kcolY_L < rho_L; kcolY_L++, jcolAY++)
+          {
+            double AY_irowjcol = 0.0;
+            for (size_t pL = 0, jcolA = jcolA_start; pL < perm_len; pL++, jcolA++)
+              AY_irowjcol += Amat_rows_[irow][jcolA]*Ycols_L_[kcolY_L][pL];
+            gsl_matrix_set(AY_t_,irow,jcolAY,AY_irowjcol);
+          }
+    }
+    inline void fill_YV_mat_icrv(double **YV_T_rows_,double **Ycols_L_,double **VTrows_AY_)
+    {
+      for (size_t irow = 0; irow < ncols_PL; irow++)
+        for (size_t ivar = 0, jcolYV_T = 0, jcolVT_AY_start = 0; ivar < nvar; ivar++, jcolVT_AY_start+=rho_L)
+          for (size_t pL = 0; pL < perm_len; pL++, jcolYV_T++)
+          {
+            YV_T_rows_[irow][jcolYV_T] = 0.0;
+            for (size_t kcolY_L = 0, jcolVT_AY = jcolVT_AY_start; kcolY_L < rho_L; kcolY_L++, jcolVT_AY++)
+              YV_T_rows_[irow][jcolYV_T] += VTrows_AY_[irow][jcolVT_AY]*Ycols_L_[kcolY_L][pL];
+          }
+    }
 };
 
 struct matrix_Lie_detector
@@ -204,13 +282,13 @@ struct matrix_Lie_detector
   template <class INFGN, class BSIS> static void extend_ode_observations(ode_curve_observations &obs_out_, INFGN &infgen_, BSIS **bases_)
   {
     const int ncrv = obs_out_.ncrv,
-              ndof = infgen_.ndof;
+              ndof_full = infgen_.ndof_full;
     int * const npts_per_crv = obs_out_.npts_per_crv;
     #pragma omp parallel
     {
       INFGN infgen_t(infgen_);
       BSIS &basis_t = *(bases_[LD_threads::thread_id()]);
-      double  theta_vec_t[ndof],
+      double  theta_vec_t[ndof_full],
               v_t[basis_t.ndim];
       #pragma omp for
       for (size_t icrv = 0; icrv < ncrv; icrv++)

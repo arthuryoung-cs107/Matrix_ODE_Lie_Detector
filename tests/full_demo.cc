@@ -38,9 +38,9 @@ const int bor = 10;
 orthopolynomial_space fspace0(meta0,bor);
 
 // orthogonal polynomial family for function space configuration
-// const char fam_name[] = "Legendre";
+const char fam_name[] = "Legendre";
 // const char fam_name[] = "Chebyshev1";
-const char fam_name[] = "Chebyshev2";
+// const char fam_name[] = "Chebyshev2";
 
 // names of encoded data matrices
 const char Lmat_name[] = "Lmat";
@@ -57,6 +57,7 @@ LD_Q_matrix Amat(fspace0,Sobs); const char * const Amat_name = Qmat_name;
 
 LD_matrix_svd_result Lmat_svd(Lmat);
 LD_matrix_svd_result Amat_svd(Amat);
+LD_matrix_svd_result AYmat_svd(Amat);
 
 const bool  write_gen_obs_data = true,
             write_fspace_config = true,
@@ -65,6 +66,7 @@ const bool  write_gen_obs_data = true,
             write_recon_data = true;
 
 rspace_infinitesimal_generator rinfgen0(fspace0,Amat_svd.VTtns);
+restricted_rspace_infgen rrinfgen0(fspace0,nc,AYmat_svd);
 
 // runge kutta integrator for the reconstruction of observational data
 DoP853_settings intgr_rec_settings; DoP853 intgr_rec(rinfgen0,intgr_rec_settings); // 8th order accurate, 7th order interpolation
@@ -229,6 +231,11 @@ int decode_data_matrices()
   {
     matrix_Lie_detector::compute_curve_svds(Lmat,Lmat_svd,Lmat.min_nrow_curve());
     Lmat_svd.write_svd_results(name_buffer);
+
+    rrinfgen0.compute_restricted_curve_svds(Amat,Lmat_svd,Amat.min_nrow_curve());
+    sprintf(name_buffer, "%s/%s_%s.%sYL_svd.%s", dir_name,data_name,bse_name,mat_name,dat_suff);
+    AYmat_svd.write_svd_results(name_buffer);
+
     if (write_all_svds)
     {
       comp_crv_svd<LD_R_matrix>(LD_R_matrix(fspace0,Sobs),Rmat_name);
@@ -269,10 +276,13 @@ int decode_data_matrices()
   else
   {
     Lmat_svd.read_svd_results(name_buffer);
+    sprintf(name_buffer, "%s/%s_%s.%sYL_svd.%s", dir_name,data_name,bse_name,mat_name,dat_suff);
+    AYmat_svd.read_svd_results(name_buffer);
     sprintf(name_buffer, "%s/%s_%s.%s_svd.%s", dir_name,data_name,bse_name,mat_name,dat_suff);
     Amat_svd.read_svd_results(name_buffer);
   }
   Lmat_svd.print_details();
+  AYmat_svd.print_details();
   Amat_svd.print_details();
 
   return 0;
@@ -281,28 +291,44 @@ int decode_data_matrices()
 template <class BSIS> int reconstruct_data(BSIS ** bases_)
 {
   rinfgen0.init_svd_default(Amat_svd);
+  rrinfgen0.init_svd_default();
 
   strcpy(intrec_name,intgr_rec.name);
 
   generated_ode_observations inputs_recon(rinfgen0,Sobs.ncrvs_tot,Sobs.min_npts_curve());
-  sprintf(name_buffer, "%s/%s_%s.%s.%srec.%s", dir_name,data_name,bse_name,mat_name,intrec_name,dat_suff);
-
+  generated_ode_observations inputs_rstr_recon(rrinfgen0,Sobs.ncrvs_tot,Sobs.min_npts_curve());
   if (write_recon_data)
   {
+    sprintf(name_buffer, "%s/%s_%s.%s.%srec.%s", dir_name,data_name,bse_name,mat_name,intrec_name,dat_suff);
     inputs_recon.set_solcurve_ICs(Sobs.curves);
     inputs_recon.parallel_generate_solution_curves(rinfgen0,intgr_rec,Sobs.get_default_IC_indep_range());
-    // inputs_recon.generate_solution_curves(intgr_rec,Sobs.get_default_IC_indep_range());
     inputs_recon.write_observed_solutions(name_buffer);
+
+    sprintf(name_buffer, "%s/%s_%s.%sYL.%srec.%s", dir_name,data_name,bse_name,mat_name,intrec_name,dat_suff);
+    inputs_rstr_recon.set_solcurve_ICs(Sobs.curves);
+    inputs_rstr_recon.parallel_generate_solution_curves(rrinfgen0,intgr_rec,Sobs.get_default_IC_indep_range());
+    inputs_rstr_recon.write_observed_solutions(name_buffer);
   }
-  else inputs_recon.read_basic_observations(name_buffer);
+  else
+  {
+    sprintf(name_buffer, "%s/%s_%s.%s.%srec.%s", dir_name,data_name,bse_name,mat_name,intrec_name,dat_suff);
+    inputs_recon.read_basic_observations(name_buffer);
+
+    sprintf(name_buffer, "%s/%s_%s.%sYL.%srec.%s", dir_name,data_name,bse_name,mat_name,intrec_name,dat_suff);
+    inputs_rstr_recon.read_basic_observations(name_buffer);
+  }
 
   ode_curve_observations inputs_extnd(meta0.eor,meta0.ndep,inputs_recon.nobs);
   rspace_infinitesimal_generator::init_extended_observations(inputs_extnd,inputs_recon);
   matrix_Lie_detector::extend_ode_observations<rspace_infinitesimal_generator,BSIS>(inputs_extnd,rinfgen0,bases_);
-
   sprintf(name_buffer, "%s/%s_%s.%s.%sext.%s", dir_name,data_name,bse_name,mat_name,intrec_name,dat_suff);
-
   if (write_recon_data) inputs_extnd.write_observed_solutions(name_buffer);
+
+  ode_curve_observations inputs_rstr_extnd(meta0.eor,meta0.ndep,inputs_rstr_recon.nobs);
+  rspace_infinitesimal_generator::init_extended_observations(inputs_rstr_extnd,inputs_rstr_recon);
+  matrix_Lie_detector::extend_ode_observations<restricted_rspace_infgen,BSIS>(inputs_rstr_extnd,rrinfgen0,bases_);
+  sprintf(name_buffer, "%s/%s_%s.%sYL.%sext.%s", dir_name,data_name,bse_name,mat_name,intrec_name,dat_suff);
+  if (write_recon_data) inputs_rstr_extnd.write_observed_solutions(name_buffer);
 
   return 0;
 }
