@@ -105,9 +105,25 @@ classdef LD_observations_set
             mat_pckg_out = read_mat_struct([obj.dir_name '/' obj.dat_name '_' fam_ '.' num2str(bor_) '.' mat_],obj.dat_suff);
             mat_svd_pckg_out.dat_name = [obj.dat_name '_' fam_ '.' num2str(bor_) '.' mat_];
         end
-        function mat_svd_pckg_out = read_mat_svd_package(obj,fam_,bor_,mat_)
-            mat_svd_pckg_out = read_mat_svd_struct([obj.dir_name '/' obj.dat_name '_' fam_ '.' num2str(bor_) '.' mat_],obj.dat_suff);
-            mat_svd_pckg_out.dat_name = [obj.dat_name '_' fam_ '.' num2str(bor_) '.' mat_];
+        function [mat_svd_pckg_out,rstr_pckg_out] = read_mat_svd_package(obj,fam_,bor_,mat_,rstr_,mat_rstr_)
+            base_name = [obj.dat_name '_' fam_ '.' num2str(bor_) '.'];
+            if (nargin == 4)
+                mat_svd_pckg_out = read_mat_svd_struct([obj.dir_name '/' base_name mat_],obj.dat_suff);
+                mat_svd_pckg_out.dat_name = [base_name mat_];
+            else
+                Amat_pckg = read_mat_struct([obj.dir_name '/' base_name mat_],obj.dat_suff);
+                Lmat_svd_pckg = read_mat_svd_struct([obj.dir_name '/' base_name mat_rstr_],obj.dat_suff);
+                AYrstr_svd_pckg = read_mat_svd_struct([obj.dir_name '/' base_name mat_ rstr_],obj.dat_suff);
+                if (nargout==2)
+                    rstr_pckg_out = LD_observations_set.make_restricted_svd_package(Amat_pckg,Lmat_svd_pckg,AYrstr_svd_pckg);
+                    mat_svd_pckg_out = AYrstr_svd_pckg;
+                    mat_svd_pckg_out.nrow = rstr_pckg_out.nrow;
+                    mat_svd_pckg_out.matT = rstr_pckg_out.matT;
+                else
+                    mat_svd_pckg_out = LD_observations_set.make_restricted_svd_package(Amat_pckg,Lmat_svd_pckg,AYrstr_svd_pckg);
+                end
+                mat_svd_pckg_out.dat_name = [base_name mat_ rstr_];
+            end
         end
         function obj_out = read_additional_observations(obj,name1_)
             obj_out = obj;
@@ -152,6 +168,46 @@ classdef LD_observations_set
             meta_out = struct(  'eor', eor_, ...
                                 'ndep', ndep_, ...
                                 'ndim', 1+ndep_*(eor_+1));
+        end
+        function [mat_svd_pckg_out, mat_rstr_svd_pckg_out] = make_restricted_svd_package(Amat_pckg_, Lmat_svd_pckg_, AYrstr_svd_pckg_)
+            [ndof,ncrv,perm_len] = deal(size(Amat_pckg_.matT,1),size(Lmat_svd_pckg_.Vtns,3),size(Lmat_svd_pckg_.Vtns,1));
+            nvar = ndof/perm_len;
+            if (nargin==3)
+                mat_rstr_svd_pckg_out = AYrstr_svd_pckg_;
+                ncol = double(AYrstr_svd_pckg_.ncol);
+                rho_PL = ncol/nvar;
+                Ytns_L = Lmat_svd_pckg_.Vtns(:,1:rho_PL,:);
+                AVLtns = LD_aux.Atns_Ytns_mult(permute(reshape(Amat_pckg_.matT,ndof,[],ncrv),[2 1 3]),Ytns_L);
+            else
+                mat_rstr_svd_pckg_out = Lmat_svd_pckg_;
+                rho_PL = double(min(Lmat_svd_pckg_.rvec));
+                ncol = rho_PL*nvar;
+                Ytns_L = Lmat_svd_pckg_.Vtns(:,1:rho_PL,:);
+                AVLtns = LD_aux.Atns_Ytns_mult(permute(reshape(Amat_pckg_.matT,ndof,[],ncrv),[2 1 3]),Ytns_L);
+                rvec = nan(ncrv,1);
+                smat = nan(ncol,ncrv);
+                Vtns = nan(ncol,ncol,ncrv);
+                for i = 1:ncrv
+                    rvec(i) = rank(AVLtns(:,:,i));
+                    [~,smat(:,i),Vtns(:,:,i)] = svd(AVLtns(:,:,i),'econ','vector');
+                end
+                mat_rstr_svd_pckg_out.ncol = ncol;
+                mat_rstr_svd_pckg_out.rvec = rvec;
+                mat_rstr_svd_pckg_out.smat = smat;
+                mat_rstr_svd_pckg_out.Vtns = Vtns;
+            end
+            mat_rstr_svd_pckg_out.nrow = Amat_pckg_.nrow;
+            mat_rstr_svd_pckg_out.matT = reshape(permute(AVLtns,[2 1 3]),ncol,[]);
+            mat_rstr_svd_pckg_out.rho_PL = rho_PL;
+            mat_rstr_svd_pckg_out.matT_raw = Amat_pckg_.matT;
+            mat_rstr_svd_pckg_out.smat_L = Lmat_svd_pckg_.smat;
+            mat_rstr_svd_pckg_out.Ytns_L = Ytns_L;
+            if (nargout==2)
+                mat_svd_pckg_out = LD_aux.overwrite_struct(Amat_pckg_,mat_rstr_svd_pckg_out);
+                mat_svd_pckg_out.dat_name = [Amat_pckg_.dat_name 'YL(nofile)'];
+            else
+                mat_svd_pckg_out = mat_rstr_svd_pckg_out;
+            end
         end
         function inds_out = pts_crv_inds(ndim_,npts_per_crv_)
             ncrv = length(npts_per_crv_);

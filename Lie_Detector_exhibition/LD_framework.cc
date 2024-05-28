@@ -155,7 +155,8 @@ void generated_ode_observations::generate_solution_curves(ode_integrator &integr
 {
   integrator_.del_t = (indep_range_[1]-indep_range_[0])/((double)(npts-1));
   double  * const u_state = integrator_.get_u_state(),
-          ** const integr_wkspc = Tmatrix<double>(npts,ndof_ODE);
+          ** const integr_wkspc = Tmatrix<double>(npts,ndof_ODE),
+          t0 = LD_threads::tic();
   for (size_t icrv = 0; icrv < ncrv; icrv++)
   {
     for (size_t i_dof = 0; i_dof < ndof_ODE; i_dof++)
@@ -165,7 +166,8 @@ void generated_ode_observations::generate_solution_curves(ode_integrator &integr
     integrator_.unpack_time_sol(indep_range_[0],npts,integr_wkspc,pts_IC[icrv]);
   }
   free_Tmatrix<double>(integr_wkspc);
-  printf("(generated_ode_observations::generate_solution_curves) exponentiated %d integral curves\n", ncrv);
+  printf("(generated_ode_observations::generate_solution_curves) exponentiated %d integral curves (%d net snaps, %d degrees of freedom) in %.4f seconds (SINGLE thread)\n",
+  ncrv, nobs, integrator_.ndof_ODE, LD_threads::toc(t0));
 }
 
 void generated_ode_observations::generate_JFs()

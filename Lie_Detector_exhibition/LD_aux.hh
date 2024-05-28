@@ -34,6 +34,10 @@ struct LD_linalg
 
   static double eps(double x_=1.0) {return nextafter(x_,DBL_MAX)-x_;}
 
+  template <typename T> static T min_T(T a_, T b_) {return (a_<b_)?(a_):b_;}
+  template <typename T> static T max_T(T a_, T b_) {return (a_>b_)?(a_):b_;}
+
+
   template <typename T> static T min_val(T *vec_, int len_, int &ind_, int ind_offset_=0)
   {
     T val_out = vec_[ind_=0];

@@ -48,5 +48,16 @@ classdef LD_aux
                 AYtns_out(:,:,i) = reshape(pagemtimes(reshape(Atns_(:,:,i),nrow,perm_len,nvar),Ytns_(:,:,i)),nrow,[]);
             end
         end
+        function str1_out = overwrite_struct(str1_,str2_)
+            str1_out = str1_;
+            str1_names = fieldnames(str1_);
+            for i = 1:length(str1_names)
+                name_i = str1_names{i};
+                str1_out = setfield(str1_out,name_i,getfield(str2_,name_i));
+            end
+        end
+        function struct_out = combine_structs(str1_,str2_)
+            struct_out = cell2struct([struct2cell(str1_); struct2cell(str2_)], [fieldnames(str1_); fieldnames(str2_)]);
+        end
     end
 end

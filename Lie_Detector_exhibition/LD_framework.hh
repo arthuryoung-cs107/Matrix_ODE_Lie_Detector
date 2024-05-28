@@ -62,6 +62,7 @@ struct generated_ode_observations: public ode_curve_observations
 
   template <class INFGN, class INTGR> void parallel_generate_solution_curves(INFGN &infgn_, INTGR &intgr_, const double *indep_range_)
   {
+    double t0 = LD_threads::tic();
     #pragma omp parallel
     {
       INFGN infgn_t(infgn_);
@@ -81,7 +82,9 @@ struct generated_ode_observations: public ode_curve_observations
       }
       free_Tmatrix<double>(integr_wkspc_t);
     }
-    printf("(generated_ode_observations::parallel_generate_solution_curves) exponentiated %d integral curves\n", ncrv);
+    double work_time = LD_threads::toc(t0);
+    printf("(generated_ode_observations::parallel_generate_solution_curves) exponentiated %d integral curves (%d net snaps, %d degrees of freedom) in %.4f seconds (%d threads)\n",
+    ncrv, nobs, intgr_.ndof_ODE, work_time, LD_threads::numthreads());
   }
   inline void set_solcurve_ICs(ode_solcurve **crvs_)
   {
@@ -234,7 +237,7 @@ struct LD_matrix: public function_space_element, public LD_experiment
 
   protected:
 
-    virtual void fill_A_rows(partial_chunk &chunk_, ode_solution &sol_, double **Amat_i_) = 0;
+    virtual void fill_A_rows(partial_chunk &chunk_, ode_solution &sol_, double **Amat_i_) {}
 
 };
 

@@ -332,12 +332,12 @@ classdef LD_plots
             [smin_cell,smed_cell,smax_cell,inds_cell] = deal(cell(nset,1));
             [sglb_cell,inmn_cell,inmd_cell,inmx_cell] = deal(cell(nset,1));
             for i = 1:nset
-                % [smin_cell{i},smed_cell{i},smax_cell{i},inds_cell{i}] = mat_stats(Sarray_(i).smat);
-                [smin_cell{i},smed_cell{i},smax_cell{i},inds_cell{i}] = mat_stats(Sarray_(i).smat ./ Sarray_(i).smat(1,:) );
+                [smin_cell{i},smed_cell{i},smax_cell{i},inds_cell{i}] = mat_stats(Sarray_(i).smat);
+                % [smin_cell{i},smed_cell{i},smax_cell{i},inds_cell{i}] = mat_stats(Sarray_(i).smat ./ Sarray_(i).smat(1,:) );
                 mat_i = Sarray_(i).matT';
                 [~,si,Vi] = svd(mat_i,'econ','vector');
-                % sglb_cell{i} = si;
-                sglb_cell{i} = si/si(1);
+                sglb_cell{i} = si;
+                % sglb_cell{i} = si/si(1);
                 [inmn_cell{i},inmd_cell{i},inmx_cell{i},~] = mat_stats(abs(mat_i*Vi)');
             end
 

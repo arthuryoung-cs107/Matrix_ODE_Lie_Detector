@@ -5,6 +5,8 @@
 
 #ifdef _OPENMP
   #include "omp.h"
+// #else
+//   #include <ctime.h>
 #endif
 
 struct LD_threads
@@ -15,9 +17,13 @@ struct LD_threads
 #ifdef _OPENMP
   static int thread_id() {return omp_get_thread_num();}
   static int numthreads() {return omp_get_max_threads();}
+  static double tic() {return omp_get_wtime();}
+  static double toc(double t0_) {return omp_get_wtime()-t0_;}
 #else
   static int thread_id() {return 0;}
   static int numthreads() {return 1;}
+  static double tic() {return 0.0;}
+  static double toc(double t0_) {return 0.0;}
 #endif
 };
 
