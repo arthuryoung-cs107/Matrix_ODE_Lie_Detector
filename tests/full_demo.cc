@@ -82,9 +82,9 @@ char  eqn_name[50],
       intrec_name[50];
 
 // character buffer for writing / reading data
-char  name_buffer[200],
-      name_dnp1xu_buffer[200],
-      name_JFs_buffer[200];
+char  name_buffer[250],
+      name_dnp1xu_buffer[250],
+      name_JFs_buffer[250];
 
 bool  dnp1xu_empty = true,
       JFs_empty = true;
