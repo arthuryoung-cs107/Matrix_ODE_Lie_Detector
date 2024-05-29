@@ -235,10 +235,107 @@ struct LD_matrix: public function_space_element, public LD_experiment
   inline int min_nrow_curve() {return dim_cnstr*min_npts_curve();}
   inline int max_nrow_curve() {return dim_cnstr*max_npts_curve();}
 
+  static void concatenate_matrices(LD_matrix &mat_cat_, LD_matrix &mat1_, LD_matrix &mat2_, bool block_cat_=false)
+  {
+    if (LD_matrix::net_cols_eq(mat_cat_,mat1_,mat2_))
+    {
+      if ((!block_cat_)&&(LD_matrix::net_dim_constr_eq(mat_cat_,mat1_,mat2_)))
+        LD_matrix::enmesh_curve_matrices(mat_cat_,mat1_,mat2_);
+      else
+        LD_matrix::block_concat_matrices(mat_cat_,mat1_,mat2_);
+    }
+    else printf("(LD_matrix::concatenate_matrices) ERROR - incompatible matrices\n");
+  }
+
   protected:
 
     virtual void fill_A_rows(partial_chunk &chunk_, ode_solution &sol_, double **Amat_i_) {}
 
+    static void enmesh_curve_matrices(LD_matrix &mat0_, LD_matrix &mat1_, LD_matrix &mat2_)
+    {
+      const size_t  ncrvs_tot_ = mat0_.ncrvs_tot,
+                    net_cols_ = mat0_.net_cols,
+                    sze_ele_ = sizeof(double),
+                    submat1_len = mat1_.dim_cnstr*net_cols_,
+                    submat2_len = mat2_.dim_cnstr*net_cols_,
+                    submat1_sze = submat1_len*sze_ele_,
+                    submat2_sze = submat2_len*sze_ele_;
+      int * const nppc0 = mat0_.npts_per_crv,
+          * const nppc1 = mat1_.npts_per_crv,
+          * const nppc2 = mat2_.npts_per_crv;
+      double  **** const A0ttns = mat0_.Attns,
+              **** const A1ttns = mat1_.Attns,
+              **** const A2ttns = mat2_.Attns;
+      bool trunc_flag = false;
+      #pragma omp parallel for reduction( || : trunc_flag)
+      for (size_t icrv = 0; icrv < ncrvs_tot_; icrv++)
+      {
+        int nobs_icrv = nppc0[icrv];
+        if (!( ((nppc0[icrv])==(nppc1[icrv])) && ((nppc1[icrv])==(nppc2[icrv])) ))
+        {
+          nobs_icrv = LD_linalg::min_T_3way<int>(nppc0[icrv],nppc1[icrv],nppc2[icrv]);
+          if (nobs_icrv == nppc0[icrv]) trunc_flag = (trunc_flag)||(true);
+        }
+        for (size_t iobs = 0; iobs < nobs_icrv; iobs++)
+        {
+          memcpy(A0ttns[icrv][iobs][0],A1ttns[icrv][iobs][0],submat1_sze);
+          memcpy(A0ttns[icrv][iobs][0]+submat1_len,A2ttns[icrv][iobs][0],submat2_sze);
+        }
+      }
+      if (trunc_flag)
+        printf("(LD_matrix::enmesh_curve_matrices) WARNING - snapshots discarded from concatenated matrix.\n");
+    }
+
+    static void block_concat_matrices(LD_matrix &mat0_, LD_matrix &mat1_, LD_matrix &mat2_)
+    {
+      const size_t  ncrvs_tot_ = mat0_.ncrvs_tot,
+                    net_cols_ = mat0_.net_cols,
+                    sze_ele_ = sizeof(double),
+                    submat0_len = mat0_.dim_cnstr*net_cols_,
+                    submat1_len = mat1_.dim_cnstr*net_cols_,
+                    submat2_len = mat2_.dim_cnstr*net_cols_;
+      int * const nppc0 = mat0_.npts_per_crv,
+          * const nppc1 = mat1_.npts_per_crv,
+          * const nppc2 = mat2_.npts_per_crv;
+      double  **** const A0ttns = mat0_.Attns,
+              **** const A1ttns = mat1_.Attns,
+              **** const A2ttns = mat2_.Attns;
+      bool trunc_flag = false;
+      #pragma omp parallel for reduction( || : trunc_flag)
+      for (size_t icrv = 0; icrv < ncrvs_tot_; icrv++)
+      {
+        size_t  len0_i = submat0_len*nppc0[icrv],
+                len1_i = submat1_len*nppc1[icrv],
+                len2_i = submat2_len*nppc2[icrv],
+                sze0_i = sze_ele_*len0_i,
+                sze1_i = sze_ele_*len1_i,
+                sze2_i = sze_ele_*len2_i;
+        if (sze0_i >= sze1_i)
+        {
+          memcpy(A0ttns[icrv][0][0],A1ttns[icrv][0][0],sze1_i);
+          if (sze0_i >= sze1_i+sze2_i) memcpy(A0ttns[icrv][0][0]+len1_i,A2ttns[icrv][0][0],sze2_i);
+          else
+          {
+            memcpy(A0ttns[icrv][0][0]+len1_i,A2ttns[icrv][0][0],sze0_i-sze1_i);
+            trunc_flag = (trunc_flag)||(true);
+          }
+        }
+        else
+        {
+          memcpy(A0ttns[icrv][0][0],A2ttns[icrv][0][0],sze0_i);
+          trunc_flag = (trunc_flag)||(true);
+        }
+      }
+      if (trunc_flag)
+        printf("(LD_matrix::block_concat_matrices) WARNING - inadequately large concatenation matrix. Rows truncated.\n");
+    }
+
+    static bool compatible_curve_concat(LD_matrix &m0_, LD_matrix &m1_, LD_matrix &m2_)
+      {return (LD_matrix::net_cols_eq(m0_,m1_,m2_))&&(LD_matrix::net_dim_constr_eq(m0_,m1_,m2_));}
+    static bool net_dim_constr_eq(LD_matrix &m0_, LD_matrix &m1_, LD_matrix &m2_)
+      {return m0_.dim_cnstr == (m1_.dim_cnstr+m2_.dim_cnstr);}
+    static bool net_cols_eq(LD_matrix &m0_, LD_matrix &m1_, LD_matrix &m2_)
+      {return ((m0_.net_cols==m1_.net_cols)&&(m1_.net_cols==m2_.net_cols));}
 };
 
 #endif

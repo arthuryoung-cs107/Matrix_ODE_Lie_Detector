@@ -98,6 +98,9 @@ classdef LD_observations_set
 
             obj.pts_mat = reshape(obj.pts_in,obj.ndim,[]);
         end
+        function fspace_name_out = make_fspace_config_name(obj,fam_,bor_)
+            fspace_name_out = [obj.dir_name '/' obj.dat_name '_' fam_ '.' num2str(bor_) '.domain_config.' obj.dat_suff];
+        end
         function meta_out = meta_data(obj)
             meta_out = LD_observations_set.make_meta_data(obj.eor,obj.ndep);
         end

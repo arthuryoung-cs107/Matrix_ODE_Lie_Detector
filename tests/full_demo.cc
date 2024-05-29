@@ -88,6 +88,7 @@ char  name_buffer[250],
 
 bool  dnp1xu_empty = true,
       JFs_empty = true;
+      
 int generate_observational_data()
 {
   mkdir(dir_name, S_IRWXU); strcpy(eqn_name,ode.name); strcpy(intgen_name,ode_integrator.name);
@@ -204,6 +205,17 @@ template<class BSIS> int encode_data_matrices(BSIS **bases_)
       LD_G_matrix Gmat(fspace0,Sobs); Gmat.populate_G_matrix<BSIS>(bases_);
       sprintf(name_buffer, "%s/%s_%s.%s.%s", dir_name,data_name,bse_name,Gmat_name,dat_suff);
       Gmat.write_matrix(name_buffer);
+
+      LD_matrix OGmat(fspace0,Sobs,Omat.dim_cnstr + Gmat.dim_cnstr, fspace0.ndof_full);
+      LD_matrix::concatenate_matrices(OGmat,Omat,Gmat);
+      sprintf(name_buffer, "%s/%s_%s.OGmat.%s", dir_name,data_name,bse_name,dat_suff);
+      OGmat.write_matrix(name_buffer);
+      if (write_decoded_mats)
+      {
+        matrix_Lie_detector::compute_curve_svds(OGmat,Amat_svd,OGmat.min_nrow_curve());
+        sprintf(name_buffer, "%s/%s_%s.OGmat_svd.%s", dir_name,data_name,bse_name,dat_suff);
+        Amat_svd.write_svd_results(name_buffer);
+      }
     }
   }
   else Lmat.read_matrix(name_buffer);

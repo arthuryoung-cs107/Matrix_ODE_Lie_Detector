@@ -11,14 +11,14 @@ classdef LD_function_space
     end
     methods
         function obj = LD_function_space(bor_,perm_len_,meta_)
-            obj.bor = bor_;
-            obj.perm_len = perm_len_;
+            obj.bor = double(bor_);
+            obj.perm_len = double(perm_len_);
 
-            obj.eor = meta_.eor;
-            obj.ndep = meta_.ndep;
-            obj.ndim = meta_.ndim;
+            obj.eor = double(meta_.eor);
+            obj.ndep = double(meta_.ndep);
+            obj.ndim = double(meta_.ndim);
 
-            obj.ndof_full = (1 + obj.ndep)*perm_len_;
+            obj.ndof_full = (1 + obj.ndep)*obj.perm_len;
         end
     end
 end

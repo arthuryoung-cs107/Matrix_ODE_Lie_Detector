@@ -121,6 +121,107 @@ classdef LD_plots
         end
     end
     methods (Static)
+        function plt = plot_nullity_icrv_comp(S_,svd_cmp_,icrv_,solspc_plot_,plt_, cmat_)
+            plt = plt_.init_tiles_safe(2,3);
+            hold(plt.axs, 'on');
+            box(plt.axs,'on');
+            axs = plt.axs;
+
+            spc = LD_plots.make_default_plot_specs;
+            spc.color = [1 0 0];
+            spc.lw = 2;
+
+            solspc_plot_ = LD_plots.plot_solspc(S_,solspc_plot_,spc,icrv_);
+
+            pts_cell = S_.pts_cell;
+            pts_mat_i = pts_cell{icrv_};
+            xvec = pts_mat_i(1,:);
+            [npts,ncrv] = deal(size(pts_mat_i,2),S_.ncrv);
+            [nrows,ncols,rho] = deal(svd_cmp_.nrow/ncrv,svd_cmp_.ncol,max(svd_cmp_.rvec));
+            kappa = ncols - rho;
+            nconstr_dim = nrows/npts;
+            Ki = svd_cmp_.Vtns(:,(rho+1):end,icrv_);
+            ATtns = reshape(svd_cmp_.matT,ncols,nrows,ncrv);
+
+            crv_inds = 1:ncrv;
+            ncrv_inds = crv_inds ~= icrv_;
+
+            inner_K_mat = nan(ncrv,npts);
+            inner_K_net = nan(ncrv,1);
+            for j = 1:ncrv
+                Aj = (ATtns(:,:,j))';
+                % Aj = Aj./(sqrt(sum(Aj.*Aj,2)));
+                abs_AjKi = abs(Aj*Ki);
+                inner_K_j_sumpts = reshape(sum(reshape(abs_AjKi,nconstr_dim,npts,kappa),1),npts,kappa);
+
+                inner_K_mat(j,:) = sum(inner_K_j_sumpts,2);
+                inner_K_net(j) = sum(inner_K_mat(j,:),2);
+            end
+            [~,i_sort_inn] = sort(inner_K_net);
+
+            i_mininn_net = i_sort_inn(2);
+
+            hard_red = LD_plots.red5;
+            hard_green = LD_plots.green5;
+            hard_blue = LD_plots.blue5;
+            nice_green = LD_plots.green4;
+            nice_purple = LD_plots.purple5;
+            nice_orange = LD_plots.orange1;
+
+            blue_mat = LD_plots.get_blue_mat;
+            green_mat = LD_plots.get_green_mat;
+            orange_mat = LD_plots.get_orange_mat;
+
+            cmat = cmat_;
+            % cmat = blue_mat;
+
+            spc.lw = 1.0;
+
+            ncrv_check = 5;
+
+            for i = 1:ncrv_check
+                spc.color = cmat(i,:);
+                solspc_plot_ = LD_plots.plot_solspc(S_,solspc_plot_,spc,i_sort_inn(i+1));
+            end
+
+            mspc = 'none';
+            ms = 1;
+            lspc = '-';
+            lw = 1;
+            alpha = 0.15;
+
+
+            plot(axs(1),xvec,cumsum(inner_K_mat(ncrv_inds,:),2), ...
+            'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc,'LineWidth',lw,'Color',[0 0 0 alpha]);
+            for i = 1:ncrv_check
+                plot(axs(1),xvec,cumsum(inner_K_mat(i_sort_inn(i+1),:),2), ...
+                'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc,'LineWidth',lw,'Color',cmat(i,:));
+            end
+
+            plot(axs(2),xvec,inner_K_mat(ncrv_inds,:), ...
+            'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc,'LineWidth',lw,'Color',[0 0 0 alpha]);
+            for i = 1:ncrv_check
+                plot(axs(2),xvec,inner_K_mat(i_sort_inn(i+1),:), ...
+                'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc,'LineWidth',lw,'Color',cmat(i,:));
+            end
+
+            % xlabel(axs(1),['$$ \sum \mathrm{err} ( \mathbf{C}^j | \mathbf{C}^i ) $$'], 'Interpreter','Latex','FontSize',14);
+            % xlabel(axs(4),['$$ \mathrm{err} (s_0^j | s_0^i) $$'], 'Interpreter','Latex','FontSize',14);
+            % xlabel([axs(2:3) axs(5:6)],['$$ x $$'], 'Interpreter','Latex','FontSize',14);
+            xlabel(axs(1:2),['$$ x $$'], 'Interpreter','Latex','FontSize',14);
+
+            % ylabel([axs(1) axs(4)],['$$ \sum | \mathbf{A}^j \mathbf{K}^i | $$'], 'Interpreter','Latex','FontSize',14);
+            % ylabel(axs(2),['$$ \int \mathrm{err} (s^j | s^i) dx $$'], 'Interpreter','Latex','FontSize',14);
+            % ylabel(axs(3),['$$ \mathrm{err} (s^j | s^i) $$'], 'Interpreter','Latex','FontSize',14);
+            ylabel(axs(1),['$$ \int \sum | \mathbf{A}^j \mathbf{K}^i | dx $$'], 'Interpreter','Latex','FontSize',14);
+            ylabel(axs(2),['$$ \sum | \mathbf{A}^j \mathbf{K}^i | $$'], 'Interpreter','Latex','FontSize',14);
+
+
+            % set(axs(1),'YScale', 'log','XScale','log','TickLabelInterpreter','Latex','FontSize',12);
+            % set([axs(1) axs(4)],'YScale', 'linear','XScale','linear','TickLabelInterpreter','Latex','FontSize',12);
+            % set([axs(2:3) axs(5:6)],'YScale', 'log','XScale','linear','TickLabelInterpreter','Latex','FontSize',12);
+            set(axs(1:2),'YScale', 'log','XScale','linear','TickLabelInterpreter','Latex','FontSize',12);
+        end
         function plt = plot_S_icrv_divergence(S_,svd_cmp_,icrv_,solspc_plot_,plt_)
             plt = plt_.init_tiles_safe(2,3);
             hold(plt.axs, 'on');
@@ -188,7 +289,7 @@ classdef LD_plots
             ms = 1;
             lspc = '-';
             lw = 1;
-            alpha = 0.2;
+            alpha = 0.15;
 
             plot(axs(1),rel_div_net(ncrv_inds),inner_K_net(ncrv_inds), ...
             'Marker','o','MarkerSize',2,'LineStyle','none','LineWidth',lw,'Color',hard_red);
@@ -200,7 +301,7 @@ classdef LD_plots
             'Marker','.','MarkerSize',20,'LineStyle','none','LineWidth',lw,'Color',nice_green);
 
             plot(axs(2),xvec,cumsum(rel_div_mat(ncrv_inds,:),2), ...
-            'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc,'LineWidth',lw,'Color',[hard_red alpha]);
+            'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc,'LineWidth',lw,'Color',[0 0 0 alpha]);
             plot(axs(2),xvec,cumsum(rel_div_mat(i_mindiv_ics,:),2), ...
             'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc,'LineWidth',lw,'Color',hard_blue);
             plot(axs(2),xvec,cumsum(rel_div_mat(i_mindiv_net,:),2), ...
@@ -209,7 +310,7 @@ classdef LD_plots
             'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc,'LineWidth',lw,'Color',nice_green);
 
             plot(axs(3),xvec,rel_div_mat(ncrv_inds,:), ...
-            'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc,'LineWidth',lw,'Color',[hard_red alpha]);
+            'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc,'LineWidth',lw,'Color',[0 0 0 alpha]);
             plot(axs(3),xvec,rel_div_mat(i_mindiv_ics,:), ...
             'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc,'LineWidth',lw,'Color',hard_blue);
             plot(axs(3),xvec,rel_div_mat(i_mindiv_net,:), ...
@@ -229,7 +330,7 @@ classdef LD_plots
 
 
             plot(axs(5),xvec,cumsum(inner_K_mat(ncrv_inds,:),2), ...
-            'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc,'LineWidth',lw,'Color',[hard_red alpha]);
+            'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc,'LineWidth',lw,'Color',[0 0 0 alpha]);
             plot(axs(5),xvec,cumsum(inner_K_mat(i_mindiv_ics,:),2), ...
             'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc,'LineWidth',lw,'Color',hard_blue);
             plot(axs(5),xvec,cumsum(inner_K_mat(i_mindiv_net,:),2), ...
@@ -238,7 +339,7 @@ classdef LD_plots
             'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc,'LineWidth',lw,'Color',nice_green);
 
             plot(axs(6),xvec,inner_K_mat(ncrv_inds,:), ...
-            'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc,'LineWidth',lw,'Color',[hard_red alpha]);
+            'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc,'LineWidth',lw,'Color',[0 0 0 alpha]);
             plot(axs(6),xvec,inner_K_mat(i_mindiv_ics,:), ...
             'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc,'LineWidth',lw,'Color',hard_blue);
             plot(axs(6),xvec,inner_K_mat(i_mindiv_net,:), ...
@@ -568,6 +669,34 @@ classdef LD_plots
                             plt = LD_plots.plot_n2q1_solspc(pts_cell_plot,plt_,spc);
                     end
             end
+        end
+        function out_ = get_blue_mat()
+            out_ = [    LD_plots.blue1; ...
+                        LD_plots.blue2; ...
+                        LD_plots.blue3; ...
+                        LD_plots.blue4; ...
+                        LD_plots.blue5];
+        end
+        function out_ = get_green_mat()
+            out_ = [    LD_plots.green1; ...
+                        LD_plots.green2; ...
+                        LD_plots.green3; ...
+                        LD_plots.green4; ...
+                        LD_plots.green5];
+        end
+        function out_ = get_orange_mat()
+            out_ = [    LD_plots.orange1; ...
+                        LD_plots.orange2; ...
+                        LD_plots.orange3; ...
+                        LD_plots.orange4; ...
+                        LD_plots.orange5];
+        end
+        function out_ = get_purple_mat()
+            out_ = [    LD_plots.purple1; ...
+                        LD_plots.purple2; ...
+                        LD_plots.purple3; ...
+                        LD_plots.purple4; ...
+                        LD_plots.purple5];
         end
     end
 end
