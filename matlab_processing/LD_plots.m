@@ -98,6 +98,7 @@ classdef LD_plots
 
             obj_out = obj;
             obj_out.fig = figure;
+            set(obj_out.fig, 'MenuBar', 'none', 'ToolBar', 'none');
             for i=1:size(props_struct, 1)
                 obj_out.fig.set(props_struct{i, 1}, props_struct{i, 2});
             end
@@ -119,8 +120,259 @@ classdef LD_plots
                 end
             end
         end
+        function show_toolbar(obj)
+            set(obj.fig, 'ToolBar', 'Figure');
+        end
+        function show_menubar(obj)
+            set(obj.fig, 'MenuBar', 'Figure');
+        end
+        function hide_toolbar(obj)
+            set(obj.fig, 'ToolBar', 'none');
+        end
+        function hide_menubar(obj)
+            set(obj.fig, 'MenuBar', 'none');
+        end
+        function axis_lims_out = get_axis_lims(obj)
+            naxes = length(obj.axs);
+            axis_lims_out = cell(naxes,1);
+            for i = 1:naxes
+                axis_lims_out{i} = axis(obj.axs(i));
+            end
+        end
+        function set_axis_lims(obj,lims_)
+            naxes = length(obj.axs);
+            for i = 1:naxes
+                axis(obj.axs(i),lims_{i});
+            end
+        end
     end
     methods (Static)
+        function plt = plot_global_component(S_,svd_cmp_,svd_cmp2_,svd_Lmat_,icrv_in_,fspc_,solspc_plot_,plt_)
+            plt = plt_.init_tiles_safe(1,3);
+            hold(plt.axs, 'on');
+            box(plt.axs,'on');
+            axs = plt.axs;
+
+            hard_red = LD_plots.red5;
+            hard_green = LD_plots.green5;
+            hard_blue = LD_plots.blue5;
+            nice_green = LD_plots.green4;
+            nice_purple = LD_plots.purple1;
+            nice_pink = LD_plots.purple5;
+            nice_orange = LD_plots.orange1;
+
+            blue_mat = LD_plots.get_blue_mat;
+            green_mat = LD_plots.get_green_mat;
+            orange_mat = LD_plots.get_orange_mat;
+
+            spc = LD_plots.make_default_plot_specs;
+            spc.lw = 2;
+
+            Amat_full = svd_cmp_.matT';
+            [ncol,ncrv] = deal(svd_cmp_.ncol,length(svd_cmp_.rvec));
+            Atns_full = permute(reshape(svd_cmp_.matT,ncol,[],ncrv),[2 1 3]);
+            [s_glb,V_glb] = deal(svd_cmp_.svec_glb,svd_cmp_.Vmat_glb);
+
+            [eor,ndep] = deal(S_.eor,S_.ndep);
+            meta_ = S_.meta_data;
+            nvar = ndep+1;
+            pts_cell = S_.pts_cell;
+
+            % % ncmp = 50;
+            % % ncmp = 10;
+            % % ncmp = 9;
+            % ncmp = 21;
+            % % ncmp = ncol;
+            % K_glb = V_glb(:,(end-ncmp+1):end);
+            % % K_glb = V_glb(:,(end-ncmp+1));
+            % absAK = abs(pagemtimes(Atns_full,K_glb));
+            % % absAK_evl = reshape(sum(sum(absAK,1),2),ncrv,1);
+            % % absAK_evl = reshape(max(sum(absAK,2),[],1),ncrv,1);
+            % absAK_evl = reshape(median(sum(absAK,2),1),ncrv,1);
+            % % absAK_evl = reshape(max(max(absAK,[],1),[],2),ncrv,1);
+            % [~,isort_absAK_evl] = sort(absAK_evl);
+
+            Atns_cmp = Atns_full;
+            % Atns_cmp = permute(reshape(svd_cmp_.matT ./ S_.pts_mat(end,:) ,svd_cmp_.ncol,[],ncrv),[2 1 3]);
+            % Atns_cmp = permute(pagemtimes(svd_cmp_.Vtns, ...
+            %                     eye(svd_cmp_.ncol).*reshape(svd_cmp_.smat,svd_cmp_.ncol,1,ncrv)), ...
+            %                     [2 1 3]);
+            % Atns_cmp = permute(pagemtimes(svd_cmp_.Vtns, ...
+            %                     eye(svd_cmp_.ncol).*reshape(svd_cmp_.smat ./ svd_cmp_.smat(1,:), ...
+            %                     svd_cmp_.ncol,1,ncrv)),[2 1 3]);
+
+            % Atns_cmp = permute(reshape(svd_cmp_.matT ./ sqrt(sum(svd_cmp_.matT.*svd_cmp_.matT,1)), ...
+            %                         ncol,[],ncrv),[2 1 3]);
+
+            % Atns_cmp = permute(reshape(svd_cmp2_.matT,svd_cmp2_.ncol,[],ncrv),[2 1 3]);
+            % Atns_cmp = permute(pagemtimes(svd_cmp2_.Vtns, ...
+            %                     eye(svd_cmp2_.ncol).*reshape(svd_cmp2_.smat,svd_cmp2_.ncol,1,ncrv)), ...
+            %                     [2 1 3]);
+            % Atns_cmp = permute(reshape(pagemtimes(permute(svd_cmp2_.Vtns,[2 1 3]), ...
+            %                                 eye(svd_cmp2_.ncol).*reshape(svd_cmp2_.smat,svd_cmp2_.ncol,1,ncrv)), ...
+            %                                 ncol,[],ncrv),[2 1 3]);
+
+            ncol_A = size(Atns_cmp,2);
+            Vtns_cmp = svd_cmp2_.Vtns;
+            if (size(Vtns_cmp,1)<ncol_A)
+                Vtns_cmp = LD_aux.Ytns_Vtns_mult(svd_cmp2_.Ytns_L,svd_cmp2_.Vtns);
+            end
+
+            icrv_ = icrv_in_;
+            inds_crv = 1:ncrv;
+            inds_not_icrv = inds_crv(inds_crv ~= icrv_);
+
+            rvec_cmp = svd_cmp2_.rvec;
+            [min_rho,max_rho,rho_icrv] = deal(min(rvec_cmp),max(rvec_cmp),rvec_cmp(icrv_));
+            ncol_cmp = size(Vtns_cmp,2);
+
+            % % rho_use = max_rho
+            % % rho_use = min_rho;
+            % rho_use = rho_icrv;
+            % ik_use = (rho_use+1):ncol_cmp;
+
+            % ndim_use = 5;
+            % ndim_use = (ncol_cmp-max_rho)-1;
+            % ndim_use = floor((ncol_cmp-max_rho)/5);
+            ndim_use = floor((ncol_cmp-rho_icrv)/2);
+
+            % Amat_not_icrv = reshape(permute(Atns_cmp(:,:,inds_not_icrv),[2 1 3]),ncol_A,[])';
+            Amat_not_icrv = Amat_full;
+
+            % [~,s_glb_rstr,V_glb_rstr] = svd(Amat_not_icrv*Vtns_cmp(:,(rho_icrv+1):end,icrv_),'econ','vector');
+            % k_glb_rstr = V_glb_rstr(:,end);
+            % [~,isort_mag_k_glb_rstr] = sort(abs(k_glb_rstr));
+            % ik_use = (isort_mag_k_glb_rstr((end-ndim_use+1):end)+double(rho_icrv));
+            % AV_raw = pagemtimes(Atns_cmp,Vtns_cmp);
+            % % AK_raw = AV_raw(:,ik_use,:);
+            % K_glb = Vtns_cmp(:,ik_use,icrv_);
+
+            rho_use = max_rho;
+            [~,~,V_glb_not_icrv] = svd(Amat_not_icrv,'econ','vector');
+            AK_glb = Vtns_cmp(:,(rho_use+1):end,icrv_)'*V_glb_not_icrv(:,(rho_use+1):end);
+            AK_rstr_glb = Vtns_cmp(:,(rho_use+1):end,icrv_)*AK_glb;
+            AV_raw = pagemtimes(Atns_cmp,AK_rstr_glb);
+            K_glb = AK_rstr_glb;
+
+            fro_AK_Vglb = norm(AK_rstr_glb,'fro')
+            fro_Vglb = norm(V_glb_not_icrv(:,(rho_use+1):end),'fro')
+            fro_AK_Vglb_diff = norm(AK_rstr_glb-V_glb_not_icrv(:,(rho_use+1):end),'fro')
+            fro_AK_Vglb_diff/fro_Vglb
+
+            row_stats = @(row_) deal(min(row_,[],2),median(row_,2),mean(row_,2),max(row_,[],2));
+            AK_rstr_glb_colmags = sqrt(sum(AK_rstr_glb.*AK_rstr_glb,1));
+            [min_colmag,med_colmag,avg_colmag,max_colmag] = row_stats(AK_rstr_glb_colmags)
+
+            [~,imn_colmag] = min(AK_rstr_glb_colmags,[],2)
+            [~,imx_colmag] = max(AK_rstr_glb_colmags,[],2)
+
+            AK_raw = pagemtimes(Atns_cmp,K_glb);
+            absAK = abs(AK_raw);
+            absAK_evl = reshape(sum(sum(absAK,1),2),ncrv,1);
+            % absAK_evl = reshape(max(sum(absAK,2),[],1),ncrv,1);
+            % absAK_evl = reshape(median(sum(absAK,2),1),ncrv,1);
+            % absAK_evl = reshape(median(median(absAK,2),1),ncrv,1);
+            % absAK_evl = reshape(median(max(absAK,[],2),1),ncrv,1);
+            % absAK_evl = reshape(max(max(absAK,[],1),[],2),ncrv,1);
+            % absAK_evl = reshape(max(median(absAK,1),[],2),ncrv,1);
+            % absAK_evl = reshape(median(reshape(absAK,[],ncrv),1),ncrv,1);
+            [~,isort_absAK_evl] = sort(absAK_evl);
+            % isort_absAK_evl = isort_absAK_evl(2:end);
+
+            nk_use = size(K_glb,2)
+
+            % i_sort_use = isort_absAK_evl;
+            i_sort_use = isort_absAK_evl(2:end);
+
+            [icrv_evl_mn,icrv_evl_md,icrv_evl_mx] = deal(   absAK_evl(i_sort_use(1)), ...
+                                                            absAK_evl(i_sort_use(ceil(ncrv/2))), ...
+                                                            absAK_evl(i_sort_use(end)))
+            icrv_check = i_sort_use(1)
+
+            icrv_evl_check = absAK_evl(icrv_check)
+
+
+            % k_glb_chk = V_glb(:,end);
+            % Ak_glb_chk_raw = pagemtimes(Atns_full,k_glb_chk);
+            % absAk_glb_chk = abs(Ak_glb_chk_raw);
+            % absAk_glb_chk_evl = reshape(sum(absAk_glb_chk,1),ncrv,1);
+            % [~,isort_absAk_glb_chk_evl] = sort(absAk_glb_chk_evl);
+            %
+            % icrv_check2 = isort_absAk_glb_chk_evl(1);
+
+
+            mspc = 'o';
+            ms = 5;
+            lspc = 'none';
+            lw = 1;
+            alpha = 0.15;
+
+            plot(axs(1),1:ncrv,absAK_evl, ...
+            'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc,'LineWidth',lw,'Color',[0 0 0]);
+
+            % absAV_plt_mat = reshape(median(abs(AV_raw),1),size(AV_raw,2),ncrv);
+            absAV_plt_mat = reshape(max(abs(AV_raw),[],1),size(AV_raw,2),ncrv);
+            plot(axs(2),1:size(absAV_plt_mat,1),absAV_plt_mat, ...
+            'Marker','none','MarkerSize',ms,'LineStyle','-','LineWidth',1,'Color',[0 0 0 alpha]);
+            plot(axs(2),1:size(absAV_plt_mat,1),absAV_plt_mat(:,icrv_), ...
+            'Marker','none','MarkerSize',ms,'LineStyle','-','LineWidth',1,'Color',[nice_green 1]);
+            plot(axs(2),1:size(absAV_plt_mat,1),absAV_plt_mat(:,i_sort_use(1)), ...
+            'Marker','none','MarkerSize',ms,'LineStyle','-','LineWidth',1,'Color',[nice_purple 1]);
+
+            set(axs(1),'YScale', 'log','XScale','linear','TickLabelInterpreter','Latex','FontSize',12);
+            set(axs(2),'YScale', 'linear','XScale','linear','TickLabelInterpreter','Latex','FontSize',12);
+
+            solspc_plot_ = LD_plots.plot_solspc(S_,solspc_plot_,spc,icrv_);
+
+            spc.color = nice_green;
+            solspc_plot_ = LD_plots.plot_solspc(S_,solspc_plot_,spc,i_sort_use(1));
+
+            spc.color = [0 0 1];
+            solspc_plot_ = LD_plots.plot_solspc(S_,solspc_plot_,spc,i_sort_use(ceil(ncrv/2)));
+
+            spc.color = [1 0 0];
+            solspc_plot_ = LD_plots.plot_solspc(S_,solspc_plot_,spc,i_sort_use(end));
+
+            spc.color = nice_purple;
+            solspc_plot_ = LD_plots.plot_solspc(S_,solspc_plot_,spc,icrv_check);
+
+            solspc_plot_init_lims = solspc_plot_.get_axis_lims;
+
+            pts_curve_check = pts_cell{icrv_check};
+            vcurve_check = fspc_.ds_de_ratio_ptsmat_stabilized_fast(pts_curve_check,K_glb);
+            scurve_check = [pts_curve_check(1:nvar,:) ; vcurve_check(2:(end-ndep),:)];
+
+            spc.color = nice_pink;
+            solspc_plot_ = LD_plots.plot_pts(scurve_check,meta_,solspc_plot_,spc);
+
+            % spc.color = nice_green;
+            % solspc_plot_ = LD_plots.plot_solspc(S_,solspc_plot_,spc,icrv_check2);
+            %
+            % pts_curve_check2 = pts_cell{icrv_check2};
+            % vcurve_check2 = fspc_.ds_de_ptsmat(pts_curve_check2,k_glb_chk);
+            % vcurve_check2_mags = sqrt(sum(vcurve_check2.*vcurve_check2,1));
+            % [vcrv_chk2_mnmag,vcrv_chk2_mdmag,vcrv_chk2_mxmag] = deal(   min(vcurve_check2_mags), ...
+            %                                                             median(vcurve_check2_mags), ...
+            %                                                             max(vcurve_check2_mags))
+            % vcurve_check2 = vcurve_check2./vcurve_check2_mags;
+            % v_scl = 1.0;
+            % % v_scl = 1e8;
+            % scurve_check2 = reshape([pts_curve_check2(:); pts_curve_check2(:) + v_scl*vcurve_check2(:)], ...
+            %                             size(pts_curve_check2,1),2,size(pts_curve_check2,2));
+            % scurve_cell_check2 = num2cell(scurve_check2,[1 2]);
+            %
+            % spc.color = hard_green;
+            % spc.lw = 1;
+            % solspc_plot_ = LD_plots.plot_pts(scurve_cell_check2,meta_,solspc_plot_,spc);
+            %
+            % spc.color = nice_pink;
+
+
+            solspc_plot_.set_axis_lims(solspc_plot_init_lims);
+
+            set(axs,'YScale', 'log','XScale','linear','TickLabelInterpreter','Latex','FontSize',12);
+
+        end
         function plt = plot_nullity_icrv_comp(S_,svd_cmp_,icrv_,solspc_plot_,plt_, cmat_)
             plt = plt_.init_tiles_safe(2,3);
             hold(plt.axs, 'on');
@@ -362,14 +614,72 @@ classdef LD_plots
             set([axs(1) axs(4)],'YScale', 'linear','XScale','linear','TickLabelInterpreter','Latex','FontSize',12);
             set([axs(2:3) axs(5:6)],'YScale', 'log','XScale','linear','TickLabelInterpreter','Latex','FontSize',12);
         end
-        function plt = plot_S_svds(Sarray_,plt_)
+        function plt = plot_global_svds(pckgs_,plt_)
+            plt = plt_.init_tiles_safe(1,4);
+            hold(plt.axs, 'on');
+            box(plt.axs,'on');
+            axs = plt.axs;
+
+            nset = length(pckgs_);
+
+            mspc = 'none';
+            ms = 1;
+            lspc = '-';
+            lw = 1;
+            colors = turbo(nset);
+
+            mat_stats = @(mat_) deal(min(mat_,[],2),median(mat_,2),max(mat_,[],2), 1:size(mat_,1));
+
+            [inds_cell,sglb_cell,inmn_cell,inmd_cell,inmx_cell] = deal(cell(nset,1));
+            for i = 1:nset
+                [si,Vi] = deal(pckgs_(i).svec_glb,pckgs_(i).Vmat_glb);
+                sglb_cell{i} = si;
+                % sglb_cell{i} = si/si(1);
+                [inmn_cell{i},inmd_cell{i},inmx_cell{i},inds_cell{i}] = mat_stats(abs(pckgs_(i).matT'*Vi)');
+            end
+
+
+            for i = 1:nset
+                leg1(i) = plot(axs(1),inds_cell{i},sglb_cell{i}, ...
+                'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc,'LineWidth',lw,'Color',colors(i,:), ...
+                'DisplayName', fixlabel(pckgs_(i).dat_name));
+            end
+            for i = 1:nset
+                leg2(i) = plot(axs(2),inds_cell{i},inmn_cell{i}, ...
+                'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc,'LineWidth',lw,'Color',colors(i,:), ...
+                'DisplayName', fixlabel(pckgs_(i).dat_name));
+            end
+            for i = 1:nset
+                leg3(i) = plot(axs(3),inds_cell{i},inmd_cell{i}, ...
+                'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc,'LineWidth',lw,'Color',colors(i,:), ...
+                'DisplayName', fixlabel(pckgs_(i).dat_name));
+            end
+            for i = 1:nset
+                leg4(i) = plot(axs(4),inds_cell{i},inmx_cell{i}, ...
+                'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc,'LineWidth',lw,'Color',colors(i,:), ...
+                'DisplayName', fixlabel(pckgs_(i).dat_name));
+            end
+
+            xlabel(axs(1:4),['$$ i $$'], 'Interpreter','Latex','FontSize',14);
+
+            ylabel(axs(1),['$$ \sigma^{\mathbf{A}_g}_i $$'], 'Interpreter','Latex','FontSize',14);
+            ylabel(axs(2),['min. $$ \mathbf{A}_g \mathbf{V}^{\mathbf{A}_g}_i $$'], 'Interpreter','Latex','FontSize',14);
+            ylabel(axs(3),['med. $$ \mathbf{A}_g \mathbf{V}^{\mathbf{A}_g}_i $$'], 'Interpreter','Latex','FontSize',14);
+            ylabel(axs(4),['max $$ \mathbf{A}_g \mathbf{V}^{\mathbf{A}_g}_i $$'], 'Interpreter','Latex','FontSize',14);
+
+            % legend(axs(1), leg1,'Location', 'SouthEastOutside', 'Interpreter', 'Latex', 'NumColumns',min([nset,4]));
+            legend(axs(2), leg1,'Location', 'SouthOutside', 'Interpreter', 'Latex', 'NumColumns',min([nset,4]));
+
+            set(axs,'YScale', 'log','XScale','linear','TickLabelInterpreter','Latex','FontSize',12);
+
+        end
+        function plt = plot_curve_svds(pckgs_,plt_)
             plt = plt_.init_tiles_safe(1,3);
             hold(plt.axs, 'on');
             box(plt.axs,'on');
             axs = plt.axs;
 
-            S0 = Sarray_(1);
-            nset = length(Sarray_);
+            nset = length(pckgs_);
 
             mspc = 'none';
             ms = 1;
@@ -381,26 +691,26 @@ classdef LD_plots
 
             [smin_cell,smed_cell,smax_cell,inds_cell] = deal(cell(nset,1));
             for i = 1:nset
-                % [smin_cell{i},smed_cell{i},smax_cell{i},inds_cell{i}] = mat_stats(Sarray_(i).smat);
-                [smin_cell{i},smed_cell{i},smax_cell{i},inds_cell{i}] = mat_stats(Sarray_(i).smat ./ Sarray_(i).smat(1,:) );
-                mat_i = Sarray_(i).matT';
+                [smin_cell{i},smed_cell{i},smax_cell{i},inds_cell{i}] = mat_stats(pckgs_(i).smat);
+                % [smin_cell{i},smed_cell{i},smax_cell{i},inds_cell{i}] = mat_stats(pckgs_(i).smat ./ pckgs_(i).smat(1,:) );
+                mat_i = pckgs_(i).matT';
             end
 
 
             for i = 1:nset
                 leg1(i) = plot(axs(1),inds_cell{i},smin_cell{i}, ...
                 'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc,'LineWidth',lw,'Color',colors(i,:), ...
-                'DisplayName', fixlabel(Sarray_(i).dat_name));
+                'DisplayName', fixlabel(pckgs_(i).dat_name));
             end
             for i = 1:nset
                 leg2(i) = plot(axs(2),inds_cell{i},smed_cell{i}, ...
                 'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc,'LineWidth',lw,'Color',colors(i,:), ...
-                'DisplayName', fixlabel(Sarray_(i).dat_name));
+                'DisplayName', fixlabel(pckgs_(i).dat_name));
             end
             for i = 1:nset
                 leg3(i) = plot(axs(3),inds_cell{i},smax_cell{i}, ...
                 'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc,'LineWidth',lw,'Color',colors(i,:), ...
-                'DisplayName', fixlabel(Sarray_(i).dat_name));
+                'DisplayName', fixlabel(pckgs_(i).dat_name));
             end
 
             xlabel(axs(1:3),['$$ i $$'], 'Interpreter','Latex','FontSize',14);
@@ -409,82 +719,6 @@ classdef LD_plots
             ylabel(axs(3),['max $$ \sigma^{\mathbf{A}}_i $$'], 'Interpreter','Latex','FontSize',14);
 
             legend(axs(2), leg1,'Location', 'SouthOutside', 'Interpreter', 'Latex', 'NumColumns',min([nset,4]));
-
-            set(axs,'YScale', 'log','XScale','linear','TickLabelInterpreter','Latex','FontSize',12);
-
-        end
-        function plt = plot_S_svds_w_global(Sarray_,plt_)
-            plt = plt_.init_tiles_safe(2,3);
-            hold(plt.axs, 'on');
-            box(plt.axs,'on');
-            axs = plt.axs;
-
-            S0 = Sarray_(1);
-            nset = length(Sarray_);
-
-            mspc = 'none';
-            ms = 1;
-            lspc = '-';
-            lw = 1;
-            colors = turbo(nset);
-
-            mat_stats = @(mat_) deal(min(mat_,[],2),median(mat_,2),max(mat_,[],2), 1:size(mat_,1));
-
-            [smin_cell,smed_cell,smax_cell,inds_cell] = deal(cell(nset,1));
-            [sglb_cell,inmn_cell,inmd_cell,inmx_cell] = deal(cell(nset,1));
-            for i = 1:nset
-                [smin_cell{i},smed_cell{i},smax_cell{i},inds_cell{i}] = mat_stats(Sarray_(i).smat);
-                % [smin_cell{i},smed_cell{i},smax_cell{i},inds_cell{i}] = mat_stats(Sarray_(i).smat ./ Sarray_(i).smat(1,:) );
-                mat_i = Sarray_(i).matT';
-                [~,si,Vi] = svd(mat_i,'econ','vector');
-                sglb_cell{i} = si;
-                % sglb_cell{i} = si/si(1);
-                [inmn_cell{i},inmd_cell{i},inmx_cell{i},~] = mat_stats(abs(mat_i*Vi)');
-            end
-
-
-            for i = 1:nset
-                leg1(i) = plot(axs(1),inds_cell{i},smin_cell{i}, ...
-                'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc,'LineWidth',lw,'Color',colors(i,:), ...
-                'DisplayName', fixlabel(Sarray_(i).dat_name));
-            end
-            for i = 1:nset
-                leg2(i) = plot(axs(2),inds_cell{i},smed_cell{i}, ...
-                'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc,'LineWidth',lw,'Color',colors(i,:), ...
-                'DisplayName', fixlabel(Sarray_(i).dat_name));
-            end
-            for i = 1:nset
-                leg3(i) = plot(axs(3),inds_cell{i},smax_cell{i}, ...
-                'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc,'LineWidth',lw,'Color',colors(i,:), ...
-                'DisplayName', fixlabel(Sarray_(i).dat_name));
-            end
-
-            for i = 1:nset
-                leg4(i) = plot(axs(4),inds_cell{i},sglb_cell{i}, ...
-                'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc,'LineWidth',lw,'Color',colors(i,:), ...
-                'DisplayName', fixlabel(Sarray_(i).dat_name));
-            end
-            for i = 1:nset
-                leg5(i) = plot(axs(5),inds_cell{i},inmd_cell{i}, ...
-                'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc,'LineWidth',lw,'Color',colors(i,:), ...
-                'DisplayName', fixlabel(Sarray_(i).dat_name));
-            end
-            for i = 1:nset
-                leg6(i) = plot(axs(6),inds_cell{i},inmx_cell{i}, ...
-                'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc,'LineWidth',lw,'Color',colors(i,:), ...
-                'DisplayName', fixlabel(Sarray_(i).dat_name));
-            end
-
-            xlabel(axs(1:3),['$$ i $$'], 'Interpreter','Latex','FontSize',14);
-            ylabel(axs(1),['min $$ \sigma^{\mathbf{A}}_i $$'], 'Interpreter','Latex','FontSize',14);
-            ylabel(axs(2),['med. $$ \sigma^{\mathbf{A}}_i $$'], 'Interpreter','Latex','FontSize',14);
-            ylabel(axs(3),['max $$ \sigma^{\mathbf{A}}_i $$'], 'Interpreter','Latex','FontSize',14);
-
-            ylabel(axs(4),['$$ \sigma^{\mathbf{A}_g}_i $$'], 'Interpreter','Latex','FontSize',14);
-            ylabel(axs(5),['med. $$ \mathbf{A}_g \mathbf{V}^{\mathbf{A}_g}_i $$'], 'Interpreter','Latex','FontSize',14);
-            ylabel(axs(6),['max $$ \mathbf{A}_g \mathbf{V}^{\mathbf{A}_g}_i $$'], 'Interpreter','Latex','FontSize',14);
-
-            legend(axs(5), leg1,'Location', 'SouthOutside', 'Interpreter', 'Latex', 'NumColumns',min([nset,4]));
 
             set(axs,'YScale', 'log','XScale','linear','TickLabelInterpreter','Latex','FontSize',12);
 
@@ -639,6 +873,30 @@ classdef LD_plots
         function struct_out = make_posdim_plot_specs(name_in_, pos_in_)
             struct_out = {'Name', name_in_; 'Renderer', 'painters'; 'Position', pos_in_;};
         end
+        function plt = plot_pts(pts_,meta_,plt_,spc_)
+            if (nargin==3)
+                spc = LD_plots.make_default_plot_specs;
+            else
+                spc = spc_;
+            end
+            if (iscell(pts_))
+                pts_cell_plot = pts_;
+            else
+                pts_cell_plot = mat2cell(pts_,size(pts_,1),size(pts_,2));
+            end
+            switch meta_.eor
+                case 1
+                    switch meta_.ndep
+                        case 1
+                            plt = LD_plots.plot_n1q1_solspc(pts_cell_plot,plt_,spc);
+                    end
+                case 2
+                    switch meta_.ndep
+                        case 1
+                            plt = LD_plots.plot_n2q1_solspc(pts_cell_plot,plt_,spc);
+                    end
+            end
+        end
         function plt = plot_solspc(S_,plt_,spc_,icrvs_)
             pts_cell_full = S_.pts_cell;
             if (nargin==2)
@@ -670,33 +928,47 @@ classdef LD_plots
                     end
             end
         end
-        function out_ = get_blue_mat()
-            out_ = [    LD_plots.blue1; ...
-                        LD_plots.blue2; ...
-                        LD_plots.blue3; ...
-                        LD_plots.blue4; ...
-                        LD_plots.blue5];
+        function out_ = greys()
+            out_ = [    LD_plots.grey1; ...
+                        LD_plots.grey2; ...
+                        LD_plots.grey3; ...
+                        LD_plots.grey4; ...
+                        LD_plots.grey5];
         end
-        function out_ = get_green_mat()
-            out_ = [    LD_plots.green1; ...
-                        LD_plots.green2; ...
-                        LD_plots.green3; ...
-                        LD_plots.green4; ...
-                        LD_plots.green5];
+        function out_ = purples()
+            out_ = [    LD_plots.purple1; ...
+                        LD_plots.purple2; ...
+                        LD_plots.purple3; ...
+                        LD_plots.purple4; ...
+                        LD_plots.purple5];
         end
-        function out_ = get_orange_mat()
+        function out_ = oranges()
             out_ = [    LD_plots.orange1; ...
                         LD_plots.orange2; ...
                         LD_plots.orange3; ...
                         LD_plots.orange4; ...
                         LD_plots.orange5];
         end
-        function out_ = get_purple_mat()
-            out_ = [    LD_plots.purple1; ...
-                        LD_plots.purple2; ...
-                        LD_plots.purple3; ...
-                        LD_plots.purple4; ...
-                        LD_plots.purple5];
+        function out_ = greens()
+            out_ = [    LD_plots.green1; ...
+                        LD_plots.green2; ...
+                        LD_plots.green3; ...
+                        LD_plots.green4; ...
+                        LD_plots.green5];
+        end
+        function out_ = blues()
+            out_ = [    LD_plots.blue1; ...
+                        LD_plots.blue2; ...
+                        LD_plots.blue3; ...
+                        LD_plots.blue4; ...
+                        LD_plots.blue5];
+        end
+        function out_ = reds()
+            out_ = [    LD_plots.red1; ...
+                        LD_plots.red2; ...
+                        LD_plots.red3; ...
+                        LD_plots.red4; ...
+                        LD_plots.red5];
         end
     end
 end

@@ -172,6 +172,22 @@ classdef LD_observations_set
                                 'ndep', ndep_, ...
                                 'ndim', 1+ndep_*(eor_+1));
         end
+        function [AYLglbsvd_out,AYLglbsvd_glb_out] = make_global_restricted_svd_package(Asvd_,Lglbsvd_,kappa_L_)
+            if (nargin == 3)
+                kappa_L = kappa_L_;
+            else
+                kappa_L = 1;
+            end
+
+            AYLglbsvd_glb_out = LD_aux.make_global_restricted_svd_package(Asvd_,Lglbsvd_,kappa_L);
+            AYLglbsvd_glb_out.dat_name = [Asvd_.dat_name 'YLglb(nofile)'];
+
+            if (nargout == 2)
+                AYLglbsvd_out = LD_aux.overwrite_struct(Asvd_,AYLglbsvd_glb_out);
+            else
+                AYLglbsvd_out = AYLglbsvd_glb_out;
+            end
+        end
         function [mat_svd_pckg_out, mat_rstr_svd_pckg_out] = make_restricted_svd_package(Amat_pckg_, Lmat_svd_pckg_, AYrstr_svd_pckg_)
             [ndof,ncrv,perm_len] = deal(size(Amat_pckg_.matT,1),size(Lmat_svd_pckg_.Vtns,3),size(Lmat_svd_pckg_.Vtns,1));
             nvar = ndof/perm_len;

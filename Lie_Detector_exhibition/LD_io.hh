@@ -40,6 +40,24 @@ struct LD_io
       exit(1);
     }
   }
+
+  template <typename T> static void write_Tmat(const char name_[], T **mat_, int nrows_, int ncols_)
+  {
+    const int hlen_c = 3;
+    int header[hlen_c+1],
+        &hlen = header[0] = hlen_c,
+        &nrows = header[1] = nrows_,
+        &ncols = header[2] = ncols_,
+        &sze = header[3] = (int) sizeof(T);
+
+    FILE * file_out = LD_io::fopen_SAFE(name_,"wb");
+    fwrite(header,sizeof(int),hlen_c+1,file_out);
+    for (size_t i = 0; i < nrows_; i++)
+      fwrite(mat_[i],sze,ncols_,file_out);
+    LD_io::fclose_SAFE(file_out);
+    printf("(LD_io::write_Tmat): wrote %s\n", name_);
+  }
+
 };
 
 #endif

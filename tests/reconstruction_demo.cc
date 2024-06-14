@@ -6,32 +6,26 @@ const char dir_name[] = "./data_directory";
 const char dat_suff[] = "lddat";
 
 const char eqn_name[] = "Duffing"; ode_solspc_meta meta0(2,1);
+// const char eqn_name[] = "Duffing_extrap"; ode_solspc_meta meta0(2,1);
+
+// level of noise applied to observational data. If <0, then unnoised
+const int noise_level = -1;
 
 // const char bse_name[] = "Legendre";
 const char bse_name[] = "Chebyshev1";
 // const char bse_name[] = "Chebyshev2";
 
+// specify order of embedding function space
 const int bor = 10;
-// const int bor = 9;
-// const int bor = 8;
-// const int bor = 7;
-// const int bor = 6;
-
-const char exp_name[] = "DoP853_true_obs"; const char rec_name[] = "DoP853_true_rec"; const char ext_name[] = "DoP853_true_ext";
-// const char exp_name[] = "DoPri5_true_obs"; const char rec_name[] = "DoPri5_true_rec"; const char ext_name[] = "DoPri5_true_ext";
-
-const char Rmat_name[] = "Rmat";
-const char Pmat_name[] = "Pmat";
-const char Qmat_name[] = "Qmat";
-const char Gmat_name[] = "Gmat";
 
 orthopolynomial_space fspace0(meta0, bor);
 
 const bool  extend_observations = true;
 
-char  name_buffer[200],
-      name_dnp1xu_buffer[200],
-      name_JFs_buffer[200];
+// character buffer for writing / reading data
+char  name_buffer[250],
+      name_dnp1xu_buffer[250],
+      name_JFs_buffer[250];
 
 int main()
 {

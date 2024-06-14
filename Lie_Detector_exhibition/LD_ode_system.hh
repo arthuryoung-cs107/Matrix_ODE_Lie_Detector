@@ -41,7 +41,7 @@ class Duffing_ode: public known_ode
       {dnp1xu_[0] = -1.0*(delta*u_[2] + u_[1]*(alpha + 3.0*beta*u_[0]*u_[0]) + gamma*omega*sin(omega*x_));}
 
 
-    inline const double * get_default_IC_indep_range() {return Duffing_x_range_def;}
+    inline const double * get_default_IC_indep_range(int xrange_=0) {return Duffing_x_range_def[xrange_];}
     inline const double * get_default_IC_range() {return Duffing_IC_range_def[0];}
 
   private:
@@ -55,7 +55,14 @@ class Duffing_ode: public known_ode
                   * const dparams = &alpha;
 
     const double  pi_private = 3.14159265358979323846;
-    const double Duffing_x_range_def[2] = {0.0, 5.0*(2.0*pi_private)/omega};
+    const double Duffing_x_range_def[5][2] =
+    {
+      {0.0, 5.0*(2.0*pi_private)/omega},
+      {0.0, 4.0*(2.0*pi_private)/omega},
+      {0.0, 6.25*(2.0*pi_private)/omega},
+      {0.0, 7.0*(2.0*pi_private)/omega},
+      {0.0, 7.5*(2.0*pi_private)/omega}
+    };
     const double Duffing_IC_range_def[2][2] = { {-1.25, 1.25}, {-1.25, 1.25} };
 };
 

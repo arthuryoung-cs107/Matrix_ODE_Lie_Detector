@@ -262,33 +262,43 @@ struct LD_gsl
   LD_gsl() {}
   ~LD_gsl() {}
 
-  static void load_gsl_vec(gsl_vector *gsl_vec_, double *vec_)
-    {for (size_t i = 0; i < gsl_vec_->size; i++) gsl_vector_set(gsl_vec_,i,vec_[i]);}
-  static void unpack_gsl_vec(double *vec_, gsl_vector *gsl_vec_)
-    {for (size_t i = 0; i < gsl_vec_->size; i++) vec_[i] = gsl_vector_get(gsl_vec_,i);}
+  static void load_gsl_vec(gsl_vector *gsl_vec_, double *vec_, int offset_=0)
+    {for (int i = offset_, ii=0; i < gsl_vec_->size; i++, ii++) gsl_vector_set(gsl_vec_,i,vec_[ii]);}
+  static void unpack_gsl_vec(double *vec_, gsl_vector *gsl_vec_, int offset_=0)
+    {for (int i = offset_, ii=0; i < gsl_vec_->size; i++, ii++) vec_[ii] = gsl_vector_get(gsl_vec_,i);}
 
-  static void load_gsl_matT(gsl_matrix * gsl_mat_, double ** mat_)
+  static void load_gsl_mat_row_i(gsl_matrix *gsl_mat_, double *vec_, int i_, int offset_=0)
+    {for (int j = offset_, jj = 0; j < gsl_mat_->size2; j++, jj++) gsl_matrix_set(gsl_mat_,i_,j,vec_[jj]);}
+  static void load_gsl_mat_col_j(gsl_matrix *gsl_mat_, double *vec_, int j_, int offset_=0)
+    {for (int i = offset_, ii = 0; i < gsl_mat_->size1; i++, ii++) gsl_matrix_set(gsl_mat_,i,j_,vec_[ii]);}
+
+  static void unpack_gsl_mat_row_i(double *vec_, gsl_matrix *gsl_mat_, int i_, int offset_=0)
+    {for (int j = offset_, jj = 0; j < gsl_mat_->size2; j++, jj++) vec_[jj] = gsl_matrix_get(gsl_mat_,i_,j);}
+  static void unpack_gsl_mat_col_j(double *vec_, gsl_matrix *gsl_mat_, int j_, int offset_=0)
+    {for (int i = offset_, ii = 0; i < gsl_mat_->size1; i++, ii++) vec_[ii] = gsl_matrix_get(gsl_mat_,i,j_);}
+
+  static void load_gsl_mat(gsl_matrix *gsl_mat_, double **mat_)
   {
-    for (size_t i = 0; i < gsl_mat_->size1; i++)
-      for (size_t j = 0; j < gsl_mat_->size2; j++)
-        gsl_matrix_set(gsl_mat_,j,i,mat_[i][j]);
-  }
-  static void load_gsl_mat(gsl_matrix * gsl_mat_, double ** mat_)
-  {
-    for (size_t i = 0; i < gsl_mat_->size1; i++)
-      for (size_t j = 0; j < gsl_mat_->size2; j++)
+    for (int i = 0; i < gsl_mat_->size1; i++)
+      for (int j = 0; j < gsl_mat_->size2; j++)
         gsl_matrix_set(gsl_mat_,i,j,mat_[i][j]);
   }
-  static void unpack_gsl_mat(double ** mat_, gsl_matrix * gsl_mat_)
+  static void load_gsl_matT(gsl_matrix *gsl_mat_, double **mat_)
   {
-    for (size_t i = 0; i < gsl_mat_->size1; i++)
-      for (size_t j = 0; j < gsl_mat_->size2; j++)
+    for (int i = 0; i < gsl_mat_->size1; i++)
+      for (int j = 0; j < gsl_mat_->size2; j++)
+        gsl_matrix_set(gsl_mat_,j,i,mat_[i][j]);
+  }
+  static void unpack_gsl_mat(double **mat_, gsl_matrix *gsl_mat_)
+  {
+    for (int i = 0; i < gsl_mat_->size1; i++)
+      for (int j = 0; j < gsl_mat_->size2; j++)
         mat_[i][j] = gsl_matrix_get(gsl_mat_,i,j);
   }
-  static void unpack_gsl_matT(double ** mat_, gsl_matrix * gsl_mat_)
+  static void unpack_gsl_matT(double **mat_, gsl_matrix *gsl_mat_)
   {
-    for (size_t i = 0; i < gsl_mat_->size1; i++)
-      for (size_t j = 0; j < gsl_mat_->size2; j++)
+    for (int i = 0; i < gsl_mat_->size1; i++)
+      for (int j = 0; j < gsl_mat_->size2; j++)
         mat_[i][j] = gsl_matrix_get(gsl_mat_,j,i);
   }
 };

@@ -46,6 +46,7 @@ void LD_matrix_svd_result::read_svd_results(const char name_[])
     {
       if ((ncrvs_in==ncrvs)&&(ncols_in==ncols))
       {
+        ncol_use = ncols;
         LD_io::fread_SAFE(rank_vec,sizeof(int),ncrvs,file_in);
         LD_io::fread_SAFE(Smat[0],sizeof(double),Slen,file_in);
         LD_io::fread_SAFE(VTtns[0][0],sizeof(double),VTlen,file_in);

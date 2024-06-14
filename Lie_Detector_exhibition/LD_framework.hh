@@ -232,6 +232,7 @@ struct LD_matrix: public function_space_element, public LD_experiment
     }
   }
 
+  inline int nrow_curve(int npts_crv_=0) {return dim_cnstr*((npts_crv_>0)?(npts_crv_):(min_npts_curve()));}
   inline int min_nrow_curve() {return dim_cnstr*min_npts_curve();}
   inline int max_nrow_curve() {return dim_cnstr*max_npts_curve();}
 

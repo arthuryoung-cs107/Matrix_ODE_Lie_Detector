@@ -99,6 +99,14 @@ classdef LD_orthopolynomial_space < LD_power_space
             fclose(file);
             fprintf('(LD_orthopolynomial_space::write_ode_experiment_data) wrote file: %s \n', name_);
         end
+        function v_mat_out = ds_de_ratio_ptsmat_stabilized_fast(obj,s_,params_)
+            [~,params_mat] = ds_de_ratio_n1_stabilized_fast_itemized(obj,s_,params_);
+            [ndim,npts] = size(s_);
+            v_mat_out = nan(ndim,npts);
+            for i = 1:npts
+                v_mat_out(:,i) = obj.ds_de_thetamat_Jac(s_(:,i),params_mat(:,i));
+            end
+        end
         function v_out = ds_de_ratio_n1_stabilized_fast(obj,s_,params_)
             [ndep,nvar,npts,nparams,perm_len,bor,poly_coeffs,order_mat] = deal(obj.ndep,1+obj.ndep, ...
                 size(s_,2),size(params_,2),obj.perm_len,double(obj.bor),obj.poly_coeffs,obj.order_mat);
@@ -133,6 +141,13 @@ classdef LD_orthopolynomial_space < LD_power_space
                 v_u_out(:,ipts) = ((Lvec_i')*reshape(params_out((perm_len+1):end,ipts),perm_len,ndep))';
             end
             v_out = [ones(1,npts) ; v_u_out];
+        end
+        function v_mat_out = ds_de_ptsmat(obj,s_,theta_)
+            [ndim,npts] = size(s_);
+            v_mat_out = nan(ndim,npts);
+            for i = 1:npts
+                v_mat_out(:,i) = obj.ds_de_thetamat_Jac(s_(:,i),theta_);
+            end
         end
         function [v_out_theta_mat Jac_v_out Jac_L_xu_theta_out] = ds_de_thetamat_Jac(obj,s_,theta_mat_,kcap_)
             if (nargin == 3)

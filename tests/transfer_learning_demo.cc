@@ -9,6 +9,30 @@ const char dat_suff[] = "lddat";
 
 const char eqn_name[] = "Duffing"; ode_solspc_meta meta0(2,1);
 
-// const char bse_name[] = "Legendre";
-const char bse_name[] = "Chebyshev1";
-// const char bse_name[] = "Chebyshev2";
+const int noise_level = -1;
+
+// number of curves and uniform number of points per curve for dataset
+const int nc = 50, // number of curves
+          np_min = 300; // MINIMUM points per curve for extrapolation test
+
+// specify order of embedding function space
+const int bor = 10;
+// const int bor = 9;
+// const int bor = 8;
+
+// class of embedding function space
+orthopolynomial_space fspace0(meta0,bor);
+
+// orthogonal polynomial family for function space configuration
+// const char fam_name[] = "Legendre";
+const char fam_name[] = "Chebyshev1";
+// const char fam_name[] = "Chebyshev2";
+
+int main()
+{
+  mkdir(dir_name, S_IRWXU); strcpy(eqn_name,ode.name); strcpy(intgen_name,ode_integrator.name);
+
+
+
+  return 0;
+}

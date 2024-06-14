@@ -46,6 +46,9 @@ $(LD_EXHIB_DIR):
 clean_:
 	rm -f *_demo
 
+clean_debugging:
+	rm -f *.lddat
+
 clean_LD_EXHIB:
 	rm -f $(LD_EXHIB_DIR)*.o
 
@@ -55,3 +58,5 @@ clean_data_directory:
 clean: clean_
 
 clean_all: clean_ clean_LD_EXHIB
+
+clean_ALL: clean_ clean_LD_EXHIB clean_debugging
