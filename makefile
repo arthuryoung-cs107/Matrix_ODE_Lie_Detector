@@ -59,4 +59,4 @@ clean: clean_
 
 clean_all: clean_ clean_LD_EXHIB
 
-clean_ALL: clean_ clean_LD_EXHIB clean_debugging
+clean_ALL: clean_all clean_data_directory clean_debugging

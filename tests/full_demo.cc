@@ -9,11 +9,13 @@ const char dir_name[] = "./data_directory";
 const char dat_suff[] = "lddat";
 
 // specify subject ordinary differential equation for tests
-Duffing_ode ode(-1.0,1.0,0.5,0.3,1.2); // chaos
+// Duffing_ode ode(-1.0,1.0,0.5,0.3,1.2); // chaos
+VanDerPol_ode ode; // chaos
 ode_solspc_meta meta0(ode.eor,ode.ndep);
 
 // number of curves and uniform number of points per curve for dataset
 const int nc = 50, // number of curves
+// const int nc = 75, // number of curves
           np_min = 300, // min number of points for extrapolation extrapolation experiment
           np = np_min; // points per curve
           // np = 350; // points per curve
@@ -111,6 +113,8 @@ int generate_observational_data()
 
   generated_ode_observations inputs_gen(ode,nc,np);
   inputs_gen.set_random_ICs(LD_rng(9365),ode.get_default_IC_range());  // shay's number
+  // inputs_gen.set_random_ICs(LD_rng(8642),ode.get_default_IC_range());  // my number
+  // inputs_gen.set_random_ICs(LD_rng(86427),ode.get_default_IC_range());  // another number
   inputs_gen.generate_solution_curves(ode_integrator,ode.get_default_IC_indep_range(xrange));
 
   if (noise_level>=0)

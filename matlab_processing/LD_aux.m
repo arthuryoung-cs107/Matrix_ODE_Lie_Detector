@@ -179,6 +179,7 @@ classdef LD_aux
                     net_d = dswap_best;
                 end
             end
+            improved_on_greedy = net_d < net_d_0
             if (nargout > 1)
                 [d_mins,imed_assignments] = min( dmat_(i_meds,i_nmedoids) ,[],1);
                 n_meds(1:kfull_) = sum(imed_assignments == (1:kfull_)',2);

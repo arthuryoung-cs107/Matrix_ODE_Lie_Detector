@@ -6,7 +6,8 @@ dat_suff = 'lddat';
 
 xrange = 0;
 % xrange = 1;
-ode_name = 'Duffing';
+% ode_name = 'Duffing';
+ode_name = 'VanDerPol';
 
 eqn_name = [ode_name '_xrange' num2str(xrange)];
 % eqn_name = [ode_name '_xrange' num2str(xrange) '_extrap'];
@@ -32,13 +33,15 @@ Sref_Osvd = Sref.read_mat_svd_package(fam_name,bor,'Omat');
 Sref_Psvd = Sref.read_mat_svd_package(fam_name,bor,'Pmat');
 Sref_Qsvd = Sref.read_mat_svd_package(fam_name,bor,'Qmat');
 Sref_Gsvd = Sref.read_mat_svd_package(fam_name,bor,'Gmat');
+Sref_OGsvd = Sref.read_mat_svd_package(fam_name,bor,'OGmat');
 
 Sref_svd_basic_array = [    Sref_Lsvd, ...
                             Sref_Rsvd, ...
                             Sref_Osvd, ...
                             Sref_Psvd, ...
                             Sref_Qsvd, ...
-                            Sref_Gsvd];
+                            Sref_Gsvd, ...
+                            Sref_OGsvd];
 
 Sref_svd_glb_basic_array = LD_aux.make_global_svd_package(Sref_svd_basic_array);
 Sref_Lsvd_glb = Sref_svd_glb_basic_array(1);
@@ -47,12 +50,16 @@ Sref_Osvd_glb = Sref_svd_glb_basic_array(3);
 Sref_Psvd_glb = Sref_svd_glb_basic_array(4);
 Sref_Qsvd_glb = Sref_svd_glb_basic_array(5);
 Sref_Gsvd_glb = Sref_svd_glb_basic_array(6);
+Sref_OGsvd_glb = Sref_svd_glb_basic_array(7);
 
-[Sref_OYLglbsvd,Sref_OYLglbsvd_glb] = LD_observations_set.make_global_restricted_svd_package(Sref_Osvd,Sref_Lsvd_glb,1);
-[Sref_GYLglbsvd,Sref_GYLglbsvd_glb] = LD_observations_set.make_global_restricted_svd_package(Sref_Gsvd,Sref_Lsvd_glb,1);
+% [Sref_OYLglbsvd,Sref_OYLglbsvd_glb] = LD_observations_set.make_global_restricted_svd_package(Sref_Osvd,Sref_Lsvd_glb,1);
+% [Sref_GYLglbsvd,Sref_GYLglbsvd_glb] = LD_observations_set.make_global_restricted_svd_package(Sref_Gsvd,Sref_Lsvd_glb,1);
+% [Sref_OGYLglbsvd,Sref_OGYLglbsvd_glb] = LD_observations_set.make_global_restricted_svd_package(Sref_OGsvd,Sref_Lsvd_glb,1);
 
-Sref_svd_Lglb_reg_array =   [   Sref_OYLglbsvd, Sref_GYLglbsvd ];
-Sref_svd_glb_reg_array =    [   Sref_OYLglbsvd_glb, Sref_GYLglbsvd_glb ];
+% Sref_svd_Lglb_reg_array =   [   Sref_OYLglbsvd, Sref_GYLglbsvd, Sref_OGYLglbsvd ];
+% Sref_svd_glb_reg_array =    [   Sref_OYLglbsvd_glb, Sref_GYLglbsvd_glb, Sref_OGYLglbsvd_glb];
+Sref_svd_Lglb_reg_array =   [];
+Sref_svd_glb_reg_array =    [];
 
 Sref_svd_glb_array = [Sref_svd_glb_basic_array, Sref_svd_glb_reg_array];
 
@@ -65,10 +72,12 @@ Sref_svd_YL_in_array = [    Sref_RYLsvd_in];
 [Sref_OYLsvd,Sref_OYLsvd_rst] = LD_observations_set.make_restricted_svd_package(Sref_Osvd,Sref_Lsvd);
 [Sref_PYLsvd,Sref_PYLsvd_rst] = LD_observations_set.make_restricted_svd_package(Sref_Psvd,Sref_Lsvd);
 [Sref_GYLsvd,Sref_GYLsvd_rst] = LD_observations_set.make_restricted_svd_package(Sref_Gsvd,Sref_Lsvd);
+[Sref_OGYLsvd,Sref_OGYLsvd_rst] = LD_observations_set.make_restricted_svd_package(Sref_OGsvd,Sref_Lsvd);
 
 Sref_svd_YL_array = [       Sref_OYLsvd, ...
                             Sref_PYLsvd, ...
-                            Sref_GYLsvd];
+                            Sref_GYLsvd, ...
+                            Sref_OGYLsvd];
 
 Sref_svd_array = [Sref_svd_basic_array, Sref_svd_Lglb_reg_array, Sref_svd_YL_in_array, Sref_svd_YL_array];
 Sref_crv_svd_plot = LD_plots.plot_curve_svds(Sref_svd_array,LD_plots('svd',[7 7],[2 7],[7 1],1));
@@ -79,19 +88,26 @@ Lsvd_glb = Sref_Lsvd_glb;
 Asvd = Sref_Osvd;
 AYLsvd = Sref_OYLsvd;
 AYLrstsvd = Sref_OYLsvd_rst;
-AYLglbsvd = Sref_OYLglbsvd_glb;
+% AYLglbsvd = Sref_OYLglbsvd_glb;
 
 % Lsvd_glb = Sref_Lsvd_glb;
 % Asvd = Sref_Gsvd;
 % AYLsvd = Sref_GYLsvd;
 % AYLrstsvd = Sref_GYLsvd_rst;
-% AYLglbsvd = Sref_GYLglbsvd_glb;
+% % AYLglbsvd = Sref_GYLglbsvd_glb;
+
+% Lsvd_glb = Sref_Lsvd_glb;
+% Asvd = Sref_OGsvd;
+% AYLsvd = Sref_OGYLsvd;
+% AYLrstsvd = Sref_OGYLsvd_rst;
+% % AYLglbsvd = Sref_OGYLglbsvd_glb;
+
 
 [ndep,nvar] = deal(meta0.ndep,meta0.ndep+1);
 [ncrv,nrow,ncol] = deal(length(Asvd.rvec),Asvd.nrow,Asvd.ncol);
-ncol_glb = AYLglbsvd.ncol;
-kappa_L = (ncol-ncol_glb)/nvar;
-rho_L = Lsvd_glb.ncol - kappa_L;
+% ncol_glb = AYLglbsvd.ncol;
+% kappa_L = (ncol-ncol_glb)/nvar;
+% rho_L = Lsvd_glb.ncol - kappa_L;
 
 Amat = Asvd.matT';
 Atns = permute(reshape(Amat',ncol,[],ncrv),[2 1 3]);
@@ -165,7 +181,7 @@ evlstat_evlmags = avg_evlmags;
 [icrv_loneliest,icrv_frndliest] = deal(isrt_evlstat_evlmags(1),isrt_evlstat_evlmags(end))
 % [icrv_loneliest,icrv_frndliest] = deal(isrt_evlstat_evlmags(2),isrt_evlstat_evlmags(end))
 
-k_clusters = 10;
+k_clusters = 2;
 [icrv_med,ncrv_clst,net_dfro,clst_membership,local_dfro,med2med_dfro] = LD_aux.naive_k_medoid(1.0-KTK_A_YLrst_evl_mag,k_clusters)
 
 %%%%%%%%%%%%%%%%%%%%%%%%
@@ -184,8 +200,8 @@ spc.lw = 2.0;
 %
 spc.color = LD_plots.purple1;
 solspc_ref_plot = LD_plots.plot_solspc(Sref,solspc_ref_plot,spc,icrv_loneliest);
-% spc.color = LD_plots.purple5;
-% solspc_ref_plot = LD_plots.plot_solspc(Sref,solspc_ref_plot,spc,icrv_frndliest);
+spc.color = LD_plots.purple5;
+solspc_ref_plot = LD_plots.plot_solspc(Sref,solspc_ref_plot,spc,icrv_frndliest);
 
 col_med_plot_mat = LD_plots.greens;
 
@@ -194,10 +210,21 @@ col_med_plot_mat = LD_plots.greens;
 % [~,isrt_ncrv_clst] = sort(ncrv_clst,'descend');
 icrv_med_ncrv_sort = icrv_med(isrt_ncrv_clst)
 ncrv_clst_sort
-% icrv_med_plot = icrv_med_ncrv_sort;
-icrv_med_plot = icrv_med_ncrv_sort((end - (size(col_med_plot_mat,1)-1)):end)
 
-nmed_plot = min([length(icrv_med), size(col_med_plot_mat,1)]);
+icrv_med_plot = icrv_med_ncrv_sort;
+
+if (length(icrv_med_plot) == size(col_med_plot_mat,1))
+    icrv_med_plot = icrv_med_ncrv_sort;
+else
+    if (length(icrv_med_plot) < size(col_med_plot_mat,1))
+        col_med_plot_mat = col_med_plot_mat((size(col_med_plot_mat,1) - length(icrv_med_plot) +1):end,:);
+    else
+        icrv_med_plot = icrv_med_ncrv_sort((end - (size(col_med_plot_mat,1)-1)):end)
+    end
+end
+
+nmed_plot = min([length(icrv_med_plot), size(col_med_plot_mat,1)]);
+
 for i = 1:nmed_plot
     spc.color = col_med_plot_mat(i,:);
     solspc_ref_plot = LD_plots.plot_solspc(Sref,solspc_ref_plot,spc,icrv_med_plot(i));
