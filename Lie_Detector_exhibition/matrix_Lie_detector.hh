@@ -209,7 +209,7 @@ struct LD_alternate_svd_result: public LD_matrix_svd_result
     }
     double  work_time = LD_threads::toc(t0);
     free_Tmatrix<double>(KBglb);
-    
+
     if (verbose_)
       printf("(LD_alternate_svd_result::compute_regularized_curve_svds) computed %d orthogonal transformations (%d x %d) in %.4f seconds (%d threads)\n",
         ncrvs, ncol_B,kappa_A,

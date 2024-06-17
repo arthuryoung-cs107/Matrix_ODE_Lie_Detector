@@ -9,14 +9,19 @@ const char dir_name[] = "./data_directory";
 const char dat_suff[] = "lddat";
 
 // specify subject ordinary differential equation for tests
-// Duffing_ode ode(-1.0,1.0,0.5,0.3,1.2); // chaos
-VanDerPol_ode ode; // chaos
+Duffing_ode ode;
+// VanDerPol_ode ode;
+// Pendulum_ode ode;
+// Bessel_ode ode;
+// Riccati_ode ode;
+// Brusselator_ode ode;
+
 ode_solspc_meta meta0(ode.eor,ode.ndep);
 
 // number of curves and uniform number of points per curve for dataset
 const int nc = 50, // number of curves
 // const int nc = 75, // number of curves
-          np_min = 300, // min number of points for extrapolation extrapolation experiment
+          np_min = 300, // min number of points for extrapolation experiment
           np = np_min; // points per curve
           // np = 350; // points per curve
 
@@ -40,6 +45,13 @@ DoP853_settings integrator_settings; DoP853 ode_integrator(ode,integrator_settin
 // specify order of embedding function space
 const int bor = 10;
 // const int bor = 9;
+// const int bor = 8;
+// const int bor = 7;
+// const int bor = 6;
+// const int bor = 5;
+// const int bor = 4;
+// const int bor = 3;
+// const int bor = 2;
 
 // class of embedding function space
 orthopolynomial_space fspace0(meta0,bor);
@@ -112,8 +124,8 @@ int generate_observational_data()
   strcpy(intgen_name,ode_integrator.name);
 
   generated_ode_observations inputs_gen(ode,nc,np);
-  inputs_gen.set_random_ICs(LD_rng(9365),ode.get_default_IC_range());  // shay's number
-  // inputs_gen.set_random_ICs(LD_rng(8642),ode.get_default_IC_range());  // my number
+  // inputs_gen.set_random_ICs(LD_rng(9365),ode.get_default_IC_range());  // shay's number
+  inputs_gen.set_random_ICs(LD_rng(8426),ode.get_default_IC_range());  // my number
   // inputs_gen.set_random_ICs(LD_rng(86427),ode.get_default_IC_range());  // another number
   inputs_gen.generate_solution_curves(ode_integrator,ode.get_default_IC_indep_range(xrange));
 
@@ -290,14 +302,6 @@ int decode_data_matrices()
     sprintf(name_buffer, "%s/%s_%s.%sYL_svd.%s", dir_name,data_name,bse_name,mat_name,dat_suff);
     AYmat_svd.write_svd_results(name_buffer);
 
-    // LD_SVD_space Lglb_svd((Lmat.ncrvs_tot)*(Lmat.nrow_curve(np_min)),Lmat.net_cols,true);
-    // matrix_Lie_detector::compute_global_svd(Lglb_svd, Lmat, Lmat.ncrvs_tot);
-    //
-    //
-    // AYmat_svd.compute_restricted_curve_svds(Amat,Lglb_svd,Amat.nrow_curve(np_min));
-    // sprintf(name_buffer, "%s/%s_%s.%sYL_svd.%s", dir_name,data_name,bse_name,mat_name,dat_suff);
-    // AYmat_svd.write_svd_results(name_buffer);
-
     if (write_all_svds)
     {
       comp_crv_svd<LD_R_matrix>(LD_R_matrix(fspace0,Sobs),Rmat_name);
@@ -333,19 +337,6 @@ int decode_data_matrices()
       sprintf(name_buffer, "%s/%s_%s.%s_svd.%s", dir_name,data_name,bse_name,mat_name,dat_suff);
       Amat_svd.write_svd_results(name_buffer);
     }
-
-    // LD_SVD_space Oglb_svd((Omat.ncrvs_tot)*(Omat.nrow_curve(np_min)),Omat.net_cols,true);
-    // matrix_Lie_detector::compute_global_svd(Oglb_svd, Omat, Omat.ncrvs_tot);
-
-    // // Amat_svd is set, use global Omat to regularize Amat kernals
-    // OregAmat_svd.compute_regularized_curve_svds(Oglb_svd,Amat_svd,Omat.nrow_curve(np_min));
-    // sprintf(name_buffer, "%s/%s_%s.Oreg%s_svd.%s", dir_name,data_name,bse_name,mat_name,dat_suff);
-    // OregAmat_svd.write_svd_results(name_buffer);
-    //
-    // // AYmat_svd is set, use global Omat to regularize AYmat kernals
-    // OregAYmat_svd.compute_regularized_curve_svds(Oglb_svd,AYmat_svd,Omat.nrow_curve(np_min));
-    // sprintf(name_buffer, "%s/%s_%s.Oreg%sYL_svd.%s", dir_name,data_name,bse_name,mat_name,dat_suff);
-    // OregAYmat_svd.write_svd_results(name_buffer);
   }
   else
   {
@@ -354,18 +345,10 @@ int decode_data_matrices()
     Amat_svd.read_svd_results(name_buffer);
     sprintf(name_buffer, "%s/%s_%s.%sYL_svd.%s", dir_name,data_name,bse_name,mat_name,dat_suff);
     AYmat_svd.read_svd_results(name_buffer); AYmat_svd.set_VTtns_alt_Y_VAY(Lmat_svd);
-
-    // sprintf(name_buffer, "%s/%s_%s.Oreg%s_svd.%s", dir_name,data_name,bse_name,mat_name,dat_suff);
-    // OregAmat_svd.read_svd_results(name_buffer); OregAmat_svd.set_VTtns_alt_KBA(Amat_svd);
-    // sprintf(name_buffer, "%s/%s_%s.Oreg%sYL_svd.%s", dir_name,data_name,bse_name,mat_name,dat_suff);
-    // OregAYmat_svd.read_svd_results(name_buffer); OregAYmat_svd.set_VTtns_alt_KBA(AYmat_svd);
   }
   Lmat_svd.print_details("Lmat_svd");
   Amat_svd.print_details("Amat_svd");
   AYmat_svd.print_details("AYmat_svd");
-
-  // OregAmat_svd.print_details("OregAmat_svd");
-  // OregAYmat_svd.print_details("OregAYmat_svd");
 
   return 0;
 }
@@ -401,12 +384,6 @@ template <class BSIS, class INTGR> int reconstruct_data(BSIS ** bases_, INTGR &i
 
   sprintf(recon_mat_name, "%sYL",mat_name); AYrinfgen0.init_svd_default(AYmat_svd);
   infgen_reconstruct<BSIS,rspace_infinitesimal_generator,INTGR>(bases_,AYrinfgen0,intgr_);
-
-  // sprintf(recon_mat_name, "Oreg%s",mat_name); OregArinfgen0.init_svd_default(OregAmat_svd,OregAmat_svd.ncol_use);
-  // infgen_reconstruct<BSIS,rspace_infinitesimal_generator,INTGR>(bases_,OregArinfgen0,intgr_);
-  //
-  // sprintf(recon_mat_name, "Oreg%sYL",mat_name); OregAYrinfgen0.init_svd_default(OregAYmat_svd,OregAYmat_svd.ncol_use);
-  // infgen_reconstruct<BSIS,rspace_infinitesimal_generator,INTGR>(bases_,OregAYrinfgen0,intgr_);
 
   return 0;
 }

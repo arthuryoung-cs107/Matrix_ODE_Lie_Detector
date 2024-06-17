@@ -38,6 +38,8 @@ classdef LD_plots
         red4 = [100/250, 30/250 , 22/250];
         red5 = [1, 0 , 0];
 
+        view_mat = [45, 45; 1, 0; 0, 90; 90, 0 ; 45, 0; 70, 10; -20, 10; -220, 10];
+
     end
     properties
         name;
@@ -794,8 +796,36 @@ classdef LD_plots
             err_res = struct(   'pts_nrmlz',pts_nrmlz, ...
                                 'abs_rel_diff',abs_rel_diff);
         end
-        function plt = plot_n1q1_solspc(pts_cell_,plt_,spc_)
+        function plt = plot_n1q2_solspc(pts_cell_,plt_,spc_)
             plt = plt_.init_tiles_safe(2,3);
+            hold(plt.axs, 'on');
+            box(plt.axs,'on');
+
+            axs = plt.axs;
+
+            dnames = {'x'; 'u_1'; 'u_2'; 'd_x u_1'; 'd_x u_2'};
+            dim_order = [   1 2; ...
+                            1 4; ...
+                            2 4; ...
+                            1 3; ...
+                            1 5; ...
+                            3 5];
+
+            ncrv = length(pts_cell_);
+
+            for i_plot = 1:size(dim_order,1)
+                axi = axs(i_plot);
+                dims_i = dim_order(i_plot,:);
+                for i = 1:ncrv
+                    plot(axi,pts_cell_{i}(dims_i(1),:),pts_cell_{i}(dims_i(2),:), ...
+                    'Marker',spc_.mspec,'MarkerSize',spc_.ms,'LineStyle',spc_.lspec,'LineWidth',spc_.lw,'Color',spc_.color);
+                end
+                xlabel(axi,['$$' dnames{dims_i(1)} '$$'], 'Interpreter','Latex','FontSize',14);
+                ylabel(axi,['$$' dnames{dims_i(2)} '$$'], 'Interpreter','Latex','FontSize',14);
+            end
+        end
+        function plt = plot_n1q1_solspc(pts_cell_,plt_,spc_)
+            plt = plt_.init_tiles_safe(1,4);
             hold(plt.axs, 'on');
             box(plt.axs,'on');
 
@@ -818,6 +848,15 @@ classdef LD_plots
                 xlabel(axi,['$$' dnames{dims_i(1)} '$$'], 'Interpreter','Latex','FontSize',14);
                 ylabel(axi,['$$' dnames{dims_i(2)} '$$'], 'Interpreter','Latex','FontSize',14);
             end
+
+            view(axs(4), LD_plots.view_mat(6, :));
+            for i = 1:ncrv
+                plot3(axs(4), pts_cell_{i}(1,:),pts_cell_{i}(2,:), pts_cell_{i}(3,:), ...
+                'Marker',spc_.mspec,'MarkerSize',spc_.ms,'LineStyle',spc_.lspec,'LineWidth',spc_.lw,'Color',spc_.color);
+            end
+            xlabel(axs(4),['$$' dnames{1} '$$'], 'Interpreter','Latex','FontSize',14);
+            ylabel(axs(4),['$$' dnames{2} '$$'], 'Interpreter','Latex','FontSize',14);
+            zlabel(axs(4),['$$' dnames{3} '$$'], 'Interpreter','Latex','FontSize',14);
         end
         function plt = plot_n2q1_solspc(pts_cell_,plt_,spc_)
             plt = plt_.init_tiles_safe(2,3);
@@ -889,6 +928,8 @@ classdef LD_plots
                     switch meta_.ndep
                         case 1
                             plt = LD_plots.plot_n1q1_solspc(pts_cell_plot,plt_,spc);
+                        case 2
+                            plt = LD_plots.plot_n1q2_solspc(pts_cell_plot,plt_,spc);
                     end
                 case 2
                     switch meta_.ndep
@@ -920,6 +961,8 @@ classdef LD_plots
                     switch S_.ndep
                         case 1
                             plt = LD_plots.plot_n1q1_solspc(pts_cell_plot,plt_,spc);
+                        case 2
+                            plt = LD_plots.plot_n1q2_solspc(pts_cell_plot,plt_,spc);
                     end
                 case 2
                     switch S_.ndep
