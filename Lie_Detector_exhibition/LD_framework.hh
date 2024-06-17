@@ -86,6 +86,33 @@ struct generated_ode_observations: public ode_curve_observations
     printf("(generated_ode_observations::parallel_generate_solution_curves) exponentiated %d integral curves (%d net snaps, %d degrees of freedom) in %.4f seconds (%d threads)\n",
     ncrv, nobs, intgr_.ndof_ODE, work_time, LD_threads::numthreads());
   }
+  template <class BSIS, class INFGN, class INTGR> void parallel_generate_solution_curves(BSIS **bases_, INFGN &infgn_, INTGR &intgr_, const double *indep_range_)
+  {
+    double t0 = LD_threads::tic();
+    #pragma omp parallel
+    {
+      BSIS &basis_t = *(bases_[LD_threads::thread_id()]);
+      INFGN infgn_t(infgn_,basis_t);
+      INTGR intgr_t(infgn_t,intgr_);
+
+      intgr_t.del_t = (indep_range_[1]-indep_range_[0])/((double)(npts-1));
+
+      double  * const u_state_t = intgr_t.get_u_state(),
+              ** const integr_wkspc_t = Tmatrix<double>(npts,ndof_ODE);
+      #pragma omp for
+      for (size_t icrv = 0; icrv < ncrv; icrv++)
+      {
+        for (size_t i_dof = 0; i_dof < ndof_ODE; i_dof++) u_state_t[i_dof] = pts_IC[icrv][i_dof+1];
+        intgr_t.init_curve_integration(icrv);
+        intgr_t.set_and_solve_time(indep_range_[0],indep_range_[1],npts,integr_wkspc_t);
+        intgr_t.unpack_time_sol(indep_range_[0],npts,integr_wkspc_t,pts_IC[icrv]);
+      }
+      free_Tmatrix<double>(integr_wkspc_t);
+    }
+    double work_time = LD_threads::toc(t0);
+    printf("(generated_ode_observations::parallel_generate_solution_curves) exponentiated %d integral curves (%d net snaps, %d degrees of freedom) in %.4f seconds (%d threads)\n",
+    ncrv, nobs, intgr_.ndof_ODE, work_time, LD_threads::numthreads());
+  }
   inline void set_solcurve_ICs(ode_solcurve **crvs_)
   {
     for (size_t i = 0; i < ncrv; i++)
