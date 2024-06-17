@@ -326,7 +326,7 @@ struct LD_alternate_svd_result: public LD_matrix_svd_result
 
 struct infinitesimal_generator: public ode_system
 {
-  infinitesimal_generator(function_space &fspace_): ode_system(1,fspace_.ndep), fspace(fspace_) {}
+  infinitesimal_generator(function_space &fspace_, int eor_, int ndep_): ode_system(eor_,ndep_), fspace(fspace_) {}
   ~infinitesimal_generator() {}
 
   function_space &fspace;
@@ -336,23 +336,56 @@ struct infinitesimal_generator: public ode_system
 
 struct rspace_infinitesimal_generator: public infinitesimal_generator
 {
-  rspace_infinitesimal_generator(function_space &fspace_,double ***V_crv_tns_,int kappa_=1):
-  infinitesimal_generator(fspace_), V_crv_tns(V_crv_tns_),
-  xu(new double[nvar]), lamvec(new double[perm_len]), vx_vec(new double[ndof_full]),
-  vxu_wkspc(vxu_workspace(nvar,fspace_.comp_ord_len())), kappa(kappa_) {}
+  rspace_infinitesimal_generator(function_space &fspace_,double ***V_crv_tns_,int eor_,int kappa_):
+  infinitesimal_generator(fspace_,eor_,fspace_.ndep),
+  V_crv_tns(V_crv_tns_), lamvec(new double[perm_len]), kappa(kappa_), ncol_use(ndof_full) {}
 
-  rspace_infinitesimal_generator(rspace_infinitesimal_generator &rinfgen_):
-  rspace_infinitesimal_generator(rinfgen_.fspace,rinfgen_.V_crv_tns,rinfgen_.kappa) {ncol_use = rinfgen_.ncol_use;}
+  ~rspace_infinitesimal_generator() {delete [] lamvec;}
 
-  ~rspace_infinitesimal_generator() {delete [] xu; delete [] lamvec; delete [] vx_vec;}
-
-  int kappa = 1;
+  int kappa,
+      ncol_use;
   double  ** Kmat;
+  double  * const lamvec,
+          *** const V_crv_tns;
 
   void init_dudx_eval(int icrv_) {Kmat = V_crv_tns[icrv_] + (ncol_use-kappa);}
 
   void JacF_eval(double x_, double *u_, double **dls_out_) {} // do later
   void dnp1xu_eval(double x_, double *u_, double *dnp1xu_) {} // do later
+
+  inline void init_svd_default(LD_matrix_svd_result &svd_, int kappa_=0)
+    {ncol_use = svd_.ncol_use; kappa = (kappa_)?(kappa_):(svd_.kappa_def()); init_dudx_eval(0);}
+
+};
+
+struct r1space_infinitesimal_generator: public rspace_infinitesimal_generator
+{
+  r1space_infinitesimal_generator(function_space &fspace_,double ***V_crv_tns_,int kappa_=1):
+  rspace_infinitesimal_generator(fspace_,V_crv_tns_,1,kappa_),
+  xu(new double[nvar]), vx_vec(new double[ndof_full]), vxu_wkspc(vxu_workspace(nvar,fspace_.comp_ord_len())) {}
+
+  r1space_infinitesimal_generator(r1space_infinitesimal_generator &rinfgen_):
+  r1space_infinitesimal_generator(rinfgen_.fspace,rinfgen_.V_crv_tns,rinfgen_.kappa) {ncol_use = rinfgen_.ncol_use;}
+
+  ~r1space_infinitesimal_generator() {delete [] xu; delete [] vx_vec;}
+
+  void dudx_eval(double x_, double *u_, double *dudx_)
+  {
+    xu[0] = x_;
+    for (size_t i = 0; i < ndep; i++) xu[i+1] = u_[i] + (dudx_[i] = 0.0);
+    fspace.lamvec_eval(xu,lamvec,vxu_wkspc);
+    double Vx2 = 0.0;
+    for (size_t i_k = 0; i_k < kappa; i_k++)
+    {
+      double &vx_ik = vx_vec[i_k] = 0.0;
+      for (size_t i = 0; i < perm_len; i++) vx_ik += Kmat[i_k][i]*lamvec[i];
+      for (size_t idep = 0,i_theta = perm_len; idep < ndep; idep++)
+        for (size_t iperm = 0; iperm < perm_len; iperm++,i_theta++)
+          dudx_[idep] += vx_ik*Kmat[i_k][i_theta]*lamvec[iperm];
+      Vx2 += vx_ik*vx_ik;
+    }
+    for (size_t i = 0; i < ndep; i++) dudx_[i] /= Vx2;
+  }
 
   static void init_extended_observations(ode_curve_observations &obs_out_,ode_curve_observations &obs_in_)
   {
@@ -376,23 +409,6 @@ struct rspace_infinitesimal_generator: public infinitesimal_generator
       for (size_t idim = 0; idim < ndim_in; idim++) pts_i_out[idim] = pts_i_in[idim];
       for (size_t idim = ndim_in; idim < ndim_out; idim++) pts_i_out[idim] = 0.0;
     }
-  }
-  void dudx_eval(double x_, double *u_, double *dudx_)
-  {
-    xu[0] = x_;
-    for (size_t i = 0; i < ndep; i++) xu[i+1] = u_[i] + (dudx_[i] = 0.0);
-    fspace.lamvec_eval(xu,lamvec,vxu_wkspc);
-    double Vx2 = 0.0;
-    for (size_t i_k = 0; i_k < kappa; i_k++)
-    {
-      double &vx_ik = vx_vec[i_k] = 0.0;
-      for (size_t i = 0; i < perm_len; i++) vx_ik += Kmat[i_k][i]*lamvec[i];
-      for (size_t idep = 0,i_theta = perm_len; idep < ndep; idep++)
-        for (size_t iperm = 0; iperm < perm_len; iperm++,i_theta++)
-          dudx_[idep] += vx_ik*Kmat[i_k][i_theta]*lamvec[iperm];
-      Vx2 += vx_ik*vx_ik;
-    }
-    for (size_t i = 0; i < ndep; i++) dudx_[i] /= Vx2;
   }
 
   inline void extend_curve_observations(function_space_basis &basis_, double *theta_vec_, double *v_, double *pts_, int npts_)
@@ -421,19 +437,13 @@ struct rspace_infinitesimal_generator: public infinitesimal_generator
     }
   }
 
-  inline void init_svd_default(LD_matrix_svd_result &svd_, int kappa_=0)
-    {ncol_use = svd_.ncol_use; kappa = (kappa_)?(kappa_):(svd_.kappa_def()); init_dudx_eval(0);}
+protected:
 
-  protected:
+  double  * const xu,
+          * const vx_vec;
 
-    int ncol_use = ndof_full;
+  vxu_workspace vxu_wkspc;
 
-    double  *** const V_crv_tns,
-            * const xu,
-            * const lamvec,
-            * const vx_vec;
-
-    vxu_workspace vxu_wkspc;
 };
 
 struct matrix_Lie_detector

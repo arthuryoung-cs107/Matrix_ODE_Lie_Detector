@@ -78,19 +78,17 @@ LD_R_matrix Amat(fspace0,Sobs); const char * const Amat_name = Rmat_name;
 LD_matrix_svd_result Lmat_svd(Lmat);
 LD_matrix_svd_result Amat_svd(Amat);
 LD_alternate_svd_result AYmat_svd(Amat);
-// LD_alternate_svd_result OregAmat_svd(Amat);
-// LD_alternate_svd_result OregAYmat_svd(Amat);
 
 const bool  write_gen_obs_data = true,
             write_fspace_config = true,
             write_encoded_mats = true,
-            write_decoded_mats = true, write_all_svds = true,
-            write_recon_data = true;
+            write_decoded_mats = true,
+            write_all_svds = true,
+            write_recon_data = true,
+            write_extnd_data = true;
 
-rspace_infinitesimal_generator  Arinfgen0(fspace0,Amat_svd.VTtns),
+r1space_infinitesimal_generator Arinfgen0(fspace0,Amat_svd.VTtns),
                                 AYrinfgen0(fspace0,AYmat_svd.VTtns_alt);
-                                // OregArinfgen0(fspace0,OregAmat_svd.VTtns_alt),
-                                // OregAYrinfgen0(fspace0,OregAYmat_svd.VTtns_alt);
 
 // runge kutta integrator for the reconstruction of observational data
 DoP853_settings intgr_rec_settings; DoP853 intgr_rec(Arinfgen0,intgr_rec_settings); // 8th order accurate, 7th order interpolation
@@ -368,11 +366,36 @@ template <class BSIS, class INFGN, class INTGR> void infgen_reconstruct(BSIS **b
     sprintf(name_buffer, "%s/%s_%s.%s.%srec.%s", dir_name,data_name,bse_name,recon_mat_name,intrec_name,dat_suff);
     inputs_recon.read_basic_observations(name_buffer);
   }
+  if (write_extnd_data)
+  {
+    ode_curve_observations inputs_extnd(meta0.eor,meta0.ndep,inputs_recon.nobs);
+    INFGN::init_extended_observations(inputs_extnd,inputs_recon);
+    matrix_Lie_detector::extend_ode_observations<INFGN,BSIS>(inputs_extnd,infgn_,bases_);
+    sprintf(name_buffer, "%s/%s_%s.%s.%sext.%s", dir_name,data_name,bse_name,recon_mat_name,intrec_name,dat_suff);
+    inputs_extnd.write_observed_solutions(name_buffer);
+  }
+}
+
+template <class INFGN, class INTGR> void infgen_reconstruct(INFGN &infgn_,INTGR &intgr_)
+{
+  generated_ode_observations inputs_recon(infgn_,Sobs.ncrvs_tot,Sobs.min_npts_curve());
+  sprintf(name_buffer, "%s/%s_%s.%s.%srec.%s",dir_name,data_name,bse_name,recon_mat_name,intrec_name,dat_suff);
+  inputs_recon.set_solcurve_ICs(Sobs.curves);
+  inputs_recon.parallel_generate_solution_curves<INFGN,INTGR>(infgn_,intgr_,Sobs.get_default_IC_indep_range());
+  inputs_recon.write_observed_solutions(name_buffer);
+}
+
+template <class BSIS, class INFGN> void infgen_extend(BSIS **bases_,INFGN &infgn_)
+{
+  generated_ode_observations inputs_recon(infgn_,Sobs.ncrvs_tot,Sobs.min_npts_curve());
+  sprintf(name_buffer, "%s/%s_%s.%s.%srec.%s", dir_name,data_name,bse_name,recon_mat_name,intrec_name,dat_suff);
+  inputs_recon.read_basic_observations(name_buffer);
+
   ode_curve_observations inputs_extnd(meta0.eor,meta0.ndep,inputs_recon.nobs);
   INFGN::init_extended_observations(inputs_extnd,inputs_recon);
   matrix_Lie_detector::extend_ode_observations<INFGN,BSIS>(inputs_extnd,infgn_,bases_);
   sprintf(name_buffer, "%s/%s_%s.%s.%sext.%s", dir_name,data_name,bse_name,recon_mat_name,intrec_name,dat_suff);
-  if (write_recon_data) inputs_extnd.write_observed_solutions(name_buffer);
+  inputs_extnd.write_observed_solutions(name_buffer);
 }
 
 template <class BSIS, class INTGR> int reconstruct_data(BSIS ** bases_, INTGR &intgr_)
@@ -380,10 +403,10 @@ template <class BSIS, class INTGR> int reconstruct_data(BSIS ** bases_, INTGR &i
   strcpy(intrec_name,intgr_.name);
 
   strcpy(recon_mat_name,mat_name); Arinfgen0.init_svd_default(Amat_svd);
-  infgen_reconstruct<BSIS,rspace_infinitesimal_generator,INTGR>(bases_,Arinfgen0,intgr_);
+  infgen_reconstruct<BSIS,r1space_infinitesimal_generator,INTGR>(bases_,Arinfgen0,intgr_);
 
   sprintf(recon_mat_name, "%sYL",mat_name); AYrinfgen0.init_svd_default(AYmat_svd);
-  infgen_reconstruct<BSIS,rspace_infinitesimal_generator,INTGR>(bases_,AYrinfgen0,intgr_);
+  infgen_reconstruct<BSIS,r1space_infinitesimal_generator,INTGR>(bases_,AYrinfgen0,intgr_);
 
   return 0;
 }

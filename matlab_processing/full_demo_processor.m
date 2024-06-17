@@ -7,11 +7,11 @@ dat_suff = 'lddat';
 xrange = 0;
 % xrange = 1;
 
-% ode_name = 'Duffing';
+ode_name = 'Duffing';
 % ode_name = 'VanDerPol';
 % ode_name = 'Pendulum';
 % ode_name = 'Bessel';
-ode_name = 'Riccati';
+% ode_name = 'Riccati';
 % ode_name = 'Brusselator';
 
 eqn_name = [ode_name '_xrange' num2str(xrange)];
@@ -20,14 +20,14 @@ eqn_name = [ode_name '_xrange' num2str(xrange)];
 fam_name = 'Chebyshev1';
 % fam_name = 'Legendre';
 
-% bor = 10;
+bor = 10;
 % bor = 9;
 % bor = 8;
 % bor = 7;
 % bor = 6;
 % bor = 5;
 % bor = 4;
-bor = 3;
+% bor = 3;
 % bor = 2;
 
 spc = LD_plots.make_default_plot_specs;
