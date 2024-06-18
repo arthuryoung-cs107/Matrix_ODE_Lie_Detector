@@ -84,7 +84,7 @@ struct generated_ode_observations: public ode_curve_observations
     }
     double work_time = LD_threads::toc(t0);
     printf("(generated_ode_observations::parallel_generate_solution_curves) exponentiated %d integral curves (%d net snaps, %d degrees of freedom) in %.4f seconds (%d threads)\n",
-    ncrv, nobs, intgr_.ndof_ODE, work_time, LD_threads::numthreads());
+    ncrv, nobs, infgn_.ndof_ODE, work_time, LD_threads::numthreads());
   }
   template <class BSIS, class INFGN, class INTGR> void parallel_generate_solution_curves(BSIS **bases_, INFGN &infgn_, INTGR &intgr_, const double *indep_range_)
   {
@@ -111,7 +111,7 @@ struct generated_ode_observations: public ode_curve_observations
     }
     double work_time = LD_threads::toc(t0);
     printf("(generated_ode_observations::parallel_generate_solution_curves) exponentiated %d integral curves (%d net snaps, %d degrees of freedom) in %.4f seconds (%d threads)\n",
-    ncrv, nobs, intgr_.ndof_ODE, work_time, LD_threads::numthreads());
+    ncrv, nobs, infgn_.ndof_ODE, work_time, LD_threads::numthreads());
   }
   inline void set_solcurve_ICs(ode_solcurve **crvs_)
   {
@@ -226,6 +226,10 @@ struct LD_matrix: public function_space_element, public LD_experiment
             net_rows = dim_cnstr*nobs_full,
             net_cols,
             net_eles = net_rows*net_cols;
+
+  // bool normalization_flag = false;
+  bool normalization_flag = true;
+
   double  **** const Attns,
           *** const Atns,
           ** const Amat = Atns[0],

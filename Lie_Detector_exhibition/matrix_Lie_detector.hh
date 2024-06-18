@@ -331,7 +331,8 @@ struct infinitesimal_generator: public ode_system
 
   function_space &fspace;
   const int perm_len = fspace.perm_len,
-            ndof_full = fspace.ndof_full;
+            ndof_full = fspace.ndof_full,
+            ndof_ODE = eor*ndep;
 };
 
 struct rspace_infinitesimal_generator: public infinitesimal_generator
@@ -453,7 +454,6 @@ class r1space_infinitesimal_generator: public rspace_infinitesimal_generator
 class rnspace_infinitesimal_generator: public rspace_infinitesimal_generator
 {
 
-  const int ndof_ODE = ndep*eor;
   double  * const s_local,
           * const v_local,
           * const theta_local = theta_wkspc;

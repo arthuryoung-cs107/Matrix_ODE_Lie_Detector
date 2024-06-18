@@ -43,9 +43,9 @@ DoP853_settings integrator_settings; DoP853 ode_integrator(ode,integrator_settin
 // DoPri5_settings integrator_settings; DoPri5 ode_integrator(ode,integrator_settings);
 
 // specify order of embedding function space
-const int bor = 10;
+// const int bor = 10;
 // const int bor = 9;
-// const int bor = 8;
+const int bor = 8;
 // const int bor = 7;
 // const int bor = 6;
 // const int bor = 5;
@@ -79,11 +79,11 @@ LD_O_matrix Bmat(fspace0,Sobs); const char * const Bmat_name = Omat_name;
 // LD_R_matrix Bmat(fspace0,Sobs); const char * const Bmat_name = Rmat_name;
 // LD_Q_matrix Bmat(fspace0,Sobs); const char * const Bmat_name = Qmat_name;
 
-LD_matrix_svd_result Lmat_svd(Lmat.ncrvs_tot,Lmat.net_cols);
-LD_matrix_svd_result Amat_svd(Amat.ncrvs_tot,Amat.net_cols);
-LD_matrix_svd_result Bmat_svd(Bmat.ncrvs_tot,Bmat.net_cols);
-LD_alternate_svd_result AYmat_svd(Amat.ncrvs_tot,Amat.net_cols);
-LD_alternate_svd_result BYmat_svd(Bmat.ncrvs_tot,Bmat.net_cols);
+LD_matrix_svd_result Lmat_svd(nc,fspace0.perm_len);
+LD_matrix_svd_result Amat_svd(nc,fspace0.ndof_full);
+LD_matrix_svd_result Bmat_svd(nc,fspace0.ndof_full);
+LD_alternate_svd_result AYmat_svd(nc,fspace0.ndof_full);
+LD_alternate_svd_result BYmat_svd(nc,fspace0.ndof_full);
 
 const bool  write_gen_obs_data = true,
             write_fspace_config = true,
@@ -349,6 +349,7 @@ int decode_data_matrices()
   else
   {
     Lmat_svd.read_svd_results(name_buffer);
+
     sprintf(name_buffer, "%s/%s_%s.%s_svd.%s", dir_name,data_name,bse_name,Amat_name,dat_suff);
     Amat_svd.read_svd_results(name_buffer);
     sprintf(name_buffer, "%s/%s_%s.%sYL_svd.%s", dir_name,data_name,bse_name,Amat_name,dat_suff);
@@ -426,17 +427,15 @@ template <class BSIS, class INFGN, class INTGR> void infgen_reconstruct_extend(B
 
 template <class BSIS, class INTGR> int reconstruct_data(BSIS ** bases_, INTGR &intgr_)
 {
-  strcpy(intrec_name,intgr_.name);
-
+  sprintf(intrec_name, "%sr1",intgr_.name);
   strcpy(recon_mat_name,Amat_name); Ar1infgen0.init_svd_default(Amat_svd);
   infgen_reconstruct_extend<BSIS,r1space_infinitesimal_generator,INTGR>(bases_,Ar1infgen0,intgr_);
-
   sprintf(recon_mat_name, "%sYL",Amat_name); AYr1infgen0.init_svd_default(AYmat_svd);
   infgen_reconstruct_extend<BSIS,r1space_infinitesimal_generator,INTGR>(bases_,AYr1infgen0,intgr_);
 
+  sprintf(intrec_name, "%srn",intgr_.name);
   strcpy(recon_mat_name,Bmat_name); Brninfgen0.init_svd_default(Bmat_svd);
   infgen_reconstruct<BSIS,rnspace_infinitesimal_generator,INTGR>(bases_,Brninfgen0,intgr_);
-
   sprintf(recon_mat_name, "%sYL",Bmat_name); BYrninfgen0.init_svd_default(BYmat_svd);
   infgen_reconstruct<BSIS,rnspace_infinitesimal_generator,INTGR>(bases_,BYrninfgen0,intgr_);
 

@@ -7,11 +7,11 @@ dat_suff = 'lddat';
 xrange = 0;
 % xrange = 1;
 
-% ode_name = 'Duffing';
+ode_name = 'Duffing';
 % ode_name = 'VanDerPol';
 % ode_name = 'Pendulum';
 % ode_name = 'Bessel';
-ode_name = 'Riccati';
+% ode_name = 'Riccati';
 % ode_name = 'Brusselator';
 
 eqn_name = [ode_name '_xrange' num2str(xrange)];
@@ -22,13 +22,13 @@ fam_name = 'Chebyshev1';
 
 % bor = 10;
 % bor = 9;
-% bor = 8;
+bor = 8;
 % bor = 7;
 % bor = 6;
 % bor = 5;
 % bor = 4;
 % bor = 3;
-bor = 2;
+% bor = 2;
 
 spc = LD_plots.make_default_plot_specs;
 
@@ -47,14 +47,15 @@ Sref_Osvd = Sref.read_mat_svd_package(fam_name,bor,'Omat');
 Sref_Psvd = Sref.read_mat_svd_package(fam_name,bor,'Pmat');
 Sref_Qsvd = Sref.read_mat_svd_package(fam_name,bor,'Qmat');
 Sref_Gsvd = Sref.read_mat_svd_package(fam_name,bor,'Gmat');
+Sref_OPsvd = Sref.read_mat_svd_package(fam_name,bor,'OPmat');
 Sref_OGsvd = Sref.read_mat_svd_package(fam_name,bor,'OGmat');
-
 Sref_svd_basic_array = [    Sref_Lsvd, ...
                             Sref_Rsvd, ...
                             Sref_Osvd, ...
                             Sref_Psvd, ...
                             Sref_Qsvd, ...
                             Sref_Gsvd, ...
+                            Sref_OPsvd, ...
                             Sref_OGsvd];
 
 Sref_svd_glb_basic_array = LD_aux.make_global_svd_package(Sref_svd_basic_array);
@@ -64,20 +65,12 @@ Sref_Osvd_glb = Sref_svd_glb_basic_array(3);
 Sref_Psvd_glb = Sref_svd_glb_basic_array(4);
 Sref_Qsvd_glb = Sref_svd_glb_basic_array(5);
 Sref_Gsvd_glb = Sref_svd_glb_basic_array(6);
-Sref_OGsvd_glb = Sref_svd_glb_basic_array(7);
+Sref_OPsvd_glb = Sref_svd_glb_basic_array(7);
+Sref_OGsvd_glb = Sref_svd_glb_basic_array(8);
 
-% [Sref_OYLglbsvd,Sref_OYLglbsvd_glb] = LD_observations_set.make_global_restricted_svd_package(Sref_Osvd,Sref_Lsvd_glb,1);
-% [Sref_GYLglbsvd,Sref_GYLglbsvd_glb] = LD_observations_set.make_global_restricted_svd_package(Sref_Gsvd,Sref_Lsvd_glb,1);
-% [Sref_OGYLglbsvd,Sref_OGYLglbsvd_glb] = LD_observations_set.make_global_restricted_svd_package(Sref_OGsvd,Sref_Lsvd_glb,1);
-
-% Sref_svd_Lglb_reg_array =   [   Sref_OYLglbsvd, Sref_GYLglbsvd, Sref_OGYLglbsvd ];
-% Sref_svd_glb_reg_array =    [   Sref_OYLglbsvd_glb, Sref_GYLglbsvd_glb, Sref_OGYLglbsvd_glb];
-Sref_svd_Lglb_reg_array =   [];
-Sref_svd_glb_reg_array =    [];
-
-Sref_svd_glb_array = [Sref_svd_glb_basic_array, Sref_svd_glb_reg_array];
-
-Sref_glb_svd_plot = LD_plots.plot_global_svds(Sref_svd_glb_array,LD_plots('svd',[7 7],[2 7],[5 1],1));
+Sref_glb_svd_plot = LD_plots.plot_global_svds(Sref_svd_glb_basic_array,LD_plots('global svd',[7 7],[2 7],[5 1],1));
+% Sref_glb_svd_plot = LD_plots.plot_global_svds([Sref_Osvd_glb Sref_Gsvd_glb Sref_Psvd_glb],LD_plots('global svd',[7 7],[2 7],[5 1],1));
+% Sref_glb_svd_plot = LD_plots.plot_global_svds([Sref_OPsvd_glb Sref_OGsvd_glb],LD_plots('global svd',[7 7],[2 7],[5 1],1));
 Sref_glb_svd_plot.show_toolbar();
 
 [Sref_RYLsvd_in,Sref_RYLsvd_rst_in] = Sref.read_mat_svd_package(fam_name,bor,'Rmat','YL','Lmat');
@@ -93,7 +86,7 @@ Sref_svd_YL_array = [       Sref_OYLsvd, ...
                             Sref_GYLsvd, ...
                             Sref_OGYLsvd];
 
-Sref_svd_array = [Sref_svd_basic_array, Sref_svd_Lglb_reg_array, Sref_svd_YL_in_array, Sref_svd_YL_array];
+Sref_svd_array = [Sref_svd_basic_array, Sref_svd_YL_in_array, Sref_svd_YL_array];
 Sref_crv_svd_plot = LD_plots.plot_curve_svds(Sref_svd_array,LD_plots('svd',[7 7],[2 7],[7 1],1));
 
 %%%%%%%%%%%%%%%%%%%%%%%%
@@ -161,10 +154,10 @@ vinds_lw = vinds_full(vflag_lw); % column stacked indices of strictly lower tria
 
 KTK_A_YLrst_lwvec = KTK_A_YLrst(vflag_lw); % column stacked sub cells for lower triangular elements
 
-% fro_nrmmag = @(mat_) norm(mat_,'fro')/sqrt(size(mat_,2));
-fro_nrmmag = @(mat_) norm(mat_,'fro')/sqrt(size(mat_,2)-1);
-% avg_colmag = @(mat_) mean(sqrt(sum(mat_.*mat_,1)),2);
-avg_colmag = @(mat_) sum( sqrt(sum(mat_.*mat_,1)), 2 )/( size(mat_,2)-1 );
+fro_nrmmag = @(mat_) norm(mat_,'fro')/sqrt(size(mat_,2));
+% fro_nrmmag = @(mat_) norm(mat_,'fro')/sqrt(size(mat_,2)-1);
+avg_colmag = @(mat_) mean(sqrt(sum(mat_.*mat_,1)),2);
+% avg_colmag = @(mat_) sum( sqrt(sum(mat_.*mat_,1)), 2 )/( size(mat_,2)-1 );
 avg_rowmag = @(mat_) avg_colmag(mat_');
 
 avg_fmag_KTK_A_YLrst_lwvec = cellfun(fro_nrmmag,KTK_A_YLrst_lwvec);
@@ -195,7 +188,7 @@ evlstat_evlmags = avg_evlmags;
 [icrv_loneliest,icrv_frndliest] = deal(isrt_evlstat_evlmags(1),isrt_evlstat_evlmags(end))
 % [icrv_loneliest,icrv_frndliest] = deal(isrt_evlstat_evlmags(2),isrt_evlstat_evlmags(end))
 
-k_clusters = 2;
+k_clusters = 4;
 [icrv_med,ncrv_clst,net_dfro,clst_membership,local_dfro,med2med_dfro] = LD_aux.naive_k_medoid(1.0-KTK_A_YLrst_evl_mag,k_clusters)
 
 %%%%%%%%%%%%%%%%%%%%%%%%

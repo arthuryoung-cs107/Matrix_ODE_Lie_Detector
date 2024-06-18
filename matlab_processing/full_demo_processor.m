@@ -20,9 +20,9 @@ eqn_name = [ode_name '_xrange' num2str(xrange)];
 fam_name = 'Chebyshev1';
 % fam_name = 'Legendre';
 
-bor = 10;
+% bor = 10;
 % bor = 9;
-% bor = 8;
+bor = 8;
 % bor = 7;
 % bor = 6;
 % bor = 5;
@@ -65,9 +65,7 @@ Sref_Gsvd_glb = Sref_svd_glb_basic_array(6);
 Sref_OPsvd_glb = Sref_svd_glb_basic_array(7);
 Sref_OGsvd_glb = Sref_svd_glb_basic_array(8);
 
-
-Sref_glb_svd_plot = LD_plots.plot_global_svds(Sref_svd_glb_basic_array,LD_plots('svd',[7 7],[2 7],[4 1],1));
-
+Sref_glb_svd_plot = LD_plots.plot_global_svds(Sref_svd_glb_basic_array,LD_plots('global svd',[7 7],[2 7],[4 1],1));
 
 [Sref_RYLsvd_in,Sref_RYLsvd_rst_in] = Sref.read_mat_svd_package(fam_name,bor,'Rmat','YL','Lmat');
 % [Sref_QYLsvd_in,Sref_QYLsvd_rst_in] = Sref.read_mat_svd_package(fam_name,bor,'Qmat','YL','Lmat');
@@ -92,25 +90,14 @@ Sref_svd_Oreg_array = [ ];
 Sref_svd_array = [Sref_svd_basic_array, Sref_svd_YL_in_array, Sref_svd_YL_array, Sref_svd_Oreg_array];
 Sref_crv_svd_plot = LD_plots.plot_curve_svds(Sref_svd_array,LD_plots('svd',[7 7],[2 7],[6 1],1));
 
-S1array(1) = LD_observations_set(dir_name,eqn_name,'true','DoP853','Chebyshev1',bor,'Rmat','DoP853','ext',dat_suff);
-S1array(2) = LD_observations_set(dir_name,eqn_name,'true','DoP853','Chebyshev1',bor,'Omat','DoP853','rec',dat_suff);
-% S1array(1) = LD_observations_set(dir_name,eqn_name,'true','DoP853','Chebyshev1',10,'Rmat','DoP853','ext',dat_suff);
-% S1array(2) = LD_observations_set(dir_name,eqn_name,'true','DoP853','Legendre',10,'Rmat','DoP853','ext',dat_suff);
-% S1array(3) = LD_observations_set(dir_name,eqn_name,'true','DoP853','Chebyshev1',9,'Rmat','DoP853','ext',dat_suff);
-% S1array(4) = LD_observations_set(dir_name,eqn_name,'true','DoP853','Legendre',9,'Rmat','DoP853','ext',dat_suff);
+S1array(1) = LD_observations_set(dir_name,eqn_name,'true','DoP853','Chebyshev1',bor,'Rmat','DoP853','r1ext',dat_suff);
+S1array(2) = LD_observations_set(dir_name,eqn_name,'true','DoP853','Chebyshev1',bor,'Omat','DoP853','rnrec',dat_suff);
 
-S2array(1) = LD_observations_set(dir_name,eqn_name,'true','DoP853','Chebyshev1',bor,'RmatYL','DoP853','ext',dat_suff);
-S2array(2) = LD_observations_set(dir_name,eqn_name,'true','DoP853','Chebyshev1',bor,'OmatYL','DoP853','rec',dat_suff);
-% S2array(1) = LD_observations_set(dir_name,eqn_name,'true','DoP853','Chebyshev1',10,'RmatYL','DoP853','ext',dat_suff);
-% S2array(2) = LD_observations_set(dir_name,eqn_name,'true','DoP853','Legendre',10,'RmatYL','DoP853','ext',dat_suff);
-% S2array(3) = LD_observations_set(dir_name,eqn_name,'true','DoP853','Chebyshev1',9,'RmatYL','DoP853','ext',dat_suff);
-% S2array(4) = LD_observations_set(dir_name,eqn_name,'true','DoP853','Legendre',9,'RmatYL','DoP853','ext',dat_suff);
 
-% S3array(1) = LD_observations_set(dir_name,eqn_name,'true','DoP853','Legendre',10,'OregRmat','DoP853','ext',dat_suff);
-% S3array(2) = LD_observations_set(dir_name,eqn_name,'true','DoP853','Legendre',10,'OregRmatYL','DoP853','ext',dat_suff);
+S2array(1) = LD_observations_set(dir_name,eqn_name,'true','DoP853','Chebyshev1',bor,'RmatYL','DoP853','r1ext',dat_suff);
+S2array(2) = LD_observations_set(dir_name,eqn_name,'true','DoP853','Chebyshev1',bor,'OmatYL','DoP853','rnrec',dat_suff);
 
 Sarray = [S1array S2array];
-% Sarray = [S1array S2array S3array];
 
 [S_relerr_plot,S_relerr_results] = LD_plots.plot_S_relative_errors(Sarray,Sref,LD_plots('rel_err',[5 5],[1 5],[5 1],1));
 % err_tns_check = reshape(sum(S_relerr_results.abs_rel_diff,1),[],Sref.ncrv,size(S_relerr_results.abs_rel_diff,3));

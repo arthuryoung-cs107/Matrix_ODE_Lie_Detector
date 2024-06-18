@@ -34,6 +34,13 @@ struct LD_linalg
 
   static double eps(double x_=1.0) {return nextafter(x_,DBL_MAX)-x_;}
 
+  static double norm_l2(double *x_, int n_)
+  {
+    double r2_acc = 0.0;
+    for (size_t i = 0; i < n_; i++) r2_acc += x_[i]*x_[i];
+    return sqrt(r2_acc);
+  }
+
   template <typename T> static T min_T(T a_, T b_) {return (a_<b_)?(a_):b_;}
   template <typename T> static T max_T(T a_, T b_) {return (a_>b_)?(a_):b_;}
 
@@ -152,12 +159,12 @@ struct LD_linalg
     return acc;
   }
 
-  static double l2_x(double *x_, int n_)
-  {
-    double r2_acc = 0.0;
-    for (size_t i = 0; i < n_; i++) r2_acc += x_[i]*x_[i];
-    return sqrt(r2_acc);
-  }
+  // static double l2_x(double *x_, int n_)
+  // {
+  //   double r2_acc = 0.0;
+  //   for (size_t i = 0; i < n_; i++) r2_acc += x_[i]*x_[i];
+  //   return sqrt(r2_acc);
+  // }
 
   static void fill_x_012(double *x_, int n_, double offset_=0.0)
     {for (size_t i = 0; i < n_; i++) x_[i] = ((double)(i)) + offset_;}

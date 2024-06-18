@@ -36,6 +36,12 @@ struct LD_L_matrix: public LD_matrix
       double  * const Lrow_i = Lmat_i_[0],
               * const lambda_x_vec = chunk_.Jac_mat[0];
       for (size_t i_L = 0; i_L < perm_len; i_L++) Lrow_i[i_L] = (dof_tun_flags[i_L])?(lambda_x_vec[i_L]):(0.0);
+
+      if (normalization_flag)
+      {
+        const double L_row_i_mag = LD_linalg::norm_l2(Lrow_i,perm_len);
+        for (size_t i_L = 0; i_L < perm_len; i_L++) Lrow_i[i_L] /= L_row_i_mag;
+      }
     }
 };
 
@@ -84,6 +90,14 @@ struct LD_R_matrix: public LD_matrix
         for (size_t i_L = 0; i_L < perm_len; i_L++)
           if (dof_tun_flags[i_L])
             fill_u_Rn_columns(i_dof++,idep,Rmat_i_,Lambda_xu_mat[idep+1][i_L],Jac_utheta_vdxu_mat[i_L]);
+
+      if (normalization_flag)
+      {
+        for (size_t k = 0, idxu = 0; k < eor; k++)
+          for (size_t idep = 0; idep < ndep; idep++, idxu++)
+            for (size_t icol = 0; icol < ndof_tun; icol++)
+              Rmat_i_[idxu][icol] /= sol_.dxu[idxu];
+      }
     }
     inline void fill_x_Rn_columns(int i_dof, double **Rmat_, double *dxu_, double &lambda_, double **Jac_xtheta_i_vdxu_)
     {
@@ -162,6 +176,13 @@ struct LD_O_matrix: public LD_matrix
             if (dof_tun_flags[i_L])
               fill_u_O_columns(Omat_i_[idep][i_dof++],Jac_utheta_vdxu_mat[i_L][eor-2]);
       }
+
+      if (normalization_flag)
+      {
+        for (size_t idep = 0; idep < ndep; idep++)
+          for (size_t icol = 0; icol < ndof_tun; icol++)
+            Omat_i_[idep][icol] /= sol_.dnxu[idep];
+      }
     }
 
     inline void fill_x_O1_columns(int i_dof, double **Omat_, double *dxu_, double &lambda_)
@@ -222,6 +243,13 @@ struct LD_P_matrix: public LD_matrix
         for (size_t i_L = 0; i_L < perm_len; i_L++)
           if (dof_tun_flags[i_L])
             fill_u_P_columns(Pmat_i_[idep][i_dof++],Jac_utheta_vdxu_mat[i_L][eor-1]);
+
+      if (normalization_flag)
+      {
+        for (size_t idep = 0; idep < ndep; idep++)
+          for (size_t icol = 0; icol < ndof_tun; icol++)
+            Pmat_i_[idep][icol] /= sol_.dnp1xu[idep];
+      }
     }
     inline void fill_x_P_columns(int i_dof,double **Pmat_,double *dnp1xu_,double &lambda_,double *Jac_xtheta_i_vdnxu_)
     {
@@ -277,6 +305,18 @@ struct LD_Q_matrix: public LD_matrix
         for (size_t i_L = 0; i_L < perm_len; i_L++)
           if (dof_tun_flags[i_L])
             fill_u_Q_columns(i_dof++,idep,Qmat_i_,Lambda_xu_mat[idep+1][i_L],Jac_utheta_vdxu_mat[i_L]);
+
+      if (normalization_flag)
+      {
+        size_t idxu = 0;
+        for (size_t k = 0; k < eor; k++)
+          for (size_t idep = 0; idep < ndep; idep++, idxu++)
+            for (size_t icol = 0; icol < ndof_tun; icol++)
+              Qmat_i_[idxu][icol] /= sol_.dxu[idxu];
+        for (size_t idep = 0; idep < ndep; idep++, idxu++)
+          for (size_t icol = 0; icol < ndof_tun; icol++)
+            Qmat_i_[idxu][icol] /= sol_.dnp1xu[idep];
+      }
     }
     inline void fill_x_Q_columns(int i_dof,double **Qmat_,double *dxu_,double *dnp1xu_,double &lambda_,double **Jac_xtheta_i_vdxu_)
     {
@@ -340,6 +380,16 @@ struct LD_G_matrix: public LD_matrix
         for (size_t i_L = 0; i_L < perm_len; i_L++)
           if (dof_tun_flags[i_L])
             fill_u_G_columns(i_dof++,idep,Gmat_i_,JFs,Lambda_xu_mat[idep+1][i_L],Jac_utheta_vdxu_mat[i_L]);
+
+      if (normalization_flag)
+      {
+        for (size_t idep = 0; idep < ndep; idep++)
+        {
+          const double JFs_i_mag = sqrt(sol_.JFs_i_mag2(idep));
+          for (size_t icol = 0; icol < ndof_tun; icol++)
+            Gmat_i_[idep][icol] /= JFs_i_mag;
+        }
+      }
     }
     inline void fill_x_G_columns(int i_dof,double **Gmat_,double **JFs_,double &lambda_,double **Jac_xtheta_i_vdxu_)
     {

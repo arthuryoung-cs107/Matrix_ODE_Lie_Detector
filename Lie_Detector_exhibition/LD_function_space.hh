@@ -67,8 +67,8 @@ struct function_space: public ode_solspc_element
       * const dof_tun_indices = dof_indices_mat[1],
       ** const dof_hot_indices_mat,
       ** const dof_tun_indices_mat,
-      ndof_hot,
-      ndof_tun;
+      ndof_hot = ndof_full,
+      ndof_tun = ndof_full;
 
   double  * const theta_full,
           ** const theta_mat;
