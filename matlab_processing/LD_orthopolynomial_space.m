@@ -33,25 +33,29 @@ classdef LD_orthopolynomial_space < LD_power_space
             obj.bmap_b = zeros(1,1+obj.ndep);
         end
         function obj_out = read_domain_configuration(obj,name_)
-            [ndep nvar bor] = deal(obj.ndep, obj.ndep+1, obj.bor);
             fprintf('(LD_orthopolynomial_space::read_domain_configuration) reading %s\n', name_);
             file = fopen(name_);
 
             hlen = fread(file,1,'int=>int');
             header_rest = fread(file,hlen,'int=>int');
-            [ord_mat_len map_len len_sym] = deal(header_rest(1), header_rest(2), header_rest(3));
+            [bor_in ord_mat_len map_len len_sym] = deal(header_rest(1), header_rest(2), header_rest(3), header_rest(4));
             ord_mat_flat = fread(file,ord_mat_len,'int=>int');
             map_params_flat = fread(file,map_len,'double=>double');
             poly_coeffs_flat = fread(file,len_sym,'double=>double');
             fclose(file);
 
+            nvar = map_len/4;
+            ndep = nvar - 1;
+            ndof_full = ord_mat_len;
+            perm_len = ndof_full/nvar;
+
             order_mat = double(reshape(ord_mat_flat,nvar,[]))';
-            dim0_lens = zeros(bor+1,1);
+            dim0_lens = zeros(bor_in+1,1);
             not_D_zero_inds = ~(order_mat==0);
 
             poly_coeffs = obj.poly_coeffs;
             [coeff_len,icoeff] = deal(1);
-            for ipow = 0:bor
+            for ipow = 0:bor_in
                 dim0_lens(ipow+1) = sum(double(order_mat(:,1)==ipow));
                 poly_coeffs(ipow+1,1:coeff_len) = poly_coeffs_flat(icoeff:(icoeff+coeff_len-1));
                 icoeff = icoeff + coeff_len;
@@ -61,6 +65,10 @@ classdef LD_orthopolynomial_space < LD_power_space
             mparams_mat = reshape(map_params_flat,nvar,4)';
 
             obj_out = obj;
+            obj_out.bor = bor_in;
+            obj_out.perm_len = perm_len;
+            obj_out.ndep = ndep;
+            obj_out.ndim = 1 + ndep*(obj.eor+1); % assume input order is the same, does not affect actual parameters
             obj_out.order_mat = order_mat;
             obj_out.dim0_lens = dim0_lens;
             obj_out.not_D_zero_inds = not_D_zero_inds;
@@ -72,15 +80,16 @@ classdef LD_orthopolynomial_space < LD_power_space
             obj_out.bmap_b = mparams_mat(4,:);
         end
         function write_domain_configuration(obj,name_)
-            hlen = 3;
+            hlen = 4;
             nvar = 1+obj.ndep;
+            bor = obj.bor;
             ord_mat_len = obj.perm_len*nvar;
             map_len = 4*nvar;
-            borp1 = obj.bor + 1;
+            borp1 = bor + 1;
             len_sym = (borp1*(borp1+1))/2;
             coeff_vec_out = zeros(len_sym,1);
             icoeff = 1;
-            for i = 0:(obj.bor)
+            for i = 0:bor
                 for j = 0:i
                     coeff_vec_out(icoeff) = obj.poly_coeffs(i+1,j+1);
                     icoeff = icoeff + 1;
@@ -90,7 +99,7 @@ classdef LD_orthopolynomial_space < LD_power_space
             mparams_mat = [obj.fmap_m'; obj.fmap_b'; obj.bmap_m'; obj.bmap_b'];
             mparams_vec = mparams_mat(:);
 
-            header = [hlen,ord_mat_len,map_len,len_sym]';
+            header = [hlen,bor,ord_mat_len,map_len,len_sym]';
             file = fopen(name_,'w+');
             fwrite(file, header, 'int');
             fwrite(file, ord_vec, 'int');

@@ -395,6 +395,21 @@ void LD_observations_set::get_solspace_center_mass(double *scm_g_)
   }
 }
 
+LD_matrix_file::LD_matrix_file(const char name_[])
+{
+  FILE * file_in = LD_io::fopen_SAFE(name_,"r");
+  LD_io::fread_SAFE(&hlen_in,sizeof(int),1,file_in);
+  if (hlen_in==hlen_check)
+  {
+    LD_io::fread_SAFE(header_in,sizeof(int),hlen_check,file_in);
+    Amat_in = Tmatrix<double>(nrows_in,ncols_in);
+    LD_io::fread_SAFE(Amat_in[0],sizeof(double),nrows_in*ncols_in,file_in);
+    printf("(LD_matrix_file::LD_matrix_file) read %s \n", name_);
+  }
+  else printf("(LD_matrix_file::LD_matrix_file) ERROR: hlen_in != hlen_check (%d vs. %d)\n", hlen_in, hlen_check);
+  LD_io::fclose_SAFE(file_in);
+}
+
 LD_matrix::LD_matrix(function_space &fspc_, LD_observations_set &Sset_, int dim_cnstr_, int net_cols_):
 function_space_element(fspc_), LD_experiment(Sset_), dim_cnstr(dim_cnstr_), net_cols(net_cols_),
 Attns(new double***[ncrvs_tot]), Atns(T3tensor<double>(nobs_full,dim_cnstr,net_cols))

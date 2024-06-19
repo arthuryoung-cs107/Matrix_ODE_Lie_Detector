@@ -7,6 +7,7 @@
 // specify data directory for writing binary files
 const char dir_name[] = "./data_directory";
 const char dat_suff[] = "lddat";
+const char addtl_prefix[] = "";
 
 // specify subject ordinary differential equation for tests
 Duffing_ode ode;
@@ -129,8 +130,8 @@ int generate_observational_data()
   strcpy(intgen_name,ode_integrator.name);
 
   generated_ode_observations inputs_gen(ode,nc,np);
-  // inputs_gen.set_random_ICs(LD_rng(9365),ode.get_default_IC_range());  // shay's number
-  inputs_gen.set_random_ICs(LD_rng(8426),ode.get_default_IC_range());  // my number
+  inputs_gen.set_random_ICs(LD_rng(9365),ode.get_default_IC_range());  // shay's number
+  // inputs_gen.set_random_ICs(LD_rng(8426),ode.get_default_IC_range());  // my number
   // inputs_gen.set_random_ICs(LD_rng(86427),ode.get_default_IC_range());  // another number
   inputs_gen.generate_solution_curves(ode_integrator,ode.get_default_IC_indep_range(xrange));
 
@@ -141,7 +142,7 @@ int generate_observational_data()
   }
   else sprintf(noise_name,"true");
 
-  sprintf(data_name,"%s_%s_%sgen",eqn_name,noise_name,intgen_name);
+  sprintf(data_name,"%s%s_%s_%sgen",addtl_prefix,eqn_name,noise_name,intgen_name);
 
   if (write_gen_obs_data)
   {
@@ -220,6 +221,7 @@ template <class BSIS> int encode_data_matrices(BSIS **bases_)
         sprintf(name_buffer, "%s/%s.%s",dir_name,data_name,dat_suff);
         sprintf(name_dnp1xu_buffer, "%s/%s_dnp1xu.%s",dir_name,data_name,dat_suff);
         Sobs.load_additional_inputs(ode_curve_observations(name_buffer,name_dnp1xu_buffer),false);
+        dnp1xu_empty = false;
       }
 
       LD_P_matrix Pmat(fspace0,Sobs); Pmat.populate_P_matrix<BSIS>(bases_);
@@ -249,6 +251,7 @@ template <class BSIS> int encode_data_matrices(BSIS **bases_)
         sprintf(name_buffer, "%s/%s.%s",dir_name,data_name,dat_suff);
         sprintf(name_JFs_buffer, "%s/%s_JFs.%s",dir_name,data_name,dat_suff);
         Sobs.load_additional_inputs(ode_curve_observations(name_buffer,name_JFs_buffer),false);
+        JFs_empty = false;
       }
 
       LD_G_matrix Gmat(fspace0,Sobs); Gmat.populate_G_matrix<BSIS>(bases_);
@@ -314,6 +317,7 @@ int decode_data_matrices()
           sprintf(name_buffer, "%s/%s.%s",dir_name,data_name,dat_suff);
           sprintf(name_dnp1xu_buffer, "%s/%s_dnp1xu.%s",dir_name,data_name,dat_suff);
           Sobs.load_additional_inputs(ode_curve_observations(name_buffer,name_dnp1xu_buffer),false);
+          dnp1xu_empty = false;
         }
 
         comp_crv_svd<LD_P_matrix>(LD_P_matrix(fspace0,Sobs),Pmat_name);
@@ -326,6 +330,7 @@ int decode_data_matrices()
           sprintf(name_buffer, "%s/%s.%s",dir_name,data_name,dat_suff);
           sprintf(name_JFs_buffer, "%s/%s_JFs.%s",dir_name,data_name,dat_suff);
           Sobs.load_additional_inputs(ode_curve_observations(name_buffer,name_JFs_buffer),false);
+          JFs_empty = false;
         }
         comp_crv_svd<LD_G_matrix>(LD_G_matrix(fspace0,Sobs),Gmat_name);
       }

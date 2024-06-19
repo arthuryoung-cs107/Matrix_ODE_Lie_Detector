@@ -39,9 +39,6 @@ struct ode_solution: public ode_solspc_element
           ** JFs = NULL;
 
   void print_sol();
-
-  inline double JFs_i_mag2(int i_)
-    {double acc = 0.0; for (size_t idim = 0; idim < ndim; idim++) acc += JFs[i_][idim]*JFs[i_][idim]; return acc;}
 };
 
 struct ode_solspc_subset: public ode_solspc_element // when the data is not necessarily contiguous

@@ -121,7 +121,6 @@ struct generated_ode_observations: public ode_curve_observations
   }
   void set_random_ICs(LD_rng rng_, const double *IC_range_);
   void generate_solution_curves(ode_integrator &integrator_, const double *indep_range_);
-  // void write_solution_curves(const char name_[]);
 
   void generate_JFs();
   void write_JFs(const char name_[]);
@@ -215,11 +214,31 @@ struct LD_experiment
   inline int max_npts_curve() {return Sset.max_npts_curve();}
 };
 
+class LD_matrix_file
+{
+  const int hlen_check = 2;
+  int hlen_in;
+  
+  public:
+    LD_matrix_file(const char name_[]);
+    ~LD_matrix_file() {if (Amat_in != NULL) free_Tmatrix<double>(Amat_in);}
+
+    int nrows_in,
+        ncols_in,
+        * const header_in = &nrows_in;
+    double ** Amat_in = NULL;
+};
+
 struct LD_matrix: public function_space_element, public LD_experiment
 {
   LD_matrix(function_space &fspc_, LD_observations_set &Sset_, int dim_cnstr_, int net_cols_);
   LD_matrix(function_space &fspc_, LD_observations_set &Sset_, int dim_cnstr_):
     LD_matrix(fspc_,Sset_,dim_cnstr_,fspc_.ndof_full) {}
+  LD_matrix(function_space &fspc_, LD_observations_set &Sset_, LD_matrix_file mfile_, int nobs_=0):
+    LD_matrix(fspc_,Sset_, mfile_.nrows_in / ((nobs_)?(nobs_):(Sset_.nobs)), mfile_.ncols_in)
+  {
+    memcpy(Avec,mfile_.Amat_in[0], net_eles*sizeof(double));
+  }
   ~LD_matrix();
 
   const int dim_cnstr,
@@ -227,8 +246,8 @@ struct LD_matrix: public function_space_element, public LD_experiment
             net_cols,
             net_eles = net_rows*net_cols;
 
-  // bool normalization_flag = false;
-  bool normalization_flag = true;
+  // bool normalization_flag = true;
+  bool normalization_flag = false;
 
   double  **** const Attns,
           *** const Atns,

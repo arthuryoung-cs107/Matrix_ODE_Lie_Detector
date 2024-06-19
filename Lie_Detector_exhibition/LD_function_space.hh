@@ -119,9 +119,37 @@ struct power_space: public function_space
   }
 };
 
+class orthopolynomial_config_file
+{
+  const int hlen_check = 4;
+  int hlen_in;
+
+  public:
+    orthopolynomial_config_file(const char name_[]);
+    ~orthopolynomial_config_file()
+    {
+      if (ord_mat_flat != NULL) delete [] ord_mat_flat;
+      if (map_params_flat != NULL) delete [] map_params_flat;
+      if (poly_coeffs_flat != NULL) delete [] poly_coeffs_flat;
+    }
+
+    int bor_in,
+        ord_mat_len_in,
+        map_len_in,
+        len_sym_in,
+        * const header_in = &bor_in;
+
+    int * ord_mat_flat = NULL;
+    double  * map_params_flat = NULL,
+            * poly_coeffs_flat = NULL;
+};
+
 struct orthopolynomial_space: public power_space
 {
   orthopolynomial_space(ode_solspc_meta &meta_, int bor_);
+  orthopolynomial_space(ode_solspc_meta &meta_, orthopolynomial_config_file cfile_);
+  orthopolynomial_space(ode_solspc_meta &meta_, int bor_, const char name_[]): orthopolynomial_space(meta_,bor_)
+    {configure_self(name_);}
   ~orthopolynomial_space();
 
   int ** const icoeff_mat;

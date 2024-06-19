@@ -72,16 +72,38 @@ struct LD_SVD_space // assumes M>N
   inline int ncols() {return U_gsl->size2;}
 };
 
+struct LD_svd_file
+{
+  LD_svd_file(const char name_[]);
+  ~LD_svd_file()
+  {
+    if (rank_vec_in != NULL) delete [] rank_vec_in;
+    if (Smat_in != NULL) free_Tmatrix<double>(Smat_in);
+    if (VTtns_in != NULL) free_T3tensor<double>(VTtns_in);
+  }
+
+  int hlen_in,
+      ncrvs_in,
+      ncols_in,
+      ncol_use_in,
+      * const header_in = &ncrvs_in;
+
+  int * rank_vec_in = NULL;
+  double  ** Smat_in = NULL,
+          *** VTtns_in = NULL;
+};
+
 struct LD_matrix_svd_result
 {
-  LD_matrix_svd_result(int ncrvs_,int ncols_): ncrvs(ncrvs_), ncols(ncols_),
-  rank_vec(new int[ncrvs_]), Smat(Tmatrix<double>(ncrvs_,ncols_)), VTtns(T3tensor<double>(ncrvs_,ncols_,ncols_)) {}
+  LD_matrix_svd_result(int ncrvs_,int ncols_,int ncol_use_=0);
   LD_matrix_svd_result(LD_matrix &mat_): LD_matrix_svd_result(mat_.ncrvs_tot,mat_.net_cols) {}
+  LD_matrix_svd_result(LD_svd_file svdfile_);
+
   ~LD_matrix_svd_result() {delete [] rank_vec; free_Tmatrix<double>(Smat); free_T3tensor<double>(VTtns);}
 
   const int ncrvs,
             ncols;
-  int ncol_use = ncols,
+  int ncol_use,
       * const rank_vec;
   double  ** const Smat,
           *** const VTtns;
@@ -402,6 +424,9 @@ class r1space_infinitesimal_generator: public rspace_infinitesimal_generator
 
     static void init_extended_observations(ode_curve_observations &obs_out_,ode_curve_observations &obs_in_)
     {
+      // clear output observation buffers
+      if (obs_out_.npts_per_crv != NULL) delete [] obs_out_.npts_per_crv;
+      if (obs_out_.pts_in != NULL) delete [] obs_out_.pts_in;
       int ncrv = obs_out_.ncrv = obs_in_.ncrv,
           ndep = (obs_out_.ndep!=obs_in_.ndep)?(obs_out_.ndep=obs_in_.ndep):(obs_out_.ndep),
           nobs = (obs_out_.nobs!=obs_in_.nobs)?(obs_out_.nobs=obs_in_.nobs):(obs_out_.nobs),
@@ -411,7 +436,7 @@ class r1space_infinitesimal_generator: public rspace_infinitesimal_generator
       double  * const pts_chunk_in = obs_in_.pts_in,
               * const pts_chunk_out = obs_out_.pts_in = new double[ndim_out*nobs];
 
-      if (obs_out_.npts_per_crv == NULL) obs_out_.npts_per_crv = new int[ncrv];
+      obs_out_.npts_per_crv = new int[ncrv];
       LD_linalg::copy_vec<int>(obs_out_.npts_per_crv,obs_in_.npts_per_crv,ncrv);
 
       #pragma omp parallel for

@@ -60,6 +60,25 @@ void function_space::vx_spc_eval(double *xu_, double *vx_, vxu_workspace &wkspc_
     }
 }
 
+orthopolynomial_config_file::orthopolynomial_config_file(const char name_[])
+{
+  FILE * file_in = LD_io::fopen_SAFE(name_,"r");
+  LD_io::fread_SAFE(&hlen_in,sizeof(int),1,file_in);
+  if (hlen_in==hlen_check)
+  {
+    LD_io::fread_SAFE(header_in,sizeof(int),hlen_check,file_in);
+    ord_mat_flat = new int[ord_mat_len_in];
+    map_params_flat = new double[map_len_in];
+    poly_coeffs_flat = new double[len_sym_in];
+    LD_io::fread_SAFE(ord_mat_flat,sizeof(int),ord_mat_len_in,file_in);
+    LD_io::fread_SAFE(map_params_flat,sizeof(double),map_len_in,file_in);
+    LD_io::fread_SAFE(poly_coeffs_flat,sizeof(double),len_sym_in,file_in);
+    printf("(orthopolynomial_config_file::orthopolynomial_config_file) wrote %s\n", name_);
+  }
+  else printf("(orthopolynomial_config_file::orthopolynomial_config_file) ERROR: hlen_in != hlen_check (%d vs. %d)\n",hlen_in,hlen_check);
+  LD_io::fclose_SAFE(file_in);
+}
+
 orthopolynomial_space::orthopolynomial_space(ode_solspc_meta &meta_, int bor_):
 power_space(meta_,bor_), icoeff_mat(Tsym<int>(bor+1)),
 poly_coeffs(Tsym_lower<double>(bor+1)), map_params(Tmatrix<double>(4,nvar))
@@ -77,6 +96,13 @@ poly_coeffs(Tsym_lower<double>(bor+1)), map_params(Tmatrix<double>(4,nvar))
     fmap_m[i] = bmap_m[i] = 1.0;
     fmap_b[i] = bmap_b[i] = 0.0;
   }
+}
+orthopolynomial_space::orthopolynomial_space(ode_solspc_meta &meta_,orthopolynomial_config_file cfile_):
+  orthopolynomial_space(meta_,cfile_.bor_in)
+{
+  memcpy(order_mat[0],cfile_.ord_mat_flat,cfile_.ord_mat_len_in*sizeof(int));
+  memcpy(map_params[0],cfile_.map_params_flat,cfile_.map_len_in*sizeof(double));
+  memcpy(poly_coeffs[0],cfile_.poly_coeffs_flat,cfile_.len_sym_in*sizeof(double));
 }
 orthopolynomial_space::~orthopolynomial_space()
 {
@@ -479,24 +505,29 @@ void orthopolynomial_space::debugging_description()
 }
 void orthopolynomial_space::configure_self(const char name_[])
 {
-  const int hlen_check = 3,
+  const char fcn_name[] = "(orthopolynomial_space::configure_self)";
+  const int hlen_check = 4,
             omlen_check = (perm_len*nvar),
             mlen_check = 4*nvar,
             slen_check = (((bor+1)*(bor+2))/2);
   int hlen,
       header[hlen_check],
-      &ord_mat_len = header[0],
-      &map_len = header[1],
-      &len_sym = header[2];
+      &bor_in = header[0],
+      &ord_mat_len = header[1],
+      &map_len = header[2],
+      &len_sym = header[3];
   FILE * file = LD_io::fopen_SAFE(name_,"r");
   LD_io::fread_SAFE(&hlen,sizeof(int),1,file);
   if (hlen == hlen_check)
+  {
     LD_io::fread_SAFE(header,sizeof(int),hlen,file);
-    else
-    {
-      printf("(orthopolynomial_space::configure_self) skipped header (len = %d)\n", hlen);
-      LD_io::fseek_SAFE(file,hlen*sizeof(int), SEEK_CUR);
-    }
+    if (bor_in != bor) printf("%s WARNING - %s input order unequal (%d vs. %d) \n",fcn_name,name_,bor_in,bor);
+  }
+  else
+  {
+    printf("(orthopolynomial_space::configure_self) skipped header (len = %d)\n", hlen);
+    LD_io::fseek_SAFE(file,hlen*sizeof(int), SEEK_CUR);
+  }
   if (ord_mat_len == omlen_check) LD_io::fread_SAFE(order_mat[0],sizeof(int),ord_mat_len,file);
     else
     {
@@ -520,13 +551,12 @@ void orthopolynomial_space::configure_self(const char name_[])
 }
 void orthopolynomial_space::write_configuration_file(const char name_[])
 {
-  int hlen = 3,
+  int hlen = 4,
       ord_mat_len = perm_len*nvar,
       map_len = 4*nvar,
       len_sym = (((bor+1)*(bor+2))/2),
-      header[] = {hlen, ord_mat_len, map_len, len_sym};
+      header[] = {hlen, bor, ord_mat_len, map_len, len_sym};
   FILE * file = LD_io::fopen_SAFE(name_,"wb");
-
   fwrite(header,sizeof(int),hlen+1,file);
   fwrite(order_mat[0],sizeof(int),ord_mat_len,file);
   fwrite(map_params[0],sizeof(double),map_len,file);

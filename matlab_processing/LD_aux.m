@@ -18,7 +18,8 @@ classdef LD_aux
                 case 4
                     mat_flat = fread(file,header(1)*header(2),'int=>int');
                 otherwise
-                    fprintf('(LD_aux::read_Tmat) ERROR - failed to read %s, non-standard byte size(%d) \n', name_,header(3));
+                    fprintf('(LD_aux::read_Tmat) WARNING - non-standard byte size(%d) in %s \n',header(3), name_);
+                    mat_flat = fread(file,header(1)*header(2)*header(3),'char*1=>char*1');
             end
             fclose(file);
 

@@ -1,37 +1,32 @@
 #include "matrix_Lie_detector.hh"
-#include "LD_ode_system.hh"
-#include "LD_integrators.hh"
-#include <sys/stat.h>
 
 // specify data directory for writing binary files
 const char dir_name[] = "./data_directory";
 const char dat_suff[] = "lddat";
 
+// const char data_name[] = "Duffing_xrange0_true_DoP853gen";
+
 const char eqn_name[] = "Duffing"; ode_solspc_meta meta0(2,1);
 
-const int noise_level = -1;
-
-// number of curves and uniform number of points per curve for dataset
-const int nc = 50, // number of curves
-          np_min = 300; // MINIMUM points per curve for extrapolation test
-
-// specify order of embedding function space
-const int bor = 10;
-// const int bor = 9;
-// const int bor = 8;
-
-// class of embedding function space
-orthopolynomial_space fspace0(meta0,bor);
-
-// orthogonal polynomial family for function space configuration
-// const char fam_name[] = "Legendre";
-const char fam_name[] = "Chebyshev1";
-// const char fam_name[] = "Chebyshev2";
+LD_name_buffer name(dir_name,dat_suff,100);
 
 int main()
 {
-  mkdir(dir_name, S_IRWXU); strcpy(eqn_name,ode.name); strcpy(intgen_name,ode_integrator.name);
+  // load observational data
+  LD_name_buffer obs_name; obs_name.name_observational_data(eqn_name,0,-1,"DoP853");
+  LD_observations_set Sobs(meta0,ode_curve_observations(name.name_file(obs_name)));
 
+  LD_name_buffer fam_name; fam_name.name_function_space("Chebyshev1",8);
+  orthopolynomial_space fspace0(meta0,orthopolynomial_config_file(name.name_domain_config_file(obs_name,fam_name)));
+  fspace0.debugging_description();
+
+  LD_matrix Lmat(fspace0,Sobs,LD_matrix_file(name.name_matrix_file(obs_name,fam_name,"L")));
+  LD_matrix_svd_result Lmat_svd(LD_svd_file(name.name_svd_file(obs_name,fam_name,"L")));
+  Lmat_svd.print_details("Lmat_svd");
+
+  LD_matrix Rmat(fspace0,Sobs,LD_matrix_file(name.name_matrix_file(obs_name,fam_name,"R")));
+  LD_matrix_svd_result Rmat_svd(LD_svd_file(name.name_svd_file(obs_name,fam_name,"R")));
+  Rmat_svd.print_details("Rmat_svd");
 
 
   return 0;
