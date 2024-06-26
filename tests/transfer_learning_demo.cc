@@ -9,7 +9,6 @@ const char dat_suff[] = "lddat";
 const char eqn_name[] = "Duffing"; ode_solspc_meta meta0(2,1);
 
 LD_name_buffer name(dir_name,dat_suff,100);
-
 int main()
 {
   // load observational data
@@ -27,6 +26,18 @@ int main()
   LD_matrix Rmat(fspace0,Sobs,LD_matrix_file(name.name_matrix_file(obs_name,fam_name,"R")));
   LD_matrix_svd_result Rmat_svd(LD_svd_file(name.name_svd_file(obs_name,fam_name,"R")));
   Rmat_svd.print_details("Rmat_svd");
+
+  LD_matrix Qmat(fspace0,Sobs,LD_matrix_file(name.name_matrix_file(obs_name,fam_name,"Q")));
+  LD_matrix_svd_result Qmat_svd(LD_svd_file(name.name_svd_file(obs_name,fam_name,"Q")));
+  Qmat_svd.print_details("Qmat_svd");
+
+  LD_matrix Omat(fspace0,Sobs,LD_matrix_file(name.name_matrix_file(obs_name,fam_name,"O")));
+  LD_matrix_svd_result Omat_svd(LD_svd_file(name.name_svd_file(obs_name,fam_name,"O")));
+  Omat_svd.print_details("Omat_svd");
+
+  LD_matrix Gmat(fspace0,Sobs,LD_matrix_file(name.name_matrix_file(obs_name,fam_name,"G")));
+  LD_matrix_svd_result Gmat_svd(LD_svd_file(name.name_svd_file(obs_name,fam_name,"G")));
+  Gmat_svd.print_details("Gmat_svd");
 
 
   return 0;

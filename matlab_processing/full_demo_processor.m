@@ -117,10 +117,15 @@ spc.color = [0 0 0];
 spc.lw = 2.0;
 solspc_ref_plot = LD_plots.plot_solspc(Sref,solspc_ref_plot,spc,icrv_check);
 
+
+
 solspc_plot_init_lims = solspc_ref_plot.get_axis_lims;
 
 spc.color = [1 0 0];
 spc.lw = 2.0;
 solspc_ref_plot = LD_plots.plot_solspc(Sarray(iS_check),solspc_ref_plot,spc,icrv_check);
+
+
+
 
 % solspc_ref_plot.set_axis_lims(solspc_plot_init_lims);

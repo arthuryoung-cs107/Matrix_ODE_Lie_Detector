@@ -164,6 +164,15 @@ struct orthopolynomial_space: public power_space
   void configure_self(const char name_[]);
   void write_configuration_file(const char name_[]);
 
+  inline void set_identity_domain()
+  {
+    for (size_t i = 0; i < nvar; i++)
+    {
+      fmap_m[i] = bmap_m[i] = 1.0;
+      fmap_b[i] = bmap_b[i] = 0.0;
+    }
+  }
+
   inline void set_centered_domain(double **sve_, double h_min_, double h_max_)
   {
     for (int ivar = 0; ivar <= ndep; ivar++)
@@ -221,6 +230,14 @@ struct orthopolynomial_space: public power_space
     {double dnL_acc=0.0; for (int i = n_, ishift=0; i <= O_; i++, ishift++) dnL_acc += ((double)icoeff_mat[n_][ishift])*poly_coeffs[O_][i]*v_[i-n_]; return dnL_acc;}
   double get_dcoeff(int idim_, int O_) {return fmap_m[idim_];}
 
+  inline void set_multinomial_coeffs()
+  {
+    for (int k = 0; k <= bor; k++)
+    {
+      for (size_t kk = 0; kk < k; kk++) poly_coeffs[k][kk] = 0.0;
+      poly_coeffs[k][k] = 1.0;
+    }
+  }
   inline void set_Legendre_coeffs()
   {
     poly_coeffs[0][0] = 1.0;

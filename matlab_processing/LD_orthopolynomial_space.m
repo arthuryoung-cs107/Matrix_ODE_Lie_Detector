@@ -24,7 +24,7 @@ classdef LD_orthopolynomial_space < LD_power_space
 
             obj@LD_power_space(bor_,meta_);
 
-            obj.poly_coeffs = zeros(bor_+1);
+            obj.poly_coeffs = eye(bor_+1);
             obj.icoeff_mat = icoeff_mat;
 
             obj.fmap_m = ones(1,1+obj.ndep);
@@ -53,13 +53,22 @@ classdef LD_orthopolynomial_space < LD_power_space
             dim0_lens = zeros(bor_in+1,1);
             not_D_zero_inds = ~(order_mat==0);
 
-            poly_coeffs = obj.poly_coeffs;
-            [coeff_len,icoeff] = deal(1);
-            for ipow = 0:bor_in
-                dim0_lens(ipow+1) = sum(double(order_mat(:,1)==ipow));
-                poly_coeffs(ipow+1,1:coeff_len) = poly_coeffs_flat(icoeff:(icoeff+coeff_len-1));
-                icoeff = icoeff + coeff_len;
+            [icoeff_mat,poly_coeffs] = deal(zeros(bor_in+1));
+            [coeff_len,jcoeff] = deal(1);
+            for j = 0:bor_in
+                jj = j + 1;
+                dim0_lens(jj) = sum(double(order_mat(:,1)==j));
+                poly_coeffs(jj,1:coeff_len) = poly_coeffs_flat(jcoeff:(jcoeff+coeff_len-1));
+                jcoeff = jcoeff + coeff_len;
                 coeff_len = coeff_len + 1;
+
+                icoeff_mat(jj,1) = 1;
+                jpow = double(j);
+                for i = 1:j
+                    ii = i+1;
+                    icoeff_mat(jj,ii) = icoeff_mat(jj,ii-1)*jpow;
+                    jpow = jpow-1;
+                end
             end
 
             mparams_mat = reshape(map_params_flat,nvar,4)';
@@ -73,6 +82,7 @@ classdef LD_orthopolynomial_space < LD_power_space
             obj_out.dim0_lens = dim0_lens;
             obj_out.not_D_zero_inds = not_D_zero_inds;
             obj_out.poly_coeffs = poly_coeffs;
+            obj_out.icoeff_mat = icoeff_mat;
 
             obj_out.fmap_m = mparams_mat(1,:);
             obj_out.fmap_b = mparams_mat(2,:);

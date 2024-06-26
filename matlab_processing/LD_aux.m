@@ -146,9 +146,111 @@ classdef LD_aux
         function [min_out,med_out,avg_out,max_out] = mat_rowstats(mat_)
             [min_out,med_out,avg_out,max_out] = LD_aux.mat_colstats(mat_');
         end
-        function [i_meds,n_meds,net_d,clst_mem,loc_d,med2med_d] = naive_k_medoid(dmat_,kfull_)
-            [i_meds_0,n_meds_0,net_d_0,clst_mem_0,loc_d_0,med2med_d_0] = LD_aux.greedy_naive_k_medoids(dmat_,kfull_);
-            [i_meds,n_meds,net_d,clst_mem,loc_d,med2med_d] = deal(i_meds_0,n_meds_0,net_d_0,clst_mem_0,loc_d_0,med2med_d_0);
+        function Ktns_A_YLrst_out = compute_Ktns_A_YLrst(Ytns_L_,Ktns_AYL_,rho_AYL_)
+            if (nargin == 1)
+                svd = Ytns_L_;
+                [Ytns_L,Ktns_AYL] = deal(svd.Ytns_L,svd.Vtns(:,(max(svd.rvec)+1):end,:));
+            elseif (nargin == 2)
+                [Ytns_L,Ktns_AYL] = deal(Ytns_L_,Ktns_AYL_);
+            elseif (nargin == 3)
+                [Ytns_L,Ktns_AYL] = deal(Ytns_L_,Ktns_AYL_(:,(rho_AYL_+1):end,:));
+            end
+            Ktns_A_YLrst_out = LD_aux.Ytns_Vtns_mult(Ytns_L,Ktns_AYL);
+        end
+        % function pckg_out = compute_frobenius_closeness_matrix(Ktns_)
+        function [KTK_mat,minds_lw] = compute_frobenius_closeness_matrix(Ktns_)
+            [ncol,kappa,ncrv] = size(Ktns_);
+            Kmat = reshape(Ktns_,ncol,[]);
+
+            mflag_lw = logical(tril(ones(ncrv),-1)); % flags of lower triangular elements
+            vflag_lw = reshape(mflag_lw,[],1); % column stack of lower triangular flags
+            vinds_full = (1:(ncrv*ncrv))'; % 1 thru ncrv^2
+            vinds_full_mat = reshape(vinds_full,ncrv,ncrv); % matrix of column stacked indices
+            vinds_lw = vinds_full(vflag_lw); % column stacked indices of strictly lower triangular elements
+
+            n_lw = length(vinds_lw);
+
+            sqrt_kappa = sqrt(kappa);
+
+            minds_lw = nan(2,n_lw);
+            cvec_fro = nan(n_lw,1);
+            for iv = 1:n_lw
+                vind = vinds_lw(iv);
+                [irow,icol] = find(vinds_full_mat==vind);
+                minds_lw(:,iv) = [irow;icol];
+                cvec_fro(iv) = norm((Ktns_(:,:,irow)')*Ktns_(:,:,icol), 'fro')/sqrt_kappa;
+            end
+
+            KTK_lwmat = zeros(ncrv);
+            KTK_lwmat(vinds_lw) = cvec_fro;
+            KTK_mat = KTK_lwmat + eye(ncrv) + KTK_lwmat';
+        end
+        function clst_roster_out = get_cluster_roster(clst_mem_,kfull_)
+            if (nargin == 2)
+                [clst_mem,kvec,i_full] = deal(clst_mem_,1:kfull_,1:length(clst_mem_));
+            else
+                pckg_in = clst_mem_;
+                [clst_mem,kvec,i_full] = deal(pckg_in.cluster_membership,1:(length(pckg_in.i_medoids)),1:length(pckg_in.cluster_membership));
+            end
+
+            iclst_mems = clst_mem == kvec';
+
+            clst_roster_out = cell(length(kvec),1);
+            for ik = kvec
+                clst_roster_out{ik} = i_full(iclst_mems(ik,:));
+            end
+        end
+        function [med_pckg_out,det_pckg_out] = post_process_medoid_package(med_pckg_,dmat_)
+            det_pckg_out = LD_aux.compute_medoid_silhouette(med_pckg_,dmat_);
+
+            [i_meds,n_meds,net_d,clst_mem,loc_d,med2med_d] = LD_aux.unpack_medoid_package(med_pckg_);
+            [kfull,npts] = deal(length(i_meds), length(clst_mem));
+            i_full = 1:npts;
+            ii_nmeds = logical(prod( i_full ~= i_meds', 1 ));
+            i_nmeds = i_full(ii_nmeds);
+            iclst_mems = (clst_mem == (1:kfull)');
+
+            get_member_data = @(data_mat_) data_mat_(iclst_mems);
+
+            d_loc_mat = nan(kfull,npts);
+            d_loc_mat(iclst_mems) = get_member_data(ones(kfull,npts).*loc_d);
+            avg_d_loc = mean(d_loc_mat,2,'omitnan');
+
+            det_pckg_out.avg_cluster_distances = avg_d_loc';
+            det_pckg_out.i_full = i_full;
+            det_pckg_out.i_nmeds = i_nmeds;
+
+            if (nargout == 1)
+                med_pckg_out = combine_structs(med_pckg_,det_pckg_out);
+            else
+                med_pckg_out = med_pckg_;
+            end
+        end
+        function evl_pckg_out = compute_medoid_silhouette(med_pckg_,dmat_)
+            [i_meds,n_meds,net_d,clst_mem,loc_d,med2med_d] = LD_aux.unpack_medoid_package(med_pckg_);
+            [kfull,npts] = deal(length(i_meds), length(clst_mem));
+
+            i_full = 1:npts;
+            ii_nmeds = logical(prod( i_full ~= i_meds', 1 ));
+
+            a_loc_d = loc_d;
+            [b_loc_d,s_loc_d] = deal(nan(1,npts));
+            for jmed = 1:kfull
+                i_meds_nj = [i_meds(1:(jmed-1)),i_meds((jmed+1):end)];
+                imems_jclst = i_full(clst_mem == jmed);
+                b_loc_d(imems_jclst) = min(dmat_(i_meds_nj,imems_jclst),[],1);
+                s_loc_d(imems_jclst) = 1 - a_loc_d(imems_jclst)./b_loc_d(imems_jclst);
+            end
+
+            evl_pckg_out = struct(  'silhouette_coeff', mean(s_loc_d,'omitnan'), ...
+                                    'silhouette_values', s_loc_d, ...
+                                    'b_cluster_distances', b_loc_d);
+        end
+        % function [i_meds,n_meds,net_d,clst_mem,loc_d,med2med_d] = naive_k_medoid(dmat_,kfull_)
+        function [med_pckg_out,greedy_med_pckg_out,improved_on_greedy] = naive_k_medoid(dmat_,kfull_)
+            greedy_med_pckg_out = LD_aux.greedy_naive_k_medoids(dmat_,kfull_);
+            [i_meds,n_meds,net_d,clst_mem,loc_d,med2med_d] = LD_aux.unpack_medoid_package(greedy_med_pckg_out);
+            net_d_0 = net_d;
 
             npts = size(dmat_,1);
             i_full = 1:npts;
@@ -180,20 +282,19 @@ classdef LD_aux
                     net_d = dswap_best;
                 end
             end
-            improved_on_greedy = net_d < net_d_0
-            if (nargout > 1)
-                [d_mins,imed_assignments] = min( dmat_(i_meds,i_nmedoids) ,[],1);
-                n_meds(1:kfull_) = sum(imed_assignments == (1:kfull_)',2);
-                if (nargout > 2)
-                    net_d = sum(d_mins);
-                    [clst_mem,loc_d] = deal(zeros(1,npts));
-                    clst_mem(i_nmedoids) = imed_assignments;
-                    loc_d(i_nmedoids) = d_mins;
-                    med2med_d = dmat_(i_meds,i_meds);
-                end
-            end
+            improved_on_greedy = net_d < net_d_0;
+            [d_mins,imed_assignments] = min( dmat_(i_meds,i_nmedoids) ,[],1);
+            n_meds(1:kfull_) = sum(imed_assignments == (1:kfull_)',2);
+            net_d = sum(d_mins);
+            [clst_mem,loc_d] = deal(zeros(1,npts));
+            clst_mem(i_nmedoids) = imed_assignments;
+            loc_d(i_nmedoids) = d_mins;
+            med2med_d = dmat_(i_meds,i_meds);
+
+            med_pckg_out = LD_aux.pack_medoid_package(i_meds,n_meds,net_d,clst_mem,loc_d,med2med_d);
         end
-        function [i_meds,n_meds,net_d,clst_mem,loc_d,med2med_d] = greedy_naive_k_medoids(dmat_,kfull_)
+        % function [i_meds,n_meds,net_d,clst_mem,loc_d,med2med_d] = greedy_naive_k_medoids(dmat_,kfull_)
+        function med_pckg_out = greedy_naive_k_medoids(dmat_,kfull_)
             npts = size(dmat_,1);
             i_full = 1:npts;
             i_meds = 1:kfull_;
@@ -222,18 +323,33 @@ classdef LD_aux
                 end
                 i_meds(k) = ik;
             end
-            if (nargout > 1)
-                i_nmedoids_greedy = get_not_medoids(i_meds);
-                [d_mins_greedy,imed_assignments_greedy] = min( dmat_(i_meds,i_nmedoids_greedy) ,[],1);
-                n_meds(1:kfull_) = sum(imed_assignments_greedy == (1:kfull_)',2);
-                if (nargout > 2)
-                    net_d = sum(d_mins_greedy);
-                    [clst_mem,loc_d] = deal(zeros(1,npts));
-                    clst_mem(i_nmedoids_greedy) = imed_assignments_greedy;
-                    loc_d(i_nmedoids_greedy) = d_mins_greedy;
-                    med2med_d = dmat_(i_meds,i_meds);
-                end
-            end
+            i_nmedoids_greedy = get_not_medoids(i_meds);
+            [d_mins_greedy,imed_assignments_greedy] = min( dmat_(i_meds,i_nmedoids_greedy) ,[],1);
+            n_meds(1:kfull_) = sum(imed_assignments_greedy == (1:kfull_)',2);
+            net_d = sum(d_mins_greedy);
+            [clst_mem,loc_d] = deal(zeros(1,npts));
+            clst_mem(i_nmedoids_greedy) = imed_assignments_greedy;
+            loc_d(i_nmedoids_greedy) = d_mins_greedy;
+            med2med_d = dmat_(i_meds,i_meds);
+
+            med_pckg_out = LD_aux.pack_medoid_package(i_meds,n_meds,net_d,clst_mem,loc_d,med2med_d);
+        end
+
+        function med_pckg_out = pack_medoid_package(i_meds_,n_meds_,net_d_,clst_mem_,loc_d_,med2med_d_)
+            med_pckg_out = struct(  'i_medoids', i_meds_, ...
+                                    'n_medoids', n_meds_, ...
+                                    'net_dist', net_d_, ...
+                                    'cluster_membership', clst_mem_, ...
+                                    'cluster_distances', loc_d_, ...
+                                    'medoid_distances', med2med_d_);
+        end
+        function [i_meds,n_meds,net_d,clst_mem,loc_d,med2med_d] = unpack_medoid_package(pckg_)
+            [i_meds,n_meds,net_d,clst_mem,loc_d,med2med_d] = deal(  pckg_.i_medoids, ...
+                                                                    pckg_.n_medoids, ...
+                                                                    pckg_.net_dist, ...
+                                                                    pckg_.cluster_membership, ...
+                                                                    pckg_.cluster_distances, ...
+                                                                    pckg_.medoid_distances);
         end
     end
 end

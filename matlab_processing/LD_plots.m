@@ -676,7 +676,7 @@ classdef LD_plots
 
         end
         function plt = plot_curve_svds(pckgs_,plt_)
-            plt = plt_.init_tiles_safe(1,3);
+            plt = plt_.init_tiles_safe(1,4);
             hold(plt.axs, 'on');
             box(plt.axs,'on');
             axs = plt.axs;
@@ -691,13 +691,11 @@ classdef LD_plots
 
             mat_stats = @(mat_) deal(min(mat_,[],2),median(mat_,2),max(mat_,[],2), 1:size(mat_,1));
 
-            [smin_cell,smed_cell,smax_cell,inds_cell] = deal(cell(nset,1));
+            [smin_cell,smed_cell,savg_cell,smax_cell,ssum_cell,inds_cell] = deal(cell(nset,1));
             for i = 1:nset
                 [smin_cell{i},smed_cell{i},smax_cell{i},inds_cell{i}] = mat_stats(pckgs_(i).smat);
-                % [smin_cell{i},smed_cell{i},smax_cell{i},inds_cell{i}] = mat_stats(pckgs_(i).smat ./ pckgs_(i).smat(1,:) );
-                mat_i = pckgs_(i).matT';
+                ssum_cell{i} = sum(pckgs_(i).smat,1);
             end
-
 
             for i = 1:nset
                 leg1(i) = plot(axs(1),inds_cell{i},smin_cell{i}, ...
@@ -714,15 +712,24 @@ classdef LD_plots
                 'Marker',mspc,'MarkerSize',ms,'LineStyle',lspc,'LineWidth',lw,'Color',colors(i,:), ...
                 'DisplayName', fixlabel(pckgs_(i).dat_name));
             end
+            for i = 1:nset
+                leg4(i) = plot(axs(4),ssum_cell{i},pckgs_(i).rvec, ...
+                'Marker','o','MarkerSize',3,'LineStyle','none','LineWidth',2,'Color',colors(i,:), ...
+                'DisplayName', fixlabel(pckgs_(i).dat_name));
+            end
 
             xlabel(axs(1:3),['$$ i $$'], 'Interpreter','Latex','FontSize',14);
             ylabel(axs(1),['min $$ \sigma^{\mathbf{A}}_i $$'], 'Interpreter','Latex','FontSize',14);
             ylabel(axs(2),['med. $$ \sigma^{\mathbf{A}}_i $$'], 'Interpreter','Latex','FontSize',14);
             ylabel(axs(3),['max $$ \sigma^{\mathbf{A}}_i $$'], 'Interpreter','Latex','FontSize',14);
 
+            xlabel(axs(4),['$$ \sum \sigma^{\mathbf{A}}_i $$'], 'Interpreter','Latex','FontSize',14);
+            ylabel(axs(4),['$$ \rho^{\mathbf{A}}_i $$'], 'Interpreter','Latex','FontSize',14);
+            set(axs(4),'YScale', 'linear','XScale','log','TickLabelInterpreter','Latex','FontSize',12);
+
             legend(axs(2), leg1,'Location', 'SouthOutside', 'Interpreter', 'Latex', 'NumColumns',min([nset,4]));
 
-            set(axs,'YScale', 'log','XScale','linear','TickLabelInterpreter','Latex','FontSize',12);
+            set(axs(1:3),'YScale', 'log','XScale','linear','TickLabelInterpreter','Latex','FontSize',12);
 
         end
         function [plt,err_res] = plot_S_relative_errors(Sarray_,Sref_,plt_)
@@ -823,6 +830,7 @@ classdef LD_plots
                 xlabel(axi,['$$' dnames{dims_i(1)} '$$'], 'Interpreter','Latex','FontSize',14);
                 ylabel(axi,['$$' dnames{dims_i(2)} '$$'], 'Interpreter','Latex','FontSize',14);
             end
+            set(axs,'YScale', 'linear', 'XScale', 'linear', 'TickLabelInterpreter','Latex','FontSize',12);
         end
         function plt = plot_n1q1_solspc(pts_cell_,plt_,spc_)
             plt = plt_.init_tiles_safe(1,4);
@@ -857,6 +865,7 @@ classdef LD_plots
             xlabel(axs(4),['$$' dnames{1} '$$'], 'Interpreter','Latex','FontSize',14);
             ylabel(axs(4),['$$' dnames{2} '$$'], 'Interpreter','Latex','FontSize',14);
             zlabel(axs(4),['$$' dnames{3} '$$'], 'Interpreter','Latex','FontSize',14);
+            set(axs,'YScale', 'linear', 'XScale', 'linear', 'TickLabelInterpreter','Latex','FontSize',12);
         end
         function plt = plot_n2q1_solspc(pts_cell_,plt_,spc_)
             plt = plt_.init_tiles_safe(2,3);
@@ -885,6 +894,7 @@ classdef LD_plots
                 xlabel(axi,['$$' dnames{dims_i(1)} '$$'], 'Interpreter','Latex','FontSize',14);
                 ylabel(axi,['$$' dnames{dims_i(2)} '$$'], 'Interpreter','Latex','FontSize',14);
             end
+            set(axs,'YScale', 'linear', 'XScale', 'linear', 'TickLabelInterpreter','Latex','FontSize',12);
         end
         function specs_out = posdim_specs(grid_dim_,tile_dim_,origin_tile_,screen_)
             if (nargin==3)

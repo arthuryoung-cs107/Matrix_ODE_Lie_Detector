@@ -91,10 +91,10 @@ Sref_crv_svd_plot = LD_plots.plot_curve_svds(Sref_svd_array,LD_plots('svd',[7 7]
 
 %%%%%%%%%%%%%%%%%%%%%%%%
 
-Lsvd_glb = Sref_Lsvd_glb;
-Asvd = Sref_Osvd;
-AYLsvd = Sref_OYLsvd;
-AYLrstsvd = Sref_OYLsvd_rst;
+% Lsvd_glb = Sref_Lsvd_glb;
+% Asvd = Sref_Osvd;
+% AYLsvd = Sref_OYLsvd;
+% AYLrstsvd = Sref_OYLsvd_rst;
 % AYLglbsvd = Sref_OYLglbsvd_glb;
 
 % Lsvd_glb = Sref_Lsvd_glb;
@@ -103,10 +103,10 @@ AYLrstsvd = Sref_OYLsvd_rst;
 % AYLrstsvd = Sref_GYLsvd_rst;
 % % AYLglbsvd = Sref_GYLglbsvd_glb;
 
-% Lsvd_glb = Sref_Lsvd_glb;
-% Asvd = Sref_OGsvd;
-% AYLsvd = Sref_OGYLsvd;
-% AYLrstsvd = Sref_OGYLsvd_rst;
+Lsvd_glb = Sref_Lsvd_glb;
+Asvd = Sref_OGsvd;
+AYLsvd = Sref_OGYLsvd;
+AYLrstsvd = Sref_OGYLsvd_rst;
 % % AYLglbsvd = Sref_OGYLglbsvd_glb;
 
 
@@ -123,6 +123,96 @@ AtnsYL_rst = LD_aux.Atns_Ytns_mult(Atns,Ytns_L);
 
 %%%%%%%%%%%%%%%%%%%%%%%%
 
+[rho_PL,ncol_AYL,rho_AYL] = deal(AYLrstsvd.rho_PL,AYLrstsvd.ncol,max(AYLrstsvd.rvec))
+kappa_AYL = ncol_AYL - rho_AYL;
+
+% Ktns_A_YLrst = LD_aux.Ytns_Vtns_mult(Ytns_L,AYLrstsvd.Vtns(:,(rho_AYL+1):end,:)); % AYLmat kernals of each curve
+Ktns_A_YLrst = LD_aux.compute_Ktns_A_YLrst(AYLrstsvd);
+
+% cmat_K_A_YLrst = KTK_A_YLrst_evl_mag;
+cmat_K_A_YLrst = LD_aux.compute_frobenius_closeness_matrix(Ktns_A_YLrst);
+dmat_K_A_YLrst = 1.0 - cmat_K_A_YLrst;
+
+[v_cnet_sort_K_A_YLrst,i_cnet_sort_K_A_YLrst] = sort(sum(cmat_K_A_YLrst,1));
+[icrv_loneliest,icrv_frndliest] = deal(i_cnet_sort_K_A_YLrst(1),i_cnet_sort_K_A_YLrst(end));
+
+k_clst = 2:10;
+SC_vec = nan(size(k_clst));
+for ik = 1:length(k_clst)
+    k_med_pckg_i = LD_aux.naive_k_medoid(dmat_K_A_YLrst,k_clst(ik));
+    k_silh_i = LD_aux.compute_medoid_silhouette(k_med_pckg_i,dmat_K_A_YLrst);
+    SC_vec(ik) = k_silh_i.silhouette_coeff;
+end
+k_clst_silhouettes = [k_clst; SC_vec]
+
+k_clusters = 3;
+[medoid_pckg,greedy_medoid_pckg,improved_on_greedy] = LD_aux.naive_k_medoid(dmat_K_A_YLrst,k_clusters)
+[icrv_med,ncrv_clst,net_dfro,clst_membership,local_dfro,med2med_dfro] = LD_aux.unpack_medoid_package(medoid_pckg);
+
+%%%%%%%%%%%%%%%%%%%%%%%%
+
+spc.lw = 2.0;
+
+spc.color = LD_plots.purple1;
+solspc_ref_plot = LD_plots.plot_solspc(Sref,solspc_ref_plot,spc,icrv_loneliest);
+spc.color = LD_plots.purple5;
+solspc_ref_plot = LD_plots.plot_solspc(Sref,solspc_ref_plot,spc,icrv_frndliest);
+
+col_med_plot_mat = LD_plots.greens;
+alpha_cluster = 0.15;
+
+% icrv_med_plot = icrv_med;
+[ncrv_clst_sort,isrt_ncrv_clst] = sort(ncrv_clst);
+% [~,isrt_ncrv_clst] = sort(ncrv_clst,'descend');
+icrv_med_ncrv_sort = icrv_med(isrt_ncrv_clst)
+ncrv_clst_sort
+
+icrv_med_plot = icrv_med_ncrv_sort;
+
+if (length(icrv_med_plot) == size(col_med_plot_mat,1))
+    icrv_med_plot = icrv_med_ncrv_sort;
+else
+    if (length(icrv_med_plot) < size(col_med_plot_mat,1))
+        col_med_plot_mat = col_med_plot_mat((size(col_med_plot_mat,1) - length(icrv_med_plot) +1):end,:);
+    else
+        icrv_med_plot = icrv_med_ncrv_sort((end - (size(col_med_plot_mat,1)-1)):end)
+    end
+end
+
+nmed_plot = min([length(icrv_med_plot), size(col_med_plot_mat,1)]);
+
+icrv_vec = 1:ncrv;
+for i = 1:nmed_plot
+    % solspc_ref_plot_i = solspc_ref_plot;
+    solspc_ref_plot_i = LD_plots('Sref',[4 4],[1 4],[1+i 1],1);
+
+    spc.color = col_med_plot_mat(i,:);
+    spc.lw = 2;
+    solspc_ref_plot_i = LD_plots.plot_solspc(Sref,solspc_ref_plot_i,spc,icrv_med_plot(i));
+
+    spc.color = [col_med_plot_mat(i,:) alpha_cluster];
+    spc.lw = 1;
+    solspc_ref_plot_i = LD_plots.plot_solspc(Sref,solspc_ref_plot_i,spc,icrv_vec(clst_membership == isrt_ncrv_clst(i)));
+
+end
+solspc_plot_init_lims = solspc_ref_plot.get_axis_lims;
+
+aux_fig1 = LD_plots('aux1',[5 5],[1 5],[1 1],1);
+aux_fig1 = aux_fig1.init_tiles_safe(1,nmed_plot);
+hold(aux_fig1.axs, 'on');
+box(aux_fig1.axs,'on');
+axs_aux1 = aux_fig1.axs;
+for i = 1:nmed_plot
+    histogram(axs_aux1(i), dmat_K_A_YLrst(:,icrv_med_plot(i)), 'FaceColor', col_med_plot_mat(i,:));
+end
+set(axs_aux1,'XLim',[0,max(dmat_K_A_YLrst(:))])
+
+
+
+return
+
+%%%%%%%%%%%%%%%%%%
+
 svd_datum = Sref_Gsvd;
 [~,isort_rvec_datum] = sort(svd_datum.rvec);
 
@@ -131,12 +221,7 @@ icrv_centre = 1;
 % icrv_centre = isort_rvec_datum(ceil(ncrv/2)) % median rank
 % icrv_centre = isort_rvec_datum(end) % max rank
 
-[rho_PL,ncol_AYL,rho_AYL] = deal(AYLrstsvd.rho_PL,AYLrstsvd.ncol,max(AYLrstsvd.rvec))
-kappa_AYL = ncol_AYL - rho_AYL;
-
-Ktns_A_YLrst = LD_aux.Ytns_Vtns_mult(Ytns_L,AYLrstsvd.Vtns(:,(rho_AYL+1):end,:)); % AYLmat kernals of each curve
 Kmat_A_YLrst = reshape(Ktns_A_YLrst,ncol,[]);
-
 KTK_A_YLrst = mat2cell(Kmat_A_YLrst'*Kmat_A_YLrst,kappa_AYL*ones(1,ncrv), kappa_AYL*ones(1,ncrv));
 K_A_YLrst = cell(ncrv);
 for i = 1:ncrv
@@ -144,7 +229,6 @@ for i = 1:ncrv
         K_A_YLrst{i,j} = Ktns_A_YLrst(:,:,i)*KTK_A_YLrst{i,j};
     end
 end
-K_A_YLrst = mat2cell(Kmat_A_YLrst'*Kmat_A_YLrst,kappa_AYL*ones(1,ncrv), kappa_AYL*ones(1,ncrv));
 
 mflag_lw = logical(tril(ones(ncrv),-1)); % flags of lower triangular elements
 vflag_lw = reshape(mflag_lw,[],1); % column stack of lower triangular flags
@@ -188,57 +272,7 @@ evlstat_evlmags = avg_evlmags;
 [icrv_loneliest,icrv_frndliest] = deal(isrt_evlstat_evlmags(1),isrt_evlstat_evlmags(end))
 % [icrv_loneliest,icrv_frndliest] = deal(isrt_evlstat_evlmags(2),isrt_evlstat_evlmags(end))
 
-k_clusters = 4;
-[icrv_med,ncrv_clst,net_dfro,clst_membership,local_dfro,med2med_dfro] = LD_aux.naive_k_medoid(1.0-KTK_A_YLrst_evl_mag,k_clusters)
-
-%%%%%%%%%%%%%%%%%%%%%%%%
-
-spc.lw = 2.0;
-
-% spc.color = LD_plots.orange1;
-% solspc_ref_plot = LD_plots.plot_solspc(Sref,solspc_ref_plot,spc,icrv_dst1);
-% spc.color = LD_plots.orange2;
-% solspc_ref_plot = LD_plots.plot_solspc(Sref,solspc_ref_plot,spc,icrv_dst2);
-%
-% spc.color = LD_plots.blue1;
-% solspc_ref_plot = LD_plots.plot_solspc(Sref,solspc_ref_plot,spc,icrv_ngh1);
-% spc.color = LD_plots.blue2;
-% solspc_ref_plot = LD_plots.plot_solspc(Sref,solspc_ref_plot,spc,icrv_ngh2);
-%
-spc.color = LD_plots.purple1;
-solspc_ref_plot = LD_plots.plot_solspc(Sref,solspc_ref_plot,spc,icrv_loneliest);
-spc.color = LD_plots.purple5;
-solspc_ref_plot = LD_plots.plot_solspc(Sref,solspc_ref_plot,spc,icrv_frndliest);
-
-col_med_plot_mat = LD_plots.greens;
-
-% icrv_med_plot = icrv_med;
-[ncrv_clst_sort,isrt_ncrv_clst] = sort(ncrv_clst);
-% [~,isrt_ncrv_clst] = sort(ncrv_clst,'descend');
-icrv_med_ncrv_sort = icrv_med(isrt_ncrv_clst)
-ncrv_clst_sort
-
-icrv_med_plot = icrv_med_ncrv_sort;
-
-if (length(icrv_med_plot) == size(col_med_plot_mat,1))
-    icrv_med_plot = icrv_med_ncrv_sort;
-else
-    if (length(icrv_med_plot) < size(col_med_plot_mat,1))
-        col_med_plot_mat = col_med_plot_mat((size(col_med_plot_mat,1) - length(icrv_med_plot) +1):end,:);
-    else
-        icrv_med_plot = icrv_med_ncrv_sort((end - (size(col_med_plot_mat,1)-1)):end)
-    end
-end
-
-nmed_plot = min([length(icrv_med_plot), size(col_med_plot_mat,1)]);
-
-for i = 1:nmed_plot
-    spc.color = col_med_plot_mat(i,:);
-    solspc_ref_plot = LD_plots.plot_solspc(Sref,solspc_ref_plot,spc,icrv_med_plot(i));
-    % pause
-end
-
-solspc_plot_init_lims = solspc_ref_plot.get_axis_lims;
+%%%%%%%%%%%%%%%%%%
 
 aux_fig1 = LD_plots('aux1',[5 5],[1 5],[5 1],1);
 aux_fig1 = aux_fig1.init_tiles_safe(1,4);

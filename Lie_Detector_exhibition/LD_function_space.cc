@@ -90,12 +90,8 @@ poly_coeffs(Tsym_lower<double>(bor+1)), map_params(Tmatrix<double>(4,nvar))
     for (int i = 1, jpow=j, jshift=j-1; i <= j; i++, jpow--, jshift--)
       icoeff_mat[i][jshift] = icoeff_mat[i-1][jshift+1]*jpow;
   }
-  // initialize linear mappings to identity
-  for (size_t i = 0; i < nvar; i++)
-  {
-    fmap_m[i] = bmap_m[i] = 1.0;
-    fmap_b[i] = bmap_b[i] = 0.0;
-  }
+  set_multinomial_coeffs(); // initialize polynomial coefficients to identity matrix
+  set_identity_domain(); // initialize linear mappings to identity
 }
 orthopolynomial_space::orthopolynomial_space(ode_solspc_meta &meta_,orthopolynomial_config_file cfile_):
   orthopolynomial_space(meta_,cfile_.bor_in)
@@ -475,12 +471,6 @@ void orthopolynomial_basis::debugging_description()
 
 void orthopolynomial_space::debugging_description()
 {
-    // printf("orthogonal domain: (%.2e, %.2e)", h_min, h_max);
-  // if (solspc_val_extrema!=NULL)
-  // {
-  //   printf("\n%.2e < t < %.2e, ", solspc_val_extrema[0][0], solspc_val_extrema[1][0]);
-  //   for (int ix = 1; ix <= ndep; ix++) printf("%.2e < x%d < %.2e, ", solspc_val_extrema[0][ix], ix, solspc_val_extrema[1][ix]);
-  // }
   printf("(orthopolynomial_space::debugging_description) order %d, %d degrees of freedom\n", bor, ndof_full);
 
   printf("forward mappings: x_hat = %.2e x + %.2e, ", fmap_m[0], fmap_b[0]);
