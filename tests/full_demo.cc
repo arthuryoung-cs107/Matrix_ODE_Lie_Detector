@@ -21,8 +21,8 @@ ode_solspc_meta meta0(ode.eor,ode.ndep);
 
 // number of curves and uniform number of points per curve for dataset
 // const int nc = 50, // number of curves
-// const int nc = 75, // number of curves
-const int nc = 100, // number of curves
+const int nc = 75, // number of curves
+// const int nc = 100, // number of curves
 // const int nc = 150, // number of curves
 // const int nc = 200, // number of curves
           np_min = 300, // min number of points for extrapolation experiment
@@ -48,8 +48,8 @@ DoP853_settings integrator_settings; DoP853 ode_integrator(ode,integrator_settin
 
 // specify order of embedding function space
 // const int bor = 10;
-// const int bor = 9;
-const int bor = 8;
+const int bor = 9;
+// const int bor = 8;
 // const int bor = 7;
 // const int bor = 6;
 // const int bor = 5;

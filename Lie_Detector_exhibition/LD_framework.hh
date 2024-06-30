@@ -193,6 +193,278 @@ struct LD_observations_set: public solspc_data_chunk
     double indep_range[2];
 };
 
+class LD_Theta_space
+{
+  const bool data_owner;
+  const int ndof_full;
+  int * const Theta_dims,
+      &nrow_use = Theta_dims[0],
+      &ndof_use = Theta_dims[1];
+  double  ** const Theta;
+
+  public:
+
+    LD_Theta_space(int ndof_): data_owner(true), ndof_full(ndof_),
+      Theta_dims(new int[2]), Theta(Tmatrix<double>(ndof_,ndof_)) {nrow_use=ndof_use=ndof_;}
+    LD_Theta_space(int ndof_,int *Theta_dims_,double **Theta_): data_owner(false), ndof_full(ndof_),
+      Theta_dims(Theta_dims_), Theta(Theta_) {}
+    LD_Theta_space(int ndof_,int *Theta_dims_,double **Theta_,int nrow_use_,int ndof_use_):
+      LD_Theta_space(ndof_,Theta_dims_,Theta_) {nrow_use=ndof_use=ndof_;}
+    ~LD_Theta_space() {if (data_owner) {delete [] Theta_dims; free_Tmatrix<double>(Theta);}}
+
+};
+
+class LD_Theta_stack
+{
+  int ** const Theta_dim_mat;
+
+  public:
+
+    LD_Theta_stack(int nspc_,int ndof_): nspc(nspc_), ndof_full(ndof_), nrow_use(ndof_), ndof_use(ndof_), Theta_dim_mat(Tmatrix<int>(nspc_,2)),
+      nsat_theta_spcvec(new int[nspc_]), isat_theta_spcmat(Tmatrix<int>(nspc_,ndof_)),
+      Theta_tns(T3tensor<double>(nspc_,ndof_,ndof_)), Theta_spaces(new LD_Theta_space*[nspc_])
+      {for (size_t i = 0; i < nspc; i++) Theta_spaces[i] = new LD_Theta_space(ndof_full,Theta_dim_mat[i],Theta_tns[i],nrow_use,ndof_use);}
+    ~LD_Theta_stack()
+    {
+      for (size_t i = 0; i < nspc; i++) delete Theta_spaces[i];
+      delete [] Theta_spaces;
+      free_T3tensor<double>(Theta_tns);
+      delete [] nsat_theta_spcvec;
+      free_Tmatrix<int>(isat_theta_spcmat);
+      free_Tmatrix<int>(Theta_dim_mat);
+    }
+
+    inline void load_Theta_tns(double ***VTtns_)
+    {
+      for (size_t i = 0; i < nspc; i++)
+        for (size_t j = 0; j < nrow_use; j++)
+          for (size_t k = 0; k < ndof_use; k++)
+            Theta_tns[i][j][k] = VTtns_[i][j][k];
+    }
+
+    const int nspc,
+              ndof_full;
+    int nrow_use,
+        ndof_use,
+        * const nsat_theta_spcvec,
+        ** const isat_theta_spcmat;
+    double *** const Theta_tns;
+    LD_Theta_space ** const Theta_spaces;
+
+    inline void print_satisfactory_details(const char name_[])
+    {
+      printf("(LD_Theta_stack::print_satisfactory_details) %s isat_theta\n", name_);
+      for (size_t ispc = 0; ispc < nspc; ispc++)
+      {
+        printf("spc %d (nsat = %d): ", ispc, nsat_theta_spcvec[ispc]);
+        for (size_t isat = 0; isat < nsat_theta_spcvec[ispc]; isat++) printf("%d ", isat_theta_spcmat[ispc][isat]);
+        printf("\n");
+      }
+      char name_buf[strlen(name_) + 20];
+      sprintf(name_buf,"  %s nsat_theta", name_);
+      LD_linalg::print_xT(name_buf,nsat_theta_spcvec,nspc);
+      printf("  nrow_use = %d, ndof_use = %d, min nsat = %d, max nsat = %d \n",
+                nrow_use, ndof_use,
+                LD_linalg::min_val<int>(nsat_theta_spcvec,nspc), LD_linalg::max_val<int>(nsat_theta_spcvec,nspc));
+    }
+};
+
+struct Theta_eval_workspace
+{
+  Theta_eval_workspace(int ntheta_,int nsols_=1): ntheta(ntheta_), nsols(nsols_), Theta(NULL),
+    satisfy_flags_mat(Tmatrix<bool>(nsols_,ntheta_)) {}
+  ~Theta_eval_workspace() {free_Tmatrix<bool>(satisfy_flags_mat);}
+
+  const int ntheta,
+            nsols;
+  bool  ** const satisfy_flags_mat,
+        * satisfy_flags = satisfy_flags_mat[0];
+  double  ** Theta;
+};
+
+struct lamda_map_eval_workspace: public Theta_eval_workspace
+{
+  lamda_map_eval_workspace(int ntheta_,function_space &fspc_,int nsols_=1):
+    Theta_eval_workspace(ntheta_,nsols_),
+    lamvec(new double[fspc_.perm_len]), vxu_wkspc(vxu_workspace(fspc_.nvar,fspc_.comp_ord_len())) {}
+  ~lamda_map_eval_workspace() {delete [] lamvec;}
+
+  double * const lamvec;
+  vxu_workspace vxu_wkspc;
+};
+
+struct Rn_cond_eval_workspace: public Theta_eval_workspace
+{
+  Rn_cond_eval_workspace(int ntheta_,ode_solspc_meta &meta_,int nsols_=1):
+    Theta_eval_workspace(ntheta_,nsols_), v(new double[meta_.ndim]) {}
+  ~Rn_cond_eval_workspace() {delete [] v;}
+
+  double  * const v;
+};
+
+struct inf_crit_eval_workspace: public Rn_cond_eval_workspace
+{
+  inf_crit_eval_workspace(int ntheta_,ode_solspc_meta &meta_,int nsols_=1):
+    Rn_cond_eval_workspace(ntheta_,meta_,nsols_), mags_JFs(new double[meta_.ndep]) {}
+  ~inf_crit_eval_workspace() {delete [] mags_JFs;}
+
+  double  * const mags_JFs;
+};
+
+struct Lie_detector
+{
+  Lie_detector() {}
+  ~Lie_detector() {}
+
+  static int eval_lamfunc_signal_strength(bool *sat_flags_,ode_solution &sol_,lamda_map_eval_workspace &wkspc_,function_space &fspc_,double tol_=1e-13)
+  {
+    const int ntheta = wkspc_.ntheta,
+              perm_len = fspc_.perm_len;
+    double  ** const Theta = wkspc_.Theta,
+            * const lamvec = wkspc_.lamvec;
+
+    fspc_.lamvec_eval(sol_.pts,lamvec,wkspc_.vxu_wkspc);
+
+    int n_success = 0;
+    for (size_t ith = 0; ith < ntheta; ith++)
+    {
+      double lam_i = 0.0;
+      for (size_t iL = 0; iL < perm_len; iL++) lam_i += Theta[ith][iL]*lamvec[iL];
+      n_success += (int)(sat_flags_[ith] = (fabs(lam_i) > tol_));
+    }
+    return n_success;
+  }
+
+  static int eval_Theta_R1_condition(bool *sat_flags_,ode_solution &sol_,lamda_map_eval_workspace &wkspc_,function_space &fspc_,double tol_=1e-13)
+  {
+    const int ndep = sol_.ndep,
+              perm_len = fspc_.perm_len,
+              ntheta = wkspc_.ntheta;
+    double  * const dxu = sol_.dxu,
+            ** const Theta = wkspc_.Theta,
+            * const lamvec = wkspc_.lamvec;
+
+    fspc_.lamvec_eval(sol_.pts,lamvec,wkspc_.vxu_wkspc);
+
+    int n_success = 0;
+    for (size_t ith = 0; ith < ntheta; ith++)
+    {
+      double vx = 0.0;
+      for (size_t iL = 0; iL < perm_len; iL++) vx += Theta[ith][iL]*lamvec[iL];
+      for (size_t idep = 0, iL = perm_len; idep < ndep; idep++)
+      {
+        double vui = 0.0;
+        for (size_t i = 0; i < perm_len; i++, iL++) vui += Theta[ith][iL]*lamvec[iL];
+        if (!( sat_flags_[ith] = (fabs(1.0 - (vui/(vx*dxu[idep]))) < tol_) )) break;
+      }
+      if (sat_flags_[ith]) n_success++;
+    }
+    return n_success;
+  }
+
+  static int eval_Theta_Rk_condition(bool *sat_flags_,ode_solution &sol_,Rn_cond_eval_workspace &wkspc_,function_space_basis &fbasis_,int k_,double tol_=1e-13)
+  {
+    const int ndep = sol_.ndep,
+              ntheta = wkspc_.ntheta;
+    double  * const v = wkspc_.v,
+            &vx = v[0],
+            * const vdkm1xu = v + (1 + ndep*(k_-1)),
+            * const dkxu = (k_==(sol_.eor+1))?(sol_.dnp1xu):(sol_.dxu + (ndep*(k_-1))),
+            ** const Theta = wkspc_.Theta;
+    partial_chunk &chunk = fbasis_.partials;
+    function_space &fspc = fbasis_.fspc;
+
+    fbasis_.fill_partial_chunk(sol_.pts);
+
+    int n_success=0;
+    for (size_t ith = 0; ith < ntheta; ith++)
+    {
+      function_space_basis::v_eval(chunk,v,Theta[ith],fspc);
+      for (size_t idep = 0; idep < ndep; idep++)
+        if (!( sat_flags_[ith] = (fabs(1.0 - (vdkm1xu[idep]/(vx*dkxu[idep]))) < tol_) )) break;
+      if (sat_flags_[ith]) n_success++;
+    }
+    return n_success;
+  }
+
+  static int eval_Theta_Rn_condition(bool *sat_flags_,ode_solution &sol_,Rn_cond_eval_workspace &wkspc_,function_space_basis &fbasis_,int nmax_,double tol_=1e-13)
+  {
+    const int eor = sol_.eor,
+              ndep = sol_.ndep,
+              ntheta = wkspc_.ntheta,
+              ndxu = ndep*((nmax_==(eor+1))?(eor):(nmax_));
+    double  * const v = wkspc_.v,
+            &vx = v[0],
+            * const vu = v + 1,
+            * const dxu = sol_.dxu,
+            ** const Theta = wkspc_.Theta;
+    partial_chunk &chunk = fbasis_.partials;
+    function_space &fspc = fbasis_.fspc;
+
+    fbasis_.fill_partial_chunk(sol_.pts);
+
+    int n_success = 0;
+    for (size_t ith = 0; ith < ntheta; ith++)
+    {
+      function_space_basis::v_eval(chunk,v,Theta[ith],fspc);
+      for (size_t idx = 0; idx < ndxu; idx++)
+        if (!( sat_flags_[ith] = (fabs(1.0 - (vu[idx]/(vx*dxu[idx]))) < tol_) )) break;
+      if (sat_flags_[ith])
+      {
+        if (nmax_==(eor+1))
+        {
+          for (size_t idep = 0; idep < ndep; idep++)
+            if (!( sat_flags_[ith] = (fabs(1.0 - (vu[idep+ndxu]/(vx*sol_.dnp1xu[idep]))) < tol_) )) break;
+          if (sat_flags_[ith]) n_success++;
+        }
+        else n_success++;
+      }
+    }
+    return n_success;
+  }
+
+  static int eval_Theta_inf_criterion(bool *sat_flags_,ode_solution &sol_,inf_crit_eval_workspace &wkspc_,function_space_basis &fbasis_, double tol_=1e-13)
+  {
+    const int ndep = sol_.ndep,
+              ndim = sol_.ndim,
+              ntheta = wkspc_.ntheta;
+    double  ** const JFs = sol_.JFs,
+            ** const Theta = wkspc_.Theta,
+            * const mags_JFs_local = wkspc_.mags_JFs,
+            * const v = wkspc_.v;
+    partial_chunk &chunk = fbasis_.partials;
+    function_space &fspc = fbasis_.fspc;
+
+    for (size_t idep = 0; idep < ndep; idep++)
+    {
+      double acc = 0.0;
+      for (size_t idim = 0; idim < ndim; idim++) acc += JFs[idep][idim]*JFs[idep][idim];
+      mags_JFs_local[idep] = sqrt(acc);
+    }
+
+    fbasis_.fill_partial_chunk(sol_.pts);
+
+    int n_success = 0;
+    for (size_t ith = 0; ith < ntheta; ith++)
+    {
+      function_space_basis::v_eval(chunk,v,Theta[ith],fspc);
+      double acc = 0.0;
+      for (size_t idim = 0; idim < ndim; idim++) acc += v[idim]*v[idim];
+      double  mag_v = sqrt(acc);
+
+      for (size_t idep = 0; idep < ndep; idep++)
+      {
+        acc = 0.0;
+        for (size_t idim = 0; idim < ndim; idim++) acc += JFs[idep][idim]*v[idim];
+        if (!( sat_flags_[ith] = (fabs(acc / (mags_JFs_local[idep]*mag_v)) < tol_) )) break;
+      }
+      if (sat_flags_[ith]) n_success++;
+    }
+    return n_success;
+  }
+
+};
+
 struct LD_experiment
 {
   LD_experiment(LD_observations_set &Sset_): Sset(Sset_) {}
@@ -218,7 +490,7 @@ class LD_matrix_file
 {
   const int hlen_check = 2;
   int hlen_in;
-  
+
   public:
     LD_matrix_file(const char name_[]);
     ~LD_matrix_file() {if (Amat_in != NULL) free_Tmatrix<double>(Amat_in);}

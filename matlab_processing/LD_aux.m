@@ -185,20 +185,36 @@ classdef LD_aux
             KTK_lwmat(vinds_lw) = cvec_fro;
             KTK_mat = KTK_lwmat + eye(ncrv) + KTK_lwmat';
         end
-        function clst_roster_out = get_cluster_roster(clst_mem_,kfull_)
-            if (nargin == 2)
-                [clst_mem,kvec,i_full] = deal(clst_mem_,1:kfull_,1:length(clst_mem_));
-            else
-                pckg_in = clst_mem_;
-                [clst_mem,kvec,i_full] = deal(pckg_in.cluster_membership,1:(length(pckg_in.i_medoids)),1:length(pckg_in.cluster_membership));
-            end
+        % function [D_X_out,C_X_out] = compute_Zassenhaus_bases(A1_,A2_)
+        function [pck_out1,pck_out2] = compute_Zassenhaus_bases(A1_,A2_)
+            [D_X_out,C_X_out] = deal(0);
+            [n_A,k_A1,k_A2] = deal(size(A1_,1),size(A1_,2),size(A2_,2));
+            [rho_A1,rho_A2,rho_A1A2] = deal(rank(A1_),rank(A2_),rank([A1_,A2_]));
+            min_rho_A = min([rho_A1,rho_A2]);
+            X = [A1_' A1_'; A2_' (zeros(size(A2_)))'];
+            % X_padded = [ X ; zeros( (rho_A1A2+min_rho_A) - (k_A1+k_A2), size(X,2) )];
+            X_padded = [ X; A2_' (zeros(size(A2_)))' ];
 
-            iclst_mems = clst_mem == kvec';
+            % [~,U_X] = lu(X);
+            U_X = rref(X);
+            % [D_X_out,C_X_out] = rref(X);
 
-            clst_roster_out = cell(length(kvec),1);
-            for ik = kvec
-                clst_roster_out{ik} = i_full(iclst_mems(ik,:));
-            end
+            % [~,U_X_padded] = lu(X_padded);
+            U_X_padded = rref(X_padded);
+
+            pck_out1 = struct(  'U_X', U_X, ...
+                                'C_X', U_X(:, 1:n_A), ...
+                                'D_X', U_X(:, (n_A+1):end));
+            pck_out2 = struct(  'U_X', U_X_padded, ...
+                                'C_X', U_X_padded(:, 1:n_A), ...
+                                'D_X', U_X_padded(:, (n_A+1):end));
+
+            % [~,U_X] = lu([A1_' A1_'; A2_' (zeros(size(A2_)))']);
+            % U_X(:,1:n_A)
+            % size(U_X)
+            % C_X_out = U_X(1:rho_A1A2,1:n_A)';
+            % D_X_raw = U_X( (rho_A1A2+1):(rho_A1A2+min([rho_A1,rho_A2])) , (n_A+1):end )';
+            % D_X_out = D_X_raw(:,1:rank(D_X_raw));
         end
         function [med_pckg_out,det_pckg_out] = post_process_medoid_package(med_pckg_,dmat_)
             det_pckg_out = LD_aux.compute_medoid_silhouette(med_pckg_,dmat_);
@@ -334,7 +350,20 @@ classdef LD_aux
 
             med_pckg_out = LD_aux.pack_medoid_package(i_meds,n_meds,net_d,clst_mem,loc_d,med2med_d);
         end
+        function clst_info_out = get_cluster_info(pckg_in_)
+            clst_mem = pckg_in_.cluster_membership;
+            clst_dst = pckg_in_.cluster_distances;
+            kvec = 1:(length(pckg_in_.i_medoids));
+            i_full = 1:length(pckg_in_.cluster_membership);
 
+            iclst_mems = clst_mem == kvec';
+
+            clst_info_out = cell(length(kvec),1);
+            for ik = kvec
+                iclst_mems_k = iclst_mems(ik,:);
+                clst_info_out{ik} = [i_full(iclst_mems_k) ; clst_dst(iclst_mems_k)];
+            end
+        end
         function med_pckg_out = pack_medoid_package(i_meds_,n_meds_,net_d_,clst_mem_,loc_d_,med2med_d_)
             med_pckg_out = struct(  'i_medoids', i_meds_, ...
                                     'n_medoids', n_meds_, ...

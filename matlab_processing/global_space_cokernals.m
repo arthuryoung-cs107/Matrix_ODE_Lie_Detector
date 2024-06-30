@@ -38,6 +38,9 @@ meta0 = Sref.meta_data;
 spc.color = [0 0 0 0.2];
 solspc_ref_plot = LD_plots.plot_solspc(Sref,LD_plots('Sref',[4 4],[1 4],[1 1],1),spc);
 
+spc.color = [1 0 0];
+solspc_ref_plot = LD_plots.plot_solspc(Sref,solspc_ref_plot,spc,68);
+
 fspace0 = LD_orthopolynomial_space(bor,meta0);
 fspace0 = fspace0.read_domain_configuration(Sref.make_fspace_config_name(fam_name,bor));
 
@@ -104,19 +107,64 @@ cmat_K_A_YLrst = LD_aux.compute_frobenius_closeness_matrix(Ktns_A_YLrst);
 dmat_K_A_YLrst = 1.0 - cmat_K_A_YLrst;
 
 k_clst = 2:10;
-SC_vec = nan(size(k_clst));
+
+SC_KAYL_vec = nan(size(k_clst));
 for ik = 1:length(k_clst)
     k_med_pckg_i = LD_aux.naive_k_medoid(dmat_K_A_YLrst,k_clst(ik));
     k_silh_i = LD_aux.compute_medoid_silhouette(k_med_pckg_i,dmat_K_A_YLrst);
-    SC_vec(ik) = k_silh_i.silhouette_coeff;
+    SC_KAYL_vec(ik) = k_silh_i.silhouette_coeff;
 end
-k_clst_silhouettes = [k_clst; SC_vec]
+k_clst_KAYL_silhouettes = [k_clst; SC_KAYL_vec]
 
-k_clusters = 3;
-[medoid_pckg,greedy_medoid_pckg,improved_on_greedy] = LD_aux.naive_k_medoid(dmat_K_A_YLrst,k_clusters)
-[icrv_med,ncrv_clst,net_dfro,clst_membership,local_dfro,med2med_dfro] = LD_aux.unpack_medoid_package(medoid_pckg);
+k_clusters_KAYL = 3;
+[medoid_KAYL_pckg,greedy_medoid_KAYL_pckg,improved_on_greedy_KAYL] = LD_aux.naive_k_medoid(dmat_K_A_YLrst,k_clusters_KAYL)
+[~,medoid_KAYL_pckg_detailed] = LD_aux.post_process_medoid_package(medoid_KAYL_pckg,dmat_K_A_YLrst)
 
-[~,medoid_pckg_detailed] = LD_aux.post_process_medoid_package(medoid_pckg,dmat_K_A_YLrst)
+cmat_Y_L = LD_aux.compute_frobenius_closeness_matrix(Ytns_L);
+dmat_Y_L = 1.0 - cmat_Y_L;
+
+SC_YL_vec = nan(size(k_clst));
+for ik = 1:length(k_clst)
+    k_med_pckg_i = LD_aux.naive_k_medoid(dmat_Y_L,k_clst(ik));
+    k_silh_i = LD_aux.compute_medoid_silhouette(k_med_pckg_i,dmat_Y_L);
+    SC_YL_vec(ik) = k_silh_i.silhouette_coeff;
+end
+k_clst_YL_silhouettes = [k_clst; SC_YL_vec]
+
+k_clusters_YL = k_clusters_KAYL;
+[medoid_YL_pckg,greedy_medoid_YL_pckg,improved_on_greedy_YL] = LD_aux.naive_k_medoid(dmat_Y_L,k_clusters_YL)
+[~,medoid_YL_pckg_detailed] = LD_aux.post_process_medoid_package(medoid_YL_pckg,dmat_Y_L)
+
+[icrv_med,ncrv_clst,net_dfro,clst_membership,local_dfro,med2med_dfro] = LD_aux.unpack_medoid_package(medoid_KAYL_pckg);
+clst_info = LD_aux.get_cluster_info(medoid_KAYL_pckg);
+dmat_check = dmat_K_A_YLrst;
+
+% [icrv_med,ncrv_clst,net_dfro,clst_membership,local_dfro,med2med_dfro] = LD_aux.unpack_medoid_package(medoid_YL_pckg);
+% clst_info = LD_aux.get_cluster_info(medoid_YL_pckg);
+% dmat_check = dmat_Y_L;
+
+iicrv_check1 = 1;
+icrv_check1 = icrv_med(iicrv_check1);
+[~,iicrv_check2] = min(clst_info{iicrv_check1}(2,:));
+% [~,iicrv_check2] = max(clst_info{iicrv_check1}(2,:));
+icrv_check2 = clst_info{iicrv_check1}(1,iicrv_check2);
+[K_check1,K_check2] = deal(Ktns_A_YLrst(:,:,icrv_check1),Ktns_A_YLrst(:,:,icrv_check2));
+% [D_K_check12,C_K_check12] = LD_aux.compute_Zassenhaus_bases(K_check1,K_check2)
+% [R_K_check12,P_K_check12] = LD_aux.compute_Zassenhaus_bases(K_check1,K_check2)
+% [zas_pckg1,zas_pckg2] = LD_aux.compute_Zassenhaus_bases(K_check1,K_check2)
+% rank([K_check1,K_check2])
+% cond([K_check1,K_check2])
+
+% U_check = [1 -1 0 1; 0 0 1 -1]';
+% W_check = [5 0 -3 3; 0 5 -3 -2]';
+% % X_check = [U_check', U_check'; W_check', zeros(size(W_check))'];
+% % X_check = [U_check', U_check'; U_check', U_check'; W_check', zeros(size(W_check))'];
+% % X_check = [U_check', U_check'; zeros(size(U_check))', zeros(size(U_check))' ; W_check', zeros(size(W_check))'];
+% X_check = [U_check', U_check'; W_check', zeros(size(W_check))'; zeros(2,2*size(U_check,1))];
+% [~,U_X_check] = lu(X_check)
+% % R_X_check = rref(X_check)
+
+% return
 
 %%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -165,6 +213,8 @@ hold(aux_fig1.axs, 'on');
 box(aux_fig1.axs,'on');
 axs_aux1 = aux_fig1.axs;
 for i = 1:nmed_plot
-    histogram(axs_aux1(i), dmat_K_A_YLrst(:,icrv_med_plot(i)), 'FaceColor', col_med_plot_mat(i,:));
+    % histogram(axs_aux1(i), dmat_K_A_YLrst(:,icrv_med_plot(i)), 'FaceColor', col_med_plot_mat(i,:));
+    histogram(axs_aux1(i), dmat_check(:,icrv_med_plot(i)), 'FaceColor', col_med_plot_mat(i,:));
 end
-set(axs_aux1,'XLim',[0,max(dmat_K_A_YLrst(:))])
+% set(axs_aux1,'XLim',[0,max(dmat_K_A_YLrst(:))])
+set(axs_aux1,'XLim',[0,max(dmat_check(:))])

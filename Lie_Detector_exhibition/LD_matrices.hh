@@ -8,13 +8,72 @@ struct LD_L_matrix: public LD_matrix
   LD_L_matrix(function_space &fspc_,LD_observations_set &Sset_): LD_matrix(fspc_,Sset_,1,fspc_.perm_len) {}
   ~LD_L_matrix() {}
 
-  template <class TBSIS> void populate_L_matrix(TBSIS **bases_)
+  static void eval_L_signal_strength(LD_observations_set &Sobs_,LD_Theta_stack &stack_,function_space &fspc_,double tol_=1e-13,bool verbose_=true)
+  {
+    const int ncrv = stack_.nspc,
+              npts_max = Sobs_.max_npts_curve(),
+              ncol_use = stack_.nrow_use;
+    bool satisfy_crvmat[ncrv][ncol_use];
+    int * const nsat_theta = stack_.nsat_theta_spcvec,
+        ** const isat_theta = stack_.isat_theta_spcmat;
+    double *** const Theta_tns = stack_.Theta_tns;
+
+    ode_solcurve ** const crvs = Sobs_.curves;
+    int npts_evl = 0;
+    double t0 = LD_threads::tic();
+    #pragma omp parallel reduction(+:npts_evl)
+    {
+      lamda_map_eval_workspace wkspc_t(ncol_use,fspc_,npts_max);
+      bool  ** const Sat_t = wkspc_t.satisfy_flags_mat;
+      #pragma omp for
+      for (size_t icrv = 0; icrv < ncrv; icrv++)
+      {
+        ode_solcurve &crv_i = *(crvs[icrv]);
+        ode_solution ** const sols_i = crv_i.sols;
+
+        const int nobs_crvi = crv_i.nobs;
+        bool * const sat_crvi = satisfy_crvmat[icrv];
+
+        npts_evl += nobs_crvi;
+        wkspc_t.Theta = Theta_tns[icrv];
+        LD_linalg::fill_vec<bool>(sat_crvi,ncol_use,false);
+
+        int nsat_crvi = 0;
+        for (size_t jsol = 0; jsol < nobs_crvi; jsol++)
+        {
+          if (Lie_detector::eval_lamfunc_signal_strength(Sat_t[jsol],*(sols_i[jsol]),wkspc_t,fspc_,tol_) != ncol_use)
+          {
+            nsat_crvi = 0;
+            for (size_t ith = 0; ith < ncol_use; ith++)
+              nsat_crvi += (int)(sat_crvi[ith] = (sat_crvi[ith]) || (Sat_t[jsol][ith]));
+          }
+          else LD_linalg::fill_vec<bool>(sat_crvi,nsat_crvi=ncol_use,true);
+          if (nsat_crvi==ncol_use) break;
+        }
+        if (nsat_theta[icrv] = nsat_crvi)
+        {
+          for (size_t ith = 0, isat = 0; ith < ncol_use; ith++)
+            if (sat_crvi[ith]) isat_theta[icrv][isat++] = ith;
+        }
+        else LD_linalg::fill_vec<int>(isat_theta[icrv],ncol_use,-1);
+      }
+    }
+    double work_time = LD_threads::toc(t0);
+    if (verbose_)
+    {
+      printf("(LD_L_matrix::eval_L_signal_strength) evaluated %d conds. (sols) over %d bases (%d x %d) in %.4f seconds (%d threads)\n",
+        npts_evl,
+        ncrv,ncol_use,stack_.ndof_use,
+        work_time,LD_threads::numthreads());
+    }
+  }
+
+  template <class BSIS> void populate_L_matrix(BSIS **bases_)
   {
     LD_linalg::fill_vec<double>(Avec,net_eles,0.0);
     #pragma omp parallel
     {
-      int tid = LD_threads::thread_id();
-      TBSIS &basis_t = *(bases_[tid]);
+      BSIS &basis_t = *(bases_[LD_threads::thread_id()]);
       partial_chunk &chunk_t = basis_t.partials;
       #pragma omp for
       for (size_t iobs = 0; iobs < nobs_full; iobs++)
@@ -51,13 +110,76 @@ struct LD_R_matrix: public LD_matrix
   LD_R_matrix(function_space &fspc_,LD_observations_set &Sset_): LD_matrix(fspc_,Sset_,fspc_.ndep*fspc_.eor) {}
   ~LD_R_matrix() {}
 
-  template <class TBSIS> void populate_R_matrix(TBSIS **bases_)
+  template <class BSIS> static void eval_Rn_condition(LD_observations_set &Sobs_,LD_Theta_stack &stack_,BSIS **bases_,double tol_=1e-3,bool verbose_=true)
+  {
+    const int eor = Sobs_.eor,
+              ncrv = stack_.nspc,
+              npts_max = Sobs_.max_npts_curve(),
+              ncol_use = stack_.nrow_use;
+    bool satisfy_crvmat[ncrv][ncol_use];
+    int * const nsat_theta = stack_.nsat_theta_spcvec,
+        ** const isat_theta = stack_.isat_theta_spcmat;
+    double *** const Theta_tns = stack_.Theta_tns;
+
+    ode_solcurve ** const crvs = Sobs_.curves;
+
+    int npts_evl = 0;
+    double t0 = LD_threads::tic();
+    #pragma omp parallel reduction(+:npts_evl)
+    {
+      BSIS &bsis_t = *(bases_[LD_threads::thread_id()]);
+      Rn_cond_eval_workspace wkspc_t(ncol_use,Sobs_.meta,1);
+      bool * const sat_t = wkspc_t.satisfy_flags;
+      #pragma omp for
+      for (size_t icrv = 0; icrv < ncrv; icrv++)
+      {
+        ode_solcurve &crv_i = *(crvs[icrv]);
+        ode_solution ** const sols_i = crv_i.sols;
+
+        const int nobs_crvi = crv_i.nobs;
+        bool * const sat_crvi = satisfy_crvmat[icrv];
+
+        npts_evl += nobs_crvi;
+        wkspc_t.Theta = Theta_tns[icrv];
+        LD_linalg::fill_vec<bool>(sat_crvi,ncol_use,true);
+
+        int nsat_crvi = 0;
+        for (size_t jsol = 0; jsol < nobs_crvi; jsol++)
+        {
+          if (Lie_detector::eval_Theta_Rn_condition(sat_t,*(sols_i[jsol]),wkspc_t,bsis_t,eor,tol_))
+          {
+            nsat_crvi = 0;
+            for (size_t ith = 0; ith < ncol_use; ith++)
+              nsat_crvi += (int)(sat_crvi[ith] = (sat_crvi[ith])&&(sat_t[ith]));
+          }
+          else LD_linalg::fill_vec<bool>(sat_crvi,ncol_use,nsat_crvi = 0);
+          if (!nsat_crvi) break;
+        }
+        if (nsat_theta[icrv] = nsat_crvi)
+        {
+          for (size_t ith = 0, isat = 0; ith < ncol_use; ith++)
+            if (sat_crvi[ith]) isat_theta[icrv][isat++] = ith;
+        }
+        else LD_linalg::fill_vec<int>(isat_theta[icrv],ncol_use,-1);
+      }
+    }
+    double work_time = LD_threads::toc(t0);
+    if (verbose_)
+    {
+      printf("(LD_R_matrix::eval_Rn_condition) evaluated %d (%d sols, n=%d, q=%d) conds. over %d bases (%d x %d) in %.4f seconds (%d threads)\n",
+        npts_evl*eor*Sobs_.ndep,
+        npts_evl,eor,Sobs_.ndep,
+        ncrv,ncol_use,stack_.ndof_use,
+        work_time,LD_threads::numthreads());
+    }
+  }
+
+  template <class BSIS> void populate_R_matrix(BSIS **bases_)
   {
     LD_linalg::fill_vec<double>(Avec,net_eles,0.0);
     #pragma omp parallel
     {
-      int tid = LD_threads::thread_id();
-      TBSIS &basis_t = *(bases_[tid]);
+      BSIS &basis_t = *(bases_[LD_threads::thread_id()]);
       partial_chunk &chunk_t = basis_t.partials;
       #pragma omp for
       for (size_t iobs = 0; iobs < nobs_full; iobs++)
@@ -122,13 +244,12 @@ struct LD_O_matrix: public LD_matrix
   LD_O_matrix(function_space &fspc_,LD_observations_set &Sset_): LD_matrix(fspc_,Sset_,fspc_.ndep) {}
   ~LD_O_matrix() {}
 
-  template <class TBSIS> void populate_O_matrix(TBSIS **bases_)
+  template <class BSIS> void populate_O_matrix(BSIS **bases_)
   {
     LD_linalg::fill_vec<double>(Avec,net_eles,0.0);
     #pragma omp parallel
     {
-      int tid = LD_threads::thread_id();
-      TBSIS &basis_t = *(bases_[tid]);
+      BSIS &basis_t = *(bases_[LD_threads::thread_id()]);
       partial_chunk &chunk_t = basis_t.partials;
       #pragma omp for
       for (size_t iobs = 0; iobs < nobs_full; iobs++)
@@ -209,13 +330,12 @@ struct LD_P_matrix: public LD_matrix
   LD_P_matrix(function_space &fspc_,LD_observations_set &Sset_): LD_matrix(fspc_,Sset_,fspc_.ndep) {}
   ~LD_P_matrix() {}
 
-  template <class TBSIS> void populate_P_matrix(TBSIS **bases_)
+  template <class BSIS> void populate_P_matrix(BSIS **bases_)
   {
     LD_linalg::fill_vec<double>(Avec,net_eles,0.0);
     #pragma omp parallel
     {
-      int tid = LD_threads::thread_id();
-      TBSIS &basis_t = *(bases_[tid]);
+      BSIS &basis_t = *(bases_[LD_threads::thread_id()]);
       partial_chunk &chunk_t = basis_t.partials;
       #pragma omp for
       for (size_t iobs = 0; iobs < nobs_full; iobs++)
@@ -271,13 +391,12 @@ struct LD_Q_matrix: public LD_matrix
   LD_Q_matrix(function_space &fspc_,LD_observations_set &Sset_): LD_matrix(fspc_,Sset_,fspc_.ndep*(fspc_.eor+1)) {}
   ~LD_Q_matrix() {}
 
-  template <class TBSIS> void populate_Q_matrix(TBSIS **bases_)
+  template <class BSIS> void populate_Q_matrix(BSIS **bases_)
   {
     LD_linalg::fill_vec<double>(Avec,net_eles,0.0);
     #pragma omp parallel
     {
-      int tid = LD_threads::thread_id();
-      TBSIS &basis_t = *(bases_[tid]);
+      BSIS &basis_t = *(bases_[LD_threads::thread_id()]);
       partial_chunk &chunk_t = basis_t.partials;
       #pragma omp for
       for (size_t iobs = 0; iobs < nobs_full; iobs++)
@@ -349,13 +468,12 @@ struct LD_G_matrix: public LD_matrix
   LD_G_matrix(function_space &fspc_,LD_observations_set &Sset_): LD_matrix(fspc_,Sset_,fspc_.ndep) {}
   ~LD_G_matrix() {}
 
-  template <class TBSIS> void populate_G_matrix(TBSIS **bases_)
+  template <class BSIS> void populate_G_matrix(BSIS **bases_)
   {
     LD_linalg::fill_vec<double>(Avec,net_eles,0.0);
     #pragma omp parallel
     {
-      int tid = LD_threads::thread_id();
-      TBSIS &basis_t = *(bases_[tid]);
+      BSIS &basis_t = *(bases_[LD_threads::thread_id()]);
       partial_chunk &chunk_t = basis_t.partials;
       #pragma omp for
       for (size_t iobs = 0; iobs < nobs_full; iobs++)

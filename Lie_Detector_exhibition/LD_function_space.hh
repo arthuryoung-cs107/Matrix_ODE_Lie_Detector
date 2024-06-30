@@ -369,6 +369,30 @@ class function_space_basis: public function_space_element
             *** const C_x = partials.C_x,
             ** const C_u = partials.C_u;
 
+  static void v_eval(partial_chunk &chunk_, double *v_, double *theta_, function_space &fspc_)
+  {
+    int eor = fspc_.eor,
+        ndep = fspc_.ndep,
+        perm_len = fspc_.perm_len,
+        ndxu = eor*ndep;
+    double  &vx = v_[0],
+            * const vu = v_+1,
+            * const vdxu = vu + ndep,
+            ** const Jac_mat = chunk_.Jac_mat,
+            *** const C_x = chunk_.C_x,
+            ** const C_u = chunk_.C_u;
+    for (size_t i = 0; i < fspc_.ndim; i++) v_[i] = 0.0;
+    for (size_t iL = 0; iL < perm_len; iL++)
+    {
+      vx += theta_[iL]*Jac_mat[0][iL];
+      for (size_t idxu = 0; idxu < ndxu; idxu++) vdxu[idxu] += theta_[iL]*C_x[iL][0][idxu];
+      for (size_t idep = 0, ith = iL + perm_len; idep < ndep; idep++, ith+=perm_len)
+      {
+        vu[idep] += theta_[ith]*Jac_mat[idep+1][iL];
+        for (size_t ider = 0, idxu = idep; ider < eor; ider++, idxu+=ndep) vdxu[idxu] += theta_[ith]*C_u[iL][ider];
+      }
+    }
+  }
   void v_eval(double *s_, double *v_);
   void v_eval(double *s_,double *v_,double *theta_);
   inline void fill_partial_chunk(double *s_)
