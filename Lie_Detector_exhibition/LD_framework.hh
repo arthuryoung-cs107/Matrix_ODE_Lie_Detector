@@ -198,43 +198,58 @@ class LD_Theta_space
   const bool data_owner;
   const int ndof_full;
   int * const Theta_dims,
-      &nrow_use = Theta_dims[0],
-      &ndof_use = Theta_dims[1];
-  double  ** const Theta;
+      * const inds_Theta;
+  double  ** const Theta_data;
 
   public:
 
     LD_Theta_space(int ndof_): data_owner(true), ndof_full(ndof_),
-      Theta_dims(new int[2]), Theta(Tmatrix<double>(ndof_,ndof_)) {nrow_use=ndof_use=ndof_;}
-    LD_Theta_space(int ndof_,int *Theta_dims_,double **Theta_): data_owner(false), ndof_full(ndof_),
-      Theta_dims(Theta_dims_), Theta(Theta_) {}
-    LD_Theta_space(int ndof_,int *Theta_dims_,double **Theta_,int nrow_use_,int ndof_use_):
-      LD_Theta_space(ndof_,Theta_dims_,Theta_) {nrow_use=ndof_use=ndof_;}
-    ~LD_Theta_space() {if (data_owner) {delete [] Theta_dims; free_Tmatrix<double>(Theta);}}
-
+      Theta_dims(new int[2]), inds_Theta(new int[ndof_]), Theta_data(Tmatrix<double>(ndof_,ndof_)), Theta(new double*[ndof_])
+      {nrow_use=ndof_use=ndof_; for (size_t i = 0; i < ndof_; i++) Theta[i] = Theta_data[inds_Theta[i] = i];}
+    LD_Theta_space(int ndof_,int *Theta_dims_,int *inds_Theta_,double **Theta_data_): data_owner(false), ndof_full(ndof_),
+      Theta_dims(Theta_dims_), inds_Theta(inds_Theta_), Theta_data(Theta_data_),
+      Theta(new double*[ndof_]) {for (size_t i = 0; i < ndof_; i++) Theta[i] = Theta_data[i];}
+    ~LD_Theta_space()
+    {
+      if (data_owner) {delete [] Theta_dims; delete [] inds_Theta; free_Tmatrix<double>(Theta_data);}
+      delete [] Theta;
+    }
+    int &nrow_use = Theta_dims[0],
+        &ndof_use = Theta_dims[1];
+    double ** const Theta;
 };
 
 class LD_Theta_stack
 {
   int ** const Theta_dim_mat;
+  double  *** const Theta_data_tns;
 
   public:
 
     LD_Theta_stack(int nspc_,int ndof_): nspc(nspc_), ndof_full(ndof_), nrow_use(ndof_), ndof_use(ndof_), Theta_dim_mat(Tmatrix<int>(nspc_,2)),
-      nsat_theta_spcvec(new int[nspc_]), isat_theta_spcmat(Tmatrix<int>(nspc_,ndof_)),
-      Theta_tns(T3tensor<double>(nspc_,ndof_,ndof_)), Theta_spaces(new LD_Theta_space*[nspc_])
-      {for (size_t i = 0; i < nspc; i++) Theta_spaces[i] = new LD_Theta_space(ndof_full,Theta_dim_mat[i],Theta_tns[i],nrow_use,ndof_use);}
+      ntheta_spcvec(new int[nspc_]), itheta_spcmat(Tmatrix<int>(nspc_,ndof_)),
+      Theta_data_tns(T3tensor<double>(nspc_,ndof_,ndof_)), Theta_tns(new double**[nspc_]),
+      Theta_spaces(new LD_Theta_space*[nspc_])
+    {
+      for (size_t i = 0; i < nspc; i++)
+      {
+        Theta_dim_mat[i][0] = Theta_dim_mat[i][1] = ndof_;
+        LD_linalg::fill_vec_012<int>(itheta_spcmat[i],ntheta_spcvec[i]=ndof_);
+        Theta_spaces[i] = new LD_Theta_space(ndof_full,Theta_dim_mat[i],itheta_spcmat[i],Theta_data_tns[i]);
+        Theta_tns[i] = Theta_spaces[i]->Theta;
+      }
+    }
     ~LD_Theta_stack()
     {
       for (size_t i = 0; i < nspc; i++) delete Theta_spaces[i];
-      delete [] Theta_spaces;
-      free_T3tensor<double>(Theta_tns);
-      delete [] nsat_theta_spcvec;
-      free_Tmatrix<int>(isat_theta_spcmat);
+      delete [] Theta_spaces; delete [] Theta_tns;
+      free_T3tensor<double>(Theta_data_tns);
+      delete [] ntheta_spcvec;
+      free_Tmatrix<int>(itheta_spcmat);
       free_Tmatrix<int>(Theta_dim_mat);
     }
 
-    inline void load_Theta_tns(double ***VTtns_)
+    inline void load_Theta_data_tns(double ***VTtns_)
     {
       for (size_t i = 0; i < nspc; i++)
         for (size_t j = 0; j < nrow_use; j++)
@@ -246,26 +261,36 @@ class LD_Theta_stack
               ndof_full;
     int nrow_use,
         ndof_use,
-        * const nsat_theta_spcvec,
-        ** const isat_theta_spcmat;
+        * const ntheta_spcvec,
+        ** const itheta_spcmat;
     double *** const Theta_tns;
     LD_Theta_space ** const Theta_spaces;
+
+    inline void set_Thetas(int ndof_use_=0)
+    {
+      ndof_use = (ndof_use_)?(ndof_use_):(ndof_full);
+      for (size_t i = 0; i < nspc; i++)
+      {
+        Theta_spaces[i]->nrow_use = ntheta_spcvec[i]; Theta_spaces[i]->ndof_use = ndof_use;
+        for (size_t j = 0; j < ntheta_spcvec[i]; j++) Theta_tns[i][j] = Theta_data_tns[i][itheta_spcmat[i][j]];
+      }
+    }
 
     inline void print_satisfactory_details(const char name_[])
     {
       printf("(LD_Theta_stack::print_satisfactory_details) %s isat_theta\n", name_);
       for (size_t ispc = 0; ispc < nspc; ispc++)
       {
-        printf("spc %d (nsat = %d): ", ispc, nsat_theta_spcvec[ispc]);
-        for (size_t isat = 0; isat < nsat_theta_spcvec[ispc]; isat++) printf("%d ", isat_theta_spcmat[ispc][isat]);
+        printf("spc %d (nsat = %d): ", ispc, ntheta_spcvec[ispc]);
+        for (size_t isat = 0; isat < ntheta_spcvec[ispc]; isat++) printf("%d ", itheta_spcmat[ispc][isat]);
         printf("\n");
       }
       char name_buf[strlen(name_) + 20];
       sprintf(name_buf,"  %s nsat_theta", name_);
-      LD_linalg::print_xT(name_buf,nsat_theta_spcvec,nspc);
+      LD_linalg::print_xT(name_buf,ntheta_spcvec,nspc);
       printf("  nrow_use = %d, ndof_use = %d, min nsat = %d, max nsat = %d \n",
                 nrow_use, ndof_use,
-                LD_linalg::min_val<int>(nsat_theta_spcvec,nspc), LD_linalg::max_val<int>(nsat_theta_spcvec,nspc));
+                LD_linalg::min_val<int>(ntheta_spcvec,nspc), LD_linalg::max_val<int>(ntheta_spcvec,nspc));
     }
 };
 
@@ -324,6 +349,7 @@ struct Lie_detector
             * const lamvec = wkspc_.lamvec;
 
     fspc_.lamvec_eval(sol_.pts,lamvec,wkspc_.vxu_wkspc);
+    LD_linalg::scale_vec<double>(lamvec,perm_len,1.0/(LD_linalg::norm_l2(lamvec,perm_len)));
 
     int n_success = 0;
     for (size_t ith = 0; ith < ntheta; ith++)

@@ -14,8 +14,8 @@ struct LD_L_matrix: public LD_matrix
               npts_max = Sobs_.max_npts_curve(),
               ncol_use = stack_.nrow_use;
     bool satisfy_crvmat[ncrv][ncol_use];
-    int * const nsat_theta = stack_.nsat_theta_spcvec,
-        ** const isat_theta = stack_.isat_theta_spcmat;
+    int * const nsat_theta = stack_.ntheta_spcvec,
+        ** const isat_theta = stack_.itheta_spcmat;
     double *** const Theta_tns = stack_.Theta_tns;
 
     ode_solcurve ** const crvs = Sobs_.curves;
@@ -114,11 +114,10 @@ struct LD_R_matrix: public LD_matrix
   {
     const int eor = Sobs_.eor,
               ncrv = stack_.nspc,
-              npts_max = Sobs_.max_npts_curve(),
               ncol_use = stack_.nrow_use;
     bool satisfy_crvmat[ncrv][ncol_use];
-    int * const nsat_theta = stack_.nsat_theta_spcvec,
-        ** const isat_theta = stack_.isat_theta_spcmat;
+    int * const nsat_theta = stack_.ntheta_spcvec,
+        ** const isat_theta = stack_.itheta_spcmat;
     double *** const Theta_tns = stack_.Theta_tns;
 
     ode_solcurve ** const crvs = Sobs_.curves;
@@ -468,6 +467,68 @@ struct LD_G_matrix: public LD_matrix
   LD_G_matrix(function_space &fspc_,LD_observations_set &Sset_): LD_matrix(fspc_,Sset_,fspc_.ndep) {}
   ~LD_G_matrix() {}
 
+  template <class BSIS> static void eval_inf_criterion(LD_observations_set &Sobs_,LD_Theta_stack &stack_,BSIS **bases_,double tol_=1e-3,bool verbose_=true)
+  {
+    const int ncrv = stack_.nspc,
+              ncol_use = stack_.nrow_use;
+    bool satisfy_crvmat[ncrv][ncol_use];
+    int * const nsat_theta = stack_.ntheta_spcvec,
+        ** const isat_theta = stack_.itheta_spcmat;
+    double *** const Theta_tns = stack_.Theta_tns;
+
+    ode_solcurve ** const crvs = Sobs_.curves;
+
+    int npts_evl = 0;
+    double t0 = LD_threads::tic();
+    #pragma omp parallel reduction(+:npts_evl)
+    {
+      BSIS &bsis_t = *(bases_[LD_threads::thread_id()]);
+      inf_crit_eval_workspace wkspc_t(ncol_use,Sobs_.meta,1);
+      bool * const sat_t = wkspc_t.satisfy_flags;
+      #pragma omp for
+      for (size_t icrv = 0; icrv < ncrv; icrv++)
+      {
+        ode_solcurve &crv_i = *(crvs[icrv]);
+        ode_solution ** const sols_i = crv_i.sols;
+
+        const int nobs_crvi = crv_i.nobs;
+        bool * const sat_crvi = satisfy_crvmat[icrv];
+
+        npts_evl += nobs_crvi;
+        wkspc_t.Theta = Theta_tns[icrv];
+        LD_linalg::fill_vec<bool>(sat_crvi,ncol_use,true);
+
+        int nsat_crvi = 0;
+        for (size_t jsol = 0; jsol < nobs_crvi; jsol++)
+        {
+          if (Lie_detector::eval_Theta_inf_criterion(sat_t,*(sols_i[jsol]),wkspc_t,bsis_t,tol_))
+          {
+            nsat_crvi = 0;
+            for (size_t ith = 0; ith < ncol_use; ith++)
+              nsat_crvi += (int)(sat_crvi[ith] = (sat_crvi[ith])&&(sat_t[ith]));
+          }
+          else LD_linalg::fill_vec<bool>(sat_crvi,ncol_use,nsat_crvi = 0);
+          if (!nsat_crvi) break;
+        }
+        if (nsat_theta[icrv] = nsat_crvi)
+        {
+          for (size_t ith = 0, isat = 0; ith < ncol_use; ith++)
+            if (sat_crvi[ith]) isat_theta[icrv][isat++] = ith;
+        }
+        else LD_linalg::fill_vec<int>(isat_theta[icrv],ncol_use,-1);
+      }
+    }
+    double work_time = LD_threads::toc(t0);
+    if (verbose_)
+    {
+      printf("(LD_G_matrix::eval_inf_criterion) evaluated %d (%d sols, q=%d) conds. over %d bases (%d x %d) in %.4f seconds (%d threads)\n",
+        npts_evl*Sobs_.ndep,
+        npts_evl,Sobs_.ndep,
+        ncrv,ncol_use,stack_.ndof_use,
+        work_time,LD_threads::numthreads());
+    }
+  }
+
   template <class BSIS> void populate_G_matrix(BSIS **bases_)
   {
     LD_linalg::fill_vec<double>(Avec,net_eles,0.0);
@@ -489,9 +550,10 @@ struct LD_G_matrix: public LD_matrix
   {
     for (size_t idep = 0; idep < ndep; idep++)
     {
-      const double JFs_i_mag = LD_linalg::norm_l2(sol_.JFs[idep],ndim);
+      // const double normalizer_i = LD_linalg::norm_l2(sol_.JFs[idep],ndim);
+      const double normalizer_i = LD_linalg::norm_l2(Gmat_i_[idep],ndof_tun);
       for (size_t icol = 0; icol < ndof_tun; icol++)
-        Gmat_i_[idep][icol] /= JFs_i_mag;
+        Gmat_i_[idep][icol] /= normalizer_i;
     }
   }
 

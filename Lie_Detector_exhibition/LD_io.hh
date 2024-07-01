@@ -124,7 +124,15 @@ class LD_name_buffer
         ?(name_file(name_)) // try again
         :(check_bad_encode("name_file"));
     }
+    inline char * name_file(const char name_[], const char suffix_[])
+    {
+      check_output_names();
+      return (not_enough_space(check = snprintf(name,len_buf,"%s/%s%s.%s",dir_name,name_,suffix_,dat_suf)))
+        ?(name_file(name_)) // try again
+        :(check_bad_encode("name_file"));
+    }
     inline char * name_file(LD_name_buffer &in_) {return name_file(in_.name);}
+    inline char * name_file(LD_name_buffer &in0_,const char in1_[]) {return name_file(in0_.name,in1_);}
 
     inline char * name_svd_file(const char dat_[], const char fam_[], const char a_[], const char suf_[] = "mat")
     {

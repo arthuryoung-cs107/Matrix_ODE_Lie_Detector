@@ -78,12 +78,17 @@ struct LD_linalg
     return val_out;
   }
 
+  template <typename T> static void scale_vec(T *vec_,int len_,T val_)
+    {for (size_t i = 0; i < len_; i++) vec_[i] *= val_;}
+
   template <typename T> static void copy_vec(T *out_, T *in_, int len_)
     {for (size_t i = 0; i < len_; i++) out_[i] = in_[i];}
 
   template <typename T> static void fill_vec(T *out_, int len_, T val_)
     {for (size_t i = 0; i < len_; i++) out_[i] = val_;}
-
+  template <typename T> static void fill_vec_012(T *vec_, int len_, T offset_=0)
+    {for (int i = 0; i < len_; i++) vec_[i] = ((T)(i)) + offset_;}
+    
   template <typename T> static void sort_vec_inc(T *vec_, int len_, int &ind_m_)
   {
     if (len_>1)
