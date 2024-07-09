@@ -21,8 +21,9 @@ LD_svd_file::LD_svd_file(const char name_[])
 }
 
 LD_matrix_svd_result::LD_matrix_svd_result(int ncrvs_,int ncols_,int ncol_use_):
+  V_bndle(LD_vector_bundle(ncrvs_,ncols_)),
   ncrvs(ncrvs_), ncols(ncols_), ncol_use((ncol_use_)?(ncol_use_):(ncols_)),
-  rank_vec(new int[ncrvs_]), Smat(Tmatrix<double>(ncrvs_,ncols_)), VTtns(T3tensor<double>(ncrvs_,ncols_,ncols_)) {}
+  rank_vec(new int[ncrvs_]), Smat(Tmatrix<double>(ncrvs_,ncols_)) {}
 LD_matrix_svd_result::LD_matrix_svd_result(LD_svd_file svdfile_):
   LD_matrix_svd_result(svdfile_.ncrvs_in,svdfile_.ncols_in,svdfile_.ncol_use_in)
 {
@@ -40,6 +41,87 @@ LD_matrix_svd_result::LD_matrix_svd_result(LD_svd_file svdfile_):
       memcpy(Smat[icrv],svdfile_.Smat_in[icrv],col_chunk_len);
       for (size_t icol = 0; icol < ncol_use; icol++) memcpy(VTtns[icrv][icol],svdfile_.VTtns_in[icrv][icol],col_chunk_len);
     }
+}
+
+void LD_alternate_svd_result::compute_restricted_curve_svds(LD_matrix &Amat_,LD_matrix_svd_result &Lsvd_,int nrows_,int rho_L_,bool verbose_)
+{
+  ncol_use = (nvar = Amat_.nvar)*(rho_L = (rho_L_)?(rho_L_):(LD_linalg::min_T<int>(Lsvd_.min_rank(),(ncol_L = Lsvd_.ncols)-1)));
+  double  **** const Attns = Amat_.Attns,
+          *** const VTtns_L = Lsvd_.VTtns,
+          t0 = LD_threads::tic();
+  #pragma omp parallel
+  {
+    LD_SVD_space svd_t(nrows_,ncol_use);
+    gsl_matrix * const U_gsl_t = svd_t.U_gsl;
+    #pragma omp for
+    for (size_t icrv = 0; icrv < ncrvs; icrv++)
+    {
+      fill_AY_mat_icrv(U_gsl_t,Attns[icrv][0],VTtns_L[icrv],nrows_);
+      svd_t.decompose_loaded_U();
+      rank_vec[icrv] = svd_t.unpack_rank_s_VT(Smat[icrv],VTtns[icrv]);
+      fill_Y_VAY_mat_icrv(VTtns_alt[icrv],VTtns_L[icrv],VTtns[icrv]);
+    }
+  }
+  double work_time = LD_threads::toc(t0);
+  if (verbose_)
+    printf("(LD_alternate_svd_result::compute_restricted_curve_svds) computed %d svds (%d x %d) in %.4f seconds (%d threads)\n",
+      ncrvs,nrows_,ncol_use,work_time,LD_threads::numthreads());
+}
+LD_matrix * LD_alternate_svd_result::make_AYmat_compute_restricted_curve_svds(LD_matrix &Amat_,LD_matrix_svd_result &Lsvd_,int nrows_,int rho_L_,bool verbose_)
+{
+  ncol_use = (nvar = Amat_.nvar)*(rho_L = (rho_L_)?(rho_L_):(LD_linalg::min_T<int>(Lsvd_.min_rank(),(ncol_L = Lsvd_.ncols)-1)));
+  LD_matrix * AYmat = new LD_matrix(Amat_.fspc,Amat_.Sset,Amat_.dim_cnstr,ncol_use);
+  double  **** const AYttns = AYmat->Attns,
+          **** const Attns = Amat_.Attns,
+          *** const VTtns_L = Lsvd_.VTtns,
+          t0 = LD_threads::tic();
+  #pragma omp parallel
+  {
+    LD_SVD_space svd_t(nrows_,ncol_use);
+    gsl_matrix * const U_gsl_t = svd_t.U_gsl;
+    #pragma omp for
+    for (size_t icrv = 0; icrv < ncrvs; icrv++)
+    {
+      fill_AY_mat_icrv(U_gsl_t,Attns[icrv][0],VTtns_L[icrv],nrows_,AYttns[icrv][0]);
+      svd_t.decompose_loaded_U();
+      rank_vec[icrv] = svd_t.unpack_rank_s_VT(Smat[icrv],VTtns[icrv]);
+      fill_Y_VAY_mat_icrv(VTtns_alt[icrv],VTtns_L[icrv],VTtns[icrv]);
+    }
+  }
+  double work_time = LD_threads::toc(t0);
+  if (verbose_)
+    printf("(LD_alternate_svd_result::make_AYmat_compute_restricted_curve_svds) computed %d svds (%d x %d) in %.4f seconds (%d threads)\n",
+      ncrvs,nrows_,ncol_use,work_time,LD_threads::numthreads());
+  return AYmat;
+}
+void LD_alternate_svd_result::compute_regularized_curve_svds(LD_SVD_space &Bglb_svd,LD_matrix_svd_result &Asvd_,int nrows_B_,int kappa_A_,bool verbose_)
+{
+  const int kappa_A = ncol_use = (kappa_A_)?(kappa_A_):(Asvd_.kappa_def()),
+            rho_A = Asvd_.ncol_use - kappa_A,
+            ncol_B = Bglb_svd.ncols();
+  double  ** const Smat_A = Asvd_.Smat,
+          ** const KBglb = Tmatrix<double>(kappa_A,ncol_B);
+  Bglb_svd.unpack_VT(KBglb,ncol_B-kappa_A);
+
+  double t0 = LD_threads::tic();
+  #pragma omp parallel for
+  for (size_t icrv = 0; icrv < ncrvs; icrv++)
+  {
+    double  ** const KAi = Asvd_.Kmat_crvi(icrv,kappa_A),
+            ** const KAi_T_KB = VTtns[icrv];
+    fill_KA_T_KB(KAi_T_KB,KAi,KBglb,ncol_B);
+    double  * const skAi = Smat_A[icrv] + rho_A,
+            * const sAi_B = Smat[icrv],
+            ** const KB_Ai = VTtns_alt[icrv];
+    rank_vec[icrv] = comp_eff_rank_fill_sAB_KBA(sAi_B,KB_Ai,KAi,KAi_T_KB,skAi,ncol_B);
+  }
+  double  work_time = LD_threads::toc(t0);
+  free_Tmatrix<double>(KBglb);
+
+  if (verbose_)
+    printf("(LD_alternate_svd_result::compute_regularized_curve_svds) computed %d orthogonal transformations (%d x %d) in %.4f seconds (%d threads)\n",
+      ncrvs, ncol_B,kappa_A,
+      work_time, LD_threads::numthreads());
 }
 
 void LD_matrix_svd_result::write_svd_results(const char name_[])

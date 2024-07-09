@@ -393,8 +393,8 @@ class function_space_basis: public function_space_element
       }
     }
   }
-  void v_eval(double *s_, double *v_);
-  void v_eval(double *s_,double *v_,double *theta_);
+  void v_eval(double *s_, double *v_,int eorcap_=0);
+  void v_eval(double *s_,double *v_,double *theta_,int eorcap_=0);
   inline void fill_partial_chunk(double *s_)
   {
     for (size_t i = 0; i < ndof_full; i++)
@@ -427,9 +427,9 @@ class function_space_basis: public function_space_element
 
     coupling_term ** const couples;
 
-    void compute_x_coupling(coupling_term &c0_);
-    void compute_u_coupling(int k_, coupling_term &ckm1_);
-    void compute_u_coupling(int k_, coupling_term &ckm1_, int indep_source_);
+    void compute_x_coupling(coupling_term &c0_,int eorcap_);
+    void compute_u_coupling(int k_, coupling_term &ckm1_,int eorcap_);
+    void compute_u_coupling(int k_, coupling_term &ckm1_,int indep_source_,int eorcap_);
 
     virtual void init_workspace(double *s_) = 0;
     virtual double stage_indep_var(int tord_) = 0;

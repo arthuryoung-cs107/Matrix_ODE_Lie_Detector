@@ -16,6 +16,7 @@ struct ode_solspc_meta
 struct ode_solspc_element
 {
   ode_solspc_element(ode_solspc_meta &meta_): meta(meta_) {}
+  ~ode_solspc_element() {}
 
   ode_solspc_meta &meta;
 

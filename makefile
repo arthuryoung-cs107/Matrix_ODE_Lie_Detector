@@ -1,6 +1,6 @@
 # file names
 
-EXHIB:= LD_ode LD_function_space LD_framework
+EXHIB:= LD_ode LD_function_space LD_parameter_space LD_framework
 EXHIBDEC:= matrix_Lie_detector
 EXHIBGEN:= LD_integrators
 

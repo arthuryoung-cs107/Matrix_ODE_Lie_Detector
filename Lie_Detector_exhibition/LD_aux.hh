@@ -12,6 +12,7 @@
 #include <gsl/gsl_vector.h>
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_randist.h>
+#include <gsl/gsl_linalg.h>
 
 template <class T, class Y> T ** make_evaluation_bases(Y &fspace_, int nbases_=-1)
 {
@@ -88,7 +89,7 @@ struct LD_linalg
     {for (size_t i = 0; i < len_; i++) out_[i] = val_;}
   template <typename T> static void fill_vec_012(T *vec_, int len_, T offset_=0)
     {for (int i = 0; i < len_; i++) vec_[i] = ((T)(i)) + offset_;}
-    
+
   template <typename T> static void sort_vec_inc(T *vec_, int len_, int &ind_m_)
   {
     if (len_>1)
@@ -313,6 +314,14 @@ struct LD_gsl
       for (int j = 0; j < gsl_mat_->size2; j++)
         mat_[i][j] = gsl_matrix_get(gsl_mat_,j,i);
   }
+
+  static void print_A_gsl(const char mat_name_[], gsl_matrix *mat_)
+  {
+    printf("%s (%d x %d)\n", mat_name_, mat_->size1, mat_->size2);
+    for (size_t i = 0; i < mat_->size1; i++)
+      {for (size_t j = 0; j < mat_->size2; j++) printf("%.2e ", gsl_matrix_get(mat_,i,j)); printf("\n");}
+  }
+
 };
 
 struct LD_rng
@@ -339,6 +348,78 @@ struct LD_rng
     {for (size_t i = 0; i < n_; i++) v_[i] = rand_uni(low_,high_);}
   inline void set_vec_rand_gau(double *v_, int n_, double mu_=0.0, double sigma_=1.0)
     {for (size_t i = 0; i < n_; i++) v_[i] = rand_gau(mu_,sigma_);}
+};
+
+struct LD_svd
+{
+  LD_svd(size_t Mmax_, size_t Nmax_): Mmax(LD_linalg::max_T<int>(Mmax_,2)), Nmax(LD_linalg::min_T<int>(Mmax,Nmax_)),
+    Muse(Mmax), Nuse(Nmax),
+    Umat(Tmatrix<double>(Mmax,Nmax)), Vmat(Tmatrix<double>(Nmax,Nmax)), svec(new double[Nmax]), wvec(new double[Nmax]) {}
+  ~LD_svd()
+  {
+    delete [] wvec; delete [] svec;
+    free_Tmatrix<double>(Vmat); free_Tmatrix<double>(Umat);
+  }
+
+  const int Mmax,
+            Nmax;
+  int Muse,
+      Nuse,
+      Iuse,
+      Juse;
+  double  ** const Umat,
+          ** const Vmat,
+          * const svec,
+          * const wvec;
+
+  inline void unpack_svec_VTmat(double *svec_, double **VTmat_)
+  {
+    for (size_t i = 0; i < Nuse; i++) svec_[i] = svec[i];
+    for (size_t i = 0; i < Nuse; i++)
+      for (size_t j = 0; j < Nuse; j++)
+        VTmat_[i][j] = Vmat[j][i];
+  }
+  inline int unpack_rank_svec_VTmat(double *svec_, double **VTmat_)
+  {
+    unpack_svec_VTmat(svec_,VTmat_);
+    const double tol_eps = ((double) Muse)*(LD_linalg::eps(svec_[0]));
+    int rank_out = 0;
+    for (size_t i = 0; i < Nuse; i++)
+      if (svec_[i]>tol_eps) rank_out++;
+      else break;
+    return rank_out;
+  }
+
+  inline void decompose_U(int Muse_=0, int Nuse_=0)
+  {
+    set_use_dims(Muse_,Nuse_);
+    gsl_matrix_view U_gsl = gsl_matrix_view_array(Umat[0],Muse,Nuse),
+                    V_gsl = gsl_matrix_view_array(Vmat[0],Nuse,Nuse);
+    gsl_vector_view s_gsl = gsl_vector_view_array(svec,Nuse),
+                    w_gsl = gsl_vector_view_array(wvec,Nuse);
+    int status_decomp = gsl_linalg_SV_decomp(&(U_gsl.matrix),&(V_gsl.matrix),&(s_gsl.vector),&(w_gsl.vector));
+  }
+
+  inline void init_use_dims() { Muse = Mmax; Nuse = Nmax; }
+  inline void set_use_dims(int Muse_, int Nuse_) {if (Muse_) Muse = Muse_; if (Nuse_) Nuse = Nuse_; verify_use_dims();}
+
+  private:
+
+    inline void verify_use_dims()
+    {
+      // verify adequate space
+      if (!( (0<Muse)&&(Muse<Mmax) )) Muse = Mmax; if (!( (0<Nuse)&&(Nuse<Nmax) )) Nuse = Nmax;
+
+      // verify sub matrix
+      if (Muse>Mmax) Muse = Mmax; if (Nuse>Nmax) Nuse = Nmax;
+
+      // verify thin matrix
+      if (Nuse>Muse) Nuse = Muse;
+
+      if (Nuse==Muse)
+        printf("(LD_svd::verify_use_dims) WARNING - intialized as eigendecomposition (square matrix, %d x %d)\n",Muse,Nuse);
+    }
+
 };
 
 #endif

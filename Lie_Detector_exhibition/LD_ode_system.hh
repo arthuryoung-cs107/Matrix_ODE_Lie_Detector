@@ -321,7 +321,7 @@ class Duffing_ode: public known_ode
     {
       {0.0, 5.0*(2.0*pi_private)/omega},
       {0.0, 4.0*(2.0*pi_private)/omega},
-      {0.0, 6.25*(2.0*pi_private)/omega},
+      {0.0, 6.0*(2.0*pi_private)/omega},
       {0.0, 7.0*(2.0*pi_private)/omega},
       {0.0, 7.5*(2.0*pi_private)/omega}
     };

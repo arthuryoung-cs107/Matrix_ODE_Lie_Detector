@@ -21,8 +21,8 @@ fam_name = 'Chebyshev1';
 % fam_name = 'Legendre';
 
 % bor = 10;
-% bor = 9;
-bor = 8;
+bor = 9;
+% bor = 8;
 % bor = 7;
 % bor = 6;
 % bor = 5;

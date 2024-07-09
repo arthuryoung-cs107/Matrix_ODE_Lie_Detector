@@ -166,8 +166,9 @@ function_space_basis::~function_space_basis()
   delete [] couples;
 }
 
-void function_space_basis::v_eval(double *s_,double *v_,double *theta_)
+void function_space_basis::v_eval(double *s_,double *v_,double *theta_,int eorcap_)
 {
+  const int eorcap = ((eorcap_)&&(eorcap_<eor))?(eorcap_):(eor);
   for (int i = 0; i < ndim; i ++) v_[i] = 0.0; // clear output v eval space
   init_workspace(s_); // precompute powers of variables and derivatives
   coupling_term &c0 = *(couples[0]);
@@ -180,10 +181,10 @@ void function_space_basis::v_eval(double *s_,double *v_,double *theta_)
               Li = Li_x*Li_u;
       for (int ivar = 0, ioffset=0; ivar < nvar; ivar++,ioffset+=perm_len)
         v_[ivar] += ((theta_xu[ivar] = theta_[i_L+ioffset])*Li);
-      stage_coupling(-1.0); compute_x_coupling(c0);
+      stage_coupling(-1.0); compute_x_coupling(c0,eorcap);
 
       for (int idnxu = nvar; idnxu < ndim; idnxu++) v_[idnxu] += theta_xu[0]*v_j[idnxu];
-      stage_coupling(1.0); compute_u_coupling(1,c0);
+      stage_coupling(1.0); compute_u_coupling(1,c0,eorcap);
 
       for (int ider = 1, idnxu = nvar, idnxu_skip = idnxu; ider <= eor; ider++, idnxu_skip+=ndep)
         for (int iu = 1; iu < nvar; iu++, idnxu++)
@@ -192,8 +193,9 @@ void function_space_basis::v_eval(double *s_,double *v_,double *theta_)
   }
 }
 
-void function_space_basis::v_eval(double *s_,double *v_)
+void function_space_basis::v_eval(double *s_,double *v_,int eorcap_)
 {
+  const int eorcap = ((eorcap_)&&(eorcap_<eor))?(eorcap_):(eor);
   for (int i = 0; i < ndim; i ++) v_[i] = 0.0; // clear output v eval space
   init_workspace(s_); // precompute powers of variables and derivatives
   coupling_term &c0 = *(couples[0]);
@@ -210,10 +212,10 @@ void function_space_basis::v_eval(double *s_,double *v_)
 
       if (dof_hot_flags_i[0])
       {
-        stage_coupling(-1.0); compute_x_coupling(c0);
+        stage_coupling(-1.0); compute_x_coupling(c0,eorcap);
         for (int idnxu = nvar; idnxu < ndim; idnxu++) v_[idnxu] += theta_xu[0]*v_j[idnxu];
       }
-      stage_coupling(1.0); compute_u_coupling(1,c0);
+      stage_coupling(1.0); compute_u_coupling(1,c0,eorcap);
       for (int ider = 1, idnxu = nvar, idnxu_skip = idnxu; ider <= eor; ider++, idnxu_skip+=ndep)
         for (int iu = 1; iu < nvar; iu++, idnxu++)
           if (dof_hot_flags_i[iu]) // accumulate in each dimension, scaled by corresponding coeff
@@ -234,12 +236,12 @@ void function_space_basis::fill_partial_chunk_full(double *s_)
               Li = Jac_mat[0][i_L] = Li_x*Li_u;
       for (int ivar = 1; ivar <= ndep; ivar++) Jac_mat[ivar][i_L] = Li;
 
-      stage_coupling(-1.0); compute_x_coupling(c0); // perform dxde couplings
+      stage_coupling(-1.0); compute_x_coupling(c0,eor); // perform dxde couplings
         // accumulate dxde contribution to v, store partial derivative
       for (int idnxu = nvar, iparx = 0; idnxu < ndim; idnxu++, iparx++) C_x[i_L][0][iparx] = v_j[idnxu];
 
       // perform dude couplings
-      stage_coupling(1.0); compute_u_coupling(1,c0);
+      stage_coupling(1.0); compute_u_coupling(1,c0,eor);
       for (int ider = 1, idnxu = nvar, idnxu_skip = idnxu; ider <= eor; ider++, idnxu_skip+=ndep)
         C_u[i_L][ider-1] = v_j[idnxu_skip];
     }
@@ -267,7 +269,7 @@ void function_space_basis::fill_partial_chunk_sparse(double *s_)
       }
       if (indep_i_tun)
       {
-        stage_coupling(-1.0); compute_x_coupling(c0); // perform dxde couplings
+        stage_coupling(-1.0); compute_x_coupling(c0,eor); // perform dxde couplings
         // accumulate dxde contribution to v, store partial derivative
         for (int idnxu = nvar, iparx = 0; idnxu < ndim; idnxu++, iparx++)
           C_x[i_L][0][iparx] = v_j[idnxu];
@@ -275,14 +277,14 @@ void function_space_basis::fill_partial_chunk_sparse(double *s_)
       // perform dude couplings
       if (any_dep_i_tun)
       {
-        stage_coupling(1.0); compute_u_coupling(1,c0);
+        stage_coupling(1.0); compute_u_coupling(1,c0,eor);
         for (int ider = 1, idnxu = nvar, idnxu_skip = idnxu; ider <= eor; ider++, idnxu_skip+=ndep)
           C_u[i_L][ider-1] = v_j[idnxu_skip];
       }
     }
   }
 }
-void function_space_basis::compute_x_coupling(coupling_term &c0_)
+void function_space_basis::compute_x_coupling(coupling_term &c0_,int eorcap_)
 {
   double  ncoeff,
           dLsi,
@@ -291,15 +293,15 @@ void function_space_basis::compute_x_coupling(coupling_term &c0_)
   if (c0_.xderiv_flag)
   {
     double acc =  comp_dx_dnLi(c0_,ncoeff,dLsi);
-    for (int k = 1, iv = nvar; k <= eor; k++) // apply resultant dt L to all orders
+    for (int k = 1, iv = nvar; k <= eorcap_; k++) // apply resultant dt L to all orders
     {
       // apply resultant dt L to each dim (idep) of each order (k)
       for (int idep = 0; idep < ndep; idep++, iv++) // premultiply by corresponding derivative term (k'th derivative of idep'th dep. var.)
         v_j[iv] += acc*s_j[iv]; // accumulate in corresponding dp/de dimension
-      if (k<eor) // if term contributes to k+1 prolongation
+      if (k<eorcap_) // if term contributes to k+1 prolongation
       {
         stage_dx_couple(c0_,*(couples[k]),ncoeff,dLsi); // copy c0_ information regarding 1st derivative wrt t to ck_ coupling
-        compute_u_coupling(k+1,*(couples[k]),k); // pass ck to next order of prolongation
+        compute_u_coupling(k+1,*(couples[k]),k,eorcap_); // pass ck to next order of prolongation
       }
     }
   }
@@ -307,22 +309,22 @@ void function_space_basis::compute_x_coupling(coupling_term &c0_)
     if (c0_.deriv_flags[iu])
     {
       double acc = comp_dui_dnLi(c0_,iu,ncoeff,dLsi,dLy)*s_j[iu+ndep];
-      for (int k = 1, iv = nvar; k <= eor; k++) // apply resultant dt L to all orders
+      for (int k = 1, iv = nvar; k <= eorcap_; k++) // apply resultant dt L to all orders
       {
         // apply resultant dt L to each dim (idep) of each order (k)
         for (int idep = 0; idep < ndep; idep++, iv++) // premultiply by corresponding derivative term (k'th derivative of idep'th dep. var.)
           v_j[iv] += acc*s_j[iv]; // accumulate in corresponding dp/de dimension
-        if (k<eor) // if term contributes to k+1 prolongation
+        if (k<eorcap_) // if term contributes to k+1 prolongation
         {
           stage_du_couple(iu,c0_,*(couples[k]),ncoeff,dLsi,dLy); // copy ckm1_ information regarding freshly computed derivative wrt i'th dep. var. to ck coupling
-          compute_u_coupling(k+1,*(couples[k]),k); // pass ck to next order of prolongation
+          compute_u_coupling(k+1,*(couples[k]),k,eorcap_); // pass ck to next order of prolongation
         }
       }
     }
 }
-void function_space_basis::compute_u_coupling(int k_, coupling_term &ckm1_)
+void function_space_basis::compute_u_coupling(int k_, coupling_term &ckm1_,int eorcap_)
 {
-  bool continue_coupling = k_<eor;
+  bool continue_coupling = k_<eorcap_;
   int k_m1 = k_-1;
   double  ckm1_dnxu_power_product = comp_dnxu_power_product(ckm1_),
           &v_j_dkui = v_j[comp_v_k_start_index(k_)],
@@ -337,7 +339,7 @@ void function_space_basis::compute_u_coupling(int k_, coupling_term &ckm1_)
     if (continue_coupling)
     {
       stage_dx_couple(ckm1_,ck,ncoeff,dLsi); // copy ckm1_ information regarding freshly computed derivative wrt t to ck coupling
-      compute_u_coupling(k_+1,ck); // pass ck to next order of prolongation
+      compute_u_coupling(k_+1,ck,eorcap_); // pass ck to next order of prolongation
     }
   }
   for (int iu = 1; iu <= ndep; iu++)
@@ -347,7 +349,7 @@ void function_space_basis::compute_u_coupling(int k_, coupling_term &ckm1_)
       if (continue_coupling)
       {
         stage_du_couple(iu,ckm1_,ck,ncoeff,dLsi,dLy);
-        compute_u_coupling(k_+1,ck);
+        compute_u_coupling(k_+1,ck,eorcap_);
       }
     }
   // for xp powers, we strictly have polynomial characteristics
@@ -361,13 +363,13 @@ void function_space_basis::compute_u_coupling(int k_, coupling_term &ckm1_)
         if (continue_coupling)
         {
           stage_ddnxu_couple(ind_dnxuj,ckm1_,ck,ncoeff);
-          compute_u_coupling(k_+1,ck);
+          compute_u_coupling(k_+1,ck,eorcap_);
         }
       }
 }
-void function_space_basis::compute_u_coupling(int k_, coupling_term &ckm1_, int indep_source_)
+void function_space_basis::compute_u_coupling(int k_, coupling_term &ckm1_, int indep_source_, int eorcap_)
 {
-  bool continue_coupling = k_<eor;
+  bool continue_coupling = k_<eorcap_;
   int k_m1 = k_-1,
       iv_start = comp_v_k_start_index(k_), // start index of k'th prolongation dimension
       ipre_dnxu_start = 1+(indep_source_*ndep); // start index of premultiplied derivative dep. var. terms
@@ -385,7 +387,7 @@ void function_space_basis::compute_u_coupling(int k_, coupling_term &ckm1_, int 
     if (continue_coupling)
     {
       stage_dx_couple(ckm1_,ck,ncoeff,dLsi); // copy ckm1_ information regarding freshly computed derivative wrt t to ck coupling
-      compute_u_coupling(k_+1,ck,indep_source_); // pass ck to next order of prolongation
+      compute_u_coupling(k_+1,ck,indep_source_,eorcap_); // pass ck to next order of prolongation
     }
   }
   for (int iu = 1; iu <= ndep; iu++)
@@ -397,7 +399,7 @@ void function_space_basis::compute_u_coupling(int k_, coupling_term &ckm1_, int 
       if (continue_coupling)
       {
         stage_du_couple(iu,ckm1_,ck,ncoeff,dLsi,dLy); // copy ckm1_ information regarding freshly computed derivative wrt i'th dep. var. to ck coupling
-        compute_u_coupling(k_+1,ck,indep_source_); // pass ck to next order of prolongation
+        compute_u_coupling(k_+1,ck,indep_source_,eorcap_); // pass ck to next order of prolongation
       }
     }
   // for xp powers, we strictly have polynomial characteristics
@@ -413,7 +415,7 @@ void function_space_basis::compute_u_coupling(int k_, coupling_term &ckm1_, int 
         if (continue_coupling)
         {
           stage_ddnxu_couple(ind_dnxuj,ckm1_,ck,ncoeff); // copy ckm1_ information regarding freshly computed derivative wrt kk'th derivative of j'th dep. var. to ck coupling
-          compute_u_coupling(k_+1,ck,indep_source_); // pass ck to next order of prolongation
+          compute_u_coupling(k_+1,ck,indep_source_,eorcap_); // pass ck to next order of prolongation
         }
       }
   /*
@@ -429,7 +431,7 @@ void function_space_basis::compute_u_coupling(int k_, coupling_term &ckm1_, int 
   if (continue_coupling)
   {
     spawn_ddnxu_couple(k_,ckm1_,ck); // copy ckm1_ information regarding freshly computed derivative wrt kk'th derivative of j'th dep. var. to ck coupling
-    compute_u_coupling(k_+1,ck,k_); // pass ck to next order of prolongation
+    compute_u_coupling(k_+1,ck,k_,eorcap_); // pass ck to next order of prolongation
   }
 }
 

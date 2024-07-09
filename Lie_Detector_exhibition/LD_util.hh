@@ -5,8 +5,6 @@
 
 #ifdef _OPENMP
   #include "omp.h"
-// #else
-//   #include <ctime.h>
 #endif
 
 struct LD_threads

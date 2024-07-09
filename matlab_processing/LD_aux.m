@@ -216,10 +216,10 @@ classdef LD_aux
             % D_X_raw = U_X( (rho_A1A2+1):(rho_A1A2+min([rho_A1,rho_A2])) , (n_A+1):end )';
             % D_X_out = D_X_raw(:,1:rank(D_X_raw));
         end
-        function [med_pckg_out,det_pckg_out] = post_process_medoid_package(med_pckg_,dmat_)
-            det_pckg_out = LD_aux.compute_medoid_silhouette(med_pckg_,dmat_);
-
-            [i_meds,n_meds,net_d,clst_mem,loc_d,med2med_d] = LD_aux.unpack_medoid_package(med_pckg_);
+        function [med_pckg_out,det_pckg_out] = post_process_medoid_package(med_pckg_)
+            det_pckg_out = LD_aux.compute_medoid_silhouette(med_pckg_);
+            [i_meds,n_meds,net_d,clst_mem,loc_d,med2med_d,dmat_] = LD_aux.unpack_medoid_package(med_pckg_);
+            
             [kfull,npts] = deal(length(i_meds), length(clst_mem));
             i_full = 1:npts;
             ii_nmeds = logical(prod( i_full ~= i_meds', 1 ));
@@ -242,8 +242,8 @@ classdef LD_aux
                 med_pckg_out = med_pckg_;
             end
         end
-        function evl_pckg_out = compute_medoid_silhouette(med_pckg_,dmat_)
-            [i_meds,n_meds,net_d,clst_mem,loc_d,med2med_d] = LD_aux.unpack_medoid_package(med_pckg_);
+        function evl_pckg_out = compute_medoid_silhouette(med_pckg_)
+            [i_meds,n_meds,net_d,clst_mem,loc_d,med2med_d,dmat_] = LD_aux.unpack_medoid_package(med_pckg_);
             [kfull,npts] = deal(length(i_meds), length(clst_mem));
 
             i_full = 1:npts;
@@ -307,7 +307,7 @@ classdef LD_aux
             loc_d(i_nmedoids) = d_mins;
             med2med_d = dmat_(i_meds,i_meds);
 
-            med_pckg_out = LD_aux.pack_medoid_package(i_meds,n_meds,net_d,clst_mem,loc_d,med2med_d);
+            med_pckg_out = LD_aux.pack_medoid_package(i_meds,n_meds,net_d,clst_mem,loc_d,med2med_d,dmat_);
         end
         % function [i_meds,n_meds,net_d,clst_mem,loc_d,med2med_d] = greedy_naive_k_medoids(dmat_,kfull_)
         function med_pckg_out = greedy_naive_k_medoids(dmat_,kfull_)
@@ -348,7 +348,7 @@ classdef LD_aux
             loc_d(i_nmedoids_greedy) = d_mins_greedy;
             med2med_d = dmat_(i_meds,i_meds);
 
-            med_pckg_out = LD_aux.pack_medoid_package(i_meds,n_meds,net_d,clst_mem,loc_d,med2med_d);
+            med_pckg_out = LD_aux.pack_medoid_package(i_meds,n_meds,net_d,clst_mem,loc_d,med2med_d,dmat_);
         end
         function clst_info_out = get_cluster_info(pckg_in_)
             clst_mem = pckg_in_.cluster_membership;
@@ -364,21 +364,27 @@ classdef LD_aux
                 clst_info_out{ik} = [i_full(iclst_mems_k) ; clst_dst(iclst_mems_k)];
             end
         end
-        function med_pckg_out = pack_medoid_package(i_meds_,n_meds_,net_d_,clst_mem_,loc_d_,med2med_d_)
+        function med_pckg_out = pack_medoid_package(i_meds_,n_meds_,net_d_,clst_mem_,loc_d_,med2med_d_,dmat_)
             med_pckg_out = struct(  'i_medoids', i_meds_, ...
                                     'n_medoids', n_meds_, ...
                                     'net_dist', net_d_, ...
                                     'cluster_membership', clst_mem_, ...
                                     'cluster_distances', loc_d_, ...
                                     'medoid_distances', med2med_d_);
+            if (nargin == 7)
+                med_pckg_out.distance_matrix = dmat_;
+            end
         end
-        function [i_meds,n_meds,net_d,clst_mem,loc_d,med2med_d] = unpack_medoid_package(pckg_)
+        function [i_meds,n_meds,net_d,clst_mem,loc_d,med2med_d,dmat] = unpack_medoid_package(pckg_)
             [i_meds,n_meds,net_d,clst_mem,loc_d,med2med_d] = deal(  pckg_.i_medoids, ...
                                                                     pckg_.n_medoids, ...
                                                                     pckg_.net_dist, ...
                                                                     pckg_.cluster_membership, ...
                                                                     pckg_.cluster_distances, ...
                                                                     pckg_.medoid_distances);
+            if (nargout==7)
+                dmat = pckg_.distance_matrix;
+            end
         end
     end
 end

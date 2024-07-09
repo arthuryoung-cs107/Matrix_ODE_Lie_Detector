@@ -1,8 +1,7 @@
 #ifndef LD_EXHIB_HH
 #define LD_EXHIB_HH
 
-#include "LD_function_space.hh"
-#include "LD_aux.hh"
+#include "LD_parameter_space.hh"
 #include "LD_io.hh"
 
 struct ode_curve_observations
@@ -193,155 +192,12 @@ struct LD_observations_set: public solspc_data_chunk
     double indep_range[2];
 };
 
-class LD_Theta_space
-{
-  const bool data_owner;
-  const int ndof_full;
-  int * const Theta_dims,
-      * const inds_Theta;
-  double  ** const Theta_data;
-
-  public:
-
-    LD_Theta_space(int ndof_): data_owner(true), ndof_full(ndof_),
-      Theta_dims(new int[2]), inds_Theta(new int[ndof_]), Theta_data(Tmatrix<double>(ndof_,ndof_)), Theta(new double*[ndof_])
-      {nrow_use=ndof_use=ndof_; for (size_t i = 0; i < ndof_; i++) Theta[i] = Theta_data[inds_Theta[i] = i];}
-    LD_Theta_space(int ndof_,int *Theta_dims_,int *inds_Theta_,double **Theta_data_): data_owner(false), ndof_full(ndof_),
-      Theta_dims(Theta_dims_), inds_Theta(inds_Theta_), Theta_data(Theta_data_),
-      Theta(new double*[ndof_]) {for (size_t i = 0; i < ndof_; i++) Theta[i] = Theta_data[i];}
-    ~LD_Theta_space()
-    {
-      if (data_owner) {delete [] Theta_dims; delete [] inds_Theta; free_Tmatrix<double>(Theta_data);}
-      delete [] Theta;
-    }
-    int &nrow_use = Theta_dims[0],
-        &ndof_use = Theta_dims[1];
-    double ** const Theta;
-};
-
-class LD_Theta_stack
-{
-  int ** const Theta_dim_mat;
-  double  *** const Theta_data_tns;
-
-  public:
-
-    LD_Theta_stack(int nspc_,int ndof_): nspc(nspc_), ndof_full(ndof_), nrow_use(ndof_), ndof_use(ndof_), Theta_dim_mat(Tmatrix<int>(nspc_,2)),
-      ntheta_spcvec(new int[nspc_]), itheta_spcmat(Tmatrix<int>(nspc_,ndof_)),
-      Theta_data_tns(T3tensor<double>(nspc_,ndof_,ndof_)), Theta_tns(new double**[nspc_]),
-      Theta_spaces(new LD_Theta_space*[nspc_])
-    {
-      for (size_t i = 0; i < nspc; i++)
-      {
-        Theta_dim_mat[i][0] = Theta_dim_mat[i][1] = ndof_;
-        LD_linalg::fill_vec_012<int>(itheta_spcmat[i],ntheta_spcvec[i]=ndof_);
-        Theta_spaces[i] = new LD_Theta_space(ndof_full,Theta_dim_mat[i],itheta_spcmat[i],Theta_data_tns[i]);
-        Theta_tns[i] = Theta_spaces[i]->Theta;
-      }
-    }
-    ~LD_Theta_stack()
-    {
-      for (size_t i = 0; i < nspc; i++) delete Theta_spaces[i];
-      delete [] Theta_spaces; delete [] Theta_tns;
-      free_T3tensor<double>(Theta_data_tns);
-      delete [] ntheta_spcvec;
-      free_Tmatrix<int>(itheta_spcmat);
-      free_Tmatrix<int>(Theta_dim_mat);
-    }
-
-    inline void load_Theta_data_tns(double ***VTtns_)
-    {
-      for (size_t i = 0; i < nspc; i++)
-        for (size_t j = 0; j < nrow_use; j++)
-          for (size_t k = 0; k < ndof_use; k++)
-            Theta_tns[i][j][k] = VTtns_[i][j][k];
-    }
-
-    const int nspc,
-              ndof_full;
-    int nrow_use,
-        ndof_use,
-        * const ntheta_spcvec,
-        ** const itheta_spcmat;
-    double *** const Theta_tns;
-    LD_Theta_space ** const Theta_spaces;
-
-    inline void set_Thetas(int ndof_use_=0)
-    {
-      ndof_use = (ndof_use_)?(ndof_use_):(ndof_full);
-      for (size_t i = 0; i < nspc; i++)
-      {
-        Theta_spaces[i]->nrow_use = ntheta_spcvec[i]; Theta_spaces[i]->ndof_use = ndof_use;
-        for (size_t j = 0; j < ntheta_spcvec[i]; j++) Theta_tns[i][j] = Theta_data_tns[i][itheta_spcmat[i][j]];
-      }
-    }
-
-    inline void print_satisfactory_details(const char name_[])
-    {
-      printf("(LD_Theta_stack::print_satisfactory_details) %s isat_theta\n", name_);
-      for (size_t ispc = 0; ispc < nspc; ispc++)
-      {
-        printf("spc %d (nsat = %d): ", ispc, ntheta_spcvec[ispc]);
-        for (size_t isat = 0; isat < ntheta_spcvec[ispc]; isat++) printf("%d ", itheta_spcmat[ispc][isat]);
-        printf("\n");
-      }
-      char name_buf[strlen(name_) + 20];
-      sprintf(name_buf,"  %s nsat_theta", name_);
-      LD_linalg::print_xT(name_buf,ntheta_spcvec,nspc);
-      printf("  nrow_use = %d, ndof_use = %d, min nsat = %d, max nsat = %d \n",
-                nrow_use, ndof_use,
-                LD_linalg::min_val<int>(ntheta_spcvec,nspc), LD_linalg::max_val<int>(ntheta_spcvec,nspc));
-    }
-};
-
-struct Theta_eval_workspace
-{
-  Theta_eval_workspace(int ntheta_,int nsols_=1): ntheta(ntheta_), nsols(nsols_), Theta(NULL),
-    satisfy_flags_mat(Tmatrix<bool>(nsols_,ntheta_)) {}
-  ~Theta_eval_workspace() {free_Tmatrix<bool>(satisfy_flags_mat);}
-
-  const int ntheta,
-            nsols;
-  bool  ** const satisfy_flags_mat,
-        * satisfy_flags = satisfy_flags_mat[0];
-  double  ** Theta;
-};
-
-struct lamda_map_eval_workspace: public Theta_eval_workspace
-{
-  lamda_map_eval_workspace(int ntheta_,function_space &fspc_,int nsols_=1):
-    Theta_eval_workspace(ntheta_,nsols_),
-    lamvec(new double[fspc_.perm_len]), vxu_wkspc(vxu_workspace(fspc_.nvar,fspc_.comp_ord_len())) {}
-  ~lamda_map_eval_workspace() {delete [] lamvec;}
-
-  double * const lamvec;
-  vxu_workspace vxu_wkspc;
-};
-
-struct Rn_cond_eval_workspace: public Theta_eval_workspace
-{
-  Rn_cond_eval_workspace(int ntheta_,ode_solspc_meta &meta_,int nsols_=1):
-    Theta_eval_workspace(ntheta_,nsols_), v(new double[meta_.ndim]) {}
-  ~Rn_cond_eval_workspace() {delete [] v;}
-
-  double  * const v;
-};
-
-struct inf_crit_eval_workspace: public Rn_cond_eval_workspace
-{
-  inf_crit_eval_workspace(int ntheta_,ode_solspc_meta &meta_,int nsols_=1):
-    Rn_cond_eval_workspace(ntheta_,meta_,nsols_), mags_JFs(new double[meta_.ndep]) {}
-  ~inf_crit_eval_workspace() {delete [] mags_JFs;}
-
-  double  * const mags_JFs;
-};
-
 struct Lie_detector
 {
   Lie_detector() {}
   ~Lie_detector() {}
 
-  static int eval_lamfunc_signal_strength(bool *sat_flags_,ode_solution &sol_,lamda_map_eval_workspace &wkspc_,function_space &fspc_,double tol_=1e-13)
+  static int eval_lamfunc_signal_strength(bool *sat_flags_,ode_solution &sol_,lambda_map_eval_workspace &wkspc_,function_space &fspc_,double tol_=1e-13)
   {
     const int ntheta = wkspc_.ntheta,
               perm_len = fspc_.perm_len;
@@ -349,7 +205,7 @@ struct Lie_detector
             * const lamvec = wkspc_.lamvec;
 
     fspc_.lamvec_eval(sol_.pts,lamvec,wkspc_.vxu_wkspc);
-    LD_linalg::scale_vec<double>(lamvec,perm_len,1.0/(LD_linalg::norm_l2(lamvec,perm_len)));
+    // LD_linalg::scale_vec<double>(lamvec,perm_len,1.0/(LD_linalg::norm_l2(lamvec,perm_len)));
 
     int n_success = 0;
     for (size_t ith = 0; ith < ntheta; ith++)
@@ -361,7 +217,7 @@ struct Lie_detector
     return n_success;
   }
 
-  static int eval_Theta_R1_condition(bool *sat_flags_,ode_solution &sol_,lamda_map_eval_workspace &wkspc_,function_space &fspc_,double tol_=1e-13)
+  static int eval_Theta_R1_condition(bool *sat_flags_,ode_solution &sol_,lambda_map_eval_workspace &wkspc_,function_space &fspc_,double tol_=1e-13)
   {
     const int ndep = sol_.ndep,
               perm_len = fspc_.perm_len,
@@ -417,7 +273,7 @@ struct Lie_detector
   {
     const int eor = sol_.eor,
               ndep = sol_.ndep,
-              ntheta = wkspc_.ntheta,
+              ntheta = wkspc_.ntheta_use,
               ndxu = ndep*((nmax_==(eor+1))?(eor):(nmax_));
     double  * const v = wkspc_.v,
             &vx = v[0],
@@ -685,6 +541,38 @@ struct LD_matrix: public function_space_element, public LD_experiment
       {return m0_.dim_cnstr == (m1_.dim_cnstr+m2_.dim_cnstr);}
     static bool net_cols_eq(LD_matrix &m0_, LD_matrix &m1_, LD_matrix &m2_)
       {return ((m0_.net_cols==m1_.net_cols)&&(m1_.net_cols==m2_.net_cols));}
+};
+
+
+struct LD_vector_field: public ode_system
+{
+  LD_vector_field(function_space &fspc_,LD_vector_space **Vspaces_,int ndep_,int eor_=1):
+    ode_system(eor_,ndep_), fspc(fspc_), Vspaces(Vspaces_), ispc(0) {}
+  ~LD_vector_field() {}
+
+  void init_dudx_eval(int ispc_) {ispc = ispc_;}
+  void JacF_eval(double x_, double *u_, double **dls_out_) {} // do later
+  void dnp1xu_eval(double x_, double *u_, double *dnp1xu_) {} // do later
+
+  protected:
+
+    function_space &fspc;
+    LD_vector_space ** const Vspaces;
+
+    const int ndof_ODE = eor*ndep;
+
+    int ispc;
+};
+
+struct LD_prolonged_vfield: public LD_vector_field
+{
+  LD_prolonged_vfield(function_space_basis &fbse_,LD_vector_space **Vspaces_,int ndep_,int eor_):
+    LD_vector_field(fbse_.fspc,Vspaces_,ndep_,eor_), fbse(fbse_) {}
+  ~LD_prolonged_vfield() {}
+
+  protected:
+
+    function_space_basis &fbse;
 };
 
 #endif

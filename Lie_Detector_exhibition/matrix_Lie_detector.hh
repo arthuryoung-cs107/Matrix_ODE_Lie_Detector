@@ -3,8 +3,6 @@
 
 #include "LD_framework.hh"
 
-#include <gsl/gsl_linalg.h>
-
 struct LD_SVD_space // assumes M>N
 {
   LD_SVD_space(int M_, int N_, bool fast_flag_=false):
@@ -99,14 +97,16 @@ struct LD_matrix_svd_result
   LD_matrix_svd_result(LD_matrix &mat_): LD_matrix_svd_result(mat_.ncrvs_tot,mat_.net_cols) {}
   LD_matrix_svd_result(LD_svd_file svdfile_);
 
-  ~LD_matrix_svd_result() {delete [] rank_vec; free_Tmatrix<double>(Smat); free_T3tensor<double>(VTtns);}
+  ~LD_matrix_svd_result() {delete [] rank_vec; free_Tmatrix<double>(Smat);}
+
+  LD_vector_bundle V_bndle;
 
   const int ncrvs,
             ncols;
   int ncol_use,
       * const rank_vec;
   double  ** const Smat,
-          *** const VTtns;
+          *** const VTtns = V_bndle.Vtns;
 
   void write_svd_results(const char name_[]);
   void read_svd_results(const char name_[]);
@@ -135,63 +135,16 @@ struct LD_matrix_svd_result
 struct LD_alternate_svd_result: public LD_matrix_svd_result
 {
   LD_alternate_svd_result(int ncrvs_, int ncols_): LD_matrix_svd_result(ncrvs_,ncols_),
-  VTtns_alt(T3tensor<double>(ncrvs_,ncols_,ncols_)) {}
+  V_bndle_alt(LD_vector_bundle(ncrvs_,ncols_)) {}
   LD_alternate_svd_result(LD_matrix &mat_): LD_alternate_svd_result(mat_.ncrvs_tot,mat_.ndof_full) {}
-  ~LD_alternate_svd_result() {free_T3tensor<double>(VTtns_alt);}
+  ~LD_alternate_svd_result() {}
 
-  double *** const VTtns_alt;
+  LD_vector_bundle V_bndle_alt;
 
-  void compute_restricted_curve_svds(LD_matrix &Amat_,LD_matrix_svd_result &Lsvd_,int nrows_,int rho_L_=0,bool verbose_=true)
-  {
-    ncol_use = (nvar = Amat_.nvar)*(rho_L = (rho_L_)?(rho_L_):(LD_linalg::min_T<int>(Lsvd_.min_rank(),(ncol_L = Lsvd_.ncols)-1)));
-    double  **** const Attns = Amat_.Attns,
-            *** const VTtns_L = Lsvd_.VTtns,
-            t0 = LD_threads::tic();
-    #pragma omp parallel
-    {
-      LD_SVD_space svd_t(nrows_,ncol_use);
-      gsl_matrix * const U_gsl_t = svd_t.U_gsl;
-      #pragma omp for
-      for (size_t icrv = 0; icrv < ncrvs; icrv++)
-      {
-        fill_AY_mat_icrv(U_gsl_t,Attns[icrv][0],VTtns_L[icrv],nrows_);
-        svd_t.decompose_loaded_U();
-        rank_vec[icrv] = svd_t.unpack_rank_s_VT(Smat[icrv],VTtns[icrv]);
-        fill_Y_VAY_mat_icrv(VTtns_alt[icrv],VTtns_L[icrv],VTtns[icrv]);
-      }
-    }
-    double work_time = LD_threads::toc(t0);
-    if (verbose_)
-      printf("(LD_alternate_svd_result::compute_restricted_curve_svds) computed %d svds (%d x %d) in %.4f seconds (%d threads)\n",
-        ncrvs,nrows_,ncol_use,work_time,LD_threads::numthreads());
-  }
-  LD_matrix * make_AYmat_compute_restricted_curve_svds(LD_matrix &Amat_,LD_matrix_svd_result &Lsvd_,int nrows_,int rho_L_=0,bool verbose_=true)
-  {
-    ncol_use = (nvar = Amat_.nvar)*(rho_L = (rho_L_)?(rho_L_):(LD_linalg::min_T<int>(Lsvd_.min_rank(),(ncol_L = Lsvd_.ncols)-1)));
-    LD_matrix * AYmat = new LD_matrix(Amat_.fspc,Amat_.Sset,Amat_.dim_cnstr,ncol_use);
-    double  **** const AYttns = AYmat->Attns,
-            **** const Attns = Amat_.Attns,
-            *** const VTtns_L = Lsvd_.VTtns,
-            t0 = LD_threads::tic();
-    #pragma omp parallel
-    {
-      LD_SVD_space svd_t(nrows_,ncol_use);
-      gsl_matrix * const U_gsl_t = svd_t.U_gsl;
-      #pragma omp for
-      for (size_t icrv = 0; icrv < ncrvs; icrv++)
-      {
-        fill_AY_mat_icrv(U_gsl_t,Attns[icrv][0],VTtns_L[icrv],nrows_,AYttns[icrv][0]);
-        svd_t.decompose_loaded_U();
-        rank_vec[icrv] = svd_t.unpack_rank_s_VT(Smat[icrv],VTtns[icrv]);
-        fill_Y_VAY_mat_icrv(VTtns_alt[icrv],VTtns_L[icrv],VTtns[icrv]);
-      }
-    }
-    double work_time = LD_threads::toc(t0);
-    if (verbose_)
-      printf("(LD_alternate_svd_result::make_AYmat_compute_restricted_curve_svds) computed %d svds (%d x %d) in %.4f seconds (%d threads)\n",
-        ncrvs,nrows_,ncol_use,work_time,LD_threads::numthreads());
-    return AYmat;
-  }
+  double *** const VTtns_alt = V_bndle_alt.Vtns;
+
+  void compute_restricted_curve_svds(LD_matrix &Amat_,LD_matrix_svd_result &Lsvd_,int nrows_,int rho_L_=0,bool verbose_=true);
+  LD_matrix * make_AYmat_compute_restricted_curve_svds(LD_matrix &Amat_,LD_matrix_svd_result &Lsvd_,int nrows_,int rho_L_=0,bool verbose_=true);
   inline void set_VTtns_alt_Y_VAY(LD_matrix_svd_result &Lsvd_)
   {
     // assumes that ncol_use is already set, and that VTtns, VTtns_L have been set
@@ -208,35 +161,7 @@ struct LD_alternate_svd_result: public LD_matrix_svd_result
     }
   }
 
-  void compute_regularized_curve_svds(LD_SVD_space &Bglb_svd,LD_matrix_svd_result &Asvd_,int nrows_B_,int kappa_A_=0,bool verbose_=true)
-  {
-    const int kappa_A = ncol_use = (kappa_A_)?(kappa_A_):(Asvd_.kappa_def()),
-              rho_A = Asvd_.ncol_use - kappa_A,
-              ncol_B = Bglb_svd.ncols();
-    double  ** const Smat_A = Asvd_.Smat,
-            ** const KBglb = Tmatrix<double>(kappa_A,ncol_B);
-    Bglb_svd.unpack_VT(KBglb,ncol_B-kappa_A);
-
-    double t0 = LD_threads::tic();
-    #pragma omp parallel for
-    for (size_t icrv = 0; icrv < ncrvs; icrv++)
-    {
-      double  ** const KAi = Asvd_.Kmat_crvi(icrv,kappa_A),
-              ** const KAi_T_KB = VTtns[icrv];
-      fill_KA_T_KB(KAi_T_KB,KAi,KBglb,ncol_B);
-      double  * const skAi = Smat_A[icrv] + rho_A,
-              * const sAi_B = Smat[icrv],
-              ** const KB_Ai = VTtns_alt[icrv];
-      rank_vec[icrv] = comp_eff_rank_fill_sAB_KBA(sAi_B,KB_Ai,KAi,KAi_T_KB,skAi,ncol_B);
-    }
-    double  work_time = LD_threads::toc(t0);
-    free_Tmatrix<double>(KBglb);
-
-    if (verbose_)
-      printf("(LD_alternate_svd_result::compute_regularized_curve_svds) computed %d orthogonal transformations (%d x %d) in %.4f seconds (%d threads)\n",
-        ncrvs, ncol_B,kappa_A,
-        work_time, LD_threads::numthreads());
-  }
+  void compute_regularized_curve_svds(LD_SVD_space &Bglb_svd,LD_matrix_svd_result &Asvd_,int nrows_B_,int kappa_A_=0,bool verbose_=true);
   inline void fill_KA_T_KB(double **KAi_T_KB_,double **KAi_,double **KBglb_,int ncol_B_)
   {
     // compute inner products between KA and KB columns
@@ -469,8 +394,8 @@ class r1space_infinitesimal_generator: public rspace_infinitesimal_generator
         for (size_t i = 0; i < ndof_full; i++) theta_vec_[i] /= Vx2;
         for (size_t k = 2, ioffset = ndep*k + 1; k <= eor_full; k++, ioffset+=ndep)
         {
-          basis_.v_eval(pts_i,v_,theta_vec_);
-          for (size_t i = 0, idkxu = i+ioffset; i < ndep; i++, idkxu++) pts_i[idkxu] = v_[idkxu-ndep];
+          basis_.v_eval(pts_i,v_,theta_vec_,k-1);
+          for (size_t i = 0, idkxu = i+ioffset; i < ndep; i++, idkxu++) pts_i[idkxu] = v_[idkxu-ndep]; // never using n'th order terms
         }
       }
     }
@@ -486,6 +411,7 @@ class rnspace_infinitesimal_generator: public rspace_infinitesimal_generator
   function_space_basis &fbasis;
 
   public:
+
     rnspace_infinitesimal_generator(function_space_basis &fbasis_,double ***V_crv_tns_,int kappa_=1, int ncol_use_=0):
     rspace_infinitesimal_generator(fbasis_.fspc,V_crv_tns_,fbasis_.eor,kappa_,ncol_use_),
     s_local(new double[ndim]), v_local(new double[ndim]),
@@ -513,7 +439,7 @@ class rnspace_infinitesimal_generator: public rspace_infinitesimal_generator
       for (size_t i = 0; i < ndof_full; i++) theta_local[i] /= Vx2; // normalize local parameters
       for (size_t i = ndep; i < ndof_ODE; i++) s_local[i+1] = dudx_[i-ndep] = u_[i]; // load 1 : n-1 derivative terms
       for (size_t i = ndof_ODE+1; i < ndim; i++) s_local[i] = 0.0; // pad n'th order terms with zeroes
-      fbasis.v_eval(s_local,v_local,theta_local);
+      fbasis.v_eval(s_local,v_local,theta_local,eor-1);
       for (size_t i = ndof_ODE-ndep; i < ndof_ODE; i++) dudx_[i] = v_local[i+1];
     }
 
@@ -523,6 +449,67 @@ struct matrix_Lie_detector
 {
   matrix_Lie_detector() {}
   ~matrix_Lie_detector() {}
+
+  static int compare_relaxed_subspaces(LD_matrix_svd_result &svd_, LD_vspace_record &rec_, const char letter_[], double tol_=0.0)
+  {
+    const char fcn_name[] = "matrix_Lie_detector::compare_relaxed_subspaces";
+    char name_buf[20];
+    const int ncrvs = svd_.ncrvs;
+    bool nsat_sf[ncrvs];
+    int nnsat_s = 0,
+        nnsat_diff[ncrvs];
+    double diff_acc = 0.0;
+    printf("(%s)\n  %s rank (1 x %d)\n", fcn_name,letter_,ncrvs);
+    for (size_t i = 0; i < ncrvs; i++)
+    {
+      printf("%d ", svd_.rank_vec[i]);
+      diff_acc += (double)(nnsat_diff[i] = svd_.rank_vec[i]-rec_.nV_spcvec[i]);
+      nnsat_s+=(int)(nsat_sf[i]=(nnsat_diff[i] >= 0));
+    }
+    sprintf(name_buf,"\n  nsat_%s",letter_); LD_linalg::print_xT(name_buf,rec_.nV_spcvec,ncrvs);
+    sprintf(name_buf,"  nsat_diff_%s",letter_); LD_linalg::print_xT(name_buf,nnsat_diff,ncrvs);
+    if (tol_) printf("  nsat_smaller_%s = %d (of %d, tol = %.1e). ",letter_,nnsat_s,ncrvs,tol_);
+    else printf(" nsat_smaller_%s = %d (of %d). ",letter_,nnsat_s,ncrvs);
+    printf("Average diff: %.2f \n", diff_acc/((double) ncrvs));
+    return nnsat_s;
+  }
+
+  static void compute_AYmat_curve_svds(LD_matrix_svd_result &svd_,LD_matrix &Amat_,LD_Theta_bundle &Tbndle_,bool verbose_=true)
+  {
+    const int ncrvs = Amat_.ncrvs_tot,
+              nrows_max = Amat_.max_nrow_curve(),
+              ncol_full = Amat_.net_cols;
+    int * const rank_vec = svd_.rank_vec;
+    double  ** const Smat_out = svd_.Smat,
+            *** const VTtns_out = svd_.VTtns,
+            **** const Attns = Amat_.Attns;
+    LD_Theta_space ** const Tspaces = Tbndle_.Tspaces;
+
+    double  mrows_acc = 0.0,
+            ncols_acc = 0.0,
+            t0 = LD_threads::tic();
+    #pragma omp parallel reduction(+:mrows_acc,ncols_acc)
+    {
+      LD_svd svd_t(nrows_max,ncol_full);
+      double ** const Umat_t = svd_t.Umat;
+      #pragma omp for
+      for (size_t icrv = 0; icrv < ncrvs; icrv++)
+      {
+        LD_Theta_space &Tspc_i = *(Tspaces[icrv]);
+        const int mrows_Ai = Amat_.nrows_mat_i(icrv),
+                  ncols_Ai = Tspc_i.ndof_use;
+        Tspc_i.post_multiply_bases(Umat_t,Amat_.Amat_crv_i(icrv),mrows_Ai);
+        svd_t.decompose_U(mrows_Ai,ncols_Ai);
+        rank_vec[icrv] = svd_t.unpack_rank_svec_VTmat(Smat_out[icrv],VTtns_out[icrv]);
+
+        mrows_acc += (double) mrows_Ai; ncols_acc += (double) ncols_Ai;
+      }
+    }
+    double work_time = LD_threads::toc(t0);
+    if (verbose_)
+      printf("(matrix_Lie_detector::compute_relaxed_curve_svds) computed %d svds (%.1f x %.1f, on avg.) in %.4f seconds (%d threads)\n",
+        ncrvs,mrows_acc/((double)ncrvs),ncols_acc/((double)ncrvs),work_time, LD_threads::numthreads());
+  }
 
   static void compute_global_svd(LD_SVD_space &svd_, LD_matrix &mat_, int ncrvs_cmp_=1, bool verbose_=true)
   {

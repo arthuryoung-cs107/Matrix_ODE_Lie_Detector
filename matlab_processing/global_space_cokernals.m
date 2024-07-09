@@ -6,6 +6,7 @@ dat_suff = 'lddat';
 
 xrange = 0;
 % xrange = 1;
+% xrange = 2;
 
 ode_name = 'Duffing';
 % ode_name = 'VanDerPol';
@@ -20,9 +21,9 @@ eqn_name = [ode_name '_xrange' num2str(xrange)];
 fam_name = 'Chebyshev1';
 % fam_name = 'Legendre';
 
-% bor = 10;
+bor = 10;
 % bor = 9;
-bor = 8;
+% bor = 8;
 % bor = 7;
 % bor = 6;
 % bor = 5;
@@ -36,10 +37,7 @@ Sref = LD_observations_set(dir_name,eqn_name,'true','DoP853', dat_suff);
 meta0 = Sref.meta_data;
 
 spc.color = [0 0 0 0.2];
-solspc_ref_plot = LD_plots.plot_solspc(Sref,LD_plots('Sref',[4 4],[1 4],[1 1],1),spc);
-
-spc.color = [1 0 0];
-solspc_ref_plot = LD_plots.plot_solspc(Sref,solspc_ref_plot,spc,68);
+solspc_ref_plot = LD_plots.plot_solspc(Sref,LD_plots('Sref',[5 5],[1 5],[1 1],1),spc);
 
 fspace0 = LD_orthopolynomial_space(bor,meta0);
 fspace0 = fspace0.read_domain_configuration(Sref.make_fspace_config_name(fam_name,bor));
@@ -100,48 +98,74 @@ Atns = permute(reshape(Amat',ncol,[],ncrv),[2 1 3]);
 Ytns_L = AYLrstsvd.Ytns_L;
 AtnsYL_rst = LD_aux.Atns_Ytns_mult(Atns,Ytns_L);
 
+k_clst = 2:5;
+
 %%%%%%%%%%%%%%%%%%%%%%%%
+
+% Ytns_L_check = AYLrstsvd.Ytns_L
+% Ytns_L_check = Sref_Lsvd.Vtns(:,1:(min(Sref_Lsvd.rvec)),:);
+Ytns_L_check = Sref_Lsvd.Vtns(:,1:(max(Sref_Lsvd.rvec)),:);
+cmat_Y_L = LD_aux.compute_frobenius_closeness_matrix(Ytns_L_check);
+dmat_Y_L = 1.0 - cmat_Y_L;
+
+SC_YL_vec = nan(size(k_clst));
+for ik = 1:length(k_clst)
+    SC_YL_vec(ik) = getfield(LD_aux.compute_medoid_silhouette(LD_aux.naive_k_medoid(dmat_Y_L,k_clst(ik))), ...
+                                'silhouette_coeff');
+end
+k_clst_YL_silhouettes = [k_clst; SC_YL_vec]
+[~,i_SC_YL_max] = max(SC_YL_vec);
+
+k_clusters_YL = k_clst(i_SC_YL_max);
+[medoid_YL_pckg,greedy_medoid_YL_pckg,improved_on_greedy_YL] = LD_aux.naive_k_medoid(dmat_Y_L,k_clusters_YL)
+[~,medoid_YL_pckg_detailed] = LD_aux.post_process_medoid_package(medoid_YL_pckg)
+
+
+% Ktns_A = Asvd.Vtns(:,(max(Asvd.rvec)+1):end,:);
+Ktns_A = Asvd.Vtns(:,(min(Asvd.rvec)+1):end,:);
+cmat_K_A = LD_aux.compute_frobenius_closeness_matrix(Ktns_A);
+dmat_K_A = 1.0 - cmat_K_A;
+
+SC_KA_vec = nan(size(k_clst));
+for ik = 1:length(k_clst)
+    SC_KA_vec(ik) = getfield(LD_aux.compute_medoid_silhouette(LD_aux.naive_k_medoid(dmat_K_A,k_clst(ik))), ...
+                                'silhouette_coeff');
+end
+k_clst_KA_silhouettes = [k_clst; SC_KA_vec]
+[~,i_SC_KA_max] = max(SC_KA_vec);
+
+k_clusters_KA = k_clst(i_SC_KA_max);
+[medoid_KA_pckg,greedy_medoid_KA_pckg,improved_on_greedy_KA] = LD_aux.naive_k_medoid(dmat_K_A,k_clusters_KA)
+[~,medoid_KA_pckg_detailed] = LD_aux.post_process_medoid_package(medoid_KA_pckg)
+
 
 Ktns_A_YLrst = LD_aux.compute_Ktns_A_YLrst(AYLrstsvd);
 cmat_K_A_YLrst = LD_aux.compute_frobenius_closeness_matrix(Ktns_A_YLrst);
 dmat_K_A_YLrst = 1.0 - cmat_K_A_YLrst;
 
-k_clst = 2:10;
-
 SC_KAYL_vec = nan(size(k_clst));
 for ik = 1:length(k_clst)
-    k_med_pckg_i = LD_aux.naive_k_medoid(dmat_K_A_YLrst,k_clst(ik));
-    k_silh_i = LD_aux.compute_medoid_silhouette(k_med_pckg_i,dmat_K_A_YLrst);
-    SC_KAYL_vec(ik) = k_silh_i.silhouette_coeff;
+    SC_KAYL_vec(ik) = getfield(LD_aux.compute_medoid_silhouette(LD_aux.naive_k_medoid(dmat_K_A_YLrst,k_clst(ik))), ...
+                                'silhouette_coeff');
 end
 k_clst_KAYL_silhouettes = [k_clst; SC_KAYL_vec]
+[~,i_SC_KAYL_max] = max(SC_KAYL_vec);
 
-k_clusters_KAYL = 3;
+k_clusters_KAYL = k_clst(i_SC_KAYL_max);
 [medoid_KAYL_pckg,greedy_medoid_KAYL_pckg,improved_on_greedy_KAYL] = LD_aux.naive_k_medoid(dmat_K_A_YLrst,k_clusters_KAYL)
-[~,medoid_KAYL_pckg_detailed] = LD_aux.post_process_medoid_package(medoid_KAYL_pckg,dmat_K_A_YLrst)
+[~,medoid_KAYL_pckg_detailed] = LD_aux.post_process_medoid_package(medoid_KAYL_pckg)
 
-cmat_Y_L = LD_aux.compute_frobenius_closeness_matrix(Ytns_L);
-dmat_Y_L = 1.0 - cmat_Y_L;
+%%%%%%%%%%%%%%%%%%%%%%%
 
-SC_YL_vec = nan(size(k_clst));
-for ik = 1:length(k_clst)
-    k_med_pckg_i = LD_aux.naive_k_medoid(dmat_Y_L,k_clst(ik));
-    k_silh_i = LD_aux.compute_medoid_silhouette(k_med_pckg_i,dmat_Y_L);
-    SC_YL_vec(ik) = k_silh_i.silhouette_coeff;
-end
-k_clst_YL_silhouettes = [k_clst; SC_YL_vec]
+% [medoid_pckg_check,k_clst_silh_check] = deal(medoid_YL_pckg,k_clst_YL_silhouettes);
+[medoid_pckg_check,k_clst_silh_check] = deal(medoid_KA_pckg,k_clst_KA_silhouettes);
+% [medoid_pckg_check,k_clst_silh_check] = deal(medoid_KAYL_pckg,k_clst_KAYL_silhouettes);
 
-k_clusters_YL = k_clusters_KAYL;
-[medoid_YL_pckg,greedy_medoid_YL_pckg,improved_on_greedy_YL] = LD_aux.naive_k_medoid(dmat_Y_L,k_clusters_YL)
-[~,medoid_YL_pckg_detailed] = LD_aux.post_process_medoid_package(medoid_YL_pckg,dmat_Y_L)
+%%%%%%%%%%%%%%%%%%%%%%%
 
-[icrv_med,ncrv_clst,net_dfro,clst_membership,local_dfro,med2med_dfro] = LD_aux.unpack_medoid_package(medoid_KAYL_pckg);
-clst_info = LD_aux.get_cluster_info(medoid_KAYL_pckg);
-dmat_check = dmat_K_A_YLrst;
-
-% [icrv_med,ncrv_clst,net_dfro,clst_membership,local_dfro,med2med_dfro] = LD_aux.unpack_medoid_package(medoid_YL_pckg);
-% clst_info = LD_aux.get_cluster_info(medoid_YL_pckg);
-% dmat_check = dmat_Y_L;
+[icrv_med,ncrv_clst,net_dfro,clst_membership,local_dfro,med2med_dfro,dmat_check] = LD_aux.unpack_medoid_package(medoid_pckg_check);
+clst_info = LD_aux.get_cluster_info(medoid_pckg_check);
+k_clst_silh_check
 
 iicrv_check1 = 1;
 icrv_check1 = icrv_med(iicrv_check1);
@@ -194,11 +218,11 @@ nmed_plot = min([length(icrv_med_plot), size(col_med_plot_mat,1)]);
 
 icrv_vec = 1:ncrv;
 for i = 1:nmed_plot
-    % solspc_ref_plot_i = solspc_ref_plot;
-    solspc_ref_plot_i = LD_plots(['Sref_clst' num2str(i)],[4 4],[1 4],[1+i 1],1);
+    solspc_ref_plot_i = LD_plots(['Sref_clst' num2str(i)],[5 5],[1 5],[1+i 1],1);
 
     spc.color = col_med_plot_mat(i,:);
     spc.lw = 2;
+    solspc_ref_plot = LD_plots.plot_solspc(Sref,solspc_ref_plot,spc,icrv_med_plot(i));
     solspc_ref_plot_i = LD_plots.plot_solspc(Sref,solspc_ref_plot_i,spc,icrv_med_plot(i));
 
     spc.color = [col_med_plot_mat(i,:) alpha_cluster];
@@ -207,14 +231,15 @@ for i = 1:nmed_plot
 end
 solspc_plot_init_lims = solspc_ref_plot.get_axis_lims;
 
-aux_fig1 = LD_plots('aux1',[5 5],[1 5],[1 1],1);
+[xlim_hist,ylim_hist] = deal(nan(length(nmed_plot),1));
+aux_fig1 = LD_plots('aux1',[6 6],[1 6],[6 1],1);
 aux_fig1 = aux_fig1.init_tiles_safe(1,nmed_plot);
 hold(aux_fig1.axs, 'on');
 box(aux_fig1.axs,'on');
 axs_aux1 = aux_fig1.axs;
 for i = 1:nmed_plot
-    % histogram(axs_aux1(i), dmat_K_A_YLrst(:,icrv_med_plot(i)), 'FaceColor', col_med_plot_mat(i,:));
     histogram(axs_aux1(i), dmat_check(:,icrv_med_plot(i)), 'FaceColor', col_med_plot_mat(i,:));
+    xlim_hist(i) = max(get(axs_aux1(i),'XLim'));
+    ylim_hist(i) = max(get(axs_aux1(i),'YLim'));
 end
-% set(axs_aux1,'XLim',[0,max(dmat_K_A_YLrst(:))])
-set(axs_aux1,'XLim',[0,max(dmat_check(:))])
+set(axs_aux1,'XLim',[0,max(dmat_check(:))],'XLim',[0,max(xlim_hist)],'YLim',[0,max(ylim_hist)]);

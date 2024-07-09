@@ -8,22 +8,22 @@ struct LD_L_matrix: public LD_matrix
   LD_L_matrix(function_space &fspc_,LD_observations_set &Sset_): LD_matrix(fspc_,Sset_,1,fspc_.perm_len) {}
   ~LD_L_matrix() {}
 
-  static void eval_L_signal_strength(LD_observations_set &Sobs_,LD_Theta_stack &stack_,function_space &fspc_,double tol_=1e-13,bool verbose_=true)
+  static void eval_L_signal_strength(LD_observations_set &Sobs_,LD_vspace_record &rec_,function_space &fspc_,double tol_=1e-13,bool verbose_=true)
   {
-    const int ncrv = stack_.nspc,
+    const int ncrv = rec_.nspc,
               npts_max = Sobs_.max_npts_curve(),
-              ncol_use = stack_.nrow_use;
+              ncol_use = rec_.nvec;
     bool satisfy_crvmat[ncrv][ncol_use];
-    int * const nsat_theta = stack_.ntheta_spcvec,
-        ** const isat_theta = stack_.itheta_spcmat;
-    double *** const Theta_tns = stack_.Theta_tns;
+    int * const nsat_theta = rec_.nV_spcvec,
+        ** const isat_theta = rec_.iV_spcmat;
+    double *** const Theta_tns = rec_.Vtns_data;
 
     ode_solcurve ** const crvs = Sobs_.curves;
     int npts_evl = 0;
     double t0 = LD_threads::tic();
     #pragma omp parallel reduction(+:npts_evl)
     {
-      lamda_map_eval_workspace wkspc_t(ncol_use,fspc_,npts_max);
+      lambda_map_eval_workspace wkspc_t(ncol_use,fspc_,npts_max);
       bool  ** const Sat_t = wkspc_t.satisfy_flags_mat;
       #pragma omp for
       for (size_t icrv = 0; icrv < ncrv; icrv++)
@@ -63,7 +63,7 @@ struct LD_L_matrix: public LD_matrix
     {
       printf("(LD_L_matrix::eval_L_signal_strength) evaluated %d conds. (sols) over %d bases (%d x %d) in %.4f seconds (%d threads)\n",
         npts_evl,
-        ncrv,ncol_use,stack_.ndof_use,
+        ncrv,ncol_use,rec_.vlen,
         work_time,LD_threads::numthreads());
     }
   }
@@ -110,25 +110,29 @@ struct LD_R_matrix: public LD_matrix
   LD_R_matrix(function_space &fspc_,LD_observations_set &Sset_): LD_matrix(fspc_,Sset_,fspc_.ndep*fspc_.eor) {}
   ~LD_R_matrix() {}
 
-  template <class BSIS> static void eval_Rn_condition(LD_observations_set &Sobs_,LD_Theta_stack &stack_,BSIS **bases_,double tol_=1e-3,bool verbose_=true)
+  template <class BSIS> static void eval_Rn_condition(LD_vspace_record &rec_,LD_vector_bundle &bndle_,LD_observations_set &Sobs_,BSIS **bases_,double tol_=1e-3,bool verbose_=true)
   {
     const int eor = Sobs_.eor,
-              ncrv = stack_.nspc,
-              ncol_use = stack_.nrow_use;
-    bool satisfy_crvmat[ncrv][ncol_use];
-    int * const nsat_theta = stack_.ntheta_spcvec,
-        ** const isat_theta = stack_.itheta_spcmat;
-    double *** const Theta_tns = stack_.Theta_tns;
+              ncrv = rec_.nspc,
+              nvec_max = rec_.nvec;
+    bool satisfy_crvmat[ncrv][nvec_max];
+    int * const nsat_theta = rec_.nV_spcvec,
+        ** const isat_theta = rec_.iV_spcmat;
+    double *** const Theta_tns = bndle_.Vtns;
 
+    LD_vector_space ** const Vspaces = bndle_.Vspaces;
     ode_solcurve ** const crvs = Sobs_.curves;
 
-    int npts_evl = 0;
-    double t0 = LD_threads::tic();
-    #pragma omp parallel reduction(+:npts_evl)
+    int npts_evl = 0,
+        ntheta_acc = 0;
+    double  t0 = LD_threads::tic();
+    #pragma omp parallel reduction(+:npts_evl,ntheta_acc)
     {
       BSIS &bsis_t = *(bases_[LD_threads::thread_id()]);
-      Rn_cond_eval_workspace wkspc_t(ncol_use,Sobs_.meta,1);
+      Rn_cond_eval_workspace wkspc_t(nvec_max,Sobs_.meta,1);
+
       bool * const sat_t = wkspc_t.satisfy_flags;
+      int &ntheta_use = wkspc_t.ntheta_use;
       #pragma omp for
       for (size_t icrv = 0; icrv < ncrv; icrv++)
       {
@@ -139,8 +143,9 @@ struct LD_R_matrix: public LD_matrix
         bool * const sat_crvi = satisfy_crvmat[icrv];
 
         npts_evl += nobs_crvi;
+        ntheta_acc += (ntheta_use = Vspaces[icrv]->nvec_use);
         wkspc_t.Theta = Theta_tns[icrv];
-        LD_linalg::fill_vec<bool>(sat_crvi,ncol_use,true);
+        LD_linalg::fill_vec<bool>(sat_crvi,ntheta_use,true);
 
         int nsat_crvi = 0;
         for (size_t jsol = 0; jsol < nobs_crvi; jsol++)
@@ -148,27 +153,27 @@ struct LD_R_matrix: public LD_matrix
           if (Lie_detector::eval_Theta_Rn_condition(sat_t,*(sols_i[jsol]),wkspc_t,bsis_t,eor,tol_))
           {
             nsat_crvi = 0;
-            for (size_t ith = 0; ith < ncol_use; ith++)
+            for (size_t ith = 0; ith < ntheta_use; ith++)
               nsat_crvi += (int)(sat_crvi[ith] = (sat_crvi[ith])&&(sat_t[ith]));
           }
-          else LD_linalg::fill_vec<bool>(sat_crvi,ncol_use,nsat_crvi = 0);
-          if (!nsat_crvi) break;
+          else LD_linalg::fill_vec<bool>(sat_crvi,ntheta_use,nsat_crvi = 0);
+          if (!nsat_crvi) break; // if none pass
         }
         if (nsat_theta[icrv] = nsat_crvi)
         {
-          for (size_t ith = 0, isat = 0; ith < ncol_use; ith++)
+          for (size_t ith = 0, isat = 0; ith < ntheta_use; ith++)
             if (sat_crvi[ith]) isat_theta[icrv][isat++] = ith;
         }
-        else LD_linalg::fill_vec<int>(isat_theta[icrv],ncol_use,-1);
+        else LD_linalg::fill_vec<int>(isat_theta[icrv],ntheta_use,-1);
       }
     }
     double work_time = LD_threads::toc(t0);
     if (verbose_)
     {
-      printf("(LD_R_matrix::eval_Rn_condition) evaluated %d (%d sols, n=%d, q=%d) conds. over %d bases (%d x %d) in %.4f seconds (%d threads)\n",
+      printf("(LD_R_matrix::eval_Rn_condition) evaluated %d (%d sols, n=%d, q=%d) conds. over %d bases (%.1f x %d, on avg.) in %.4f seconds (%d threads)\n",
         npts_evl*eor*Sobs_.ndep,
         npts_evl,eor,Sobs_.ndep,
-        ncrv,ncol_use,stack_.ndof_use,
+        ncrv,((double)ntheta_acc)/((double)ncrv),rec_.vlen,
         work_time,LD_threads::numthreads());
     }
   }
@@ -467,14 +472,14 @@ struct LD_G_matrix: public LD_matrix
   LD_G_matrix(function_space &fspc_,LD_observations_set &Sset_): LD_matrix(fspc_,Sset_,fspc_.ndep) {}
   ~LD_G_matrix() {}
 
-  template <class BSIS> static void eval_inf_criterion(LD_observations_set &Sobs_,LD_Theta_stack &stack_,BSIS **bases_,double tol_=1e-3,bool verbose_=true)
+  template <class BSIS> static void eval_inf_criterion(LD_observations_set &Sobs_,LD_vspace_record &rec_,BSIS **bases_,double tol_=1e-3,bool verbose_=true)
   {
-    const int ncrv = stack_.nspc,
-              ncol_use = stack_.nrow_use;
+    const int ncrv = rec_.nspc,
+              ncol_use = rec_.nvec;
     bool satisfy_crvmat[ncrv][ncol_use];
-    int * const nsat_theta = stack_.ntheta_spcvec,
-        ** const isat_theta = stack_.itheta_spcmat;
-    double *** const Theta_tns = stack_.Theta_tns;
+    int * const nsat_theta = rec_.nV_spcvec,
+        ** const isat_theta = rec_.iV_spcmat;
+    double *** const Theta_tns = rec_.Vtns_data;
 
     ode_solcurve ** const crvs = Sobs_.curves;
 
@@ -524,7 +529,7 @@ struct LD_G_matrix: public LD_matrix
       printf("(LD_G_matrix::eval_inf_criterion) evaluated %d (%d sols, q=%d) conds. over %d bases (%d x %d) in %.4f seconds (%d threads)\n",
         npts_evl*Sobs_.ndep,
         npts_evl,Sobs_.ndep,
-        ncrv,ncol_use,stack_.ndof_use,
+        ncrv,ncol_use,rec_.vlen,
         work_time,LD_threads::numthreads());
     }
   }

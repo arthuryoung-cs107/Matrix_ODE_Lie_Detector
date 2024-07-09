@@ -5,7 +5,8 @@ CFLAGS_EXHIB:= -march=native -O3 -fopenmp -DGSL -DHAVE_INLINE
 
 IBASIC:=-isystem/usr/local/include/
 LINK:=-L/usr/local/lib/
-LIBS_EXHIB:=-lm -lgsl -lgslcblas
+# LIBS_EXHIB:=-lm -lgsl -lgslcblas
+LIBS_EXHIB:=-lm -lgsl -lcblas
 
 # directories
 

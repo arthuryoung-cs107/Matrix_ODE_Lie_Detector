@@ -20,8 +20,8 @@ Duffing_ode ode;
 ode_solspc_meta meta0(ode.eor,ode.ndep);
 
 // number of curves and uniform number of points per curve for dataset
-// const int nc = 50, // number of curves
-const int nc = 75, // number of curves
+const int nc = 50, // number of curves
+// const int nc = 75, // number of curves
 // const int nc = 100, // number of curves
 // const int nc = 150, // number of curves
 // const int nc = 200, // number of curves
@@ -32,6 +32,7 @@ const int nc = 75, // number of curves
 // identifier for independent variable range of data
 const int xrange = 0;
 // const int xrange = 1;
+// const int xrange = 2;
 
 const bool  write_dnp1xu = true,
             write_JFs = true;
