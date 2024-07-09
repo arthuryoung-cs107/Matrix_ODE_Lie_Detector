@@ -21,7 +21,7 @@ LD_vector_space::~LD_vector_space()
 LD_vector_bundle::LD_vector_bundle(int nspc_, int vlen_): data_owner(true),
   Vtns_data(T3tensor<double>(nspc_,vlen_,vlen_)), Vrows(new double*[nspc_*vlen_]),
   rec_ptr(new LD_vspace_record(nspc_,vlen_,vlen_,Vtns_data)),
-  nspc(nspc_), vlen_full(vlen_), nvec_use(vlen_), vlen_use(vlen_),
+  nspc(nspc_), vlen_full(vlen_),
   Vtns(new double**[nspc_]), Vspaces(new LD_vector_space*[nspc_])
 {
   for (size_t i = 0; i < nspc_; i++)
@@ -33,7 +33,7 @@ LD_vector_bundle::LD_vector_bundle(int nspc_, int vlen_): data_owner(true),
 LD_vector_bundle::LD_vector_bundle(LD_vector_bundle &bndle_): data_owner(false),
   Vtns_data(bndle_.Vtns_data), Vrows(bndle_.Vrows),
   rec_ptr(bndle_.rec_ptr),
-  nspc(bndle_.nspc), vlen_full(bndle_.vlen_full), nvec_use(bndle_.nvec_use), vlen_use(bndle_.vlen_use),
+  nspc(bndle_.nspc), vlen_full(bndle_.vlen_full),
   Vtns(bndle_.Vtns), Vspaces(bndle_.Vspaces) {}
 LD_vector_bundle::~LD_vector_bundle()
 {
@@ -122,7 +122,8 @@ void LD_Theta_space::post_multiply_evry_basis(double **AYmat_, double **Amat_, i
   for (size_t irow = 0; irow < mrows_; irow++)
     for (size_t ivar = 0, jcolAY = 0, jcolA = 0; ivar < nvar; ivar++, jcolAY+=pbse_nvar_use[ivar], jcolA+=perm_len)
     {
-      if (bse_ptrs[ivar]==NULL) for (size_t jbse = 0; jbse < perm_len; jbse++) AYmat_[irow][jcolAY+jbse] = Amat_[irow][jcolA+jbse];
+      if (bse_ptrs[ivar]==NULL)
+        for (size_t jbse = 0; jbse < perm_len; jbse++) AYmat_[irow][jcolAY+jbse] = Amat_[irow][jcolA+jbse];
       else bse_ptrs[ivar]->post_multiply_rowvec(AYmat_[irow]+jcolAY,Amat_[irow]+jcolA);
     }
 }

@@ -23,6 +23,10 @@ struct LD_vspace_record
     for (size_t i = 0; i < nspc; i++)
       for (size_t j = 0; j < nV_spcvec[i]; j++) iV_spcmat[i][j] = rec_.iV_spcmat[i][j];
   }
+  inline void set_record_rankvec(int *rvec_)
+    {for (size_t i = 0; i < nspc; i++) LD_linalg::fill_vec_012<int>(iV_spcmat[i],nV_spcvec[i] = rvec_[i]);}
+  inline void set_record_uniform(int nvec_)
+    {for (size_t i = 0; i < nspc; i++) LD_linalg::fill_vec_012<int>(iV_spcmat[i],nV_spcvec[i] = nvec_);}
 
   void print_selected_details(const char name_[], bool longwinded_=true);
 };
@@ -47,11 +51,7 @@ class LD_vector_space
 
     double ** const Vmat;
 
-    inline void set_Vmat(int nvec_use_,int vlen_use_)
-    {
-      nvec_use = nvec_use_; vlen_use=vlen_use_;
-      for (size_t i = 0; i < nvec_use; i++) Vmat[i] = Vmat_data[inds_V[i]];
-    }
+    inline void set_Vmat(int nvec_use_) {nvec_use = nvec_use_; for (size_t i = 0; i < nvec_use; i++) Vmat[i] = Vmat_data[inds_V[i]];}
     inline bool check_default_configuration()
     {
       if (nvec_use==vlen_use)
@@ -95,16 +95,16 @@ class LD_vector_bundle
   public:
 
     LD_vector_bundle(int nspc_,int vlen_);
-    LD_vector_bundle(int nspc_,int vlen_, double ***Vtns_in_): LD_vector_bundle(nspc_,vlen_) {load_Vtns_data(Vtns_in_);}
-    LD_vector_bundle(LD_vspace_record &rec_): LD_vector_bundle(rec_.nspc,rec_.vlen,rec_.Vtns_data) {set_Vspaces(rec_,rec_.vlen);}
     LD_vector_bundle(LD_vector_bundle &bndle_);
+    LD_vector_bundle(int nspc_,int vlen_, double ***Vtns_in_): LD_vector_bundle(nspc_,vlen_) {load_Vtns_data(Vtns_in_);}
+    LD_vector_bundle(LD_vspace_record &rec_): LD_vector_bundle(rec_.nspc,rec_.vlen,rec_.Vtns_data) {set_Vspaces(rec_);}
     ~LD_vector_bundle();
 
     inline void load_Vtns_data(double ***Vtns_)
     {
       for (size_t i = 0; i < nspc; i++)
-        for (size_t j = 0; j < nvec_use; j++)
-          for (size_t k = 0; k < vlen_use; k++)
+        for (size_t j = 0; j < nV_spcvec[i]; j++)
+          for (size_t k = 0; k < Vspaces[i]->vlen_use; k++)
             Vtns_data[i][j][k] = Vtns_[i][j][k];
     }
 
@@ -112,23 +112,16 @@ class LD_vector_bundle
 
     const int nspc,
               vlen_full;
-    int nvec_use,
-        vlen_use,
-        *  const nV_spcvec = rec.nV_spcvec,
+    int *  const nV_spcvec = rec.nV_spcvec,
         ** const iV_spcmat = rec.iV_spcmat;
     double *** const Vtns;
 
     LD_vector_space ** const Vspaces;
 
-    inline void set_Vspaces(LD_vspace_record &rec_, int vlen_use_=0)
+    inline void set_Vspaces(LD_vspace_record &rec_)
     {
-      vlen_use = (vlen_use_)?(vlen_use_):(rec_.vlen); rec.copy_record(rec_);
-      for (size_t i = 0; i < nspc; i++) Vspaces[i]->set_Vmat(nV_spcvec[i],vlen_use);
-    }
-    inline void set_Vspaces(int vlen_use_=0)
-    {
-      vlen_use = (vlen_use_)?(vlen_use_):(vlen_full);
-      for (size_t i = 0; i < nspc; i++) Vspaces[i]->set_Vmat(nV_spcvec[i],vlen_use);
+      rec.copy_record(rec_);
+      for (size_t i = 0; i < nspc; i++) Vspaces[i]->set_Vmat(nV_spcvec[i]);
     }
     inline bool check_default_configuration()
     {

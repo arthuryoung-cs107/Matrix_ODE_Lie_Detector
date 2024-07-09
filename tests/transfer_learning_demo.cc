@@ -26,8 +26,8 @@ int main()
                                                           name_JFs.name_file(obs_name,"_JFs")));
 
   // const int bor = 8;
-  const int bor = 9;
-  // const int bor = 10;
+  // const int bor = 9;
+  const int bor = 10;
 
   LD_name_buffer fam_name; fam_name.name_function_space("Chebyshev1",bor);
   orthopolynomial_space fspace0(meta0,orthopolynomial_config_file(name.name_domain_config_file(obs_name,fam_name)));
@@ -37,26 +37,43 @@ int main()
 
   LD_matrix Lmat(fspace0,Sobs,LD_matrix_file(name.name_matrix_file(obs_name,fam_name,"L")));
   LD_matrix_svd_result Lmat_svd(LD_svd_file(name.name_svd_file(obs_name,fam_name,"L"))); // Lmat_svd.print_details("Lmat_svd");
-  LD_vspace_record L_Vrec(Lmat_svd.ncrvs,Lmat_svd.ncol_use,Lmat_svd.ncols,Lmat_svd.VTtns);
-  // double tol_use_L = 1e-12; LD_L_matrix::eval_L_signal_strength(Sobs,L_Vrec,fspace0,tol_use_L); // L_Vrec.print_selected_details("L");
-  double tol_use_L = 0.0; LD_L_matrix::eval_L_signal_strength(Sobs,L_Vrec,fspace0,tol_use_L); L_Vrec.print_selected_details("L",false);
-  int nnsat_s_L = matrix_Lie_detector::compare_relaxed_subspaces(Lmat_svd,L_Vrec,"L",tol_use_L);
-  LD_vector_bundle L_Ybndl(L_Vrec);
+
+  double tol_use_L = 1e-12;
+
+  LD_vspace_record L_Vrec_sgnl_strngth(Lmat_svd.ncrvs,Lmat_svd.ncol_use,Lmat_svd.ncols,Lmat_svd.VTtns);
+    LD_L_matrix::eval_L_signal_strength(Sobs,L_Vrec_sgnl_strngth,fspace0,tol_use_L); L_Vrec_sgnl_strngth.print_selected_details("L",false);
+    // int nnsat_s_L = matrix_Lie_detector::compare_relaxed_subspaces(Lmat_svd,L_Vrec_sgnl_strngth,"L",tol_use_L);
+  LD_vspace_record L_Vrec_svd_full(Lmat_svd.ncrvs,Lmat_svd.ncol_use,Lmat_svd.ncols,Lmat_svd.VTtns);
+    L_Vrec_svd_full.set_record_rankvec(Lmat_svd.rank_vec);
+  LD_vspace_record L_Vrec_svd_unfrm(Lmat_svd.ncrvs,Lmat_svd.ncol_use,Lmat_svd.ncols,Lmat_svd.VTtns);
+    L_Vrec_svd_unfrm.set_record_uniform(Lmat_svd.min_rank());
+    // L_Vrec_svd_unfrm.set_record_uniform(fspace0.perm_len);
+    // L_Vrec_svd_unfrm.set_record_uniform(fspace0.perm_len-1);
+
+  // LD_vector_bundle L_Ybndl(L_Vrec_sgnl_strngth);
+  // LD_vector_bundle L_Ybndl(L_Vrec_svd_full);
+  LD_vector_bundle L_Ybndl(L_Vrec_svd_unfrm);
 
   LD_matrix Rmat(fspace0,Sobs,LD_matrix_file(name.name_matrix_file(obs_name,fam_name,"R")));
 
-  double tol_use_R = 1e-1;
+  double tol_use_R = 1e-3;
 
   LD_matrix_svd_result Rmat_svd(LD_svd_file(name.name_svd_file(obs_name,fam_name,"R"))); Rmat_svd.print_details("Rmat_svd");
-  LD_vector_bundle R_Vbndl(Rmat_svd.ncrvs,Rmat_svd.ncol_use,Rmat_svd.VTtns); LD_vspace_record &Rrec = R_Vbndl.rec;
-  LD_R_matrix::eval_Rn_condition<orthopolynomial_basis>(R_Vbndl.rec,R_Vbndl,Sobs,bases0,tol_use_R); R_Vbndl.rec.print_selected_details("R",false);
+    LD_vector_bundle R_Vbndl(Rmat_svd.ncrvs,Rmat_svd.ncol_use,Rmat_svd.VTtns); LD_vspace_record &Rrec = R_Vbndl.rec;
+    LD_R_matrix::eval_Rn_condition<orthopolynomial_basis>(R_Vbndl.rec,R_Vbndl,Sobs,bases0,tol_use_R); R_Vbndl.rec.print_selected_details("R",false);
 
   LD_matrix_svd_result RYLmat_svd0(Sobs.ncrvs_tot,fspace0.ndof_full);
-  LD_Theta_bundle RYL_Tbndl0(meta0,Sobs.ncrvs_tot,fspace0.ndof_full); LD_vspace_record &RYLrec = RYL_Tbndl0.Vbndle.rec;
-  RYL_Tbndl0.set_Yspaces(L_Ybndl,-1); // constrain just x parameter space
-  matrix_Lie_detector::compute_AYmat_curve_svds(RYLmat_svd0,Rmat,RYL_Tbndl0); // RYLmat_svd0.print_details("RYLmat_svd");
-  RYL_Tbndl0.init_Vbndle_premult(RYLmat_svd0.VTtns); // RYL_Tbndl0.Vbndle.rec.print_selected_details("RYL");
-  LD_R_matrix::eval_Rn_condition<orthopolynomial_basis>(RYLrec,RYL_Tbndl0.Vbndle,Sobs,bases0,tol_use_R); RYLrec.print_selected_details("RYL",false);
+    LD_Theta_bundle RYL_Tbndl0(meta0,Sobs.ncrvs_tot,fspace0.ndof_full); LD_vspace_record &RYLrec = RYL_Tbndl0.Vbndle.rec;
+    RYL_Tbndl0.set_Yspaces(L_Ybndl,-1);
+
+    // LD_linalg::print_A("L_Ybndl.Vspaces[0]->Vmat",L_Ybndl.Vspaces[0]->Vmat,5,L_Ybndl.Vspaces[0]->vlen_use);
+    // LD_linalg::print_A("RYL_Tbndl0.Tspaces[0]->bse_ptrs[0]->Vmat",RYL_Tbndl0.Tspaces[0]->bse_ptrs[0]->Vmat,5,RYL_Tbndl0.Tspaces[0]->bse_ptrs[0]->vlen_use);
+
+    matrix_Lie_detector::compute_AYmat_curve_svds(RYLmat_svd0,Rmat,RYL_Tbndl0); RYLmat_svd0.print_details("RYLmat_svd",RYL_Tbndl0.ndof_spcvec);
+    RYL_Tbndl0.init_Vbndle_premult(RYLmat_svd0.VTtns); // RYL_Tbndl0.Vbndle.rec.print_selected_details("RYL");
+    LD_R_matrix::eval_Rn_condition<orthopolynomial_basis>(RYLrec,RYL_Tbndl0.Vbndle,Sobs,bases0,tol_use_R); RYLrec.print_selected_details("RYL",false);
+
+  // LD_linalg::print_A("RYLmat_svd0.Smat",RYLmat_svd0.Smat,RYLmat_svd0.ncrvs,RYLmat_svd0.ncols);
 
   free_evaluation_bases<orthopolynomial_basis>(bases0);
   return 0;

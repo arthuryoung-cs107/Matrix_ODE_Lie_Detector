@@ -392,9 +392,12 @@ struct LD_svd
 
   inline void decompose_U(int Muse_=0, int Nuse_=0)
   {
+
     set_use_dims(Muse_,Nuse_);
-    gsl_matrix_view U_gsl = gsl_matrix_view_array(Umat[0],Muse,Nuse),
-                    V_gsl = gsl_matrix_view_array(Vmat[0],Nuse,Nuse);
+    gsl_matrix_view U_gsl =
+                  (Nuse==Nmax)?(gsl_matrix_view_array(Umat[0],Muse,Nuse)):(gsl_matrix_view_array_with_tda(Umat[0],Muse,Nuse,Nmax)),
+                    V_gsl =
+                  (Nuse==Nmax)?(gsl_matrix_view_array(Vmat[0],Nuse,Nuse)):(gsl_matrix_view_array_with_tda(Vmat[0],Nuse,Nuse,Nmax));
     gsl_vector_view s_gsl = gsl_vector_view_array(svec,Nuse),
                     w_gsl = gsl_vector_view_array(wvec,Nuse);
     int status_decomp = gsl_linalg_SV_decomp(&(U_gsl.matrix),&(V_gsl.matrix),&(s_gsl.vector),&(w_gsl.vector));

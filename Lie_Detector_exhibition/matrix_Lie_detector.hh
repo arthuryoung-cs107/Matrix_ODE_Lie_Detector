@@ -111,12 +111,17 @@ struct LD_matrix_svd_result
   void write_svd_results(const char name_[]);
   void read_svd_results(const char name_[]);
 
-  inline void print_details(const char name_[] =  "Amat_SVD")
+  inline void print_details(const char name_[] =  "Amat_SVD", int *nvec_=NULL)
   {
     const char preamble[] = "(LD_matrix_svd_result::print_details)";
     char name_buf[strlen(preamble) + strlen(name_) + 20];
     sprintf(name_buf,"%s %s rank_vec", preamble, name_);
     LD_linalg::print_xT(name_buf,rank_vec,ncrvs);
+    if (nvec_!=NULL)
+    {
+      for (size_t i = 0; i < ncrvs; i++) printf("%d ", nvec_[i]);
+      printf("\n  ^-- (out of n columns)\n");
+    }
     printf("ncols = %d, ncol_use = %d, min_nulldim = %d, max_nulldim = %d \n",
               ncols, ncol_use, min_nulldim(), max_nulldim());
   }
@@ -485,9 +490,9 @@ struct matrix_Lie_detector
             **** const Attns = Amat_.Attns;
     LD_Theta_space ** const Tspaces = Tbndle_.Tspaces;
 
-    double  mrows_acc = 0.0,
-            ncols_acc = 0.0,
-            t0 = LD_threads::tic();
+    int mrows_acc = 0,
+        ncols_acc = 0;
+    double  t0 = LD_threads::tic();
     #pragma omp parallel reduction(+:mrows_acc,ncols_acc)
     {
       LD_svd svd_t(nrows_max,ncol_full);
@@ -502,13 +507,14 @@ struct matrix_Lie_detector
         svd_t.decompose_U(mrows_Ai,ncols_Ai);
         rank_vec[icrv] = svd_t.unpack_rank_svec_VTmat(Smat_out[icrv],VTtns_out[icrv]);
 
-        mrows_acc += (double) mrows_Ai; ncols_acc += (double) ncols_Ai;
+        mrows_acc += mrows_Ai; ncols_acc += ncols_Ai;
       }
     }
     double work_time = LD_threads::toc(t0);
     if (verbose_)
       printf("(matrix_Lie_detector::compute_relaxed_curve_svds) computed %d svds (%.1f x %.1f, on avg.) in %.4f seconds (%d threads)\n",
-        ncrvs,mrows_acc/((double)ncrvs),ncols_acc/((double)ncrvs),work_time, LD_threads::numthreads());
+        ncrvs,((double)mrows_acc)/((double)ncrvs),((double)ncols_acc)/((double)ncrvs),
+        work_time, LD_threads::numthreads());
   }
 
   static void compute_global_svd(LD_SVD_space &svd_, LD_matrix &mat_, int ncrvs_cmp_=1, bool verbose_=true)
