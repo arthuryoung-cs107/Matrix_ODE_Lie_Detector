@@ -119,11 +119,22 @@ struct LD_matrix_svd_result
     LD_linalg::print_xT(name_buf,rank_vec,ncrvs);
     if (nvec_!=NULL)
     {
-      for (size_t i = 0; i < ncrvs; i++) printf("%d ", nvec_[i]);
-      printf("\n  ^-- (out of n columns)\n");
+      int ncol_acc = 0,
+          min_nulldim = nvec_[0]-rank_vec[0],
+          max_nulldim = nvec_[0]-rank_vec[0];
+      for (size_t i = 0; i < ncrvs; i++)
+      {
+        int nulldim_i = nvec_[i]-rank_vec[i];
+        if (min_nulldim>nulldim_i) min_nulldim=nulldim_i;
+        if (max_nulldim<nulldim_i) max_nulldim=nulldim_i;
+        ncol_acc += nvec_[i];
+        printf("%d ", nvec_[i]);
+      }
+      printf("\n  ^-- (out of n columns)\nncols = %d, avg. ncol_use = %.1f, min_nulldim = %d, max_nulldim = %d \n",
+            ncols, ((double)(ncol_acc))/((double)(ncrvs)),min_nulldim,max_nulldim);
     }
-    printf("ncols = %d, ncol_use = %d, min_nulldim = %d, max_nulldim = %d \n",
-              ncols, ncol_use, min_nulldim(), max_nulldim());
+    else printf("ncols = %d, ncol_use = %d, min_nulldim = %d, max_nulldim = %d \n",
+                 ncols, ncol_use, min_nulldim(), max_nulldim());
   }
 
   inline int nulldim_i(int i_) {return ncol_use-rank_vec[i_];}
@@ -455,30 +466,6 @@ struct matrix_Lie_detector
   matrix_Lie_detector() {}
   ~matrix_Lie_detector() {}
 
-  static int compare_relaxed_subspaces(LD_matrix_svd_result &svd_, LD_vspace_record &rec_, const char letter_[], double tol_=0.0)
-  {
-    const char fcn_name[] = "matrix_Lie_detector::compare_relaxed_subspaces";
-    char name_buf[20];
-    const int ncrvs = svd_.ncrvs;
-    bool nsat_sf[ncrvs];
-    int nnsat_s = 0,
-        nnsat_diff[ncrvs];
-    double diff_acc = 0.0;
-    printf("(%s)\n  %s rank (1 x %d)\n", fcn_name,letter_,ncrvs);
-    for (size_t i = 0; i < ncrvs; i++)
-    {
-      printf("%d ", svd_.rank_vec[i]);
-      diff_acc += (double)(nnsat_diff[i] = svd_.rank_vec[i]-rec_.nV_spcvec[i]);
-      nnsat_s+=(int)(nsat_sf[i]=(nnsat_diff[i] >= 0));
-    }
-    sprintf(name_buf,"\n  nsat_%s",letter_); LD_linalg::print_xT(name_buf,rec_.nV_spcvec,ncrvs);
-    sprintf(name_buf,"  nsat_diff_%s",letter_); LD_linalg::print_xT(name_buf,nnsat_diff,ncrvs);
-    if (tol_) printf("  nsat_smaller_%s = %d (of %d, tol = %.1e). ",letter_,nnsat_s,ncrvs,tol_);
-    else printf(" nsat_smaller_%s = %d (of %d). ",letter_,nnsat_s,ncrvs);
-    printf("Average diff: %.2f \n", diff_acc/((double) ncrvs));
-    return nnsat_s;
-  }
-
   static void compute_AYmat_curve_svds(LD_matrix_svd_result &svd_,LD_matrix &Amat_,LD_Theta_bundle &Tbndle_,bool verbose_=true)
   {
     const int ncrvs = Amat_.ncrvs_tot,
@@ -512,7 +499,7 @@ struct matrix_Lie_detector
     }
     double work_time = LD_threads::toc(t0);
     if (verbose_)
-      printf("(matrix_Lie_detector::compute_relaxed_curve_svds) computed %d svds (%.1f x %.1f, on avg.) in %.4f seconds (%d threads)\n",
+      printf("(matrix_Lie_detector::compute_AYmat_curve_svds) computed %d svds (%.1f x %.1f, on avg.) in %.4f seconds (%d threads)\n",
         ncrvs,((double)mrows_acc)/((double)ncrvs),((double)ncols_acc)/((double)ncrvs),
         work_time, LD_threads::numthreads());
   }

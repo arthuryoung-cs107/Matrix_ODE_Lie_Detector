@@ -6,8 +6,14 @@
 
 struct LD_vspace_record
 {
-  LD_vspace_record(int nspc_,int nvec_, int vlen_, double ***Vtns_data_): nspc(nspc_), nvec(nvec_), vlen(vlen_),
-    nV_spcvec(new int[nspc_]), iV_spcmat(Tmatrix<int>(nspc_,nvec_)), Vtns_data(Vtns_data_) {}
+  LD_vspace_record(int nspc_,int nvec_, int vlen_, double ***Vtns_data_,bool init_=true):
+    nspc(nspc_), nvec(nvec_), vlen(vlen_),
+    nV_spcvec(new int[nspc_]), iV_spcmat(Tmatrix<int>(nspc_,nvec_)), Vtns_data(Vtns_data_)
+    {if (init_) init_default();}
+  LD_vspace_record(int nspc_,int nvec_, int vlen_, LD_vspace_record &rec_):
+    nspc(nspc_), nvec(nvec_), vlen(vlen_),
+    nV_spcvec(new int[nspc_]), iV_spcmat(Tmatrix<int>(nspc_,nvec_)), Vtns_data(rec_.Vtns_data)
+    {copy_record(rec_);}
   ~LD_vspace_record() { free_Tmatrix<int>(iV_spcmat); delete [] nV_spcvec; }
 
   const int nspc,
@@ -17,18 +23,31 @@ struct LD_vspace_record
       ** const iV_spcmat;
   double *** const Vtns_data;
 
+  inline void init_default()
+    {for (size_t i = 0; i < nspc; i++) LD_linalg::fill_vec_012<int>(iV_spcmat[i],nV_spcvec[i]=nvec);}
   inline void copy_record(LD_vspace_record &rec_)
   {
     LD_linalg::copy_vec<int>(nV_spcvec,rec_.nV_spcvec,nspc);
     for (size_t i = 0; i < nspc; i++)
       for (size_t j = 0; j < nV_spcvec[i]; j++) iV_spcmat[i][j] = rec_.iV_spcmat[i][j];
   }
+  inline void set_record_nullspc(int *rvec_)
+    {for (size_t i = 0; i < nspc; i++) LD_linalg::fill_vec_012<int>(iV_spcmat[i],nV_spcvec[i] -= rvec_[i],rvec_[i]);}
   inline void set_record_rankvec(int *rvec_)
     {for (size_t i = 0; i < nspc; i++) LD_linalg::fill_vec_012<int>(iV_spcmat[i],nV_spcvec[i] = rvec_[i]);}
-  inline void set_record_uniform(int nvec_)
+  inline void set_record_unirank(int nvec_)
     {for (size_t i = 0; i < nspc; i++) LD_linalg::fill_vec_012<int>(iV_spcmat[i],nV_spcvec[i] = nvec_);}
+  inline void set_record_uninull(int nvec_)
+  {
+    for (size_t i = 0; i < nspc; i++)
+    {
+      LD_linalg::fill_vec_012<int>(iV_spcmat[i],nvec_,nV_spcvec[i]-nvec_);
+      nV_spcvec[i] = nvec_;
+    }
+  }
 
   void print_selected_details(const char name_[], bool longwinded_=true);
+  void compare_subspaces(LD_vspace_record &rec1_,const char name1_[],LD_vspace_record &rec2_,const char name2_[]);
 };
 
 class LD_vector_space
@@ -51,7 +70,8 @@ class LD_vector_space
 
     double ** const Vmat;
 
-    inline void set_Vmat(int nvec_use_) {nvec_use = nvec_use_; for (size_t i = 0; i < nvec_use; i++) Vmat[i] = Vmat_data[inds_V[i]];}
+    inline void set_Vmat(int nvec_use_)
+      {nvec_use = nvec_use_; for (size_t i = 0; i < nvec_use; i++) Vmat[i] = Vmat_data[inds_V[i]];}
     inline bool check_default_configuration()
     {
       if (nvec_use==vlen_use)
@@ -118,11 +138,9 @@ class LD_vector_bundle
 
     LD_vector_space ** const Vspaces;
 
+    inline void set_Vspaces() {for (size_t i = 0; i < nspc; i++) Vspaces[i]->set_Vmat(nV_spcvec[i]);}
     inline void set_Vspaces(LD_vspace_record &rec_)
-    {
-      rec.copy_record(rec_);
-      for (size_t i = 0; i < nspc; i++) Vspaces[i]->set_Vmat(nV_spcvec[i]);
-    }
+      {rec.copy_record(rec_); for (size_t i = 0; i < nspc; i++) Vspaces[i]->set_Vmat(nV_spcvec[i]);}
     inline bool check_default_configuration()
     {
       for (size_t i = 0; i < nspc; i++) if (!(Vspaces[i]->check_default_configuration())) return false;
@@ -156,18 +174,18 @@ class LD_Theta_space: public ode_solspc_element
 
     inline int set_ivar_Yspace(LD_vector_space *Yspace_, int ivar_=0)
     {
-      if ((0<=ivar_)&&(ivar_<nvar)) {bse_ptrs[ivar_] = Yspace_; return verify_Yspaces();}
-      else return set_evry_Yspace(Yspace_);
+      if ((0<=ivar_)&&(ivar_<nvar)) {bse_ptrs[ivar_] = Yspace_; return spc.nvec_use = verify_Yspaces();}
+      else return spc.nvec_use = set_evry_Yspace(Yspace_);
     }
     inline int set_evry_Yspace(LD_vector_space *Yspace_)
     {
       for (size_t ivar = 0; ivar < nvar; ivar++) bse_ptrs[ivar] = Yspace_;
-      return verify_Yspaces();
+      return spc.nvec_use = verify_Yspaces();
     }
     inline int set_evry_Yspace(LD_vector_space **Yspaces_)
     {
       for (size_t ivar = 0; ivar < nvar; ivar++) bse_ptrs[ivar] = Yspaces_[ivar];
-      return verify_Yspaces();
+      return spc.nvec_use = verify_Yspaces();
     }
 
     inline void post_multiply_bases(double **AYmat_, double **Amat_, int mrows_, bool force_check_=false)
@@ -239,12 +257,12 @@ class LD_Theta_bundle: public ode_solspc_element
     ~LD_Theta_bundle();
 
     LD_vector_bundle &Vbndle = *(Vbndle_ptr);
+    LD_vspace_record &Trec = Vbndle.rec;
 
     const int nspc = Vbndle.nspc;
 
-    int * const ndof_spcvec,
-        ** const pbse_nvar_spcmat;
-    double *** const Ttns = Vbndle.Vtns;
+    int ** const pbse_nvar_spcmat;
+    double  *** const Ttns = Vbndle.Vtns;
 
     LD_Theta_space ** const Tspaces;
 
@@ -253,26 +271,30 @@ class LD_Theta_bundle: public ode_solspc_element
       LD_vector_space ** const Yspaces = Ybndle_.Vspaces;
       if (ivar_<0) // provide same basis for all dimensions
         for (size_t ispc = 0; ispc < nspc; ispc++)
-          ndof_spcvec[ispc] = Tspaces[ispc]->set_evry_Yspace(Yspaces[ispc]);
+          Vbndle.nV_spcvec[ispc] = Tspaces[ispc]->set_evry_Yspace(Yspaces[ispc]);
       else // provide basis for just one dimension
         for (size_t ispc = 0; ispc < nspc; ispc++)
-          ndof_spcvec[ispc] = Tspaces[ispc]->set_ivar_Yspace(Yspaces[ispc],ivar_);
+          Vbndle.nV_spcvec[ispc] = Tspaces[ispc]->set_ivar_Yspace(Yspaces[ispc],ivar_);
     }
     inline void init_Vbndle_premult(double ***Wtns_)
     {
       for (size_t ispc = 0; ispc < nspc; ispc++)
-        Vbndle.nV_spcvec[ispc] = ndof_spcvec[ispc] = Tspaces[ispc]->init_Vspce_premult(Wtns_[ispc]);
+        Vbndle.nV_spcvec[ispc] = Tspaces[ispc]->init_Vspce_premult(Wtns_[ispc]);
     }
+    inline void set_Tspaces() {Vbndle.set_Vspaces();}
+    inline void set_Tspaces(LD_vspace_record &rec_) {Vbndle.set_Vspaces(rec_);}
 };
 
 struct Theta_eval_workspace
 {
-  Theta_eval_workspace(int ntheta_,int nsols_=1): ntheta(ntheta_), nsols(nsols_), Theta(NULL),
+  Theta_eval_workspace(int ntheta_,int nsols_=1): ntheta(ntheta_), nsols(nsols_),
+    ntheta_use(ntheta_), Theta(NULL),
     satisfy_flags_mat(Tmatrix<bool>(nsols_,ntheta_)) {}
   ~Theta_eval_workspace() {free_Tmatrix<bool>(satisfy_flags_mat);}
 
   const int ntheta,
             nsols;
+  int ntheta_use;
   bool  ** const satisfy_flags_mat,
         * satisfy_flags = satisfy_flags_mat[0];
   double  ** Theta;
@@ -292,10 +314,9 @@ struct lambda_map_eval_workspace: public Theta_eval_workspace
 struct Rn_cond_eval_workspace: public Theta_eval_workspace
 {
   Rn_cond_eval_workspace(int ntheta_,ode_solspc_meta &meta_,int nsols_=1):
-    Theta_eval_workspace(ntheta_,nsols_), ntheta_use(ntheta_), v(new double[meta_.ndim]) {}
+    Theta_eval_workspace(ntheta_,nsols_), v(new double[meta_.ndim]) {}
   ~Rn_cond_eval_workspace() {delete [] v;}
 
-  int ntheta_use;
   double  * const v;
 };
 

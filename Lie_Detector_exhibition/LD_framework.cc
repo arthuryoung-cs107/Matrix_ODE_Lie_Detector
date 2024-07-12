@@ -468,3 +468,59 @@ void LD_matrix::read_matrix(const char name_[])
     LD_io::fclose_SAFE(file_in);
   }
 }
+
+void LD_svd_bundle::compute_AYmat_curve_svds(LD_matrix &Amat_,LD_Theta_space ** const Tspaces_,bool verbose_)
+{
+  const int mrows_max = Amat_.max_nrow_curve();
+
+  int mrows_acc = 0,
+      ncols_acc = 0;
+  double t0 = LD_threads::tic();
+
+  #pragma omp parallel reduction(+:mrows_acc,ncols_acc)
+  {
+    LD_svd svd_t(mrows_max,vlen_full);
+    double ** const Umat_t = svd_t.Umat;
+    #pragma omp for
+    for (size_t ispc = 0; ispc < nspc; ispc++)
+    {
+      LD_Theta_space &Tspc_i = *(Tspaces_[ispc]);
+      const int mrows_Ai = Amat_.nrows_mat_i(ispc),
+                ncols_Ai = nV_spcvec[ispc] = Tspc_i.ndof_use;
+      Tspc_i.post_multiply_bases(Umat_t,Amat_.Amat_crv_i(ispc),mrows_Ai);
+      svd_t.decompose_U(mrows_Ai,ncols_Ai);
+      rank_vec[ispc] = svd_t.unpack_rank_svec_VTmat(Smat[ispc],VTtns[ispc]);
+
+      mrows_acc += mrows_Ai; ncols_acc += ncols_Ai;
+    }
+  }
+  double work_time = LD_threads::toc(t0);
+  if (verbose_)
+    printf("(LD_svd_bundle::compute_AYmat_curve_svds) computed %d svds (%.1f x %.1f, on avg.) in %.4f seconds (%d threads)\n",
+      nspc,((double)mrows_acc)/((double)nspc),((double)ncols_acc)/((double)nspc),
+      work_time, LD_threads::numthreads());
+}
+
+void LD_svd_bundle::print_details(const char name_[])
+{
+  const char preamble[] = "(LD_matrix_svd_result::print_details)";
+  char name_buf[strlen(preamble) + strlen(name_) + 20];
+  sprintf(name_buf,"%s %s rank_vec", preamble, name_);
+  LD_linalg::print_xT(name_buf,rank_vec,nspc);
+  for (size_t i = 0; i < nspc; i++) printf("%d ", nV_spcvec[i]); printf("\n  ^-- (out of n columns)\n");
+  int ncol_acc = 0,
+      max_nulldim = 0,
+      min_nulldim = vlen_full;
+  for (size_t i = 0; i < nspc; i++)
+  {
+    int nulldim_i = nV_spcvec[i]-rank_vec[i];
+    if (min_nulldim>nulldim_i) min_nulldim=nulldim_i;
+    if (max_nulldim<nulldim_i) max_nulldim=nulldim_i;
+    ncol_acc += nV_spcvec[i];
+    printf("%d ", nulldim_i);
+  }
+  printf("\n  ^-- (nullspace dimension)\n");
+  printf("avg. ncol_use = %.1f, min_nulldim = %d, max_nulldim = %d \n",
+        ((double)(ncol_acc))/((double)(nspc)),min_nulldim,max_nulldim);
+
+}

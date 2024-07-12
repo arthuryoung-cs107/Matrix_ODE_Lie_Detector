@@ -8,23 +8,27 @@ struct LD_L_matrix: public LD_matrix
   LD_L_matrix(function_space &fspc_,LD_observations_set &Sset_): LD_matrix(fspc_,Sset_,1,fspc_.perm_len) {}
   ~LD_L_matrix() {}
 
-  static void eval_L_signal_strength(LD_observations_set &Sobs_,LD_vspace_record &rec_,function_space &fspc_,double tol_=1e-13,bool verbose_=true)
+  static void eval_L_signal_strength(LD_vspace_record &reco_,LD_vspace_record &reci_,function_space &fspc_,LD_observations_set &Sobs_,double tol_=1e-13,bool verbose_=true)
   {
-    const int ncrv = rec_.nspc,
+    const int ncrv = reco_.nspc,
               npts_max = Sobs_.max_npts_curve(),
-              ncol_use = rec_.nvec;
-    bool satisfy_crvmat[ncrv][ncol_use];
-    int * const nsat_theta = rec_.nV_spcvec,
-        ** const isat_theta = rec_.iV_spcmat;
-    double *** const Theta_tns = rec_.Vtns_data;
+              nvec_max = reco_.nvec;
+    bool sat_crvmat[ncrv][nvec_max];
+    int * const nuse_theta = reci_.nV_spcvec,
+        * const nsat_theta = reco_.nV_spcvec,
+        ** const isat_theta = reco_.iV_spcmat;
+    double *** const Theta_tns = reci_.Vtns_data;
 
     ode_solcurve ** const crvs = Sobs_.curves;
-    int npts_evl = 0;
-    double t0 = LD_threads::tic();
-    #pragma omp parallel reduction(+:npts_evl)
+    int npts_evl = 0,
+        ntheta_evl = 0;
+    double  t0 = LD_threads::tic();
+
+    #pragma omp parallel reduction(+:npts_evl,ntheta_evl)
     {
-      lambda_map_eval_workspace wkspc_t(ncol_use,fspc_,npts_max);
+      lambda_map_eval_workspace wkspc_t(nvec_max,fspc_,npts_max);
       bool  ** const Sat_t = wkspc_t.satisfy_flags_mat;
+      int  &ntheta_use = wkspc_t.ntheta_use;
       #pragma omp for
       for (size_t icrv = 0; icrv < ncrv; icrv++)
       {
@@ -32,38 +36,38 @@ struct LD_L_matrix: public LD_matrix
         ode_solution ** const sols_i = crv_i.sols;
 
         const int nobs_crvi = crv_i.nobs;
-        bool * const sat_crvi = satisfy_crvmat[icrv];
 
         npts_evl += nobs_crvi;
+        ntheta_evl += (ntheta_use = nuse_theta[icrv]);
         wkspc_t.Theta = Theta_tns[icrv];
-        LD_linalg::fill_vec<bool>(sat_crvi,ncol_use,false);
+        LD_linalg::fill_vec<bool>(sat_crvmat[icrv],ntheta_use,false);
 
         int nsat_crvi = 0;
         for (size_t jsol = 0; jsol < nobs_crvi; jsol++)
         {
-          if (Lie_detector::eval_lamfunc_signal_strength(Sat_t[jsol],*(sols_i[jsol]),wkspc_t,fspc_,tol_) != ncol_use)
+          if (Lie_detector::eval_lamfunc_signal_strength(Sat_t[jsol],*(sols_i[jsol]),wkspc_t,fspc_,tol_)!=ntheta_use)
           {
             nsat_crvi = 0;
-            for (size_t ith = 0; ith < ncol_use; ith++)
-              nsat_crvi += (int)(sat_crvi[ith] = (sat_crvi[ith]) || (Sat_t[jsol][ith]));
+            for (size_t ith = 0; ith < ntheta_use; ith++)
+              nsat_crvi += (int)(sat_crvmat[icrv][ith] = (sat_crvmat[icrv][ith]) || (Sat_t[jsol][ith]));
           }
-          else LD_linalg::fill_vec<bool>(sat_crvi,nsat_crvi=ncol_use,true);
-          if (nsat_crvi==ncol_use) break;
+          else LD_linalg::fill_vec<bool>(sat_crvmat[icrv],nsat_crvi=ntheta_use,true);
+          if (nsat_crvi==ntheta_use) break;
         }
         if (nsat_theta[icrv] = nsat_crvi)
         {
-          for (size_t ith = 0, isat = 0; ith < ncol_use; ith++)
-            if (sat_crvi[ith]) isat_theta[icrv][isat++] = ith;
+          for (size_t ith = 0, isat = 0; ith < ntheta_use; ith++)
+            if (sat_crvmat[icrv][ith]) isat_theta[icrv][isat++] = ith;
         }
-        else LD_linalg::fill_vec<int>(isat_theta[icrv],ncol_use,-1);
+        else LD_linalg::fill_vec<int>(isat_theta[icrv],ntheta_use,-1);
       }
     }
     double work_time = LD_threads::toc(t0);
     if (verbose_)
     {
-      printf("(LD_L_matrix::eval_L_signal_strength) evaluated %d conds. (sols) over %d bases (%d x %d) in %.4f seconds (%d threads)\n",
-        npts_evl,
-        ncrv,ncol_use,rec_.vlen,
+      printf("(LD_L_matrix::eval_L_signal_strength) evaluated %d conds. (sols) over %d bases (%d x %d, on avg.) in %.4f seconds (%d threads)\n",
+        npts_evl,ncrv,
+        reci_.vlen,((double)ntheta_evl)/((double)ncrv),
         work_time,LD_threads::numthreads());
     }
   }
@@ -110,17 +114,17 @@ struct LD_R_matrix: public LD_matrix
   LD_R_matrix(function_space &fspc_,LD_observations_set &Sset_): LD_matrix(fspc_,Sset_,fspc_.ndep*fspc_.eor) {}
   ~LD_R_matrix() {}
 
-  template <class BSIS> static void eval_Rn_condition(LD_vspace_record &rec_,LD_vector_bundle &bndle_,LD_observations_set &Sobs_,BSIS **bases_,double tol_=1e-3,bool verbose_=true)
+  template <class BSIS> static void eval_Rn_condition(LD_vspace_record &reco_,LD_vspace_record &reci_,LD_observations_set &Sobs_,BSIS **bases_,double tol_=1e-3,bool verbose_=true)
   {
     const int eor = Sobs_.eor,
-              ncrv = rec_.nspc,
-              nvec_max = rec_.nvec;
-    bool satisfy_crvmat[ncrv][nvec_max];
-    int * const nsat_theta = rec_.nV_spcvec,
-        ** const isat_theta = rec_.iV_spcmat;
-    double *** const Theta_tns = bndle_.Vtns;
+              ncrv = reco_.nspc,
+              nvec_max = reco_.nvec;
+    bool sat_crvmat[ncrv][nvec_max];
+    int * const nuse_theta = reci_.nV_spcvec,
+        * const nsat_theta = reco_.nV_spcvec,
+        ** const isat_theta = reco_.iV_spcmat;
+    double *** const Theta_tns = reci_.Vtns_data;
 
-    LD_vector_space ** const Vspaces = bndle_.Vspaces;
     ode_solcurve ** const crvs = Sobs_.curves;
 
     int npts_evl = 0,
@@ -138,14 +142,12 @@ struct LD_R_matrix: public LD_matrix
       {
         ode_solcurve &crv_i = *(crvs[icrv]);
         ode_solution ** const sols_i = crv_i.sols;
-
         const int nobs_crvi = crv_i.nobs;
-        bool * const sat_crvi = satisfy_crvmat[icrv];
 
         npts_evl += nobs_crvi;
-        ntheta_acc += (ntheta_use = Vspaces[icrv]->nvec_use);
+        ntheta_acc += (ntheta_use = nuse_theta[icrv]);
         wkspc_t.Theta = Theta_tns[icrv];
-        LD_linalg::fill_vec<bool>(sat_crvi,ntheta_use,true);
+        LD_linalg::fill_vec<bool>(sat_crvmat[icrv],ntheta_use,true);
 
         int nsat_crvi = 0;
         for (size_t jsol = 0; jsol < nobs_crvi; jsol++)
@@ -154,15 +156,15 @@ struct LD_R_matrix: public LD_matrix
           {
             nsat_crvi = 0;
             for (size_t ith = 0; ith < ntheta_use; ith++)
-              nsat_crvi += (int)(sat_crvi[ith] = (sat_crvi[ith])&&(sat_t[ith]));
+              nsat_crvi += (int)(sat_crvmat[icrv][ith] = (sat_crvmat[icrv][ith])&&(sat_t[ith]));
           }
-          else LD_linalg::fill_vec<bool>(sat_crvi,ntheta_use,nsat_crvi = 0);
+          else LD_linalg::fill_vec<bool>(sat_crvmat[icrv],ntheta_use,nsat_crvi = 0);
           if (!nsat_crvi) break; // if none pass
         }
         if (nsat_theta[icrv] = nsat_crvi)
         {
           for (size_t ith = 0, isat = 0; ith < ntheta_use; ith++)
-            if (sat_crvi[ith]) isat_theta[icrv][isat++] = ith;
+            if (sat_crvmat[icrv][ith]) isat_theta[icrv][isat++] = ith;
         }
         else LD_linalg::fill_vec<int>(isat_theta[icrv],ntheta_use,-1);
       }
@@ -173,7 +175,7 @@ struct LD_R_matrix: public LD_matrix
       printf("(LD_R_matrix::eval_Rn_condition) evaluated %d (%d sols, n=%d, q=%d) conds. over %d bases (%.1f x %d, on avg.) in %.4f seconds (%d threads)\n",
         npts_evl*eor*Sobs_.ndep,
         npts_evl,eor,Sobs_.ndep,
-        ncrv,((double)ntheta_acc)/((double)ncrv),rec_.vlen,
+        ncrv,((double)ntheta_acc)/((double)ncrv),reci_.vlen,
         work_time,LD_threads::numthreads());
     }
   }
@@ -199,8 +201,13 @@ struct LD_R_matrix: public LD_matrix
   {
     for (size_t k = 0, idxu = 0; k < eor; k++)
       for (size_t idep = 0; idep < ndep; idep++, idxu++)
-        for (size_t icol = 0; icol < ndof_tun; icol++)
-          Rmat_i_[idxu][icol] /= sol_.dxu[idxu];
+      {
+        for (size_t icol = 0; icol < ndof_tun; icol++) Rmat_i_[idxu][icol] /= sol_.dxu[idxu];
+        LD_linalg::normalize_vec_l2(Rmat_i_[idxu],ndof_tun);
+      }
+      // for (size_t idep = 0; idep < ndep; idep++, idxu++)
+      //   for (size_t icol = 0; icol < ndof_tun; icol++)
+      //     Rmat_i_[idxu][icol] /= sol_.dxu[idxu];
   }
 
   protected:

@@ -65,19 +65,19 @@ LD_Theta_space::~LD_Theta_space()
 LD_Theta_bundle::LD_Theta_bundle(ode_solspc_meta &meta_,int nspc_,int ndof_): ode_solspc_element(meta_),
   Vbndl_owner(true), data_owner(true),
   Vbndle_ptr(new LD_vector_bundle(nspc_,ndof_)), Yspaces_nvar(new LD_vector_space*[nvar*nspc_]), perm_len(ndof_/nvar),
-  ndof_spcvec(new int[nspc_]), pbse_nvar_spcmat(Tmatrix<int>(nspc_,nvar)),
+  pbse_nvar_spcmat(Tmatrix<int>(nspc_,nvar)),
   Tspaces(new LD_Theta_space*[nspc_])
 {
   for (size_t i = 0; i < nspc_; i++)
   {
-    Tspaces[i] = new LD_Theta_space(meta_,ndof_spcvec[i]=ndof_,Vspaces[i],Yspaces_nvar+(nvar*i),pbse_nvar_spcmat[i]);
+    Tspaces[i] = new LD_Theta_space(meta_,ndof_,Vspaces[i],Yspaces_nvar+(nvar*i),pbse_nvar_spcmat[i]);
     for (size_t j = 0; j < nvar; j++) {*(Yspaces_nvar+(nvar*i) + j) = NULL; pbse_nvar_spcmat[i][j] = perm_len;}
   }
 }
 LD_Theta_bundle::LD_Theta_bundle(LD_Theta_bundle &Tbndle_): ode_solspc_element(Tbndle_.meta),
   Vbndl_owner(false), data_owner(false),
   Vbndle_ptr(Tbndle_.Vbndle_ptr), Yspaces_nvar(Tbndle_.Yspaces_nvar), perm_len(perm_len),
-  ndof_spcvec(Tbndle_.ndof_spcvec), pbse_nvar_spcmat(Tbndle_.pbse_nvar_spcmat),
+  pbse_nvar_spcmat(Tbndle_.pbse_nvar_spcmat),
   Tspaces(Tbndle_.Tspaces) {}
 
 LD_Theta_bundle::~LD_Theta_bundle()
@@ -86,7 +86,6 @@ LD_Theta_bundle::~LD_Theta_bundle()
   {
     for (size_t i = 0; i < nspc; i++) delete Tspaces[i];
     delete [] Tspaces;
-    delete [] ndof_spcvec;
     free_Tmatrix<int>(pbse_nvar_spcmat);
     delete [] Yspaces_nvar;
   }
@@ -117,10 +116,33 @@ void LD_vspace_record::print_selected_details(const char name_[], bool longwinde
             LD_linalg::min_val<int>(nV_spcvec,nspc), LD_linalg::max_val<int>(nV_spcvec,nspc));
 }
 
+void LD_vspace_record::compare_subspaces(LD_vspace_record &rec1_,const char name1_[],LD_vspace_record &rec2_,const char name2_[])
+{
+  int nvec0_acc = 0,
+      nvec1_acc = 0,
+      nvec2_acc = 0,
+      diff_acc = 0,
+      nV_diff[nspc];
+  for (size_t i = 0; i < nspc; i++)
+  {
+    diff_acc += (nV_diff[i] = rec1_.nV_spcvec[i]-rec2_.nV_spcvec[i]);
+    nvec0_acc += nV_spcvec[i];
+    nvec1_acc += rec1_.nV_spcvec[i];
+    nvec2_acc += rec2_.nV_spcvec[i];
+  }
+  printf("(LD_vspace_record::compare_subspaces) comparing %s vs. %s (nspc = %d). Avg. nV0 = %.1f, nV1 = %.1f, nV2 = %.1f, nV1-nV2 = %.1f (embedded in %d dimensions)\n nV0: --v\n  ",
+  name1_,name2_,nspc, ((double)nvec0_acc)/((double)nspc),
+  ((double)nvec1_acc)/((double)nspc),((double)nvec2_acc)/((double)nspc),
+  ((double)diff_acc)/((double)nspc), vlen);
+  for (size_t i = 0; i < nspc; i++) printf("%d ", nV_spcvec[i]); printf("\n  ");
+  for (size_t i = 0; i < nspc; i++) printf("%d ", rec1_.nV_spcvec[i]); printf("<-- %s nV\n  ",name1_);
+  for (size_t i = 0; i < nspc; i++) printf("%d ", rec2_.nV_spcvec[i]); printf("<-- %s nV\n  ",name2_);
+  for (size_t i = 0; i < nspc; i++) printf("%d ", nV_diff[i]); printf("\n %s nV - %s nV --^\n",name1_,name2_);
+}
 void LD_Theta_space::post_multiply_evry_basis(double **AYmat_, double **Amat_, int mrows_)
 {
   for (size_t irow = 0; irow < mrows_; irow++)
-    for (size_t ivar = 0, jcolAY = 0, jcolA = 0; ivar < nvar; ivar++, jcolAY+=pbse_nvar_use[ivar], jcolA+=perm_len)
+    for (size_t ivar = 0, jcolAY = 0, jcolA = 0; ivar < nvar; jcolAY+=pbse_nvar_use[ivar], jcolA+=perm_len, ivar++)
     {
       if (bse_ptrs[ivar]==NULL)
         for (size_t jbse = 0; jbse < perm_len; jbse++) AYmat_[irow][jcolAY+jbse] = Amat_[irow][jcolA+jbse];
@@ -136,7 +158,7 @@ void LD_Theta_space::post_multiply_ivar_basis(double **AYmat_, double **Amat_, i
       for (size_t jbse = 0; jbse < perm_len; jbse++) AYmat_[irow][jcolA+jbse] = Amat_[irow][jcolA+jbse];
     bse_ptrs[ivar_]->post_multiply_rowvec(AYmat_[irow]+jcolA,Amat_[irow]+jcolA);
     int jcolAY = jcolA+pbse_nvar_use[ivar_]; jcolA += perm_len;
-    for (size_t ivar = ivar_+1; ivar < nvar; ivar++, jcolAY+=pbse_nvar_use[ivar], jcolA+=perm_len)
+    for (size_t ivar = ivar_+1; ivar < nvar; jcolAY+=perm_len, jcolA+=perm_len, ivar++)
       for (size_t jbse = 0; jbse < perm_len; jbse++) AYmat_[irow][jcolAY+jbse] = Amat_[irow][jcolA+jbse];
   }
 }
@@ -145,12 +167,12 @@ int LD_Theta_space::init_Vspce_premult(double **Wmat_)
   const int nV = verify_Yspaces();
   for (size_t irow = 0; irow < nV; irow++)
   {
-    double * const vi = spc.Vmat[irow] = spc.Vrowi_data(spc.inds_V[irow] = irow);
-    for (size_t ivar = 0, jcolV = 0, jcolW = 0; ivar < nvar; ivar++, jcolV+=perm_len, jcolW+=pbse_nvar_use[ivar])
+    double * const vi = Tmat[irow] = spc.Vrowi_data(spc.inds_V[irow] = irow);
+    for (size_t ivar = 0, jcolV = 0, jcolW = 0; ivar < nvar; jcolV+=perm_len, jcolW+=pbse_nvar_use[ivar], ivar++)
     {
       if (bse_ptrs[ivar]==NULL) for (size_t jbse = 0; jbse < perm_len; jbse++) vi[jcolV+jbse] = Wmat_[irow][jcolW+jbse];
       else bse_ptrs[ivar]->pre_multiply_colvec(vi+jcolV,Wmat_[irow]+jcolW);
     }
   }
-  return spc.nvec_use = ndof_use;
+  return spc.nvec_use = nV;
 }

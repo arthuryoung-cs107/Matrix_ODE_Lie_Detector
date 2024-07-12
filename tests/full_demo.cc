@@ -48,8 +48,8 @@ DoP853_settings integrator_settings; DoP853 ode_integrator(ode,integrator_settin
 // DoPri5_settings integrator_settings; DoPri5 ode_integrator(ode,integrator_settings);
 
 // specify order of embedding function space
-// const int bor = 10;
-const int bor = 9;
+const int bor = 10;
+// const int bor = 9;
 // const int bor = 8;
 // const int bor = 7;
 // const int bor = 6;

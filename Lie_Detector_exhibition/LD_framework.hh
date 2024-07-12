@@ -199,7 +199,7 @@ struct Lie_detector
 
   static int eval_lamfunc_signal_strength(bool *sat_flags_,ode_solution &sol_,lambda_map_eval_workspace &wkspc_,function_space &fspc_,double tol_=1e-13)
   {
-    const int ntheta = wkspc_.ntheta,
+    const int ntheta = wkspc_.ntheta_use,
               perm_len = fspc_.perm_len;
     double  ** const Theta = wkspc_.Theta,
             * const lamvec = wkspc_.lamvec;
@@ -290,13 +290,13 @@ struct Lie_detector
     {
       function_space_basis::v_eval(chunk,v,Theta[ith],fspc);
       for (size_t idx = 0; idx < ndxu; idx++)
-        if (!( sat_flags_[ith] = (fabs(1.0 - (vu[idx]/(vx*dxu[idx]))) < tol_) )) break;
+        if (!( sat_flags_[ith] = (fabs( 1.0 - (vu[idx]/(vx*dxu[idx])) ) < tol_) )) break;
       if (sat_flags_[ith])
       {
         if (nmax_==(eor+1))
         {
           for (size_t idep = 0; idep < ndep; idep++)
-            if (!( sat_flags_[ith] = (fabs(1.0 - (vu[idep+ndxu]/(vx*sol_.dnp1xu[idep]))) < tol_) )) break;
+            if (!( sat_flags_[ith] = (fabs( 1.0 - (vu[idep+ndxu]/(vx*sol_.dnp1xu[idep])) ) < tol_) )) break;
           if (sat_flags_[ith]) n_success++;
         }
         else n_success++;
@@ -543,6 +543,48 @@ struct LD_matrix: public function_space_element, public LD_experiment
       {return ((m0_.net_cols==m1_.net_cols)&&(m1_.net_cols==m2_.net_cols));}
 };
 
+struct LD_svd_bundle: public LD_vector_bundle
+{
+  LD_svd_bundle(int nspc_,int vlen_): LD_vector_bundle(nspc_,vlen_),
+    rank_vec(new int[nspc_]), Smat(Tmatrix<double>(nspc_,vlen_)) {}
+  LD_svd_bundle(LD_matrix &Amat_,LD_Theta_bundle &Tbndle_,bool verbose_=true):
+    LD_svd_bundle(Amat_.ncrvs_tot,Amat_.net_cols)
+    {
+      compute_AYmat_curve_svds(Amat_,Tbndle_.Tspaces,verbose_);
+      Tbndle_.init_Vbndle_premult(VTtns);
+    }
+  ~LD_svd_bundle()
+  {
+    free_Tmatrix<double>(Smat);
+    delete [] rank_vec;
+  }
+
+  int * const rank_vec;
+  double  ** const Smat,
+          *** const VTtns = Vtns_data;
+
+  void compute_AYmat_curve_svds(LD_matrix &Amat_,LD_Theta_space ** const Tspaces_,bool verbose_=true);
+
+  void print_details(const char name_[] =  "Amat_SVD");
+
+  inline int nulldim_i(int i_) {return nV_spcvec[i_]-rank_vec[i_];}
+  inline int min_rank() {return LD_linalg::min_val<int>(rank_vec,nspc);}
+  inline int max_rank() {return LD_linalg::max_val<int>(rank_vec,nspc);}
+  inline int min_nulldim()
+  {
+    int nd_out = vlen_full, nd_i;
+    for (size_t i = 0; i < nspc; i++)
+      if (nd_out > (nd_i=nulldim_i(i))) nd_out = nd_i;
+    return nd_out;
+  }
+  inline int max_nulldim()
+  {
+    int nd_out = 0, nd_i;
+    for (size_t i = 0; i < nspc; i++)
+      if (nd_out < (nd_i=nulldim_i(i))) nd_out = nd_i;
+    return nd_out;
+  }
+};
 
 struct LD_vector_field: public ode_system
 {
