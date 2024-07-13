@@ -245,8 +245,7 @@ class LD_Theta_bundle: public ode_solspc_element
   protected:
 
     LD_vector_bundle * const Vbndle_ptr;
-    LD_vector_space ** const Vspaces = Vbndle_ptr->Vspaces,
-                    ** const Yspaces_nvar;
+    LD_vector_space ** const Yspaces_nvar;
 
     const int perm_len;
 
@@ -264,6 +263,7 @@ class LD_Theta_bundle: public ode_solspc_element
     int ** const pbse_nvar_spcmat;
     double  *** const Ttns = Vbndle.Vtns;
 
+    LD_vector_space ** const Vspaces = Vbndle.Vspaces;
     LD_Theta_space ** const Tspaces;
 
     inline void set_Yspaces(LD_vector_bundle &Ybndle_,int ivar_=-1)

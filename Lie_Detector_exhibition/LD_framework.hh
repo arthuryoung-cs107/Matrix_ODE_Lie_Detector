@@ -588,22 +588,24 @@ struct LD_svd_bundle: public LD_vector_bundle
 
 struct LD_vector_field: public ode_system
 {
-  LD_vector_field(function_space &fspc_,LD_vector_space **Vspaces_,int ndep_,int eor_=1):
-    ode_system(eor_,ndep_), fspc(fspc_), Vspaces(Vspaces_), ispc(0) {}
-  ~LD_vector_field() {}
-
-  void init_dudx_eval(int ispc_) {ispc = ispc_;}
-  void JacF_eval(double x_, double *u_, double **dls_out_) {} // do later
-  void dnp1xu_eval(double x_, double *u_, double *dnp1xu_) {} // do later
-
   protected:
 
     function_space &fspc;
     LD_vector_space ** const Vspaces;
 
+    int ispc;
+
+  public:
+    LD_vector_field(function_space &fspc_,LD_vector_space **Vspaces_,int ndep_,int eor_=1):
+      ode_system(eor_,ndep_), fspc(fspc_), Vspaces(Vspaces_), ispc(0) {}
+    ~LD_vector_field() {}
+
+    void init_dudx_eval(int ispc_) {ispc = ispc_;}
+    void JacF_eval(double x_, double *u_, double **dls_out_) {} // do later
+    void dnp1xu_eval(double x_, double *u_, double *dnp1xu_) {} // do later
+
     const int ndof_ODE = eor*ndep;
 
-    int ispc;
 };
 
 struct LD_prolonged_vfield: public LD_vector_field

@@ -1,6 +1,7 @@
 #include "LD_matrices.hh"
 #include "matrix_Lie_detector.hh"
 #include "LD_infinitesimal_generators.hh"
+#include "LD_integrators.hh"
 
 // specify data directory for writing binary files
 const char dir_name[] = "./data_directory";
@@ -26,14 +27,15 @@ int main()
                                                           name_JFs.name_file(obs_name,"_JFs")));
 
   // const int bor = 8;
-  const int bor = 9;
-  // const int bor = 10;
+  // const int bor = 9;
+  const int bor = 10;
 
   LD_name_buffer fam_name; fam_name.name_function_space("Chebyshev1",bor);
   orthopolynomial_space fspace0(meta0,orthopolynomial_config_file(name.name_domain_config_file(obs_name,fam_name)));
   fspace0.debugging_description();
 
   orthopolynomial_basis **bases0 = make_evaluation_bases<orthopolynomial_basis, orthopolynomial_space>(fspace0);
+  orthopolynomial_basis &basis0 = *(bases0[0]);
 
   LD_matrix Lmat(fspace0,Sobs,LD_matrix_file(name.name_matrix_file(obs_name,fam_name,"L")));
   LD_matrix_svd_result Lmat_svd(LD_svd_file(name.name_svd_file(obs_name,fam_name,"L"))); Lmat_svd.print_details("Lmat_svd");
@@ -48,7 +50,8 @@ int main()
     // L_Vrec.copy_record(L_Vrec_rank); const char L_Vrec_name[] = "L_Vrec_rank";
     // L_Vrec.copy_record(L_Vrec_minrank); const char L_Vrec_name[] = "L_Vrec_minrank";
     L_Vrec.copy_record(L_Vrec_ss); const char L_Vrec_name[] = "L_Vrec_ss";
-      L_Vrec.print_selected_details("L",false); L_Vrec_svd.compare_subspaces(L_Vrec_rank,"L_Vrec_rank",L_Vrec,L_Vrec_name);
+      L_Vrec.print_selected_details("L",false);
+      L_Vrec_svd.compare_subspaces(L_Vrec_rank,"L_Vrec_rank",L_Vrec,L_Vrec_name);
     LD_vector_bundle L_Ybndl(L_Vrec);
 
   LD_matrix Rmat(fspace0,Sobs,LD_matrix_file(name.name_matrix_file(obs_name,fam_name,"R"))); double tol_use_R = 1e-5;
@@ -81,7 +84,8 @@ int main()
         // RYL_Vrec_x.copy_record(RYL_Vrec_x_null); const char RYL_Vrec_x_name[] = "RYL_Vrec_x_null";
         // RYL_Vrec_x.copy_record(RYL_Vrec_x_minnul); const char RYL_Vrec_x_name[] = "RYL_Vrec_x_minnul";
         RYL_Vrec_x.copy_record(RYL_Vrec_x_nsat); const char RYL_Vrec_x_name[] = "RYL_Vrec_x_nsat";
-          RYL_Vrec_x.print_selected_details("RYL_x",false); RYL_Vrec_x_svd.compare_subspaces(RYL_Vrec_x,RYL_Vrec_x_name,RYL_Vrec_x_null,"RYL_Vrec_x_null");
+          RYL_Vrec_x.print_selected_details("RYL_x",false);
+          RYL_Vrec_x_svd.compare_subspaces(RYL_Vrec_x,RYL_Vrec_x_name,RYL_Vrec_x_null,"RYL_Vrec_x_null");
         RYL_Tbndl_x.set_Tspaces(RYL_Vrec_x);
 
     LD_Theta_bundle RYL_Tbndl_xu(meta0,Sobs.ncrvs_tot,Rmat.net_cols); RYL_Tbndl_xu.set_Yspaces(L_Ybndl,-1);
@@ -98,8 +102,27 @@ int main()
         // RYL_Vrec_xu.copy_record(RYL_Vrec_xu_null); const char RYL_Vrec_xu_name[] = "RYL_Vrec_xu_null";
         // RYL_Vrec_xu.copy_record(RYL_Vrec_xu_minnul); const char RYL_Vrec_xu_name[] = "RYL_Vrec_xu_minnul";
         RYL_Vrec_xu.copy_record(RYL_Vrec_xu_nsat); const char RYL_Vrec_xu_name[] = "RYL_Vrec_xu_nsat";
-          RYL_Vrec_xu.print_selected_details("RYL_xu",false); RYL_Vrec_xu_svd.compare_subspaces(RYL_Vrec_xu,RYL_Vrec_xu_name,RYL_Vrec_xu_null,"RYL_Vrec_xu_null");
+          RYL_Vrec_xu.print_selected_details("RYL_xu",false);
+          RYL_Vrec_xu_svd.compare_subspaces(RYL_Vrec_xu,RYL_Vrec_xu_name,RYL_Vrec_xu_null,"RYL_Vrec_xu_null");
         RYL_Tbndl_xu.set_Tspaces(RYL_Vrec_xu);
+
+  r_xu_infgen R_Kbndl_rxu_ign(fspace0,R_Kbndl.Vspaces),
+              RYL_T_x_rxu_ign(fspace0,RYL_Tbndl_x.Vspaces),
+              RYL_T_xu_rxu_ign(fspace0,RYL_Tbndl_xu.Vspaces);
+
+  DoP853_settings intgr_rec_settings; DoP853 intgr_rec(R_Kbndl_rxu_ign,intgr_rec_settings);
+
+    generated_ode_observations gen_RK_rxu(R_Kbndl_rxu_ign,Sobs.ncrvs_tot,Sobs.min_npts_curve());
+    gen_RK_rxu.set_solcurve_ICs(Sobs.curves);
+    gen_RK_rxu.parallel_generate_solution_curves<r_xu_infgen,DoP853>(R_Kbndl_rxu_ign,intgr_rec,Sobs.get_default_IC_indep_range());
+
+    generated_ode_observations gen_RYLT_x_rxu(RYL_T_x_rxu_ign,Sobs.ncrvs_tot,Sobs.min_npts_curve());
+    gen_RYLT_x_rxu.set_solcurve_ICs(Sobs.curves);
+    gen_RYLT_x_rxu.parallel_generate_solution_curves<r_xu_infgen,DoP853>(RYL_T_x_rxu_ign,intgr_rec,Sobs.get_default_IC_indep_range());
+
+    generated_ode_observations gen_RYLT_xu_rxu(RYL_T_xu_rxu_ign,Sobs.ncrvs_tot,Sobs.min_npts_curve());
+    gen_RYLT_xu_rxu.set_solcurve_ICs(Sobs.curves);
+    gen_RYLT_xu_rxu.parallel_generate_solution_curves<r_xu_infgen,DoP853>(RYL_T_xu_rxu_ign,intgr_rec,Sobs.get_default_IC_indep_range());
 
   free_evaluation_bases<orthopolynomial_basis>(bases0);
   return 0;
