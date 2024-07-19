@@ -40,24 +40,22 @@ int main()
   LD_encoding_bundle Lcode(Sobs.ncrvs_tot,fspace0.perm_len,Sobs.npts_per_crv,1);
   LD_L_encoder::encode_L_bundle<orthopolynomial_basis>(Lcode,Sobs,bases0);
   LD_svd_bundle Lcode_svd(Lcode); Lcode_svd.print_details("Lcode_svd");
-  LD_matrix_svd_result Lmat_svd_check(LD_svd_file(name.name_svd_file(obs_name,fam_name,"L"))); Lmat_svd_check.print_details("Lmat_svd_check");
+  // LD_matrix_svd_result Lmat_svd_check(LD_svd_file(name.name_svd_file(obs_name,fam_name,"L"))); Lmat_svd_check.print_details("Lmat_svd_check");
 
   LD_encoding_bundle Gcode(Sobs.ncrvs_tot,fspace0.ndof_full,Sobs.npts_per_crv,meta0.ndep);
   LD_G_encoder::encode_G_bundle<orthopolynomial_basis>(Gcode,Sobs,bases0);
   LD_svd_bundle Gcode_svd(Gcode); Gcode_svd.print_details("Gcode_svd");
-  LD_matrix_svd_result Gmat_svd_check(LD_svd_file(name.name_svd_file(obs_name,fam_name,"G"))); Gmat_svd_check.print_details("Gmat_svd_check");
+  // LD_matrix_svd_result Gmat_svd_check(LD_svd_file(name.name_svd_file(obs_name,fam_name,"G"))); Gmat_svd_check.print_details("Gmat_svd_check");
 
   LD_encoding_bundle Rncode(Sobs.ncrvs_tot,fspace0.ndof_full,Sobs.npts_per_crv,meta0.ndep*meta0.eor);
   LD_R_encoder::encode_Rn_bundle<orthopolynomial_basis>(Rncode,Sobs,bases0,meta0.eor);
   LD_svd_bundle Rncode_svd(Rncode); Rncode_svd.print_details("Rncode_svd");
-  LD_matrix_svd_result Rmat_svd_check(LD_svd_file(name.name_svd_file(obs_name,fam_name,"R"))); Rmat_svd_check.print_details("Rmat_svd_check");
+  // LD_matrix_svd_result Rmat_svd_check(LD_svd_file(name.name_svd_file(obs_name,fam_name,"R"))); Rmat_svd_check.print_details("Rmat_svd_check");
 
   LD_encoding_bundle Qcode(Sobs.ncrvs_tot,fspace0.ndof_full,Sobs.npts_per_crv,meta0.ndep*(meta0.eor+1));
-  LD_R_encoder::encode_Q_bundle<orthopolynomial_basis>(Qcode,Sobs,bases0,meta0.eor);
+  LD_R_encoder::encode_Q_bundle<orthopolynomial_basis>(Qcode,Sobs,bases0);
   LD_svd_bundle Qcode_svd(Qcode); Qcode_svd.print_details("Qcode_svd");
-  LD_matrix_svd_result Qmat_svd_check(LD_svd_file(name.name_svd_file(obs_name,fam_name,"Q"))); Qmat_svd_check.print_details("Qmat_svd_check");
-
-  getchar();
+  // LD_matrix_svd_result Qmat_svd_check(LD_svd_file(name.name_svd_file(obs_name,fam_name,"Q"))); Qmat_svd_check.print_details("Qmat_svd_check");
 
   LD_matrix Lmat(fspace0,Sobs,LD_matrix_file(name.name_matrix_file(obs_name,fam_name,"L")));
   LD_matrix_svd_result Lmat_svd(LD_svd_file(name.name_svd_file(obs_name,fam_name,"L"))); Lmat_svd.print_details("Lmat_svd");
