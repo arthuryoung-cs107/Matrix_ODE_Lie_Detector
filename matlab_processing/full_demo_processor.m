@@ -20,8 +20,8 @@ eqn_name = [ode_name '_xrange' num2str(xrange)];
 fam_name = 'Chebyshev1';
 % fam_name = 'Legendre';
 
-% bor = 10;
-bor = 9;
+bor = 10;
+% bor = 9;
 % bor = 8;
 % bor = 7;
 % bor = 6;

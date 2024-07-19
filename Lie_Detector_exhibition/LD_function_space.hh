@@ -347,6 +347,10 @@ struct partial_chunk
   partial_chunk(int perm_len_, int eor_, int ndep_);
   ~partial_chunk();
 
+  const int perm_len,
+            eor,
+            ndep;
+
   double  * const chunk,
           ** const Jac_mat,
           *** const C_x,
@@ -395,11 +399,11 @@ class function_space_basis: public function_space_element
   }
   void v_eval(double *s_, double *v_,int eorcap_=0);
   void v_eval(double *s_,double *v_,double *theta_,int eorcap_=0);
-  inline void fill_partial_chunk(double *s_)
+  inline void fill_partial_chunk(double *s_,int eorcap_=-1)
   {
     for (size_t i = 0; i < ndof_full; i++)
-      if (!(dof_hot_flags[i])) {fill_partial_chunk_sparse(s_); return;}
-    fill_partial_chunk_full(s_);
+      if (!(dof_hot_flags[i])) {fill_partial_chunk_sparse(s_,eorcap_); return;}
+    fill_partial_chunk_full(s_,eorcap_);
   }
 
   protected:
@@ -562,8 +566,8 @@ class function_space_basis: public function_space_element
 
   private:
 
-    void fill_partial_chunk_full(double *s_);
-    void fill_partial_chunk_sparse(double *s_);
+    void fill_partial_chunk_full(double *s_,int eorcap_);
+    void fill_partial_chunk_sparse(double *s_,int eorcap_);
 };
 
 class power_basis: public function_space_basis

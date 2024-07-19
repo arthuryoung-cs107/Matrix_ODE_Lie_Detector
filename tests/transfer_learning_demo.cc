@@ -37,6 +37,28 @@ int main()
   orthopolynomial_basis **bases0 = make_evaluation_bases<orthopolynomial_basis, orthopolynomial_space>(fspace0);
   orthopolynomial_basis &basis0 = *(bases0[0]);
 
+  LD_encoding_bundle Lcode(Sobs.ncrvs_tot,fspace0.perm_len,Sobs.npts_per_crv,1);
+  LD_L_encoder::encode_L_bundle<orthopolynomial_basis>(Lcode,Sobs,bases0);
+  LD_svd_bundle Lcode_svd(Lcode); Lcode_svd.print_details("Lcode_svd");
+  LD_matrix_svd_result Lmat_svd_check(LD_svd_file(name.name_svd_file(obs_name,fam_name,"L"))); Lmat_svd_check.print_details("Lmat_svd_check");
+
+  LD_encoding_bundle Gcode(Sobs.ncrvs_tot,fspace0.ndof_full,Sobs.npts_per_crv,meta0.ndep);
+  LD_G_encoder::encode_G_bundle<orthopolynomial_basis>(Gcode,Sobs,bases0);
+  LD_svd_bundle Gcode_svd(Gcode); Gcode_svd.print_details("Gcode_svd");
+  LD_matrix_svd_result Gmat_svd_check(LD_svd_file(name.name_svd_file(obs_name,fam_name,"G"))); Gmat_svd_check.print_details("Gmat_svd_check");
+
+  LD_encoding_bundle Rncode(Sobs.ncrvs_tot,fspace0.ndof_full,Sobs.npts_per_crv,meta0.ndep*meta0.eor);
+  LD_R_encoder::encode_Rn_bundle<orthopolynomial_basis>(Rncode,Sobs,bases0,meta0.eor);
+  LD_svd_bundle Rncode_svd(Rncode); Rncode_svd.print_details("Rncode_svd");
+  LD_matrix_svd_result Rmat_svd_check(LD_svd_file(name.name_svd_file(obs_name,fam_name,"R"))); Rmat_svd_check.print_details("Rmat_svd_check");
+
+  LD_encoding_bundle Qcode(Sobs.ncrvs_tot,fspace0.ndof_full,Sobs.npts_per_crv,meta0.ndep*(meta0.eor+1));
+  LD_R_encoder::encode_Q_bundle<orthopolynomial_basis>(Qcode,Sobs,bases0,meta0.eor);
+  LD_svd_bundle Qcode_svd(Qcode); Qcode_svd.print_details("Qcode_svd");
+  LD_matrix_svd_result Qmat_svd_check(LD_svd_file(name.name_svd_file(obs_name,fam_name,"Q"))); Qmat_svd_check.print_details("Qmat_svd_check");
+
+  getchar();
+
   LD_matrix Lmat(fspace0,Sobs,LD_matrix_file(name.name_matrix_file(obs_name,fam_name,"L")));
   LD_matrix_svd_result Lmat_svd(LD_svd_file(name.name_svd_file(obs_name,fam_name,"L"))); Lmat_svd.print_details("Lmat_svd");
     LD_vspace_record  L_Vrec(Lmat_svd.ncrvs,Lmat_svd.ncol_use,Lmat_svd.ncols,Lmat_svd.VTtns),
@@ -106,61 +128,24 @@ int main()
           RYL_Vrec_xu_svd.compare_subspaces(RYL_Vrec_xu,RYL_Vrec_xu_name,RYL_Vrec_xu_null,"RYL_Vrec_xu_null");
         RYL_Tbndl_xu.set_Tspaces(RYL_Vrec_xu);
 
-  r_xu_infgen R_Kbndl_rxu_ign(fspace0,R_Kbndl.Vspaces),
-              RYL_T_x_rxu_ign(fspace0,RYL_Tbndl_x.Vspaces),
-              RYL_T_xu_rxu_ign(fspace0,RYL_Tbndl_xu.Vspaces);
-
-  DoP853_settings intgr_rec_settings; DoP853 intgr_rec(R_Kbndl_rxu_ign,intgr_rec_settings);
-
-    generated_ode_observations gen_RK_rxu(R_Kbndl_rxu_ign,Sobs.ncrvs_tot,Sobs.min_npts_curve());
-    gen_RK_rxu.set_solcurve_ICs(Sobs.curves);
-    gen_RK_rxu.parallel_generate_solution_curves<r_xu_infgen,DoP853>(R_Kbndl_rxu_ign,intgr_rec,Sobs.get_default_IC_indep_range());
-
-    generated_ode_observations gen_RYLT_x_rxu(RYL_T_x_rxu_ign,Sobs.ncrvs_tot,Sobs.min_npts_curve());
-    gen_RYLT_x_rxu.set_solcurve_ICs(Sobs.curves);
-    gen_RYLT_x_rxu.parallel_generate_solution_curves<r_xu_infgen,DoP853>(RYL_T_x_rxu_ign,intgr_rec,Sobs.get_default_IC_indep_range());
-
-    generated_ode_observations gen_RYLT_xu_rxu(RYL_T_xu_rxu_ign,Sobs.ncrvs_tot,Sobs.min_npts_curve());
-    gen_RYLT_xu_rxu.set_solcurve_ICs(Sobs.curves);
-    gen_RYLT_xu_rxu.parallel_generate_solution_curves<r_xu_infgen,DoP853>(RYL_T_xu_rxu_ign,intgr_rec,Sobs.get_default_IC_indep_range());
+  // r_xu_infgen R_Kbndl_rxu_ign(fspace0,R_Kbndl.Vspaces),
+  //             RYL_T_x_rxu_ign(fspace0,RYL_Tbndl_x.Vspaces),
+  //             RYL_T_xu_rxu_ign(fspace0,RYL_Tbndl_xu.Vspaces);
+  //
+  // DoP853_settings intgr_rec_settings; DoP853 intgr_rec(R_Kbndl_rxu_ign,intgr_rec_settings);
+  //
+  //   generated_ode_observations gen_RK_rxu(R_Kbndl_rxu_ign,Sobs.ncrvs_tot,Sobs.min_npts_curve());
+  //   gen_RK_rxu.set_solcurve_ICs(Sobs.curves);
+  //   gen_RK_rxu.parallel_generate_solution_curves<r_xu_infgen,DoP853>(R_Kbndl_rxu_ign,intgr_rec,Sobs.get_default_IC_indep_range());
+  //
+  //   generated_ode_observations gen_RYLT_x_rxu(RYL_T_x_rxu_ign,Sobs.ncrvs_tot,Sobs.min_npts_curve());
+  //   gen_RYLT_x_rxu.set_solcurve_ICs(Sobs.curves);
+  //   gen_RYLT_x_rxu.parallel_generate_solution_curves<r_xu_infgen,DoP853>(RYL_T_x_rxu_ign,intgr_rec,Sobs.get_default_IC_indep_range());
+  //
+  //   generated_ode_observations gen_RYLT_xu_rxu(RYL_T_xu_rxu_ign,Sobs.ncrvs_tot,Sobs.min_npts_curve());
+  //   gen_RYLT_xu_rxu.set_solcurve_ICs(Sobs.curves);
+  //   gen_RYLT_xu_rxu.parallel_generate_solution_curves<r_xu_infgen,DoP853>(RYL_T_xu_rxu_ign,intgr_rec,Sobs.get_default_IC_indep_range());
 
   free_evaluation_bases<orthopolynomial_basis>(bases0);
   return 0;
-
-  // LD_matrix_svd_result Rmat_svd(LD_svd_file(name.name_svd_file(obs_name,fam_name,"R")));
-  // Rmat_svd.print_details("Rmat_svd");
-  // LD_vector_bundle R_Vbndl(Rmat_svd.ncrvs,Rmat_svd.ncol_use,Rmat_svd.VTtns);
-  //
-  // if (false)
-  // {
-  //   const char Amat_letter[] = "R"; const char Amat_svd_name[] = "Rmat_svd"; double tol_use_A = 1e-3;
-  //   // const char Amat_letter[] = "G"; const char Amat_svd_name[] = "Gmat_svd"; double tol_use_A = 1e-6;
-  //
-  //   LD_matrix Amat(fspace0,Sobs,LD_matrix_file(name.name_matrix_file(obs_name,fam_name,Amat_letter)));
-  //   LD_matrix_svd_result Amat_svd(LD_svd_file(name.name_svd_file(obs_name,fam_name,Amat_letter)));
-  //   Amat_svd.print_details(Amat_svd_name);
-  //
-  //   LD_vspace_record A_Vrec(Amat_svd.ncrvs,Amat_svd.ncol_use,Amat_svd.ncols,Amat_svd.VTtns);
-  //
-  //   LD_R_matrix::eval_Rn_condition<orthopolynomial_basis>(Sobs,A_Vrec,bases0,tol_use_A);
-  //   // LD_G_matrix::eval_inf_criterion<orthopolynomial_basis>(Sobs,A_Vrec,bases0,tol_use_A);
-  //
-  //   A_Vrec.print_selected_details(Amat_letter);
-  //   bool nsat_bf_A[Sobs.ncrvs_tot];
-  //   int nnsat_b_A = 0,
-  //       nnsat_diff_A[Sobs.ncrvs_tot];
-  //   printf("  %s nulldim\n", Amat_letter);
-  //   for (size_t icrv = 0; icrv < Sobs.ncrvs_tot; icrv++)
-  //   {
-  //     int nulldim_i = Amat_svd.ncol_use-Amat_svd.rank_vec[icrv];
-  //     printf("%d ", nulldim_i);
-  //     nnsat_diff_A[icrv] = A_Vrec.nV_spcvec[icrv]-nulldim_i;
-  //     nnsat_b_A+=(int)(nsat_bf_A[icrv]=(nnsat_diff_A[icrv] >= 0));
-  //   }
-  //   printf("\n");
-  //   printf("nsat_bigger_A = %d (of %d, tol = %.1e) \n", nnsat_b_A,Sobs.ncrvs_tot,tol_use_A);
-  //   for (size_t icrv = 0; icrv < Sobs.ncrvs_tot; icrv++) printf("%d ", (int) nsat_bf_A[icrv]);
-  //   printf("\n");
-  //   LD_linalg::print_xT("nsat_diff_A",nnsat_diff_A,Sobs.ncrvs_tot);
-  // }
 }

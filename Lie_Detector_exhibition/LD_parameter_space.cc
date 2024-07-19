@@ -1,6 +1,8 @@
 #include "LD_parameter_space.hh"
 
-#include <cstring>
+// #include <cstring>
+// #include <cstdio>
+#include "LD_io.hh"
 
 /*
   constructors
@@ -175,4 +177,44 @@ int LD_Theta_space::init_Vspce_premult(double **Wmat_)
     }
   }
   return spc.nvec_use = nV;
+}
+
+/*
+  io
+*/
+
+void LD_vspace_record::write_vspace_record(const char name_[],bool write_Vtns_data_)
+{
+  FILE * file = LD_io::fopen_SAFE(name_,"wb");
+  int hlen = 5,
+      iV_spcmat_len = comp_iV_spcmat_len(),
+      header[] = {hlen,nspc,nvec,vlen,nspc+iV_spcmat_len,(write_Vtns_data_)?(iV_spcmat_len*vlen):(0)};
+  fwrite(header, sizeof(int), hlen+1, file);
+  fwrite(nV_spcvec, sizeof(int), nspc, file);
+  if (iV_spcmat_len != (vlen*nspc))
+    for (size_t i = 0; i < nspc; i++) fwrite(iV_spcmat[i], sizeof(int), nV_spcvec[i], file);
+  if (write_Vtns_data_)
+    for (size_t i = 0; i < nspc; i++)
+      for (size_t j = 0; j < nV_spcvec[i]; j++)
+        fwrite(Vtns_data[i][iV_spcmat[i][j]], sizeof(double), vlen, file);
+  fclose(file);
+  printf("(LD_vspace_record::write_vspace_record) wrote %s\n",name_);
+}
+
+void LD_vector_bundle::write_LD_vector_bundle(const char name_[],bool write_Vtns_)
+{
+  FILE * file = LD_io::fopen_SAFE(name_,"wb");
+  int hlen = 4,
+      iV_spcmat_len = rec.comp_iV_spcmat_len(),
+      header[] = {hlen,nspc,vlen_full,nspc+iV_spcmat_len,(write_Vtns_)?(comp_Vtns_len()):(0)};
+  fwrite(header, sizeof(int), hlen+1, file);
+  fwrite(nV_spcvec, sizeof(int), nspc, file);
+  if (iV_spcmat_len != (vlen_full*nspc))
+    for (size_t i = 0; i < nspc; i++) fwrite(iV_spcmat[i], sizeof(int), nV_spcvec[i], file);
+  if (write_Vtns_)
+    for (size_t i = 0; i < nspc; i++)
+      for (size_t j = 0; j < nV_spcvec[i]; j++)
+        fwrite(Vtns[i][j], sizeof(double), Vspaces[i]->vlen_use, file);
+  fclose(file);
+  printf("(LD_vector_bundle::write_LD_vector_bundle) wrote %s\n",name_);
 }

@@ -99,10 +99,10 @@ classdef LD_plots
             props_struct = LD_plots.make_posdim_plot_specs(obj.name,posdim_use);
 
             obj_out = obj;
-            obj_out.fig = figure;
-            set(obj_out.fig, 'MenuBar', 'none', 'ToolBar', 'none');
+            obj_out.fig = figure('MenuBar', 'none', 'ToolBar', 'none');
             for i=1:size(props_struct, 1)
-                obj_out.fig.set(props_struct{i, 1}, props_struct{i, 2});
+                % obj_out.fig.set(props_struct{i, 1}, props_struct{i, 2});
+                set(obj_out.fig,props_struct{i, 1},props_struct{i, 2})
             end
         end
         function obj_out = init_tiles_safe(obj,tdim1_,tdim2_)
@@ -111,9 +111,9 @@ classdef LD_plots
             else
                 obj_out = obj;
                 clf(obj_out.fig);
-                obj_out.tile = tiledlayout(obj_out.fig,tdim1_,tdim2_);
-                obj_out.tile.TileSpacing = 'compact';
-                obj_out.tile.Padding = 'compact';
+                % figure(obj_out.fig);
+                % obj_out.tile = subplot(tdim1_,tdim2_);
+                obj_out.tile = tiledlayout(obj_out.fig,tdim1_,tdim2_,'TileSpacing','compact','Padding','compact');
 
                 tile_num = tdim1_*tdim2_;
                 obj_out.axs = gobjects(tile_num, 1);

@@ -107,6 +107,7 @@ orthopolynomial_space::~orthopolynomial_space()
 }
 
 partial_chunk::partial_chunk(int perm_len_, int eor_, int ndep_):
+perm_len(perm_len_), eor(eor_), ndep(ndep_),
 chunk(new double[perm_len_*(eor_+1)*(ndep_+1)]),
 Jac_mat(new double*[ndep_+1]),
 C_x(new double**[perm_len_]), C_u(new double*[perm_len_]),
@@ -195,7 +196,7 @@ void function_space_basis::v_eval(double *s_,double *v_,double *theta_,int eorca
 
 void function_space_basis::v_eval(double *s_,double *v_,int eorcap_)
 {
-  const int eorcap = ((eorcap_)&&(eorcap_<eor))?(eorcap_):(eor);
+  const int eorcap = ((0<=eorcap_)&&(eorcap_<eor))?(eorcap_):(eor);
   for (int i = 0; i < ndim; i ++) v_[i] = 0.0; // clear output v eval space
   init_workspace(s_); // precompute powers of variables and derivatives
   coupling_term &c0 = *(couples[0]);
@@ -209,22 +210,25 @@ void function_space_basis::v_eval(double *s_,double *v_,int eorcap_)
       for (int ivar = 0; ivar < nvar; ivar++)
         if (dof_hot_flags_i[ivar] = dof_hot_flags_mat[ivar][i_L])
           v_[ivar] += ((theta_xu[ivar] = theta_mat[ivar][i_L])*Li);
-
-      if (dof_hot_flags_i[0])
+      if (eorcap>0)
       {
-        stage_coupling(-1.0); compute_x_coupling(c0,eorcap);
-        for (int idnxu = nvar; idnxu < ndim; idnxu++) v_[idnxu] += theta_xu[0]*v_j[idnxu];
+        if (dof_hot_flags_i[0])
+        {
+          stage_coupling(-1.0); compute_x_coupling(c0,eorcap);
+          for (int idnxu = nvar; idnxu < ndim; idnxu++) v_[idnxu] += theta_xu[0]*v_j[idnxu];
+        }
+        stage_coupling(1.0); compute_u_coupling(1,c0,eorcap);
+        for (int ider = 1, idnxu = nvar, idnxu_skip = idnxu; ider <= eor; ider++, idnxu_skip+=ndep)
+          for (int iu = 1; iu < nvar; iu++, idnxu++)
+            if (dof_hot_flags_i[iu]) // accumulate in each dimension, scaled by corresponding coeff
+              v_[idnxu] += theta_xu[iu]*v_j[idnxu_skip];
       }
-      stage_coupling(1.0); compute_u_coupling(1,c0,eorcap);
-      for (int ider = 1, idnxu = nvar, idnxu_skip = idnxu; ider <= eor; ider++, idnxu_skip+=ndep)
-        for (int iu = 1; iu < nvar; iu++, idnxu++)
-          if (dof_hot_flags_i[iu]) // accumulate in each dimension, scaled by corresponding coeff
-            v_[idnxu] += theta_xu[iu]*v_j[idnxu_skip];
     }
   }
 }
-void function_space_basis::fill_partial_chunk_full(double *s_)
+void function_space_basis::fill_partial_chunk_full(double *s_,int eorcap_)
 {
+  const int eorcap = ((0<=eorcap_)&&(eorcap_<eor))?(eorcap_):(eor);
   init_workspace(s_);
   coupling_term &c0 = *(couples[0]);
   for (int ixord = 0, i_L_start = 0; ixord < ord_len; i_L_start+=ord_i_len, ixord++)
@@ -236,19 +240,23 @@ void function_space_basis::fill_partial_chunk_full(double *s_)
               Li = Jac_mat[0][i_L] = Li_x*Li_u;
       for (int ivar = 1; ivar <= ndep; ivar++) Jac_mat[ivar][i_L] = Li;
 
-      stage_coupling(-1.0); compute_x_coupling(c0,eor); // perform dxde couplings
-        // accumulate dxde contribution to v, store partial derivative
-      for (int idnxu = nvar, iparx = 0; idnxu < ndim; idnxu++, iparx++) C_x[i_L][0][iparx] = v_j[idnxu];
+      if (eorcap>0)
+      {
+        stage_coupling(-1.0); compute_x_coupling(c0,eorcap); // perform dxde couplings
+          // accumulate dxde contribution to v, store partial derivative
+        for (int idnxu = nvar, iparx = 0; idnxu < ndim; idnxu++, iparx++) C_x[i_L][0][iparx] = v_j[idnxu];
 
-      // perform dude couplings
-      stage_coupling(1.0); compute_u_coupling(1,c0,eor);
-      for (int ider = 1, idnxu = nvar, idnxu_skip = idnxu; ider <= eor; ider++, idnxu_skip+=ndep)
-        C_u[i_L][ider-1] = v_j[idnxu_skip];
+        // perform dude couplings
+        stage_coupling(1.0); compute_u_coupling(1,c0,eorcap);
+        for (int ider = 1, idnxu = nvar, idnxu_skip = idnxu; ider <= eor; ider++, idnxu_skip+=ndep)
+          C_u[i_L][ider-1] = v_j[idnxu_skip];
+      }
     }
   }
 }
-void function_space_basis::fill_partial_chunk_sparse(double *s_)
+void function_space_basis::fill_partial_chunk_sparse(double *s_,int eorcap_)
 {
+  const int eorcap = ((eorcap_)&&(eorcap_<eor))?(eorcap_):(eor);
   init_workspace(s_);
   coupling_term &c0 = *(couples[0]);
   for (int ixord = 0, i_L_start = 0; ixord < ord_len; i_L_start+=ord_i_len, ixord++)
@@ -269,7 +277,7 @@ void function_space_basis::fill_partial_chunk_sparse(double *s_)
       }
       if (indep_i_tun)
       {
-        stage_coupling(-1.0); compute_x_coupling(c0,eor); // perform dxde couplings
+        stage_coupling(-1.0); compute_x_coupling(c0,eorcap); // perform dxde couplings
         // accumulate dxde contribution to v, store partial derivative
         for (int idnxu = nvar, iparx = 0; idnxu < ndim; idnxu++, iparx++)
           C_x[i_L][0][iparx] = v_j[idnxu];
@@ -277,7 +285,7 @@ void function_space_basis::fill_partial_chunk_sparse(double *s_)
       // perform dude couplings
       if (any_dep_i_tun)
       {
-        stage_coupling(1.0); compute_u_coupling(1,c0,eor);
+        stage_coupling(1.0); compute_u_coupling(1,c0,eorcap);
         for (int ider = 1, idnxu = nvar, idnxu_skip = idnxu; ider <= eor; ider++, idnxu_skip+=ndep)
           C_u[i_L][ider-1] = v_j[idnxu_skip];
       }

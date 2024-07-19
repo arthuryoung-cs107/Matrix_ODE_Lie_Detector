@@ -230,7 +230,7 @@ struct LD_R_matrix: public LD_matrix
 
       for (size_t idep = 0; idep < ndep; idep++)
         for (size_t i_L = 0; i_L < perm_len; i_L++)
-          if (dof_tun_flags[i_L])
+          if (dof_tun_flags_mat[idep+1][i_L])
             fill_u_Rn_columns(i_dof++,idep,Rmat_i_,Lambda_xu_mat[idep+1][i_L],Jac_utheta_vdxu_mat[i_L]);
 
       if (normalization_flag) normalize_submat_rows(sol_,Rmat_i_);
@@ -589,7 +589,7 @@ struct LD_G_matrix: public LD_matrix
 
       for (size_t idep = 0; idep < ndep; idep++)
         for (size_t i_L = 0; i_L < perm_len; i_L++)
-          if (dof_tun_flags[i_L])
+          if (dof_tun_flags_mat[idep+1][i_L])
             fill_u_G_columns(i_dof++,idep,Gmat_i_,JFs,Lambda_xu_mat[idep+1][i_L],Jac_utheta_vdxu_mat[i_L]);
 
       if (normalization_flag) normalize_submat_rows(sol_,Gmat_i_);

@@ -380,6 +380,27 @@ struct LD_svd
           * const svec,
           * const wvec;
 
+  inline void load_and_decompose_U(double **Amat_, int Muse_=0, int Nuse_=0)
+  {
+    set_use_dims(Muse_,Nuse_);
+    for (size_t i = 0; i < Muse; i++) for (size_t j = 0; j < Nuse; j++) Umat[i][j] = Amat_[i][j];
+    gsl_matrix_view U_gsl = gsl_matrix_view_array_with_tda(Umat[0],Muse,Nuse,Nmax),
+                    V_gsl = gsl_matrix_view_array_with_tda(Vmat[0],Nuse,Nuse,Nmax);
+    gsl_vector_view s_gsl = gsl_vector_view_array(svec,Nuse),
+                    w_gsl = gsl_vector_view_array(wvec,Nuse);
+    int status_decomp = gsl_linalg_SV_decomp(&(U_gsl.matrix),&(V_gsl.matrix),&(s_gsl.vector),&(w_gsl.vector));
+  }
+
+  inline void decompose_U(int Muse_=0, int Nuse_=0)
+  {
+    set_use_dims(Muse_,Nuse_);
+    gsl_matrix_view U_gsl = gsl_matrix_view_array_with_tda(Umat[0],Muse,Nuse,Nmax),
+                    V_gsl = gsl_matrix_view_array_with_tda(Vmat[0],Nuse,Nuse,Nmax);
+    gsl_vector_view s_gsl = gsl_vector_view_array(svec,Nuse),
+                    w_gsl = gsl_vector_view_array(wvec,Nuse);
+    int status_decomp = gsl_linalg_SV_decomp(&(U_gsl.matrix),&(V_gsl.matrix),&(s_gsl.vector),&(w_gsl.vector));
+  }
+
   inline void unpack_svec_VTmat(double *svec_, double **VTmat_)
   {
     for (size_t i = 0; i < Nuse; i++) svec_[i] = svec[i];
@@ -396,18 +417,6 @@ struct LD_svd
       if (svec_[i]>tol_eps) rank_out++;
       else break;
     return rank_out;
-  }
-
-  inline void decompose_U(int Muse_=0, int Nuse_=0)
-  {
-    // (Nuse==Nmax)?(gsl_matrix_view_array(Umat[0],Muse,Nuse)):(gsl_matrix_view_array_with_tda(Umat[0],Muse,Nuse,Nmax)),
-    // (Nuse==Nmax)?(gsl_matrix_view_array(Vmat[0],Nuse,Nuse)):(gsl_matrix_view_array_with_tda(Vmat[0],Nuse,Nuse,Nmax));
-    set_use_dims(Muse_,Nuse_);
-    gsl_matrix_view U_gsl = gsl_matrix_view_array_with_tda(Umat[0],Muse,Nuse,Nmax),
-                    V_gsl = gsl_matrix_view_array_with_tda(Vmat[0],Nuse,Nuse,Nmax);
-    gsl_vector_view s_gsl = gsl_vector_view_array(svec,Nuse),
-                    w_gsl = gsl_vector_view_array(wvec,Nuse);
-    int status_decomp = gsl_linalg_SV_decomp(&(U_gsl.matrix),&(V_gsl.matrix),&(s_gsl.vector),&(w_gsl.vector));
   }
 
   inline void init_use_dims() { Muse = Mmax; Nuse = Nmax; }

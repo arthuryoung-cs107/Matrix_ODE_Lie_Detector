@@ -1,8 +1,7 @@
 #ifndef LD_PARSPC_HH
 #define LD_PARSPC_HH
 
-#include "LD_aux.hh"
-#include "LD_function_space.hh"
+#include "LD_encodings.hh"
 
 struct LD_vspace_record
 {
@@ -48,6 +47,14 @@ struct LD_vspace_record
 
   void print_selected_details(const char name_[], bool longwinded_=true);
   void compare_subspaces(LD_vspace_record &rec1_,const char name1_[],LD_vspace_record &rec2_,const char name2_[]);
+  void write_vspace_record(const char name_[],bool write_Vtns_data_=false);
+
+  inline int comp_iV_spcmat_len()
+  {
+    int len_out = 0;
+    for (size_t i = 0; i < nspc; i++) len_out += nV_spcvec[i];
+    return len_out;
+  }
 };
 
 class LD_vector_space
@@ -145,6 +152,15 @@ class LD_vector_bundle
     {
       for (size_t i = 0; i < nspc; i++) if (!(Vspaces[i]->check_default_configuration())) return false;
       return true;
+    }
+
+    void write_LD_vector_bundle(const char name_[],bool write_Vtns_=false);
+
+    inline int comp_Vtns_len()
+    {
+      int len_out = 0;
+      for (size_t i = 0; i < nspc; i++) len_out += nV_spcvec[i]*(Vspaces[i]->vlen_use);
+      return len_out;
     }
 };
 

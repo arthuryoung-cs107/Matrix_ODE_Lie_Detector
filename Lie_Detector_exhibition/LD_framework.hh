@@ -547,6 +547,9 @@ struct LD_svd_bundle: public LD_vector_bundle
 {
   LD_svd_bundle(int nspc_,int vlen_): LD_vector_bundle(nspc_,vlen_),
     rank_vec(new int[nspc_]), Smat(Tmatrix<double>(nspc_,vlen_)) {}
+  LD_svd_bundle(LD_encoding_bundle &Abndl_,bool verbose_=true):
+    LD_svd_bundle(Abndl_.nset,Abndl_.ncol_full)
+    {compute_Acode_curve_svds(Abndl_,verbose_);}
   LD_svd_bundle(LD_matrix &Amat_,LD_Theta_bundle &Tbndle_,bool verbose_=true):
     LD_svd_bundle(Amat_.ncrvs_tot,Amat_.net_cols)
     {
@@ -563,6 +566,7 @@ struct LD_svd_bundle: public LD_vector_bundle
   double  ** const Smat,
           *** const VTtns = Vtns_data;
 
+  void compute_Acode_curve_svds(LD_encoding_bundle &Abndle_,bool verbose_=true);
   void compute_AYmat_curve_svds(LD_matrix &Amat_,LD_Theta_space ** const Tspaces_,bool verbose_=true);
 
   void print_details(const char name_[] =  "Amat_SVD");
@@ -584,6 +588,8 @@ struct LD_svd_bundle: public LD_vector_bundle
       if (nd_out < (nd_i=nulldim_i(i))) nd_out = nd_i;
     return nd_out;
   }
+
+  void write_LD_svd_bundle(const char name_[]);
 };
 
 struct LD_vector_field: public ode_system
