@@ -39,9 +39,6 @@ full_demo: $(TEST_SRC)full_demo.cc $(LDEXHIBRECOBJS)
 transfer_demo: $(TEST_SRC)transfer_learning_demo.cc $(LDEXHIBRECOBJS)
 	$(CXX) $(IDIR_EXHIB) $(CFLAGS_EXHIB) $(LINK) $^ $(LIBS_EXHIB) -o $@
 
-transfer_scratch: $(TEST_SRC)transfer_learning_scratch.cc $(LDEXHIBRECOBJS)
-	$(CXX) $(IDIR_EXHIB) $(CFLAGS_EXHIB) $(LINK) $^ $(LIBS_EXHIB) -o $@
-
 $(LD_EXHIB_DIR):
 	mkdir -p $@
 

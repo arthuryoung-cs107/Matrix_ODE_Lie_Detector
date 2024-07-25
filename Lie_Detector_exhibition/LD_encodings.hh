@@ -29,14 +29,6 @@ struct vspace_evaluation_package
   inline int nsol_iset(int i_) {return Sset.nobs_subset_i(i_);}
   inline int max_nsol_subset() {return Sset.max_nobs_subset();}
 
-  protected:
-
-    static double R_err(double vdkm1xu_, double vx_, double dkxu_)
-    {
-      return 1.0 - (vdkm1xu_/(vx_*dkxu_)); // relative error
-      // return dkxu_ - (vdkm1xu_/vx_); // absolute error
-    }
-
 };
 
 struct LD_encoder
@@ -436,10 +428,11 @@ struct LD_G_encoder: public LD_encoder
   {
     for (size_t idep = 0; idep < sol_.ndep; idep++)
     {
-      // const double normalizer_i = LD_linalg::norm_l2(sol_.JFs[idep],sol_.ndim);
-      const double normalizer_i = LD_linalg::norm_l2(Grows_[idep],ndof_);
+      const double normalizer_i = LD_linalg::norm_l2(sol_.JFs[idep],sol_.ndim);
+      // const double normalizer_i = LD_linalg::norm_l2(Grows_[idep],ndof_);
       for (size_t icol = 0; icol < ndof_; icol++)
         Grows_[idep][icol] /= normalizer_i;
+      LD_linalg::normalize_vec_l2(Grows_[idep],ndof_);
     }
   }
 };
@@ -717,11 +710,11 @@ struct LD_R_encoder: public LD_encoder
 
 struct L_vspace_eval: public vspace_evaluation_package
 {
-  L_vspace_eval(ode_solspc_subset &Sset_,int nvec_,double tol_=1e-10): vspace_evaluation_package(Sset_,1,nvec_,1,tol_) {}
+  L_vspace_eval(ode_solspc_subset &Sset_,int nvec_,double tol_): vspace_evaluation_package(Sset_,1,nvec_,1,tol_) {}
   L_vspace_eval(L_vspace_eval &evl_,int nsol_): vspace_evaluation_package(evl_,nsol_) {}
   ~L_vspace_eval() {}
 
-  template <class BSE> static void evaluate_lambda_signal_strength(LD_vspace_record &reco_,LD_vspace_record &reci_,ode_solspc_subset &Sset_,BSE **bases_,double tol_=1e-10,bool verbose_=true)
+  template <class BSE> static void evaluate_lambda_signal_strength(LD_vspace_record &reco_,LD_vspace_record &reci_,ode_solspc_subset &Sset_,BSE **bases_,double tol_,bool verbose_=true)
   {
     LD_encoder::leniently_evaluate_vspace<L_vspace_eval,BSE>(reco_,reci_,
       L_vspace_eval(Sset_,reco_.nvec,tol_),
@@ -748,10 +741,17 @@ struct L_vspace_eval: public vspace_evaluation_package
 
 struct G_vspace_eval: public vspace_evaluation_package
 {
-  G_vspace_eval(ode_solspc_subset &Sset_,int nvec_,double tol_=1e-10): vspace_evaluation_package(Sset_,Sset_.ndep,nvec_,1,tol_), mags_JFs(new double[Sset.ndep]) {}
+  G_vspace_eval(ode_solspc_subset &Sset_,int nvec_,double tol_): vspace_evaluation_package(Sset_,Sset_.ndep,nvec_,1,tol_), mags_JFs(new double[Sset.ndep]) {}
   G_vspace_eval(G_vspace_eval &evl_,int nsol_):
     vspace_evaluation_package(evl_,nsol_), mags_JFs(new double[Sset.ndep]) {}
   ~G_vspace_eval() {delete [] mags_JFs;}
+
+  template <class BSE> static void evaluate_infinitesimal_criterion(LD_vspace_record &reco_,LD_vspace_record &reci_,ode_solspc_subset &Sset_,BSE **bases_,double tol_,bool verbose_=true)
+  {
+    LD_encoder::strictly_evaluate_vspace<G_vspace_eval,BSE>(reco_,reci_,
+      G_vspace_eval(Sset_,reco_.nvec,tol_),
+      bases_,verbose_);
+  }
 
   // infinitesimal criterion
   virtual int nsat_eval_condition(bool *sat_flags_,ode_solution &sol_,function_space_basis &fbasis_)
@@ -793,13 +793,43 @@ struct G_vspace_eval: public vspace_evaluation_package
     double * const mags_JFs;
 };
 
-struct Rk_vspace_eval: public vspace_evaluation_package
+struct R_vspace_eval: public vspace_evaluation_package
 {
+  R_vspace_eval(ode_solspc_subset &Sset_,int ncon_,int nvec_,int ord_,double atol_,double rtol_): vspace_evaluation_package(Sset_,ncon_,nvec_,1,atol_), ord(ord_), rtol(rtol_) {}
+  R_vspace_eval(R_vspace_eval &evl_,int nsol_):
+    vspace_evaluation_package(evl_,nsol_), ord(evl_.ord), rtol(evl_.rtol) {}
+  ~R_vspace_eval() {}
 
-  Rk_vspace_eval(ode_solspc_subset &Sset_,int nvec_,int kor_,double tol_=1e-10): vspace_evaluation_package(Sset_,Sset_.ndep,nvec_,1,tol_), kor(kor_) {}
+  protected:
+
+    const int ord;
+    double  &atol = tol,
+            rtol;
+
+    static double R_err(double vdkm1xu_, double vx_, double dkxu_)
+    {
+      return dkxu_ - (vdkm1xu_/vx_); // absolute error
+    }
+    inline double R_err_sat(double vdkm1xu_, double vx_, double dkxu_)
+      {return fabs(dkxu_ - (vdkm1xu_/vx_)) < max_d(atol,fabs(rtol*dkxu_));}
+    inline double max_d(double a_,double b_)
+      {return (a_>b_)?(a_):(b_);}
+};
+
+struct Rk_vspace_eval: public R_vspace_eval
+{
+  Rk_vspace_eval(ode_solspc_subset &Sset_,int nvec_,int kor_,double atol_,double rtol_):
+    R_vspace_eval(Sset_,Sset_.ndep,nvec_,kor_,atol_,rtol_) {}
   Rk_vspace_eval(Rk_vspace_eval &evl_,int nsol_):
-    vspace_evaluation_package(evl_,nsol_), kor(evl_.kor) {}
+    R_vspace_eval(evl_,nsol_) {}
   ~Rk_vspace_eval() {}
+
+  template <class BSE> static void evaluate_kth_ratio_condition(LD_vspace_record &reco_,LD_vspace_record &reci_,ode_solspc_subset &Sset_,BSE **bases_,double atol_=1e-10,double rtol_=1e-6,int kor_=0,bool verbose_=true)
+  {
+    LD_encoder::strictly_evaluate_vspace<Rk_vspace_eval,BSE>(reco_,reci_,
+      Rk_vspace_eval(Sset_,reco_.nvec,(kor_)?(kor_):(Sset_.eor),atol_,rtol_),
+      bases_,verbose_);
+  }
 
   virtual int nsat_eval_condition(bool *sat_flags_,ode_solution &sol_,function_space_basis &fbasis_) // k'th ratio condition
   {
@@ -815,7 +845,7 @@ struct Rk_vspace_eval: public vspace_evaluation_package
               * const vdkm1xu = viV + idkm1xu,
               &vx = viV[0];
       for (size_t idep = 0; idep < ndep; idep++)
-        if (!( sat_flags_[iV] = (fabs(vspace_evaluation_package::R_err(vdkm1xu[idep],vx,dkxu[idep])) < tol) )) break;
+        if (!( sat_flags_[iV] = R_err_sat(vdkm1xu[idep],vx,dkxu[idep]) )) break;
       if (sat_flags_[iV]) n_success++;
     }
     return n_success;
@@ -823,24 +853,24 @@ struct Rk_vspace_eval: public vspace_evaluation_package
 
   protected:
 
-    const int kor,
+    const int kor = ord,
               korm1 = kor-1,
               idkxu = 1 + Sset.ndep*kor,
               idkm1xu = 1 + Sset.ndep*korm1;
 };
 
-struct Rn_vspace_eval: public vspace_evaluation_package
+struct Rn_vspace_eval: public R_vspace_eval
 {
-  Rn_vspace_eval(ode_solspc_subset &Sset_,int nvec_,int nor_,double tol_=1e-10):
-    vspace_evaluation_package(Sset_,Sset_.ndep*nor_,nvec_,1,tol_), nor(nor_) {}
+  Rn_vspace_eval(ode_solspc_subset &Sset_,int nvec_,int nor_,double atol_,double rtol_):
+    R_vspace_eval(Sset_,Sset_.ndep*nor_,nvec_,nor_,atol_,rtol_) {}
   Rn_vspace_eval(Rn_vspace_eval &evl_, int nsol_):
-    vspace_evaluation_package(evl_,nsol_), nor(evl_.nor) {}
+    R_vspace_eval(evl_,nsol_) {}
   ~Rn_vspace_eval() {}
 
-  template <class BSE> static void evaluate_nth_ratio_condition(LD_vspace_record &reco_,LD_vspace_record &reci_,ode_solspc_subset &Sset_,BSE **bases_,double tol_=1e-6,int nor_=0,bool verbose_=true)
+  template <class BSE> static void evaluate_nth_ratio_condition(LD_vspace_record &reco_,LD_vspace_record &reci_,ode_solspc_subset &Sset_,BSE **bases_,double atol_=1e-10,double rtol_=1e-6,int nor_=0,bool verbose_=true)
   {
     LD_encoder::strictly_evaluate_vspace<Rn_vspace_eval,BSE>(reco_,reci_,
-      Rn_vspace_eval(Sset_,reco_.nvec,(nor_)?(nor_):(Sset_.eor),tol_),
+      Rn_vspace_eval(Sset_,reco_.nvec,(nor_)?(nor_):(Sset_.eor),atol_,rtol_),
       bases_,verbose_);
   }
 
@@ -862,14 +892,15 @@ struct Rn_vspace_eval: public vspace_evaluation_package
               * const vu = viV + 1,
               &vx = viV[0];
       for (size_t idxu = 0; idxu < ndxu; idxu++)
-        if (!( sat_flags_[iV] = (fabs(vspace_evaluation_package::R_err(vu[idxu],vx,dxu[idxu])) < tol) )) break;
+        if (!( sat_flags_[iV] = R_err_sat(vu[idxu],vx,dxu[idxu]) )) break;
+
       if (sat_flags_[iV])
       {
         if (nor==(eor+1))
         {
           double * const dnp1xu = sol_.dnp1xu;
           for (size_t idep = 0; idep < ndep; idep++)
-            if (!( sat_flags_[iV] = (fabs(vspace_evaluation_package::R_err(vu[idep+ndxu],vx,dnp1xu[idep])) < tol) )) break;
+            if (!( sat_flags_[iV] = R_err_sat(vu[idep+ndxu],vx,dnp1xu[idep]) )) break;
           if (sat_flags_[iV]) n_success++;
         }
         else n_success++;
@@ -880,7 +911,7 @@ struct Rn_vspace_eval: public vspace_evaluation_package
 
   protected:
 
-    const int nor,
+    const int nor = ord,
               norm1 = nor-1;
 };
 

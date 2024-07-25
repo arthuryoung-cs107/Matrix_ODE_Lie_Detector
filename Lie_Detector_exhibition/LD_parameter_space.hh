@@ -18,6 +18,7 @@ struct LD_vspace_record
     nspc(rec_.nspc), nvec(rec_.nvec), vlen(rec_.vlen),
     nV_spcvec(new int[rec_.nspc]), iV_spcmat(Tmatrix<int>(rec_.nspc,rec_.nvec)), Vtns_data(rec_.Vtns_data)
     {copy_record(rec_);}
+  LD_vspace_record(LD_vspace_record &rec1_,LD_vspace_record &rec2_); // combine records
   ~LD_vspace_record() { free_Tmatrix<int>(iV_spcmat); delete [] nV_spcvec; }
 
   const int nspc,
@@ -50,7 +51,8 @@ struct LD_vspace_record
     }
   }
 
-  void print_selected_details(const char name_[], bool longwinded_=false);
+  void print_subspace_details(const char name_[], bool longwinded_=false);
+  void print_subspace_details(LD_vspace_record &rec1_,const char name_[], bool longwinded_=false);
   void compare_subspaces(LD_vspace_record &rec1_,const char name1_[],LD_vspace_record &rec2_,const char name2_[]);
   void write_vspace_record(const char name_[],bool write_Vtns_data_=false);
 
@@ -304,50 +306,6 @@ class LD_Theta_bundle: public ode_solspc_element
     }
     inline void set_Tspaces() {Vbndle.set_Vspaces();}
     inline void set_Tspaces(LD_vspace_record &rec_) {Vbndle.set_Vspaces(rec_);}
-};
-
-struct Theta_eval_workspace
-{
-  Theta_eval_workspace(int ntheta_,int nsols_=1): ntheta(ntheta_), nsols(nsols_),
-    ntheta_use(ntheta_), Theta(NULL),
-    satisfy_flags_mat(Tmatrix<bool>(nsols_,ntheta_)) {}
-  ~Theta_eval_workspace() {free_Tmatrix<bool>(satisfy_flags_mat);}
-
-  const int ntheta,
-            nsols;
-  int ntheta_use;
-  bool  ** const satisfy_flags_mat,
-        * satisfy_flags = satisfy_flags_mat[0];
-  double  ** Theta;
-};
-
-struct lambda_map_eval_workspace: public Theta_eval_workspace
-{
-  lambda_map_eval_workspace(int ntheta_,function_space &fspc_,int nsols_=1):
-    Theta_eval_workspace(ntheta_,nsols_),
-    lamvec(new double[fspc_.perm_len]), vxu_wkspc(vxu_workspace(fspc_.nvar,fspc_.comp_ord_len())) {}
-  ~lambda_map_eval_workspace() {delete [] lamvec;}
-
-  double * const lamvec;
-  vxu_workspace vxu_wkspc;
-};
-
-struct Rn_cond_eval_workspace: public Theta_eval_workspace
-{
-  Rn_cond_eval_workspace(int ntheta_,ode_solspc_meta &meta_,int nsols_=1):
-    Theta_eval_workspace(ntheta_,nsols_), v(new double[meta_.ndim]) {}
-  ~Rn_cond_eval_workspace() {delete [] v;}
-
-  double  * const v;
-};
-
-struct inf_crit_eval_workspace: public Rn_cond_eval_workspace
-{
-  inf_crit_eval_workspace(int ntheta_,ode_solspc_meta &meta_,int nsols_=1):
-    Rn_cond_eval_workspace(ntheta_,meta_,nsols_), mags_JFs(new double[meta_.ndep]) {}
-  ~inf_crit_eval_workspace() {delete [] mags_JFs;}
-
-  double  * const mags_JFs;
 };
 
 #endif

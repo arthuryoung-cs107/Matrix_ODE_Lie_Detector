@@ -7,6 +7,28 @@
 /*
   constructors
 */
+LD_vspace_record::LD_vspace_record(LD_vspace_record &rec1_,LD_vspace_record &rec2_):
+  nspc(LD_linalg::max_T<int>(rec1_.nspc,rec2_.nspc)),
+  nvec(LD_linalg::max_T<int>(rec1_.nvec,rec2_.nvec)),
+  vlen(LD_linalg::max_T<int>(rec1_.vlen,rec2_.vlen)),
+  nV_spcvec(new int[nspc]), iV_spcmat(Tmatrix<int>(nspc,nvec)), Vtns_data(rec1_.Vtns_data)
+{
+  if (rec1_.Vtns_data != rec2_.Vtns_data) printf("(LD_vspace_record::LD_vspace_record): WARNING - combining vector space records with dissimilar vector space data tensors \n");
+  else
+  {
+    bool fV_cmpmat[2][nvec];
+    const int min_nspc = LD_linalg::min_T<int>(rec1_.nspc,rec2_.nspc);
+    for (size_t ispc = 0; ispc < min_nspc; ispc++)
+    {
+      for (size_t iV = 0; iV < nvec; iV++) fV_cmpmat[0][iV] = false;
+      for (size_t iV = 0; iV < rec1_.nV_spcvec[ispc]; iV++) fV_cmpmat[0][rec1_.iV_spcmat[ispc][iV]] = true;
+      for (size_t iV = 0; iV < nvec; iV++) fV_cmpmat[1][iV] = false;
+      for (size_t iV = 0; iV < rec2_.nV_spcvec[ispc]; iV++) fV_cmpmat[1][rec2_.iV_spcmat[ispc][iV]] = true;
+      int &nV_i = nV_spcvec[ispc] = 0;
+      for (size_t iV = 0; iV < nvec; iV++) if ((fV_cmpmat[0][iV])&&(fV_cmpmat[1][iV])) iV_spcmat[ispc][nV_i++] = iV;
+    }
+  }
+}
 
 LD_vector_space::LD_vector_space(int vlen_): data_owner(true),
   Vmat_data(Tmatrix<double>(vlen_,vlen_)),
@@ -98,11 +120,11 @@ LD_Theta_bundle::~LD_Theta_bundle()
   definitions
 */
 
-void LD_vspace_record::print_selected_details(const char name_[], bool longwinded_)
+void LD_vspace_record::print_subspace_details(const char name_[], bool longwinded_)
 {
   if (longwinded_)
   {
-    printf("(LD_vspace_record::print_selected_details) %s isat_vec\n", name_);
+    printf("(LD_vspace_record::print_subspace_details) %s isat_vec\n", name_);
     for (size_t ispc = 0; ispc < nspc; ispc++)
     {
       printf("spc %d (nsat = %d): ", ispc, nV_spcvec[ispc]);
@@ -116,6 +138,31 @@ void LD_vspace_record::print_selected_details(const char name_[], bool longwinde
   printf("  nvec_use = %d, vlen_use = %d, min nsat = %d, max nsat = %d \n",
             nvec, vlen,
             LD_linalg::min_val<int>(nV_spcvec,nspc), LD_linalg::max_val<int>(nV_spcvec,nspc));
+}
+
+void LD_vspace_record::print_subspace_details(LD_vspace_record &rec1_,const char name_[], bool longwinded_)
+{
+  if (longwinded_)
+  {
+    printf("(LD_vspace_record::print_subspace_details) V1: %s isat_vec\n", name_);
+    for (size_t ispc = 0; ispc < nspc; ispc++)
+    {
+      printf("spc %d (nsat = %d): ", ispc, rec1_.nV_spcvec[ispc]);
+      for (size_t isat = 0; isat < rec1_.nV_spcvec[ispc]; isat++) printf("%d ", rec1_.iV_spcmat[ispc][isat]);
+      printf("(of %d)\n", nV_spcvec[ispc]);
+    }
+  }
+  int nvec0_acc = 0,
+      nvec1_acc = 0;
+  for (size_t i = 0; i < nspc; i++)
+  {
+    nvec0_acc += nV_spcvec[i];
+    nvec1_acc += rec1_.nV_spcvec[i];
+  }
+  printf("(LD_vspace_record::print_subspace_details) V1: %s (V0 nspc = %d). Avg. nV0 = %.1f, nV1 = %.1f, (embedded in %d dimensions)\n nV0: --v\n  ",
+  name_,nspc,((double)nvec0_acc)/((double)nspc),((double)nvec1_acc)/((double)nspc),vlen);
+  for (size_t i = 0; i < nspc; i++) printf("%d ", nV_spcvec[i]); printf("\n  ");
+  for (size_t i = 0; i < nspc; i++) printf("%d ", rec1_.nV_spcvec[i]); printf("<-- %s nV\n",name_);
 }
 
 void LD_vspace_record::compare_subspaces(LD_vspace_record &rec1_,const char name1_[],LD_vspace_record &rec2_,const char name2_[])
