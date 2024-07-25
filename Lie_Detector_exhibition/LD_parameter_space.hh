@@ -1,7 +1,8 @@
 #ifndef LD_PARSPC_HH
 #define LD_PARSPC_HH
 
-#include "LD_encodings.hh"
+#include "LD_aux.hh"
+#include "LD_function_space.hh"
 
 struct LD_vspace_record
 {
@@ -12,6 +13,10 @@ struct LD_vspace_record
   LD_vspace_record(int nspc_,int nvec_, int vlen_, LD_vspace_record &rec_):
     nspc(nspc_), nvec(nvec_), vlen(vlen_),
     nV_spcvec(new int[nspc_]), iV_spcmat(Tmatrix<int>(nspc_,nvec_)), Vtns_data(rec_.Vtns_data)
+    {copy_record(rec_);}
+  LD_vspace_record(LD_vspace_record &rec_):
+    nspc(rec_.nspc), nvec(rec_.nvec), vlen(rec_.vlen),
+    nV_spcvec(new int[rec_.nspc]), iV_spcmat(Tmatrix<int>(rec_.nspc,rec_.nvec)), Vtns_data(rec_.Vtns_data)
     {copy_record(rec_);}
   ~LD_vspace_record() { free_Tmatrix<int>(iV_spcmat); delete [] nV_spcvec; }
 
@@ -45,7 +50,7 @@ struct LD_vspace_record
     }
   }
 
-  void print_selected_details(const char name_[], bool longwinded_=true);
+  void print_selected_details(const char name_[], bool longwinded_=false);
   void compare_subspaces(LD_vspace_record &rec1_,const char name1_[],LD_vspace_record &rec2_,const char name2_[]);
   void write_vspace_record(const char name_[],bool write_Vtns_data_=false);
 

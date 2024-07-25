@@ -1,16 +1,167 @@
 #ifndef LD_ENCODE_HH
 #define LD_ENCODE_HH
 
-#include "LD_aux.hh"
-#include "LD_function_space.hh"
+// #include "LD_aux.hh"
+// #include "LD_function_space.hh"
+#include "LD_parameter_space.hh"
+
+struct vspace_evaluation_package
+{
+  vspace_evaluation_package(ode_solspc_subset &Sset_,int ncon_,int nvec_,int nsol_,double tol_): Sset(Sset_),
+    ncon(ncon_), nvec_max(nvec_), nsol_max(nsol_),
+    sat_flags_mat(Tmatrix<bool>(nsol_,nvec_)),
+    tol(tol_), nvec_evl(nvec_), nsol_evl(nsol_) {}
+  vspace_evaluation_package(vspace_evaluation_package &evl_,int nsol_): vspace_evaluation_package(evl_.Sset,evl_.ncon,evl_.nvec_evl,nsol_,evl_.tol) {}
+  ~vspace_evaluation_package() {free_Tmatrix<bool>(sat_flags_mat);}
+
+  ode_solspc_subset &Sset;
+  const int ncon,
+            nvec_max,
+            nsol_max;
+  bool ** const sat_flags_mat,
+        * const sat_flags = sat_flags_mat[0];
+  int nvec_evl,
+      nsol_evl;
+  double  tol,
+          ** Vmat;
+
+  inline ode_solution ** sols_iset(int i_) {return Sset.get_sol_subset_i(i_);}
+  inline int nsol_iset(int i_) {return Sset.nobs_subset_i(i_);}
+  inline int max_nsol_subset() {return Sset.max_nobs_subset();}
+
+  protected:
+
+    static double R_err(double vdkm1xu_, double vx_, double dkxu_)
+    {
+      return 1.0 - (vdkm1xu_/(vx_*dkxu_)); // relative error
+      // return dkxu_ - (vdkm1xu_/vx_); // absolute error
+    }
+
+};
 
 struct LD_encoder
 {
-  LD_encoder(int ncod_): ncod(ncod_) {}
+  LD_encoder(int ncod_,ode_solspc_meta &meta_): ncod(ncod_), meta(meta_) {}
   ~LD_encoder() {}
 
+  ode_solspc_meta &meta;
   const int ncod;
 
+  template <class EVL, class BSE> static void leniently_evaluate_vspace(LD_vspace_record &reco_,LD_vspace_record &reci_,EVL evl_,BSE **bases_,bool verbose_)
+  {
+    const int nset = LD_linalg::min_T<int>(reco_.nspc,reci_.nspc),
+              nvec = LD_linalg::min_T<int>(reco_.nvec,reci_.nvec);
+    bool sat_setmat[nset][nvec];
+    int nsol_acc = 0,
+        nvec_acc = 0,
+        * const nVevl = reci_.nV_spcvec,
+        * const nVsat = reco_.nV_spcvec,
+        ** const iVsat = reco_.iV_spcmat;
+    double  *** const Vtns = reci_.Vtns_data,
+            t0 = LD_threads::tic();
+    #pragma omp parallel reduction(+:nsol_acc,nvec_acc)
+    {
+      BSE &bse_t = *(bases_[LD_threads::thread_id()]);
+      EVL evl_t(evl_,evl_.max_nsol_subset());
+      bool ** const Sat_t = evl_t.sat_flags_mat;
+      int &nvec_evl = evl_t.nvec_evl,
+          &nsol_evl = evl_t.nsol_evl;
+      #pragma omp for
+      for (size_t iset = 0; iset < nset; iset++)
+      {
+        nvec_acc += nvec_evl = nVevl[iset];
+        nsol_acc += nsol_evl = evl_t.nsol_iset(iset);
+        evl_t.Vmat = Vtns[iset];
+
+        ode_solution ** const sols_i = evl_t.sols_iset(iset);
+        LD_linalg::fill_vec<bool>(sat_setmat[iset],nvec_evl,false);
+
+        int nsat_seti = 0;
+        for (size_t jsol = 0; jsol < nsol_evl; jsol++)
+        {
+          if (evl_t.nsat_eval_condition(Sat_t[jsol],*(sols_i[jsol]),bse_t) != nvec_evl)
+          {
+            nsat_seti = 0;
+            for (size_t iV = 0; iV < nvec_evl; iV++)
+              nsat_seti += (int)(sat_setmat[iset][iV] = (sat_setmat[iset][iV]) || (Sat_t[jsol][iV]));
+          }
+          else LD_linalg::fill_vec<bool>(sat_setmat[iset],nsat_seti=nvec_evl,true);
+          if (nsat_seti==nvec_evl) break; // if all pass
+        }
+        if (nVsat[iset] = nsat_seti)
+        {
+          for (size_t iV = 0, isat = 0; iV < nvec_evl; iV++)
+            if (sat_setmat[iset][iV]) iVsat[iset][isat++] = iV;
+        }
+        else LD_linalg::fill_vec<int>(iVsat[iset],nvec_evl,-1);
+      }
+    }
+    double work_time = LD_threads::toc(t0);
+    if (verbose_)
+    {
+      printf("(LD_encoder::leniently_evaluate_vspace) evaluated %d conds. (%d sols) over %d bases (%.1f x %d, on avg.) in %.4f seconds (%d threads)\n",
+        nsol_acc*evl_.ncon,nsol_acc,nset,((double)nvec_acc)/((double)nset),reci_.vlen,
+        work_time,LD_threads::numthreads());
+    }
+  }
+
+  template <class EVL, class BSE> static void strictly_evaluate_vspace(LD_vspace_record &reco_,LD_vspace_record &reci_,EVL evl_,BSE **bases_,bool verbose_)
+  {
+    const int nset = LD_linalg::min_T<int>(reco_.nspc,reci_.nspc),
+              nvec = LD_linalg::min_T<int>(reco_.nvec,reci_.nvec);
+    bool sat_setmat[nset][nvec];
+    int nsol_acc = 0,
+        nvec_acc = 0,
+        * const nVevl = reci_.nV_spcvec,
+        * const nVsat = reco_.nV_spcvec,
+        ** const iVsat = reco_.iV_spcmat;
+    double  *** const Vtns = reci_.Vtns_data,
+            t0 = LD_threads::tic();
+    #pragma omp parallel reduction(+:nsol_acc,nvec_acc)
+    {
+      BSE &bse_t = *(bases_[LD_threads::thread_id()]);
+      EVL evl_t(evl_,1);
+      bool  * const sat_t = evl_t.sat_flags;
+      int &nvec_evl = evl_t.nvec_evl,
+          &nsol_evl = evl_t.nsol_evl;
+      #pragma omp for
+      for (size_t iset = 0; iset < nset; iset++)
+      {
+        nvec_acc += nvec_evl = nVevl[iset];
+        nsol_acc += nsol_evl = evl_t.nsol_iset(iset);
+        evl_t.Vmat = Vtns[iset];
+
+        ode_solution ** const sols_i = evl_t.sols_iset(iset);
+        LD_linalg::fill_vec<bool>(sat_setmat[iset],nvec_evl,true);
+
+        int nsat_seti = 0;
+        for (size_t jsol = 0; jsol < nsol_evl; jsol++)
+        {
+          if (evl_t.nsat_eval_condition(sat_t,*(sols_i[jsol]),bse_t))
+          {
+            nsat_seti = 0;
+            for (size_t iV = 0; iV < nvec_evl; iV++)
+              nsat_seti += (int)(sat_setmat[iset][iV] = (sat_setmat[iset][iV]) && (sat_t[iV]));
+          }
+          else LD_linalg::fill_vec<bool>(sat_setmat[iset],nvec_evl,nsat_seti = 0);
+          if (!nsat_seti) break; // if none pass
+        }
+        if (nVsat[iset] = nsat_seti)
+        {
+          for (size_t iV = 0, isat = 0; iV < nvec_evl; iV++)
+            if (sat_setmat[iset][iV]) iVsat[iset][isat++] = iV;
+        }
+        else LD_linalg::fill_vec<int>(iVsat[iset],nvec_evl,-1);
+      }
+    }
+    double work_time = LD_threads::toc(t0);
+    if (verbose_)
+    {
+      printf("(LD_encoder::strictly_evaluate_vspace) evaluated %d conds. (%d sols) over %d bases (%.1f x %d, on avg.) in %.4f seconds (%d threads)\n",
+        nsol_acc*evl_.ncon,nsol_acc,nset,((double)nvec_acc)/((double)nset),reci_.vlen,
+        work_time,LD_threads::numthreads());
+    }
+  }
 };
 
 struct LD_matrix_record
@@ -61,6 +212,18 @@ class LD_encoded_matrix
       ncol(ncol_full), nobs(nobs_full), ncod(ncod_full), nrow(nrow_full),
       Amat(new double*[nrow_full])
       {for (size_t i = 0; i < nrow_full; i++) Amat[i] = Amat_data[i];}
+    LD_encoded_matrix(LD_encoded_matrix &Acode_,LD_encoded_matrix &Bcode_): LD_encoded_matrix(Acode_.ncol,Acode_.nobs,Acode_.ncod + Bcode_.ncod)
+    {
+      for (size_t iobs = 0, irowA = 0, irowB = 0; iobs < nobs_full; iobs++)
+      {
+        for (size_t icod = 0; icod < Acode_.ncod; icod++, irowA++)
+          for (size_t icol = 0; icol < Acode_.ncol; icol++)
+            Atns_data[iobs][icod][icol] = Acode_.Amat[irowA][icol];
+        for (size_t icod = 0, iicod = Acode_.ncod; icod < Bcode_.ncod; icod++, iicod++, irowB++)
+          for (size_t icol = 0; icol < Bcode_.ncol; icol++)
+            Atns_data[iobs][iicod][icol] = Bcode_.Amat[irowB][icol];
+      }
+    }
     ~LD_encoded_matrix()
     {
       if (data_owner)
@@ -96,6 +259,9 @@ class LD_encoding_bundle
     LD_encoding_bundle(int nset_,int ncol_,int nobs_per_set_,int ncod_=1): data_owner(true),
       nset(nset_), ncol_full(ncol_), Amats(new double**[nset_]), Acodes(new LD_encoded_matrix*[nset_])
       {for (size_t i = 0; i < nset; i++) Amats[i] = ( Acodes[i] = new LD_encoded_matrix(ncol_,nobs_per_set_,ncod_) )->Amat;}
+    LD_encoding_bundle(LD_encoding_bundle &Abndle_, LD_encoding_bundle &Bbndle_): data_owner(true),
+      nset(Abndle_.nset), ncol_full(Abndle_.ncol_full), Amats(new double**[nset]), Acodes(new LD_encoded_matrix*[nset])
+      {for (size_t i = 0; i < nset; i++) Amats[i] = ( Acodes[i] = new LD_encoded_matrix(*(Abndle_.Acodes[i]),*(Bbndle_.Acodes[i])) )->Amat;}
     ~LD_encoding_bundle()
     {
       if (data_owner)
@@ -144,6 +310,8 @@ class LD_encoding_bundle
       for (size_t i = 1; i < nset; i++) if (mrows > Acodes[i]->nrow) mrows = Acodes[i]->nrow;
       return mrows;
     }
+
+    inline int nrows_mat_i(int i_) {return Acodes[i_]->nrow;}
 };
 
 /*
@@ -152,9 +320,12 @@ class LD_encoding_bundle
 
 struct LD_L_encoder: public LD_encoder
 {
-  LD_L_encoder(): LD_encoder(1) {}
+  LD_L_encoder(ode_solspc_meta &meta_): LD_encoder(1,meta_) {}
   ~LD_L_encoder() {}
 
+  /*
+    encoding routines
+  */
   template <class BSIS> static void encode_L_bundle(LD_encoding_bundle &bndle_,ode_solspc_subset &set_,BSIS **bases_,bool normalize_=false)
   {
     const int nobs_max = bndle_.nobs();
@@ -175,8 +346,16 @@ struct LD_L_encoder: public LD_encoder
       }
     }
   }
+
+  /*
+    encoding techniques
+  */
   static void encode_L_row(double *Lrow_,double *lambda_x_vec_,bool *dof_tun_flags_,int perm_len_)
     {for (size_t i_L = 0; i_L < perm_len_; i_L++) Lrow_[i_L] = (dof_tun_flags_[i_L])?(lambda_x_vec_[i_L]):(0.0);}
+
+  /*
+    normalization techniques
+  */
   static void normalize_L_row(double *Lrow_,int perm_len_)
   {
     const double L_row_i_mag = LD_linalg::norm_l2(Lrow_,perm_len_);
@@ -186,10 +365,12 @@ struct LD_L_encoder: public LD_encoder
 
 struct LD_G_encoder: public LD_encoder
 {
-  LD_G_encoder(int ndep_): LD_encoder(ndep_) {}
-  LD_G_encoder(ode_solspc_meta &meta_): LD_G_encoder(meta_.ndep) {}
+  LD_G_encoder(ode_solspc_meta &meta_): LD_encoder(meta_.ndep,meta_) {}
   ~LD_G_encoder() {}
 
+  /*
+    encoding routines
+  */
   template <class BSIS> static void encode_G_bundle(LD_encoding_bundle &bndle_,ode_solspc_subset &set_,BSIS **bases_,bool normalize_=false)
   {
     const int nobs_max = bndle_.nobs();
@@ -210,6 +391,9 @@ struct LD_G_encoder: public LD_encoder
     }
   }
 
+  /*
+    encoding techniques
+  */
   static void encode_G_rows(double **Grows_,partial_chunk &chunk_,ode_solution &sol_,bool **dof_tun_flags_mat_)
   {
     const int eor = sol_.eor,
@@ -245,6 +429,9 @@ struct LD_G_encoder: public LD_encoder
           }
   }
 
+  /*
+    normalization techniques
+  */
   static void normalize_G_rows(double **Grows_,ode_solution &sol_,int ndof_)
   {
     for (size_t idep = 0; idep < sol_.ndep; idep++)
@@ -259,8 +446,7 @@ struct LD_G_encoder: public LD_encoder
 
 struct LD_R_encoder: public LD_encoder
 {
-  LD_R_encoder(int ndep_,int nor_): LD_encoder(ndep_*nor_) {}
-  LD_R_encoder(ode_solspc_meta &meta_,int nor_=0): LD_R_encoder(meta_.ndep,(nor_)?(nor_):(meta_.eor)) {}
+  LD_R_encoder(ode_solspc_meta &meta_,int nor_=0): LD_encoder(meta_.ndep*((nor_)?(nor_):(meta_.eor)),meta_) {}
   ~LD_R_encoder() {}
 
   /*
@@ -523,6 +709,179 @@ struct LD_R_encoder: public LD_encoder
       }
   }
 
+};
+
+/*
+  evaluation packages
+*/
+
+struct L_vspace_eval: public vspace_evaluation_package
+{
+  L_vspace_eval(ode_solspc_subset &Sset_,int nvec_,double tol_=1e-10): vspace_evaluation_package(Sset_,1,nvec_,1,tol_) {}
+  L_vspace_eval(L_vspace_eval &evl_,int nsol_): vspace_evaluation_package(evl_,nsol_) {}
+  ~L_vspace_eval() {}
+
+  template <class BSE> static void evaluate_lambda_signal_strength(LD_vspace_record &reco_,LD_vspace_record &reci_,ode_solspc_subset &Sset_,BSE **bases_,double tol_=1e-10,bool verbose_=true)
+  {
+    LD_encoder::leniently_evaluate_vspace<L_vspace_eval,BSE>(reco_,reci_,
+      L_vspace_eval(Sset_,reco_.nvec,tol_),
+      bases_,verbose_);
+  }
+
+  virtual int nsat_eval_condition(bool *sat_flags_,ode_solution &sol_,function_space_basis &fbasis_) // evaluate signal strength
+  {
+    const int vlen = fbasis_.perm_len;
+    double * const lamvec = fbasis_.Jac_mat[0];
+
+    fbasis_.fill_partial_chunk(sol_.pts,0); // LD_linalg::normalize_vec_l2(lamvec,vlen);
+
+    int n_success = 0;
+    for (size_t iV = 0; iV < nvec_evl; iV++)
+    {
+      double lam_i = 0.0;
+      for (size_t iL = 0; iL < vlen; iL++) lam_i += Vmat[iV][iL]*lamvec[iL];
+      n_success += (int)(sat_flags_[iV] = (fabs(lam_i) > tol));
+    }
+    return n_success;
+  }
+};
+
+struct G_vspace_eval: public vspace_evaluation_package
+{
+  G_vspace_eval(ode_solspc_subset &Sset_,int nvec_,double tol_=1e-10): vspace_evaluation_package(Sset_,Sset_.ndep,nvec_,1,tol_), mags_JFs(new double[Sset.ndep]) {}
+  G_vspace_eval(G_vspace_eval &evl_,int nsol_):
+    vspace_evaluation_package(evl_,nsol_), mags_JFs(new double[Sset.ndep]) {}
+  ~G_vspace_eval() {delete [] mags_JFs;}
+
+  // infinitesimal criterion
+  virtual int nsat_eval_condition(bool *sat_flags_,ode_solution &sol_,function_space_basis &fbasis_)
+  {
+    const int ndep = sol_.ndep,
+              ndim = sol_.ndim;
+    double ** const JFs = sol_.JFs;
+
+    for (size_t idep = 0; idep < ndep; idep++)
+    {
+      double acc = 0.0;
+      for (size_t idim = 0; idim < ndim; idim++) acc += JFs[idep][idim]*JFs[idep][idim];
+      mags_JFs[idep] = sqrt(acc);
+    }
+
+    fbasis_.fill_partial_chunk(sol_.pts);
+
+    int n_success = 0;
+    for (size_t iV = 0; iV < nvec_evl; iV++)
+    {
+      double * const  viV = fbasis_.v_eval(Vmat[iV]),
+                      acc = 0.0;
+      for (size_t idim = 0; idim < ndim; idim++) acc += viV[idim]*viV[idim];
+      double  mag_v = sqrt(acc);
+
+      for (size_t idep = 0; idep < ndep; idep++)
+      {
+        acc = 0.0;
+        for (size_t idim = 0; idim < ndim; idim++) acc += JFs[idep][idim]*viV[idim];
+        if (!( sat_flags_[iV] = (fabs(acc / (mags_JFs[idep]*mag_v)) < tol) )) break;
+      }
+      if (sat_flags_[iV]) n_success++;
+    }
+    return n_success;
+  }
+
+  protected:
+
+    double * const mags_JFs;
+};
+
+struct Rk_vspace_eval: public vspace_evaluation_package
+{
+
+  Rk_vspace_eval(ode_solspc_subset &Sset_,int nvec_,int kor_,double tol_=1e-10): vspace_evaluation_package(Sset_,Sset_.ndep,nvec_,1,tol_), kor(kor_) {}
+  Rk_vspace_eval(Rk_vspace_eval &evl_,int nsol_):
+    vspace_evaluation_package(evl_,nsol_), kor(evl_.kor) {}
+  ~Rk_vspace_eval() {}
+
+  virtual int nsat_eval_condition(bool *sat_flags_,ode_solution &sol_,function_space_basis &fbasis_) // k'th ratio condition
+  {
+    const int ndep = sol_.ndep;
+    double * const dkxu = (kor <= sol_.eor)?(sol_.pts + idkxu):(sol_.dnp1xu);
+
+    fbasis_.fill_partial_chunk(sol_.pts,korm1);
+
+    int n_success = 0;
+    for (size_t iV = 0; iV < nvec_evl; iV++)
+    {
+      double  * const viV = fbasis_.v_eval(Vmat[iV],korm1),
+              * const vdkm1xu = viV + idkm1xu,
+              &vx = viV[0];
+      for (size_t idep = 0; idep < ndep; idep++)
+        if (!( sat_flags_[iV] = (fabs(vspace_evaluation_package::R_err(vdkm1xu[idep],vx,dkxu[idep])) < tol) )) break;
+      if (sat_flags_[iV]) n_success++;
+    }
+    return n_success;
+  }
+
+  protected:
+
+    const int kor,
+              korm1 = kor-1,
+              idkxu = 1 + Sset.ndep*kor,
+              idkm1xu = 1 + Sset.ndep*korm1;
+};
+
+struct Rn_vspace_eval: public vspace_evaluation_package
+{
+  Rn_vspace_eval(ode_solspc_subset &Sset_,int nvec_,int nor_,double tol_=1e-10):
+    vspace_evaluation_package(Sset_,Sset_.ndep*nor_,nvec_,1,tol_), nor(nor_) {}
+  Rn_vspace_eval(Rn_vspace_eval &evl_, int nsol_):
+    vspace_evaluation_package(evl_,nsol_), nor(evl_.nor) {}
+  ~Rn_vspace_eval() {}
+
+  template <class BSE> static void evaluate_nth_ratio_condition(LD_vspace_record &reco_,LD_vspace_record &reci_,ode_solspc_subset &Sset_,BSE **bases_,double tol_=1e-6,int nor_=0,bool verbose_=true)
+  {
+    LD_encoder::strictly_evaluate_vspace<Rn_vspace_eval,BSE>(reco_,reci_,
+      Rn_vspace_eval(Sset_,reco_.nvec,(nor_)?(nor_):(Sset_.eor),tol_),
+      bases_,verbose_);
+  }
+
+  // 1 - n'th ratio condition
+  virtual int nsat_eval_condition(bool *sat_flags_,ode_solution &sol_,function_space_basis &fbasis_) // k'th ratio condition
+  {
+    const int eor = sol_.eor,
+              ndep = sol_.ndep,
+              ndxu = ndep*((nor<eor)?(nor):(eor));
+    double  * const u = sol_.u,
+            * const dxu = sol_.dxu;
+
+    fbasis_.fill_partial_chunk(sol_.pts,norm1);
+
+    int n_success = 0;
+    for (size_t iV = 0; iV < nvec_evl; iV++)
+    {
+      double  * const viV = fbasis_.v_eval(Vmat[iV],norm1),
+              * const vu = viV + 1,
+              &vx = viV[0];
+      for (size_t idxu = 0; idxu < ndxu; idxu++)
+        if (!( sat_flags_[iV] = (fabs(vspace_evaluation_package::R_err(vu[idxu],vx,dxu[idxu])) < tol) )) break;
+      if (sat_flags_[iV])
+      {
+        if (nor==(eor+1))
+        {
+          double * const dnp1xu = sol_.dnp1xu;
+          for (size_t idep = 0; idep < ndep; idep++)
+            if (!( sat_flags_[iV] = (fabs(vspace_evaluation_package::R_err(vu[idep+ndxu],vx,dnp1xu[idep])) < tol) )) break;
+          if (sat_flags_[iV]) n_success++;
+        }
+        else n_success++;
+      }
+    }
+    return n_success;
+  }
+
+  protected:
+
+    const int nor,
+              norm1 = nor-1;
 };
 
 #endif

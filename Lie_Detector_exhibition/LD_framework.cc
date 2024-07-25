@@ -501,6 +501,37 @@ void LD_svd_bundle::compute_Acode_curve_svds(LD_encoding_bundle &Abndle_, bool v
 
 }
 
+void LD_svd_bundle::compute_AYmat_curve_svds(LD_encoding_bundle &Abndle_,LD_Theta_space ** const Tspaces_,bool verbose_)
+{
+  const int mrows_max = Abndle_.max_nrows();
+  int mrows_acc = 0,
+      ncols_acc = 0;
+  double  *** const Amats = Abndle_.Amats,
+          t0 = LD_threads::tic();
+
+  #pragma omp parallel reduction(+:mrows_acc,ncols_acc)
+  {
+    LD_svd svd_t(mrows_max,vlen_full);
+    double ** const Umat_t = svd_t.Umat;
+    #pragma omp for
+    for (size_t ispc = 0; ispc < nspc; ispc++)
+    {
+      const int mrows_Ai = Abndle_.nrows_mat_i(ispc),
+                ncols_Ai = nV_spcvec[ispc] = Vspaces[ispc]->vlen_use = Tspaces_[ispc]->ndof_use;
+      Tspaces_[ispc]->post_multiply_bases(Umat_t,Amats[ispc],mrows_Ai);
+      svd_t.decompose_U(mrows_Ai,ncols_Ai);
+      rank_vec[ispc] = svd_t.unpack_rank_svec_VTmat(Smat[ispc],VTtns[ispc]);
+
+      mrows_acc += mrows_Ai; ncols_acc += ncols_Ai;
+    }
+  }
+  double work_time = LD_threads::toc(t0);
+  if (verbose_)
+    printf("(LD_svd_bundle::compute_AYmat_curve_svds) computed %d svds (%.1f x %.1f, on avg.) in %.4f seconds (%d threads)\n",
+      nspc,((double)mrows_acc)/((double)nspc),((double)ncols_acc)/((double)nspc),
+      work_time, LD_threads::numthreads());
+}
+
 void LD_svd_bundle::compute_AYmat_curve_svds(LD_matrix &Amat_,LD_Theta_space ** const Tspaces_,bool verbose_)
 {
   const int mrows_max = Amat_.max_nrow_curve();
@@ -516,10 +547,9 @@ void LD_svd_bundle::compute_AYmat_curve_svds(LD_matrix &Amat_,LD_Theta_space ** 
     #pragma omp for
     for (size_t ispc = 0; ispc < nspc; ispc++)
     {
-      LD_Theta_space &Tspc_i = *(Tspaces_[ispc]);
       const int mrows_Ai = Amat_.nrows_mat_i(ispc),
-                ncols_Ai = nV_spcvec[ispc] = Vspaces[ispc]->vlen_use = Tspc_i.ndof_use;
-      Tspc_i.post_multiply_bases(Umat_t,Amat_.Amat_crv_i(ispc),mrows_Ai);
+                ncols_Ai = nV_spcvec[ispc] = Vspaces[ispc]->vlen_use = Tspaces_[ispc]->ndof_use;
+      Tspaces_[ispc]->post_multiply_bases(Umat_t,Amat_.Amat_crv_i(ispc),mrows_Ai);
       svd_t.decompose_U(mrows_Ai,ncols_Ai);
       rank_vec[ispc] = svd_t.unpack_rank_svec_VTmat(Smat[ispc],VTtns[ispc]);
 

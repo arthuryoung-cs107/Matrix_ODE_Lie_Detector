@@ -69,6 +69,10 @@ struct ode_solspc_subset: public ode_solspc_element // when the data is not nece
   }
   inline void print_jsol(int j_) {sols[j_]->print_sol();}
   inline void print_subset() {for (size_t i = 0; i < nobs; i++) print_jsol(i);}
+
+  virtual int nobs_subset_i(int i_) {return 1;}
+  virtual int max_nobs_subset() {return 1;}
+  virtual ode_solution ** get_sol_subset_i(int i_) {return sols + i_;}
 };
 
 struct solspc_data_chunk: public ode_solspc_subset // when data is vectorized

@@ -52,7 +52,7 @@ struct LD_L_matrix: public LD_matrix
               nsat_crvi += (int)(sat_crvmat[icrv][ith] = (sat_crvmat[icrv][ith]) || (Sat_t[jsol][ith]));
           }
           else LD_linalg::fill_vec<bool>(sat_crvmat[icrv],nsat_crvi=ntheta_use,true);
-          if (nsat_crvi==ntheta_use) break;
+          if (nsat_crvi==ntheta_use) break; // if all pass
         }
         if (nsat_theta[icrv] = nsat_crvi)
         {

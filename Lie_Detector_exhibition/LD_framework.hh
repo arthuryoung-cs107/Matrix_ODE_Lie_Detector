@@ -1,7 +1,8 @@
 #ifndef LD_EXHIB_HH
 #define LD_EXHIB_HH
 
-#include "LD_parameter_space.hh"
+#include "LD_encodings.hh"
+// #include "LD_parameter_space.hh"
 #include "LD_io.hh"
 
 struct ode_curve_observations
@@ -187,6 +188,10 @@ struct LD_observations_set: public solspc_data_chunk
   inline int min_npts_curve() {return LD_linalg::min_val<int>(npts_per_crv,ncrvs_tot);}
   inline int max_npts_curve() {return LD_linalg::max_val<int>(npts_per_crv,ncrvs_tot);}
 
+  virtual int nobs_subset_i(int icrv_) {return npts_per_crv[icrv_];}
+  virtual int max_nobs_subset() {return max_npts_curve();}
+  virtual ode_solution ** get_sol_subset_i(int icrv_) {return curves[icrv_]->sols;}
+
   private:
 
     double indep_range[2];
@@ -237,7 +242,7 @@ struct Lie_detector
       {
         double vui = 0.0;
         for (size_t i = 0; i < perm_len; i++, iL++) vui += Theta[ith][iL]*lamvec[iL];
-        if (!( sat_flags_[ith] = (fabs(1.0 - (vui/(vx*dxu[idep]))) < tol_) )) break;
+        if (!( sat_flags_[ith] = (fabs(Lie_detector::R_err(vui,vx,dxu[idep])) < tol_) )) break;
       }
       if (sat_flags_[ith]) n_success++;
     }
@@ -263,7 +268,7 @@ struct Lie_detector
     {
       function_space_basis::v_eval(chunk,v,Theta[ith],fspc);
       for (size_t idep = 0; idep < ndep; idep++)
-        if (!( sat_flags_[ith] = (fabs(1.0 - (vdkm1xu[idep]/(vx*dkxu[idep]))) < tol_) )) break;
+        if (!( sat_flags_[ith] = (fabs(Lie_detector::R_err(vdkm1xu[idep],vx,dkxu[idep])) < tol_) )) break;
       if (sat_flags_[ith]) n_success++;
     }
     return n_success;
@@ -290,13 +295,13 @@ struct Lie_detector
     {
       function_space_basis::v_eval(chunk,v,Theta[ith],fspc);
       for (size_t idx = 0; idx < ndxu; idx++)
-        if (!( sat_flags_[ith] = (fabs( 1.0 - (vu[idx]/(vx*dxu[idx])) ) < tol_) )) break;
+        if (!( sat_flags_[ith] = (fabs(Lie_detector::R_err(vu[idx],vx,dxu[idx])) < tol_) )) break;
       if (sat_flags_[ith])
       {
         if (nmax_==(eor+1))
         {
           for (size_t idep = 0; idep < ndep; idep++)
-            if (!( sat_flags_[ith] = (fabs( 1.0 - (vu[idep+ndxu]/(vx*sol_.dnp1xu[idep])) ) < tol_) )) break;
+            if (!( sat_flags_[ith] = (fabs(Lie_detector::R_err(vu[idep+ndxu],vx,sol_.dnp1xu[idep])) < tol_) )) break;
           if (sat_flags_[ith]) n_success++;
         }
         else n_success++;
@@ -345,6 +350,13 @@ struct Lie_detector
     return n_success;
   }
 
+  private:
+
+    static double R_err(double vdkm1xu_, double vx_, double dkxu_)
+    {
+      return 1.0 - (vdkm1xu_/(vx_*dkxu_)); // relative error
+      // return dkxu_ - (vdkm1xu_/vx_); // absolute error
+    }
 };
 
 struct LD_experiment
@@ -556,6 +568,12 @@ struct LD_svd_bundle: public LD_vector_bundle
       compute_AYmat_curve_svds(Amat_,Tbndle_.Tspaces,verbose_);
       Tbndle_.init_Vbndle_premult(VTtns);
     }
+  LD_svd_bundle(LD_encoding_bundle &Abndle_,LD_Theta_bundle &Tbndle_,bool verbose_=true):
+    LD_svd_bundle(Abndle_.nset,Abndle_.ncol_full)
+    {
+      compute_AYmat_curve_svds(Abndle_,Tbndle_.Tspaces,verbose_);
+      Tbndle_.init_Vbndle_premult(VTtns);
+    }
   ~LD_svd_bundle()
   {
     free_Tmatrix<double>(Smat);
@@ -567,6 +585,7 @@ struct LD_svd_bundle: public LD_vector_bundle
           *** const VTtns = Vtns_data;
 
   void compute_Acode_curve_svds(LD_encoding_bundle &Abndle_,bool verbose_=true);
+  void compute_AYmat_curve_svds(LD_encoding_bundle &Abndle_,LD_Theta_space ** const Tspaces_,bool verbose_=true);
   void compute_AYmat_curve_svds(LD_matrix &Amat_,LD_Theta_space ** const Tspaces_,bool verbose_=true);
 
   void print_details(const char name_[] =  "Amat_SVD");

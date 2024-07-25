@@ -373,10 +373,16 @@ class function_space_basis: public function_space_element
             *** const C_x = partials.C_x,
             ** const C_u = partials.C_u;
 
-  static void v_eval(partial_chunk &chunk_, double *v_, double *theta_, function_space &fspc_)
+  inline double * v_eval(double *theta_,int eorcap_=0) // partial chunk already filled
   {
-    int eor = fspc_.eor,
+    function_space_basis::v_eval(partials,v_j,theta_,fspc,eorcap_);
+    return v_j;
+  }
+  static void v_eval(partial_chunk &chunk_, double *v_, double *theta_, function_space &fspc_,int eorcap_=0)
+  {
+    int eor = (eorcap_)?(eorcap_):(fspc_.eor),
         ndep = fspc_.ndep,
+        ndim = 1 + ndep*(eor+1),
         perm_len = fspc_.perm_len,
         ndxu = eor*ndep;
     double  &vx = v_[0],
@@ -385,7 +391,7 @@ class function_space_basis: public function_space_element
             ** const Jac_mat = chunk_.Jac_mat,
             *** const C_x = chunk_.C_x,
             ** const C_u = chunk_.C_u;
-    for (size_t i = 0; i < fspc_.ndim; i++) v_[i] = 0.0;
+    for (size_t i = 0; i < ndim; i++) v_[i] = 0.0;
     for (size_t iL = 0; iL < perm_len; iL++)
     {
       vx += theta_[iL]*Jac_mat[0][iL];

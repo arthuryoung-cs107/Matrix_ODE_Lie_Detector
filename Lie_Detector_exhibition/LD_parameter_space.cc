@@ -132,7 +132,7 @@ void LD_vspace_record::compare_subspaces(LD_vspace_record &rec1_,const char name
     nvec1_acc += rec1_.nV_spcvec[i];
     nvec2_acc += rec2_.nV_spcvec[i];
   }
-  printf("(LD_vspace_record::compare_subspaces) comparing %s vs. %s (nspc = %d). Avg. nV0 = %.1f, nV1 = %.1f, nV2 = %.1f, nV1-nV2 = %.1f (embedded in %d dimensions)\n nV0: --v\n  ",
+  printf("(LD_vspace_record::compare_subspaces) comparing V1: %s vs. V2: %s (V0 nspc = %d). Avg. nV0 = %.1f, nV1 = %.1f, nV2 = %.1f, nV1-nV2 = %.1f (embedded in %d dimensions)\n nV0: --v\n  ",
   name1_,name2_,nspc, ((double)nvec0_acc)/((double)nspc),
   ((double)nvec1_acc)/((double)nspc),((double)nvec2_acc)/((double)nspc),
   ((double)diff_acc)/((double)nspc), vlen);
