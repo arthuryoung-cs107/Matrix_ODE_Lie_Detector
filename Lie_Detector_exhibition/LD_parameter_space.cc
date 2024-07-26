@@ -122,6 +122,7 @@ LD_Theta_bundle::~LD_Theta_bundle()
 
 void LD_vspace_record::print_subspace_details(const char name_[], bool longwinded_)
 {
+  printf("\n");
   if (longwinded_)
   {
     printf("(LD_vspace_record::print_subspace_details) %s isat_vec\n", name_);
@@ -138,10 +139,12 @@ void LD_vspace_record::print_subspace_details(const char name_[], bool longwinde
   printf("  nvec_use = %d, vlen_use = %d, min nsat = %d, max nsat = %d \n",
             nvec, vlen,
             LD_linalg::min_val<int>(nV_spcvec,nspc), LD_linalg::max_val<int>(nV_spcvec,nspc));
+  printf("\n");
 }
 
 void LD_vspace_record::print_subspace_details(LD_vspace_record &rec1_,const char name_[], bool longwinded_)
 {
+  printf("\n");
   if (longwinded_)
   {
     printf("(LD_vspace_record::print_subspace_details) V1: %s isat_vec\n", name_);
@@ -163,10 +166,12 @@ void LD_vspace_record::print_subspace_details(LD_vspace_record &rec1_,const char
   name_,nspc,((double)nvec0_acc)/((double)nspc),((double)nvec1_acc)/((double)nspc),vlen);
   for (size_t i = 0; i < nspc; i++) printf("%d ", nV_spcvec[i]); printf("\n  ");
   for (size_t i = 0; i < nspc; i++) printf("%d ", rec1_.nV_spcvec[i]); printf("<-- %s nV\n",name_);
+  printf("\n");
 }
 
 void LD_vspace_record::compare_subspaces(LD_vspace_record &rec1_,const char name1_[],LD_vspace_record &rec2_,const char name2_[])
 {
+  printf("\n");
   int nvec0_acc = 0,
       nvec1_acc = 0,
       nvec2_acc = 0,
@@ -187,6 +192,7 @@ void LD_vspace_record::compare_subspaces(LD_vspace_record &rec1_,const char name
   for (size_t i = 0; i < nspc; i++) printf("%d ", rec1_.nV_spcvec[i]); printf("<-- %s nV\n  ",name1_);
   for (size_t i = 0; i < nspc; i++) printf("%d ", rec2_.nV_spcvec[i]); printf("<-- %s nV\n  ",name2_);
   for (size_t i = 0; i < nspc; i++) printf("%d ", nV_diff[i]); printf("\n %s nV - %s nV --^\n",name1_,name2_);
+  printf("\n");
 }
 void LD_Theta_space::post_multiply_evry_basis(double **AYmat_, double **Amat_, int mrows_)
 {

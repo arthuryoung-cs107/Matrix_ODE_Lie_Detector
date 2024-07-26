@@ -124,15 +124,22 @@ class LD_name_buffer
         ?(name_file(name_)) // try again
         :(check_bad_encode("name_file"));
     }
+    inline char * name_file(LD_name_buffer &in_) {return name_file(in_.name);}
     inline char * name_file(const char name_[], const char suffix_[])
     {
       check_output_names();
       return (not_enough_space(check = snprintf(name,len_buf,"%s/%s%s.%s",dir_name,name_,suffix_,dat_suf)))
-        ?(name_file(name_)) // try again
+        ?(name_file(name_,suffix_)) // try again
         :(check_bad_encode("name_file"));
     }
-    inline char * name_file(LD_name_buffer &in_) {return name_file(in_.name);}
     inline char * name_file(LD_name_buffer &in0_,const char in1_[]) {return name_file(in0_.name,in1_);}
+    inline char * name_file(const char name1_[], const char name2_[], const char name3_[])
+    {
+      check_output_names();
+      return (not_enough_space(check = snprintf(name,len_buf,"%s/%s%s%s.%s",dir_name,name1_,name2_,name3_,dat_suf)))
+        ?(name_file(name1_,name2_,name3_)) // try again
+        :(check_bad_encode("name_file"));
+    }
 
     inline char * name_svd_file(const char dat_[], const char fam_[], const char a_[], const char suf_[] = "mat")
     {
@@ -170,7 +177,7 @@ class LD_name_buffer
     {
       return (not_enough_space( check = snprintf(name,len_buf,"%s.%d",fam_,bor_)))
         ?(name_function_space(fam_,bor_)) // try again
-        :(check_bad_encode("name_observational_data"));
+        :(check_bad_encode("name_function_space"));
     }
     inline char * name_observational_data(const char eqn_[],int xr_,int nse_,const char ign_[], const char adtl_[] = "")
     {
@@ -186,6 +193,18 @@ class LD_name_buffer
     {
       return (not_enough_space( check = snprintf(name,len_buf,"%s",name_)))
                                 ?(load_name(name_))
+                                :(check_bad_encode("load_name"));
+    }
+    inline char * load_name(const char name1_[],const char name2_[])
+    {
+      return (not_enough_space( check = snprintf(name,len_buf,"%s%s",name1_,name2_)))
+                                ?(load_name(name1_,name2_))
+                                :(check_bad_encode("load_name"));
+    }
+    inline char * load_name(const char name1_[],const char name2_[],const char name3_[])
+    {
+      return (not_enough_space( check = snprintf(name,len_buf,"%s%s%s",name1_,name2_,name3_)))
+                                ?(load_name(name1_,name2_,name3_))
                                 :(check_bad_encode("load_name"));
     }
     inline char * load_dir_name(const char dir_name_[] = "./data_directory")

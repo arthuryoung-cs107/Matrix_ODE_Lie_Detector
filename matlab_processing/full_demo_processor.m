@@ -97,27 +97,81 @@ S1array(2) = LD_observations_set(dir_name,eqn_name,'true','DoP853','Chebyshev1',
 S2array(1) = LD_observations_set(dir_name,eqn_name,'true','DoP853','Chebyshev1',bor,'RmatYL','DoP853','r1ext',dat_suff);
 S2array(2) = LD_observations_set(dir_name,eqn_name,'true','DoP853','Chebyshev1',bor,'OmatYL','DoP853','rnrec',dat_suff);
 
-Sarray = [S1array S2array];
+nbuf0 = 'Duffing_xrange0_true_DoP853gen.Chebyshev1';
+nbuf1 = 'DoP853rnrec';
 
-[S_relerr_plot,S_relerr_results] = LD_plots.plot_S_relative_errors(Sarray,Sref,LD_plots('rel_err',[5 5],[1 5],[5 1],1));
+S3array(1) = LD_observations_set(dir_name,[nbuf0 '.10.OG_null.' nbuf1],dat_suff);
+% S3array(2) = LD_observations_set(dir_name,[nbuf0 '.9.OG_null.' nbuf1],dat_suff);
+
+S4array(1) = LD_observations_set(dir_name,[nbuf0 '.10.OG_OGsat.' nbuf1],dat_suff);
+S4array(2) = LD_observations_set(dir_name,[nbuf0 '.10.OG_YLx_OGsat.' nbuf1],dat_suff);
+S4array(3) = LD_observations_set(dir_name,[nbuf0 '.10.OG_YLxu_OGsat.' nbuf1],dat_suff);
+% S4array(4) = LD_observations_set(dir_name,[nbuf0 '.9.OG_OGsat.' nbuf1],dat_suff);
+% S4array(5) = LD_observations_set(dir_name,[nbuf0 '.9.OG_YLx_OGsat.' nbuf1],dat_suff);
+% S4array(6) = LD_observations_set(dir_name,[nbuf0 '.9.OG_YLxu_OGsat.' nbuf1],dat_suff);
+
+S5array(1) = LD_observations_set(dir_name,[nbuf0 '.10.OG_OGsat_1.' nbuf1],dat_suff);
+S5array(2) = LD_observations_set(dir_name,[nbuf0 '.10.OG_YLx_OGsat_1.' nbuf1],dat_suff);
+S5array(3) = LD_observations_set(dir_name,[nbuf0 '.10.OG_YLxu_OGsat_1.' nbuf1],dat_suff);
+% S5array(4) = LD_observations_set(dir_name,[nbuf0 '.9.OG_OGsat_1.' nbuf1],dat_suff);
+% S5array(5) = LD_observations_set(dir_name,[nbuf0 '.9.OG_YLx_OGsat_1.' nbuf1],dat_suff);
+% S5array(6) = LD_observations_set(dir_name,[nbuf0 '.9.OG_YLxu_OGsat_1.' nbuf1],dat_suff);
+
+% S6array(1) = LD_observations_set(dir_name,[nbuf0 '.10.OG_OGsat_2.' nbuf1],dat_suff);
+% S6array(2) = LD_observations_set(dir_name,[nbuf0 '.10.OG_YLx_OGsat_2.' nbuf1],dat_suff);
+% S6array(3) = LD_observations_set(dir_name,[nbuf0 '.10.OG_YLxu_OGsat_2.' nbuf1],dat_suff);
+% S6array(4) = LD_observations_set(dir_name,[nbuf0 '.9.OG_OGsat_2.' nbuf1],dat_suff);
+% S6array(5) = LD_observations_set(dir_name,[nbuf0 '.9.OG_YLx_OGsat_2.' nbuf1],dat_suff);
+% S6array(6) = LD_observations_set(dir_name,[nbuf0 '.9.OG_YLxu_OGsat_2.' nbuf1],dat_suff);
+
+% S7array(1) = LD_observations_set(dir_name,[nbuf0 '.10.OG_OGsat_3.' nbuf1],dat_suff);
+% S7array(2) = LD_observations_set(dir_name,[nbuf0 '.10.OG_YLx_OGsat_3.' nbuf1],dat_suff);
+% S7array(3) = LD_observations_set(dir_name,[nbuf0 '.10.OG_YLxu_OGsat_3.' nbuf1],dat_suff);
+% S7array(4) = LD_observations_set(dir_name,[nbuf0 '.9.OG_OGsat_3.' nbuf1],dat_suff);
+% S7array(5) = LD_observations_set(dir_name,[nbuf0 '.9.OG_YLx_OGsat_3.' nbuf1],dat_suff);
+% S7array(6) = LD_observations_set(dir_name,[nbuf0 '.9.OG_YLxu_OGsat_3.' nbuf1],dat_suff);
+
+% Sarray = [S1array S2array];
+% Sarray = [S1array(2) S2array(2) S3array ];
+% Sarray = [S1array(2) S2array(2) S3array S4array ];
+% Sarray = [S1array(2) S2array(2) S3array S4array S5array ];
+% Sarray = [S1array(2) S2array(2) S3array S4array S5array S6array ];
+
+% Sarray = [S3array S4array];
+Sarray = [S3array S4array S5array];
+% Sarray = [S3array S4array S5array S6array S7array ];
+
+% Scheck = S7array;
+% Sarray = [S1array(2) S2array(2) S3array S4array Scheck ];
+% satid = 1;
+% Sarray = [S1array(2) S2array(2) S3array S4array(satid) S5array(satid) S6array(satid) S7array(satid)];
+
+% S_relerr_plot = LD_plots('rel_err',[5 5],[1 5],[5 1],1);
+S_relerr_plot = LD_plots('rel_err',[5 5],[4 5],[5 1],1);
+[S_relerr_plot,S_relerr_results] = LD_plots.plot_S_relative_errors(Sarray,Sref,S_relerr_plot);
 % err_tns_check = reshape(sum(S_relerr_results.abs_rel_diff,1),[],Sref.ncrv,size(S_relerr_results.abs_rel_diff,3));
 err_tns_check = reshape(sum(S_relerr_results.abs_rel_diff(2:(meta0.ndep+1),:,:),1),[],Sref.ncrv,size(S_relerr_results.abs_rel_diff,3));
-crverr_check = reshape(sum(err_tns_check,1),Sref.ncrv,size(S_relerr_results.abs_rel_diff,3));
-[~,isort_check] = sort(sum(crverr_check,2));
+crverr_check = reshape(sum(err_tns_check,1),Sref.ncrv,size(err_tns_check,3));
 
+% [~,isort_check] = sort(sum(crverr_check,2));
 % icrv_check = 1
 % icrv_check = isort_check(1) % best solution
-icrv_check = isort_check(end) % worst solution
+% icrv_check = isort_check(end) % worst solution
+% % [~,iS_check] = min(crverr_check(icrv_check,:)) % best model over troublesome curve
+% [~,iS_check] = max(crverr_check(icrv_check,:)) % worst model over troublesome curve
 
-% [~,iS_check] = min(crverr_check(icrv_check,:)); % best model
-[~,iS_check] = max(crverr_check(icrv_check,:)) % worst model
+% % [~,iS_check] = min(crverr_check(icrv_check,:)) % best model overall
+% [~,iS_check] = max(sum(crverr_check,1)) % worst model overall
+% % [~,icrv_check] = min(crverr_check(:,iS_check)); % best performance of chosen model
+% [~,icrv_check] = max(crverr_check(:,iS_check)); % worst performance of chosen model
 
+% [~,iicrv_check] = min(crverr_check(:)); % best performance overall
+[~,iicrv_check] = max(crverr_check(:)); % worst performance overall
+[icrv_check,iS_check] = find(crverr_check == crverr_check(iicrv_check))
 
 spc.color = [0 0 0];
 spc.lw = 2.0;
 solspc_ref_plot = LD_plots.plot_solspc(Sref,solspc_ref_plot,spc,icrv_check);
-
-
 
 solspc_plot_init_lims = solspc_ref_plot.get_axis_lims;
 

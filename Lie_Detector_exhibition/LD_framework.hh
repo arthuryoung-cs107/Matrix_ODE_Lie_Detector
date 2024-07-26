@@ -1,8 +1,8 @@
 #ifndef LD_EXHIB_HH
 #define LD_EXHIB_HH
 
-#include "LD_encodings.hh"
-// #include "LD_parameter_space.hh"
+// #include "LD_encodings.hh"
+#include "LD_parameter_space.hh"
 #include "LD_io.hh"
 
 struct ode_curve_observations
@@ -400,18 +400,12 @@ struct LD_svd_bundle: public LD_vector_bundle
   LD_svd_bundle(LD_encoding_bundle &Abndl_,bool verbose_=true):
     LD_svd_bundle(Abndl_.nset,Abndl_.ncol_full)
     {compute_Acode_curve_svds(Abndl_,verbose_);}
-  LD_svd_bundle(LD_matrix &Amat_,LD_Theta_bundle &Tbndle_,bool verbose_=true):
-    LD_svd_bundle(Amat_.ncrvs_tot,Amat_.net_cols)
-    {
-      compute_AYmat_curve_svds(Amat_,Tbndle_.Tspaces,verbose_);
-      Tbndle_.init_Vbndle_premult(VTtns);
-    }
-  LD_svd_bundle(LD_encoding_bundle &Abndle_,LD_Theta_bundle &Tbndle_,bool verbose_=true):
+  LD_svd_bundle(LD_encoding_bundle &Abndle_,LD_Theta_bundle &Tbndle_,bool init_=false,bool verbose_=true):
     LD_svd_bundle(Abndle_.nset,Abndle_.ncol_full)
-    {
-      compute_AYmat_curve_svds(Abndle_,Tbndle_.Tspaces,verbose_);
-      Tbndle_.init_Vbndle_premult(VTtns);
-    }
+  {
+    compute_AYmat_curve_svds(Abndle_,Tbndle_.Tspaces,verbose_);
+    if (init_) Tbndle_.init_Vbndle_premult(VTtns);
+  }
   ~LD_svd_bundle()
   {
     free_Tmatrix<double>(Smat);
@@ -421,6 +415,9 @@ struct LD_svd_bundle: public LD_vector_bundle
   int * const rank_vec;
   double  ** const Smat,
           *** const VTtns = Vtns_data;
+
+  static void project_Theta_bundle(LD_Theta_bundle &Tbndle_,LD_encoding_bundle &Abndle_,bool verbose_=true)
+    {LD_svd_bundle svd_bndle(Abndle_,Tbndle_,true,verbose_);}
 
   void compute_Acode_curve_svds(LD_encoding_bundle &Abndle_,bool verbose_=true);
   void compute_AYmat_curve_svds(LD_encoding_bundle &Abndle_,LD_Theta_space ** const Tspaces_,bool verbose_=true);

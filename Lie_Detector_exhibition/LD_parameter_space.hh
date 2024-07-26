@@ -310,4 +310,304 @@ class LD_Theta_bundle: public ode_solspc_element
     inline void set_Vspaces(LD_vspace_record &rec_) {Vbndle.set_Vspaces(rec_);}
 };
 
+struct LD_encoder
+{
+  LD_encoder(int ncod_,ode_solspc_meta &meta_): ncod(ncod_), meta(meta_) {}
+  ~LD_encoder() {}
+
+  ode_solspc_meta &meta;
+  const int ncod;
+};
+
+struct LD_matrix_record
+{
+  LD_matrix_record(int ncol_, int nrow_, double **Amat_data_, bool init_=true):
+    ncol(ncol_), nrow(nrow_), flgs_A(new bool[nrow_]), inds_A(new int[nrow_]), Amat_data(Amat_data_)
+    { if (init_) init_default(); }
+  ~LD_matrix_record() {delete [] flgs_A; delete [] inds_A;}
+
+  const int ncol,
+            nrow;
+  bool * const flgs_A;
+  int * const inds_A;
+  double ** const Amat_data;
+
+  inline void init_default() {for (size_t i = 0; i < nrow; i++) flgs_A[ inds_A[i] = (int) i ] = true;}
+
+  inline void copy_record(LD_matrix_record &mrec_)
+  {
+    const int nrow_min = (nrow<mrec_.nrow)?(nrow):(mrec_.nrow);
+    for (int i = 0, ii = 0; i < nrow_min; ii += (int)(mrec_.flgs_A[i++]))
+      if ( flgs_A[i] = mrec_.flgs_A[i] ) inds_A[ii] = mrec_.flgs_A[ii];
+  }
+};
+
+class LD_encoded_matrix
+{
+  const bool data_owner;
+
+  protected:
+
+    const int ncol_full,
+              nobs_full,
+              ncod_full,
+              nrow_full;
+
+    double *** const Atns_data,
+            ** const Amat_data = Atns_data[0];
+
+    LD_matrix_record * const mrec_ptr;
+
+  public:
+
+    LD_encoded_matrix(int ncol_,int nobs_,int ncod_=1): data_owner(true),
+      ncol_full(ncol_), nobs_full(nobs_), ncod_full(ncod_), nrow_full(nobs_*ncod_),
+      Atns_data(T3tensor<double>(nobs_,ncod_,ncol_)),
+      mrec_ptr(new LD_matrix_record(ncol_,nrow_full,Amat_data)),
+      ncol(ncol_full), nobs(nobs_full), ncod(ncod_full), nrow(nrow_full),
+      Amat(new double*[nrow_full])
+      {for (size_t i = 0; i < nrow_full; i++) Amat[i] = Amat_data[i];}
+    LD_encoded_matrix(LD_encoded_matrix &Acode_,LD_encoded_matrix &Bcode_): LD_encoded_matrix(Acode_.ncol,Acode_.nobs,Acode_.ncod + Bcode_.ncod)
+    {
+      for (size_t iobs = 0, irowA = 0, irowB = 0; iobs < nobs_full; iobs++)
+      {
+        for (size_t icod = 0; icod < Acode_.ncod; icod++, irowA++)
+          for (size_t icol = 0; icol < Acode_.ncol; icol++)
+            Atns_data[iobs][icod][icol] = Acode_.Amat[irowA][icol];
+        for (size_t icod = 0, iicod = Acode_.ncod; icod < Bcode_.ncod; icod++, iicod++, irowB++)
+          for (size_t icol = 0; icol < Bcode_.ncol; icol++)
+            Atns_data[iobs][iicod][icol] = Bcode_.Amat[irowB][icol];
+      }
+    }
+    ~LD_encoded_matrix()
+    {
+      if (data_owner)
+      {
+        free_T3tensor<double>(Atns_data);
+        delete [] Amat;
+        delete mrec_ptr;
+      }
+    }
+
+    LD_matrix_record &mrec = *(mrec_ptr);
+    int ncol,
+        nobs,
+        ncod,
+        nrow,
+        * const inds_A = mrec.inds_A;
+    double  ** const Amat;
+
+    inline double ** get_submat_i(int i_) {return Amat + i_*ncod;}
+
+    inline int verify_nrow(int ncod_=0,int nobs_=0) {return nrow = ( (ncod_>0)?(ncod=ncod_):(ncod) )*( (nobs_>0)?(nobs=nobs_):(nobs) );}
+};
+
+class LD_encoding_bundle
+{
+  const bool data_owner;
+
+  public:
+
+    LD_encoding_bundle(int nset_,int ncol_,int *nobs_per_set_,int ncod_=1): data_owner(true),
+      nset(nset_), ncol_full(ncol_), Amats(new double**[nset_]), Acodes(new LD_encoded_matrix*[nset_])
+      {for (size_t i = 0; i < nset; i++) Amats[i] = ( Acodes[i] = new LD_encoded_matrix(ncol_,nobs_per_set_[i],ncod_) )->Amat;}
+    LD_encoding_bundle(int nset_,int ncol_,int nobs_per_set_,int ncod_=1): data_owner(true),
+      nset(nset_), ncol_full(ncol_), Amats(new double**[nset_]), Acodes(new LD_encoded_matrix*[nset_])
+      {for (size_t i = 0; i < nset; i++) Amats[i] = ( Acodes[i] = new LD_encoded_matrix(ncol_,nobs_per_set_,ncod_) )->Amat;}
+    LD_encoding_bundle(LD_encoding_bundle &Abndle_, LD_encoding_bundle &Bbndle_): data_owner(true),
+      nset(Abndle_.nset), ncol_full(Abndle_.ncol_full), Amats(new double**[nset]), Acodes(new LD_encoded_matrix*[nset])
+      {for (size_t i = 0; i < nset; i++) Amats[i] = ( Acodes[i] = new LD_encoded_matrix(*(Abndle_.Acodes[i]),*(Bbndle_.Acodes[i])) )->Amat;}
+    ~LD_encoding_bundle()
+    {
+      if (data_owner)
+      {
+        for (size_t i = 0; i < nset; i++) delete Acodes[i];
+        delete [] Acodes;
+        delete [] Amats;
+      }
+    }
+
+    const int nset,
+              ncol_full;
+    double *** const Amats;
+    LD_encoded_matrix ** const Acodes;
+
+    inline int nobs()
+    {
+      int acc = 0;
+      for (size_t i = 0; i < nset; i++) acc += Acodes[i]->nobs;
+      return acc;
+    }
+    inline int verify_nrow(int ncod_=0,int nobs_=0)
+    {
+      int acc = 0;
+      for (size_t i = 0; i < nset; i++) acc += Acodes[i]->verify_nrow(ncod_,nobs_);
+      return acc;
+    }
+    inline double ** get_iobs_encoding(int i_)
+    {
+      int iiAcode = 0,
+          iiobs = i_;
+      for (int ii = 0, idec = i_; ii < nset; ii++)
+        if ((idec -= Acodes[iiAcode = ii]->nobs)>=0) iiobs = idec;
+        else break;
+      return Acodes[iiAcode]->get_submat_i(iiobs);
+    }
+    inline int max_nrows()
+    {
+      int mrows = 0;
+      for (size_t i = 0; i < nset; i++) if (mrows < Acodes[i]->nrow) mrows = Acodes[i]->nrow;
+      return mrows;
+    }
+    inline int min_nrows()
+    {
+      int mrows = Acodes[0]->nrow;
+      for (size_t i = 1; i < nset; i++) if (mrows > Acodes[i]->nrow) mrows = Acodes[i]->nrow;
+      return mrows;
+    }
+
+    inline int nrows_mat_i(int i_) {return Acodes[i_]->nrow;}
+};
+
+struct vspace_evaluation_package
+{
+  vspace_evaluation_package(ode_solspc_subset &Sset_,int ncon_,int nvec_,int nsol_,double tol_): Sset(Sset_),
+    ncon(ncon_), nvec_max(nvec_), nsol_max(nsol_),
+    sat_flags_mat(Tmatrix<bool>(nsol_,nvec_)),
+    tol(tol_), nvec_evl(nvec_), nsol_evl(nsol_) {}
+  vspace_evaluation_package(vspace_evaluation_package &evl_,int nsol_): vspace_evaluation_package(evl_.Sset,evl_.ncon,evl_.nvec_evl,nsol_,evl_.tol) {}
+  ~vspace_evaluation_package() {free_Tmatrix<bool>(sat_flags_mat);}
+
+  ode_solspc_subset &Sset;
+  const int ncon,
+            nvec_max,
+            nsol_max;
+  bool ** const sat_flags_mat,
+        * const sat_flags = sat_flags_mat[0];
+  int nvec_evl,
+      nsol_evl;
+  double  tol,
+          ** Vmat;
+
+  inline ode_solution ** sols_iset(int i_) {return Sset.get_sol_subset_i(i_);}
+  inline int nsol_iset(int i_) {return Sset.nobs_subset_i(i_);}
+  inline int max_nsol_subset() {return Sset.max_nobs_subset();}
+
+  template <class EVL, class BSE> static void leniently_evaluate_vspace(LD_vspace_record &reco_,LD_vspace_record &reci_,EVL evl_,BSE **bases_,bool verbose_)
+  {
+    const int nset = LD_linalg::min_T<int>(reco_.nspc,reci_.nspc),
+              nvec = LD_linalg::min_T<int>(reco_.nvec,reci_.nvec);
+    bool sat_setmat[nset][nvec];
+    int nsol_acc = 0,
+        nvec_acc = 0,
+        * const nVevl = reci_.nV_spcvec,
+        * const nVsat = reco_.nV_spcvec,
+        ** const iVsat = reco_.iV_spcmat;
+    double  *** const Vtns = reci_.Vtns_data,
+            t0 = LD_threads::tic();
+    #pragma omp parallel reduction(+:nsol_acc,nvec_acc)
+    {
+      BSE &bse_t = *(bases_[LD_threads::thread_id()]);
+      EVL evl_t(evl_,evl_.max_nsol_subset());
+      bool ** const Sat_t = evl_t.sat_flags_mat;
+      int &nvec_evl = evl_t.nvec_evl,
+          &nsol_evl = evl_t.nsol_evl;
+      #pragma omp for
+      for (size_t iset = 0; iset < nset; iset++)
+      {
+        nvec_acc += nvec_evl = nVevl[iset];
+        nsol_acc += nsol_evl = evl_t.nsol_iset(iset);
+        evl_t.Vmat = Vtns[iset];
+
+        ode_solution ** const sols_i = evl_t.sols_iset(iset);
+        LD_linalg::fill_vec<bool>(sat_setmat[iset],nvec_evl,false);
+
+        int nsat_seti = 0;
+        for (size_t jsol = 0; jsol < nsol_evl; jsol++)
+        {
+          if (evl_t.nsat_eval_condition(Sat_t[jsol],*(sols_i[jsol]),bse_t) != nvec_evl)
+          {
+            nsat_seti = 0;
+            for (size_t iV = 0; iV < nvec_evl; iV++)
+              nsat_seti += (int)(sat_setmat[iset][iV] = (sat_setmat[iset][iV]) || (Sat_t[jsol][iV]));
+          }
+          else LD_linalg::fill_vec<bool>(sat_setmat[iset],nsat_seti=nvec_evl,true);
+          if (nsat_seti==nvec_evl) break; // if all pass
+        }
+        if (nVsat[iset] = nsat_seti)
+        {
+          for (size_t iV = 0, isat = 0; iV < nvec_evl; iV++)
+            if (sat_setmat[iset][iV]) iVsat[iset][isat++] = iV;
+        }
+        else LD_linalg::fill_vec<int>(iVsat[iset],nvec_evl,-1);
+      }
+    }
+    double work_time = LD_threads::toc(t0);
+    if (verbose_)
+    {
+      printf("(vspace_evaluation_package::leniently_evaluate_vspace) evaluated %d conds. (%d sols) over %d bases (%.1f x %d, on avg.) in %.4f seconds (%d threads)\n",
+        nsol_acc*evl_.ncon,nsol_acc,nset,((double)nvec_acc)/((double)nset),reci_.vlen,
+        work_time,LD_threads::numthreads());
+    }
+  }
+
+  template <class EVL, class BSE> static void strictly_evaluate_vspace(LD_vspace_record &reco_,LD_vspace_record &reci_,EVL evl_,BSE **bases_,bool verbose_)
+  {
+    const int nset = LD_linalg::min_T<int>(reco_.nspc,reci_.nspc),
+              nvec = LD_linalg::min_T<int>(reco_.nvec,reci_.nvec);
+    bool sat_setmat[nset][nvec];
+    int nsol_acc = 0,
+        nvec_acc = 0,
+        * const nVevl = reci_.nV_spcvec,
+        * const nVsat = reco_.nV_spcvec,
+        ** const iVsat = reco_.iV_spcmat;
+    double  *** const Vtns = reci_.Vtns_data,
+            t0 = LD_threads::tic();
+    #pragma omp parallel reduction(+:nsol_acc,nvec_acc)
+    {
+      BSE &bse_t = *(bases_[LD_threads::thread_id()]);
+      EVL evl_t(evl_,1);
+      bool  * const sat_t = evl_t.sat_flags;
+      int &nvec_evl = evl_t.nvec_evl,
+          &nsol_evl = evl_t.nsol_evl;
+      #pragma omp for
+      for (size_t iset = 0; iset < nset; iset++)
+      {
+        nvec_acc += nvec_evl = nVevl[iset];
+        nsol_acc += nsol_evl = evl_t.nsol_iset(iset);
+        evl_t.Vmat = Vtns[iset];
+
+        ode_solution ** const sols_i = evl_t.sols_iset(iset);
+        LD_linalg::fill_vec<bool>(sat_setmat[iset],nvec_evl,true);
+
+        int nsat_seti = 0;
+        for (size_t jsol = 0; jsol < nsol_evl; jsol++)
+        {
+          if (evl_t.nsat_eval_condition(sat_t,*(sols_i[jsol]),bse_t))
+          {
+            nsat_seti = 0;
+            for (size_t iV = 0; iV < nvec_evl; iV++)
+              nsat_seti += (int)(sat_setmat[iset][iV] = (sat_setmat[iset][iV]) && (sat_t[iV]));
+          }
+          else LD_linalg::fill_vec<bool>(sat_setmat[iset],nvec_evl,nsat_seti = 0);
+          if (!nsat_seti) break; // if none pass
+        }
+        if (nVsat[iset] = nsat_seti)
+        {
+          for (size_t iV = 0, isat = 0; iV < nvec_evl; iV++)
+            if (sat_setmat[iset][iV]) iVsat[iset][isat++] = iV;
+        }
+        else LD_linalg::fill_vec<int>(iVsat[iset],nvec_evl,-1);
+      }
+    }
+    double work_time = LD_threads::toc(t0);
+    if (verbose_)
+    {
+      printf("(vspace_evaluation_package::strictly_evaluate_vspace) evaluated %d conds. (%d sols) over %d bases (%.1f x %d, on avg.) in %.4f seconds (%d threads)\n",
+        nsol_acc*evl_.ncon,nsol_acc,nset,((double)nvec_acc)/((double)nset),reci_.vlen,
+        work_time,LD_threads::numthreads());
+    }
+  }
+};
+
 #endif
