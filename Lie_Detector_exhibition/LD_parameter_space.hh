@@ -276,10 +276,12 @@ class LD_Theta_bundle: public ode_solspc_element
 
     LD_Theta_bundle(ode_solspc_meta &meta_,int nspc_,int ndof_);
     LD_Theta_bundle(LD_Theta_bundle &Tbndle_);
+    LD_Theta_bundle(ode_solspc_meta &meta_,int nspc_,int ndof_,LD_vector_bundle &Ybndle_,int ivar_=-1):
+      LD_Theta_bundle(meta_,nspc_,ndof_) {set_Yspaces(Ybndle_,ivar_);}
     ~LD_Theta_bundle();
 
     LD_vector_bundle &Vbndle = *(Vbndle_ptr);
-    LD_vspace_record &Trec = Vbndle.rec;
+    LD_vspace_record &rec = Vbndle.rec;
 
     const int nspc = Vbndle.nspc;
 
@@ -304,8 +306,8 @@ class LD_Theta_bundle: public ode_solspc_element
       for (size_t ispc = 0; ispc < nspc; ispc++)
         Vbndle.nV_spcvec[ispc] = Tspaces[ispc]->init_Vspce_premult(Wtns_[ispc]);
     }
-    inline void set_Tspaces() {Vbndle.set_Vspaces();}
-    inline void set_Tspaces(LD_vspace_record &rec_) {Vbndle.set_Vspaces(rec_);}
+    inline void set_Vspaces() {Vbndle.set_Vspaces();}
+    inline void set_Vspaces(LD_vspace_record &rec_) {Vbndle.set_Vspaces(rec_);}
 };
 
 #endif

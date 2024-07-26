@@ -43,64 +43,88 @@ int main()
   LD_encoding_bundle Lcode(Sobs.ncrvs_tot,fspace0.perm_len,Sobs.npts_per_crv,1);
   LD_L_encoder::encode_L_bundle<orthopolynomial_basis>(Lcode,Sobs,bases0,normalize_flag);
   LD_svd_bundle Lcode_svd(Lcode); // Lcode_svd.print_details("Lcode_svd");
-  // LD_matrix_svd_result Lmat_svd_check(LD_svd_file(name.name_svd_file(obs_name,fam_name,"L"))); Lmat_svd_check.print_details("Lmat_svd_check");
 
   LD_encoding_bundle Gcode(Sobs.ncrvs_tot,fspace0.ndof_full,Sobs.npts_per_crv,meta0.ndep);
   LD_G_encoder::encode_G_bundle<orthopolynomial_basis>(Gcode,Sobs,bases0,normalize_flag);
   LD_svd_bundle Gcode_svd(Gcode); // Gcode_svd.print_details("Gcode_svd");
-  // LD_matrix_svd_result Gmat_svd_check(LD_svd_file(name.name_svd_file(obs_name,fam_name,"G"))); Gmat_svd_check.print_details("Gmat_svd_check");
 
   LD_encoding_bundle Ocode(Sobs.ncrvs_tot,fspace0.ndof_full,Sobs.npts_per_crv,meta0.ndep);
   LD_R_encoder::encode_O_bundle<orthopolynomial_basis>(Ocode,Sobs,bases0,normalize_flag);
   LD_svd_bundle Ocode_svd(Ocode); // Ocode_svd.print_details("Ocode_svd");
-  // LD_matrix_svd_result Omat_svd_check(LD_svd_file(name.name_svd_file(obs_name,fam_name,"O"))); Omat_svd_check.print_details("Omat_svd_check");
 
   LD_encoding_bundle Rncode(Sobs.ncrvs_tot,fspace0.ndof_full,Sobs.npts_per_crv,meta0.ndep*meta0.eor);
   LD_R_encoder::encode_Rn_bundle<orthopolynomial_basis>(Rncode,Sobs,bases0,meta0.eor,normalize_flag);
   LD_svd_bundle Rncode_svd(Rncode); // Rncode_svd.print_details("Rncode_svd");
-  // LD_matrix_svd_result Rmat_svd_check(LD_svd_file(name.name_svd_file(obs_name,fam_name,"R"))); Rmat_svd_check.print_details("Rmat_svd_check");
 
   LD_encoding_bundle OGcode(Ocode,Gcode);
   LD_svd_bundle OGcode_svd(OGcode); // OGcode_svd.print_details("OGcode_svd");
-  // LD_matrix_svd_result OGmat_svd_check(LD_svd_file(name.name_svd_file(obs_name,fam_name,"OG"))); OGmat_svd_check.print_details("OGmat_svd_check");
 
-  double  atol_use_R = 1e-10,
-          rtol_use_R = 1e-06,
-          tol_use_G = 1e-08;
+  double  tol_use_L = 1e-12,
+          tol_use_G = 1e-8,
+          atol_use_R = 1e-12,
+          rtol_use_R = 1e-08;
 
-  LD_vspace_record  Ocode_Osat(Ocode_svd.rec),
-                    OGcode_Osat(OGcode_svd.rec);
+  LD_vspace_record  L_rec0(Lcode_svd.rec);
+  LD_vector_bundle LYbndl(L_rec0);
+  L_vspace_eval::evaluate_lambda_signal_strength<LD_vector_bundle,orthopolynomial_basis>(LYbndl,L_rec0,Sobs,bases0,tol_use_L);
+    L_rec0.print_subspace_details(LYbndl.rec,"LYbndl.rec");
 
-  Rk_vspace_eval::evaluate_kth_ratio_condition<orthopolynomial_basis>(Ocode_Osat,Ocode_svd.rec,Sobs,bases0,atol_use_R,rtol_use_R);
-    Ocode_svd.rec.print_subspace_details(Ocode_Osat,"Ocode_Osat");
-  Rk_vspace_eval::evaluate_kth_ratio_condition<orthopolynomial_basis>(OGcode_Osat,OGcode_svd.rec,Sobs,bases0,atol_use_R,rtol_use_R);
-    OGcode_svd.rec.print_subspace_details(OGcode_Osat,"OGcode_Osat");
+  LD_vspace_record  OG_rec0(OGcode_svd.rec),
+                    OG_Osat_rec(OGcode_svd.rec),
+                    OG_Gsat_rec(OGcode_svd.rec);
+  Rk_vspace_eval::evaluate_kth_ratio_condition<orthopolynomial_basis>(OG_Osat_rec,OG_rec0,Sobs,bases0,atol_use_R,rtol_use_R);
+  G_vspace_eval::evaluate_infinitesimal_criterion<orthopolynomial_basis>(OG_Gsat_rec,OG_rec0,Sobs,bases0,tol_use_G);
+  LD_vspace_record  OG_OGsat_rec(OG_Osat_rec,OG_Gsat_rec);
+  LD_vector_bundle  OGbndl(OG_OGsat_rec);
+  OG_rec0.print_subspace_details(OGbndl.rec,"OGbndl.rec");
 
-  Ocode_svd.rec.compare_subspaces(Ocode_Osat,"Ocode_Osat",OGcode_Osat,"OGcode_Osat");
+  LD_Theta_bundle OGYL_Tbndl_x(meta0,Sobs.ncrvs_tot,fspace0.ndof_full,LYbndl,0);
+  LD_svd_bundle OGYL_x_svd(OGcode,OGYL_Tbndl_x);
+  LD_vspace_record  OGYL_x_rec0(OGYL_Tbndl_x.rec),
+                    OGYL_x_Osat_rec(OGYL_x_rec0),
+                    OGYL_x_Gsat_rec(OGYL_x_rec0);
+  Rk_vspace_eval::evaluate_kth_ratio_condition<orthopolynomial_basis>(OGYL_x_Osat_rec,OGYL_x_rec0,Sobs,bases0,atol_use_R,rtol_use_R);
+  G_vspace_eval::evaluate_infinitesimal_criterion<orthopolynomial_basis>(OGYL_x_Gsat_rec,OGYL_x_rec0,Sobs,bases0,tol_use_G);
+  LD_vspace_record  OGYL_x_OGsat_rec(OGYL_x_Osat_rec,OGYL_x_Gsat_rec);
+  OGYL_Tbndl_x.set_Vspaces(OGYL_x_OGsat_rec);
+  OGYL_x_rec0.print_subspace_details(OGYL_Tbndl_x.rec,"OGYL_Tbndl_x.rec");
 
-  // G_vspace_eval::evaluate_infinitesimal_criterion<orthopolynomial_basis>(Gsat_rec,svd_rec,Sobs,bases0,tol_use_G);
-  //   svd_rec.print_subspace_details(Gsat_rec,"Gsat_rec");
-  // LD_vspace_record OGsat_rec(Osat_rec,Gsat_rec);
-  //   svd_rec.print_subspace_details(OGsat_rec,"OGsat_rec");
+  LD_Theta_bundle OGYL_Tbndl_xu(meta0,Sobs.ncrvs_tot,fspace0.ndof_full,LYbndl,-1);
+  LD_svd_bundle OGYL_xu_svd(OGcode,OGYL_Tbndl_xu);
+  LD_vspace_record  OGYL_xu_rec0(OGYL_Tbndl_xu.rec),
+                    OGYL_xu_Osat_rec(OGYL_xu_rec0),
+                    OGYL_xu_Gsat_rec(OGYL_xu_rec0);
+  Rk_vspace_eval::evaluate_kth_ratio_condition<orthopolynomial_basis>(OGYL_xu_Osat_rec,OGYL_xu_rec0,Sobs,bases0,atol_use_R,rtol_use_R);
+  G_vspace_eval::evaluate_infinitesimal_criterion<orthopolynomial_basis>(OGYL_xu_Gsat_rec,OGYL_xu_rec0,Sobs,bases0,tol_use_G);
+  LD_vspace_record  OGYL_xu_OGsat_rec(OGYL_xu_Osat_rec,OGYL_xu_Gsat_rec);
+  OGYL_Tbndl_xu.set_Vspaces(OGYL_xu_OGsat_rec);
+  OGYL_xu_rec0.print_subspace_details(OGYL_Tbndl_xu.rec,"OGYL_Tbndl_xu.rec");
 
-  
-  // r_xu_infgen R_Kbndl_rxu_ign(fspace0,R_Kbndl.Vspaces),
-  //             RYL_T_x_rxu_ign(fspace0,RYL_Tbndl_x.Vspaces),
-  //             RYL_T_xu_rxu_ign(fspace0,RYL_Tbndl_xu.Vspaces);
-  //
-  // DoP853_settings intgr_rec_settings; DoP853 intgr_rec(R_Kbndl_rxu_ign,intgr_rec_settings);
-  //
-  //   generated_ode_observations gen_RK_rxu(R_Kbndl_rxu_ign,Sobs.ncrvs_tot,Sobs.min_npts_curve());
-  //   gen_RK_rxu.set_solcurve_ICs(Sobs.curves);
-  //   gen_RK_rxu.parallel_generate_solution_curves<r_xu_infgen,DoP853>(R_Kbndl_rxu_ign,intgr_rec,Sobs.get_default_IC_indep_range());
-  //
-  //   generated_ode_observations gen_RYLT_x_rxu(RYL_T_x_rxu_ign,Sobs.ncrvs_tot,Sobs.min_npts_curve());
-  //   gen_RYLT_x_rxu.set_solcurve_ICs(Sobs.curves);
-  //   gen_RYLT_x_rxu.parallel_generate_solution_curves<r_xu_infgen,DoP853>(RYL_T_x_rxu_ign,intgr_rec,Sobs.get_default_IC_indep_range());
-  //
-  //   generated_ode_observations gen_RYLT_xu_rxu(RYL_T_xu_rxu_ign,Sobs.ncrvs_tot,Sobs.min_npts_curve());
-  //   gen_RYLT_xu_rxu.set_solcurve_ICs(Sobs.curves);
-  //   gen_RYLT_xu_rxu.parallel_generate_solution_curves<r_xu_infgen,DoP853>(RYL_T_xu_rxu_ign,intgr_rec,Sobs.get_default_IC_indep_range());
+  OG_OGsat_rec.compare_subspaces(OGYL_x_OGsat_rec,"OGYL_x_OGsat_rec",OGYL_xu_OGsat_rec,"OGYL_xu_OGsat_rec");
+
+  // LD_vector_bundle  Rnbndl(Rncode_svd.rec);
+  //   Rn_vspace_eval::evaluate_nth_ratio_condition<LD_vector_bundle,orthopolynomial_basis>(Rnbndl,Rnbndl.rec,Sobs,bases0,atol_use_R,rtol_use_R);
+  // r_xu_infgen Rn_rxu_ign(fspace0,Rnbndl.Vspaces); DoP853 intgr_rec_rxu(Rn_rxu_ign,intgr_rec_settings);
+  // generated_ode_observations gen_Rn_rxu(Rn_rxu_ign,Sobs.ncrvs_tot,Sobs.min_npts_curve());
+  // gen_Rn_rxu.set_solcurve_ICs(Sobs.curves);
+  // gen_Rn_rxu.parallel_generate_solution_curves<r_xu_infgen,DoP853>(Rn_rxu_ign,intgr_rec_rxu,Sobs.get_default_IC_indep_range());
+
+  rn_infgen OG_rn_ign(basis0,OGbndl.Vspaces),
+            OGYL_x_rn_ign(basis0,OGYL_Tbndl_x.Vspaces),
+            OGYL_xu_rn_ign(basis0,OGYL_Tbndl_xu.Vspaces);
+  DoP853_settings intgr_rec_settings; DoP853 intgr_rec_rn(OG_rn_ign,intgr_rec_settings);
+
+    generated_ode_observations gen_OG_rn(OG_rn_ign,Sobs.ncrvs_tot,Sobs.min_npts_curve());
+    gen_OG_rn.set_solcurve_ICs(Sobs.curves);
+    gen_OG_rn.parallel_generate_solution_curves<orthopolynomial_basis,rn_infgen,DoP853>(bases0,OG_rn_ign,intgr_rec_rn,Sobs.get_default_IC_indep_range());
+
+    generated_ode_observations gen_OGYL_x_rn(OGYL_x_rn_ign,Sobs.ncrvs_tot,Sobs.min_npts_curve());
+    gen_OGYL_x_rn.set_solcurve_ICs(Sobs.curves);
+    gen_OGYL_x_rn.parallel_generate_solution_curves<orthopolynomial_basis,rn_infgen,DoP853>(bases0,OGYL_x_rn_ign,intgr_rec_rn,Sobs.get_default_IC_indep_range());
+
+    generated_ode_observations gen_OGYL_xu_rn(OGYL_xu_rn_ign,Sobs.ncrvs_tot,Sobs.min_npts_curve());
+    gen_OGYL_xu_rn.set_solcurve_ICs(Sobs.curves);
+    gen_OGYL_xu_rn.parallel_generate_solution_curves<orthopolynomial_basis,rn_infgen,DoP853>(bases0,OGYL_xu_rn_ign,intgr_rec_rn,Sobs.get_default_IC_indep_range());
 
   free_evaluation_bases<orthopolynomial_basis>(bases0);
   return 0;

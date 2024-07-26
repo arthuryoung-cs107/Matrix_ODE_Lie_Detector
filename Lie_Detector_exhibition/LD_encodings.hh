@@ -429,10 +429,8 @@ struct LD_G_encoder: public LD_encoder
     for (size_t idep = 0; idep < sol_.ndep; idep++)
     {
       const double normalizer_i = LD_linalg::norm_l2(sol_.JFs[idep],sol_.ndim);
-      // const double normalizer_i = LD_linalg::norm_l2(Grows_[idep],ndof_);
-      for (size_t icol = 0; icol < ndof_; icol++)
-        Grows_[idep][icol] /= normalizer_i;
-      LD_linalg::normalize_vec_l2(Grows_[idep],ndof_);
+      for (size_t icol = 0; icol < ndof_; icol++) Grows_[idep][icol] /= normalizer_i;
+      // LD_linalg::normalize_vec_l2(Grows_[idep],ndof_);
     }
   }
 };
@@ -671,11 +669,9 @@ struct LD_R_encoder: public LD_encoder
   static void normalize_P_rows(double **Prows_,ode_solution &sol_,int ndof_)
   {
     for (size_t idep = 0; idep < sol_.ndep; idep++)
-      // for (size_t icol = 0; icol < ndof_; icol++)
-        // Pmat_i_[idep][icol] /= sol_.dnp1xu[idep];
     {
       for (size_t icol = 0; icol < ndof_; icol++) Prows_[idep][icol] /= sol_.dnp1xu[idep];
-      LD_linalg::normalize_vec_l2(Prows_[idep],ndof_);
+      // LD_linalg::normalize_vec_l2(Prows_[idep],ndof_);
     }
   }
   static void normalize_Rk_rows(double **Rkrows_,ode_solution &sol_,int kor_,int ndof_)
@@ -683,22 +679,18 @@ struct LD_R_encoder: public LD_encoder
     if (kor_==(sol_.eor+1)) LD_R_encoder::normalize_P_rows(Rkrows_,sol_,ndof_);
     else
       for (size_t idep = 0, idxu = kor_*sol_.ndep; idep < sol_.ndep; idep++, idxu++)
-        // for (size_t icol = 0; icol < ndof_; icol++)
-        //   Rmat_i_[idxu][icol] /= sol_.dxu[idxu];
       {
         for (size_t icol = 0; icol < ndof_; icol++) Rkrows_[idep][icol] /= sol_.u[idxu];
-        LD_linalg::normalize_vec_l2(Rkrows_[idep],ndof_);
+        // LD_linalg::normalize_vec_l2(Rkrows_[idep],ndof_);
       }
   }
   static void normalize_Rn_rows(double **Rnrows_,ode_solution &sol_,int eorm1_,int ndof_)
   {
     for (size_t k = 0, idxu = 0; k <= eorm1_; k++)
       for (size_t idep = 0; idep < sol_.ndep; idep++, idxu++)
-        // for (size_t icol = 0; icol < ndof_; icol++)
-        //   Rmat_i_[idxu][icol] /= sol_.dxu[idxu];
       {
         for (size_t icol = 0; icol < ndof_; icol++) Rnrows_[idxu][icol] /= sol_.dxu[idxu];
-        LD_linalg::normalize_vec_l2(Rnrows_[idxu],ndof_);
+        // LD_linalg::normalize_vec_l2(Rnrows_[idxu],ndof_);
       }
   }
 
@@ -714,6 +706,11 @@ struct L_vspace_eval: public vspace_evaluation_package
   L_vspace_eval(L_vspace_eval &evl_,int nsol_): vspace_evaluation_package(evl_,nsol_) {}
   ~L_vspace_eval() {}
 
+  template <class BND,class BSE> static void evaluate_lambda_signal_strength(BND &bndle_,LD_vspace_record &reci_,ode_solspc_subset &Sset_,BSE **bases_,double tol_,bool verbose_=true)
+  {
+    L_vspace_eval::evaluate_lambda_signal_strength<BSE>(bndle_.rec,reci_,Sset_,bases_,tol_,verbose_);
+    bndle_.set_Vspaces();
+  }
   template <class BSE> static void evaluate_lambda_signal_strength(LD_vspace_record &reco_,LD_vspace_record &reci_,ode_solspc_subset &Sset_,BSE **bases_,double tol_,bool verbose_=true)
   {
     LD_encoder::leniently_evaluate_vspace<L_vspace_eval,BSE>(reco_,reci_,
@@ -721,7 +718,8 @@ struct L_vspace_eval: public vspace_evaluation_package
       bases_,verbose_);
   }
 
-  virtual int nsat_eval_condition(bool *sat_flags_,ode_solution &sol_,function_space_basis &fbasis_) // evaluate signal strength
+  // lambda map signal strength
+  virtual int nsat_eval_condition(bool *sat_flags_,ode_solution &sol_,function_space_basis &fbasis_)
   {
     const int vlen = fbasis_.perm_len;
     double * const lamvec = fbasis_.Jac_mat[0];
@@ -746,7 +744,12 @@ struct G_vspace_eval: public vspace_evaluation_package
     vspace_evaluation_package(evl_,nsol_), mags_JFs(new double[Sset.ndep]) {}
   ~G_vspace_eval() {delete [] mags_JFs;}
 
-  template <class BSE> static void evaluate_infinitesimal_criterion(LD_vspace_record &reco_,LD_vspace_record &reci_,ode_solspc_subset &Sset_,BSE **bases_,double tol_,bool verbose_=true)
+  template <class BND,class BSE> static void evaluate_infinitesimal_criterion(BND &bndle_,LD_vspace_record &reci_,ode_solspc_subset &Sset_,BSE **bases_,double tol_=1e-10,bool verbose_=true)
+  {
+    G_vspace_eval::evaluate_infinitesimal_criterion<BSE>(bndle_.rec,reci_,Sset_,bases_,tol_,verbose_);
+    bndle_.set_Vspaces();
+  }
+  template <class BSE> static void evaluate_infinitesimal_criterion(LD_vspace_record &reco_,LD_vspace_record &reci_,ode_solspc_subset &Sset_,BSE **bases_,double tol_=1e-10,bool verbose_=true)
   {
     LD_encoder::strictly_evaluate_vspace<G_vspace_eval,BSE>(reco_,reci_,
       G_vspace_eval(Sset_,reco_.nvec,tol_),
@@ -824,6 +827,11 @@ struct Rk_vspace_eval: public R_vspace_eval
     R_vspace_eval(evl_,nsol_) {}
   ~Rk_vspace_eval() {}
 
+  template <class BND,class BSE> static void evaluate_kth_ratio_condition(BND &bndle_,LD_vspace_record &reci_,ode_solspc_subset &Sset_,BSE **bases_,double atol_=1e-10,double rtol_=1e-6,int kor_=0,bool verbose_=true)
+  {
+    Rk_vspace_eval::evaluate_kth_ratio_condition<BSE>(bndle_.rec,reci_,Sset_,bases_,atol_,rtol_,kor_,verbose_);
+    bndle_.set_Vspaces();
+  }
   template <class BSE> static void evaluate_kth_ratio_condition(LD_vspace_record &reco_,LD_vspace_record &reci_,ode_solspc_subset &Sset_,BSE **bases_,double atol_=1e-10,double rtol_=1e-6,int kor_=0,bool verbose_=true)
   {
     LD_encoder::strictly_evaluate_vspace<Rk_vspace_eval,BSE>(reco_,reci_,
@@ -867,6 +875,11 @@ struct Rn_vspace_eval: public R_vspace_eval
     R_vspace_eval(evl_,nsol_) {}
   ~Rn_vspace_eval() {}
 
+  template <class BND,class BSE> static void evaluate_nth_ratio_condition(BND &bndle_,LD_vspace_record &reci_,ode_solspc_subset &Sset_,BSE **bases_,double atol_=1e-10,double rtol_=1e-6,int nor_=0,bool verbose_=true)
+  {
+    Rn_vspace_eval::evaluate_nth_ratio_condition<BSE>(bndle_.rec,reci_,Sset_,bases_,atol_,rtol_,nor_,verbose_);
+    bndle_.set_Vspaces();
+  }
   template <class BSE> static void evaluate_nth_ratio_condition(LD_vspace_record &reco_,LD_vspace_record &reci_,ode_solspc_subset &Sset_,BSE **bases_,double atol_=1e-10,double rtol_=1e-6,int nor_=0,bool verbose_=true)
   {
     LD_encoder::strictly_evaluate_vspace<Rn_vspace_eval,BSE>(reco_,reci_,
