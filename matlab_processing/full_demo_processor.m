@@ -102,21 +102,14 @@ nbuf0 = 'Duffing_xrange0_true_DoP853gen.Chebyshev1';
 nbuf1 = 'DoP853rnrec';
 
 S3array(1) = LD_observations_set(dir_name,[nbuf0 '.10.OG_null.' nbuf1],dat_suff);
-% S3array(2) = LD_observations_set(dir_name,[nbuf0 '.9.OG_null.' nbuf1],dat_suff);
 
 S4array(1) = LD_observations_set(dir_name,[nbuf0 '.10.OG_OGsat.' nbuf1],dat_suff);
 S4array(2) = LD_observations_set(dir_name,[nbuf0 '.10.OG_YLx_OGsat.' nbuf1],dat_suff);
 S4array(3) = LD_observations_set(dir_name,[nbuf0 '.10.OG_YLxu_OGsat.' nbuf1],dat_suff);
-% S4array(4) = LD_observations_set(dir_name,[nbuf0 '.9.OG_OGsat.' nbuf1],dat_suff);
-% S4array(5) = LD_observations_set(dir_name,[nbuf0 '.9.OG_YLx_OGsat.' nbuf1],dat_suff);
-% S4array(6) = LD_observations_set(dir_name,[nbuf0 '.9.OG_YLxu_OGsat.' nbuf1],dat_suff);
 
 % S5array(1) = LD_observations_set(dir_name,[nbuf0 '.10.OG_OGsat_1.' nbuf1],dat_suff);
 % S5array(2) = LD_observations_set(dir_name,[nbuf0 '.10.OG_YLx_OGsat_1.' nbuf1],dat_suff);
 % S5array(3) = LD_observations_set(dir_name,[nbuf0 '.10.OG_YLxu_OGsat_1.' nbuf1],dat_suff);
-% S5array(4) = LD_observations_set(dir_name,[nbuf0 '.9.OG_OGsat_1.' nbuf1],dat_suff);
-% S5array(5) = LD_observations_set(dir_name,[nbuf0 '.9.OG_YLx_OGsat_1.' nbuf1],dat_suff);
-% S5array(6) = LD_observations_set(dir_name,[nbuf0 '.9.OG_YLxu_OGsat_1.' nbuf1],dat_suff);
 
 
 % Sarray = [S1array S2array];

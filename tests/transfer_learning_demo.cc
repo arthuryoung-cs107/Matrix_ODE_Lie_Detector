@@ -53,10 +53,6 @@ int main()
   LD_R_encoder::encode_O_bundle<orthopolynomial_basis>(Ocode,Sobs,bases0,normalize_flag);
   LD_svd_bundle Ocode_svd(Ocode); // Ocode_svd.print_details("Ocode_svd");
 
-  LD_encoding_bundle Rncode(Sobs.ncrvs_tot,fspace0.ndof_full,Sobs.npts_per_crv,meta0.ndep*meta0.eor);
-  LD_R_encoder::encode_Rn_bundle<orthopolynomial_basis>(Rncode,Sobs,bases0,meta0.eor,normalize_flag);
-  LD_svd_bundle Rncode_svd(Rncode); // Rncode_svd.print_details("Rncode_svd");
-
   LD_encoding_bundle OGcode(Ocode,Gcode);
   LD_svd_bundle OGcode_svd(OGcode); // OGcode_svd.print_details("OGcode_svd");
 
@@ -68,10 +64,10 @@ int main()
           tol_use_G = 1e-06,
           atol_use_R = 1e-08,
           // atol_use_R = 1e-09,
-          // rtol_use_R = 0e-00;
-          rtol_use_R = 1e-08;
-  // const char rec_suf[] = ".DoP853rnrec";
-  const char rec_suf[] = "_1.DoP853rnrec";
+          rtol_use_R = 0e-00;
+          // rtol_use_R = 1e-08;
+  const char rec_suf[] = ".DoP853rnrec";
+  // const char rec_suf[] = "_1.DoP853rnrec";
 
   LD_vspace_record  L_rec0(Lcode_svd.rec);
   LD_vector_bundle LYbndl(L_rec0);
@@ -83,40 +79,40 @@ int main()
       OGbndl0.set_Vspaces();
         OGcode_svd.rec.print_subspace_details(OGbndl0.rec,"OGbndl0.rec");
 
-  LD_vector_bundle  OGbndl(OGcode_svd.rec);
-  LD_vspace_record  OG_rec0(OGbndl.rec),
-                    OG_Osat_rec(OG_rec0),
-                    OG_Gsat_rec(OG_rec0);
-  Rk_vspace_eval::evaluate_kth_ratio_condition<orthopolynomial_basis>(OG_Osat_rec,OG_rec0,
-    Sobs,bases0,atol_use_R,rtol_use_R);
-  G_vspace_eval::evaluate_infinitesimal_criterion<orthopolynomial_basis>(OG_Gsat_rec,OG_rec0,
-    Sobs,bases0,tol_use_G);
-  LD_vspace_record  OG_OGsat_rec(OG_Osat_rec,OG_Gsat_rec); OGbndl.set_Vspaces(OG_OGsat_rec);
-  OG_rec0.print_subspace_details(OGbndl.rec,"OGbndl.rec");
+    LD_vector_bundle  OGbndl(OGcode_svd.rec);
+    LD_vspace_record  OG_rec0(OGbndl.rec),
+                      OG_Osat_rec(OG_rec0),
+                      OG_Gsat_rec(OG_rec0);
+    Rk_vspace_eval::evaluate_kth_ratio_condition<orthopolynomial_basis>(OG_Osat_rec,OG_rec0,
+      Sobs,bases0,atol_use_R,rtol_use_R);
+    G_vspace_eval::evaluate_infinitesimal_criterion<orthopolynomial_basis>(OG_Gsat_rec,OG_rec0,
+      Sobs,bases0,tol_use_G);
+    LD_vspace_record  OG_OGsat_rec(OG_Osat_rec,OG_Gsat_rec); OGbndl.set_Vspaces(OG_OGsat_rec);
+    OG_rec0.print_subspace_details(OGbndl.rec,"OGbndl.rec");
 
-  LD_Theta_bundle OGYL_Tbndl_x(meta0,Sobs.ncrvs_tot,fspace0.ndof_full,LYbndl,0);
-  LD_svd_bundle::project_Theta_bundle(OGYL_Tbndl_x,OGcode); // LD_svd_bundle OGYL_x_svd(OGcode,OGYL_Tbndl_x,true);
-  LD_vspace_record  OGYL_x_rec0(OGYL_Tbndl_x.rec),
-                    OGYL_x_Osat_rec(OGYL_x_rec0),
-                    OGYL_x_Gsat_rec(OGYL_x_rec0);
-  Rk_vspace_eval::evaluate_kth_ratio_condition<orthopolynomial_basis>(OGYL_x_Osat_rec,OGYL_x_rec0,
-    Sobs,bases0,atol_use_R,rtol_use_R);
-  G_vspace_eval::evaluate_infinitesimal_criterion<orthopolynomial_basis>(OGYL_x_Gsat_rec,OGYL_x_rec0,
-    Sobs,bases0,tol_use_G);
-  LD_vspace_record  OGYL_x_OGsat_rec(OGYL_x_Osat_rec,OGYL_x_Gsat_rec); OGYL_Tbndl_x.set_Vspaces(OGYL_x_OGsat_rec);
-  OGYL_x_rec0.print_subspace_details(OGYL_Tbndl_x.rec,"OGYL_Tbndl_x.rec");
+    LD_Theta_bundle OGYL_Tbndl_x(meta0,Sobs.ncrvs_tot,fspace0.ndof_full,LYbndl,0);
+    LD_svd_bundle::project_Theta_bundle(OGYL_Tbndl_x,OGcode);
+    LD_vspace_record  OGYL_x_rec0(OGYL_Tbndl_x.rec),
+                      OGYL_x_Osat_rec(OGYL_x_rec0),
+                      OGYL_x_Gsat_rec(OGYL_x_rec0);
+    Rk_vspace_eval::evaluate_kth_ratio_condition<orthopolynomial_basis>(OGYL_x_Osat_rec,OGYL_x_rec0,
+      Sobs,bases0,atol_use_R,rtol_use_R);
+    G_vspace_eval::evaluate_infinitesimal_criterion<orthopolynomial_basis>(OGYL_x_Gsat_rec,OGYL_x_rec0,
+      Sobs,bases0,tol_use_G);
+    LD_vspace_record  OGYL_x_OGsat_rec(OGYL_x_Osat_rec,OGYL_x_Gsat_rec); OGYL_Tbndl_x.set_Vspaces(OGYL_x_OGsat_rec);
+    OGYL_x_rec0.print_subspace_details(OGYL_Tbndl_x.rec,"OGYL_Tbndl_x.rec");
 
-  LD_Theta_bundle OGYL_Tbndl_xu(meta0,Sobs.ncrvs_tot,fspace0.ndof_full,LYbndl,-1);
-  LD_svd_bundle::project_Theta_bundle(OGYL_Tbndl_xu,OGcode); // LD_svd_bundle OGYL_xu_svd(OGcode,OGYL_Tbndl_xu,true);
-  LD_vspace_record  OGYL_xu_rec0(OGYL_Tbndl_xu.rec),
-                    OGYL_xu_Osat_rec(OGYL_xu_rec0),
-                    OGYL_xu_Gsat_rec(OGYL_xu_rec0);
-  Rk_vspace_eval::evaluate_kth_ratio_condition<orthopolynomial_basis>(OGYL_xu_Osat_rec,OGYL_xu_rec0,
-    Sobs,bases0,atol_use_R,rtol_use_R);
-  G_vspace_eval::evaluate_infinitesimal_criterion<orthopolynomial_basis>(OGYL_xu_Gsat_rec,OGYL_xu_rec0,
-    Sobs,bases0,tol_use_G);
-  LD_vspace_record  OGYL_xu_OGsat_rec(OGYL_xu_Osat_rec,OGYL_xu_Gsat_rec); OGYL_Tbndl_xu.set_Vspaces(OGYL_xu_OGsat_rec);
-  OGYL_xu_rec0.print_subspace_details(OGYL_Tbndl_xu.rec,"OGYL_Tbndl_xu.rec");
+    LD_Theta_bundle OGYL_Tbndl_xu(meta0,Sobs.ncrvs_tot,fspace0.ndof_full,LYbndl,-1);
+    LD_svd_bundle::project_Theta_bundle(OGYL_Tbndl_xu,OGcode); // LD_svd_bundle OGYL_xu_svd(OGcode,OGYL_Tbndl_xu,true);
+    LD_vspace_record  OGYL_xu_rec0(OGYL_Tbndl_xu.rec),
+                      OGYL_xu_Osat_rec(OGYL_xu_rec0),
+                      OGYL_xu_Gsat_rec(OGYL_xu_rec0);
+    Rk_vspace_eval::evaluate_kth_ratio_condition<orthopolynomial_basis>(OGYL_xu_Osat_rec,OGYL_xu_rec0,
+      Sobs,bases0,atol_use_R,rtol_use_R);
+    G_vspace_eval::evaluate_infinitesimal_criterion<orthopolynomial_basis>(OGYL_xu_Gsat_rec,OGYL_xu_rec0,
+      Sobs,bases0,tol_use_G);
+    LD_vspace_record  OGYL_xu_OGsat_rec(OGYL_xu_Osat_rec,OGYL_xu_Gsat_rec); OGYL_Tbndl_xu.set_Vspaces(OGYL_xu_OGsat_rec);
+    OGYL_xu_rec0.print_subspace_details(OGYL_Tbndl_xu.rec,"OGYL_Tbndl_xu.rec");
 
   OG_OGsat_rec.compare_subspaces(OGYL_x_OGsat_rec,"OGYL_x_OGsat_rec",OGYL_xu_OGsat_rec,"OGYL_xu_OGsat_rec");
 
@@ -131,30 +127,30 @@ int main()
             OG_rn_OGsat_ign(basis0,OGbndl.Vspaces),
             OGYL_x_rn_OGsat_ign(basis0,OGYL_Tbndl_x.Vspaces),
             OGYL_xu_OGsat_rn_ign(basis0,OGYL_Tbndl_xu.Vspaces);
-  DoP853_settings intgr_rec_settings; DoP853 intgr_rec_rn(OG_rn_ign,intgr_rec_settings);
+  DoP853_settings intgr_rec_settings; DoP853 intgr_rec_rn(O_rn_ign,intgr_rec_settings);
 
   generated_ode_observations gen_OG_rn(OG_rn_ign,Sobs.ncrvs_tot,Sobs.npts_per_crv);
   gen_OG_rn.set_solcurve_ICs(Sobs.curves);
   gen_OG_rn.parallel_generate_solution_curves<orthopolynomial_basis,rn_infgen,DoP853>(bases0,OG_rn_ign,intgr_rec_rn);
 
-  generated_ode_observations gen_OG_OGsat_rn(OG_rn_OGsat_ign,Sobs.ncrvs_tot,Sobs.npts_per_crv);
-  gen_OG_OGsat_rn.set_solcurve_ICs(Sobs.curves);
-  gen_OG_OGsat_rn.parallel_generate_solution_curves<orthopolynomial_basis,rn_infgen,DoP853>(bases0,OG_rn_OGsat_ign,intgr_rec_rn);
+    generated_ode_observations gen_OG_OGsat_rn(OG_rn_OGsat_ign,Sobs.ncrvs_tot,Sobs.npts_per_crv);
+    gen_OG_OGsat_rn.set_solcurve_ICs(Sobs.curves);
+    gen_OG_OGsat_rn.parallel_generate_solution_curves<orthopolynomial_basis,rn_infgen,DoP853>(bases0,OG_rn_OGsat_ign,intgr_rec_rn);
 
-  generated_ode_observations gen_OGYL_x_OGsat_rn(OGYL_x_rn_OGsat_ign,Sobs.ncrvs_tot,Sobs.npts_per_crv);
-  gen_OGYL_x_OGsat_rn.set_solcurve_ICs(Sobs.curves);
-  gen_OGYL_x_OGsat_rn.parallel_generate_solution_curves<orthopolynomial_basis,rn_infgen,DoP853>(bases0,OGYL_x_rn_OGsat_ign,intgr_rec_rn);
+    generated_ode_observations gen_OGYL_x_OGsat_rn(OGYL_x_rn_OGsat_ign,Sobs.ncrvs_tot,Sobs.npts_per_crv);
+    gen_OGYL_x_OGsat_rn.set_solcurve_ICs(Sobs.curves);
+    gen_OGYL_x_OGsat_rn.parallel_generate_solution_curves<orthopolynomial_basis,rn_infgen,DoP853>(bases0,OGYL_x_rn_OGsat_ign,intgr_rec_rn);
 
-  generated_ode_observations gen_OGYL_xu_OGsat_rn(OGYL_xu_OGsat_rn_ign,Sobs.ncrvs_tot,Sobs.npts_per_crv);
-  gen_OGYL_xu_OGsat_rn.set_solcurve_ICs(Sobs.curves);
-  gen_OGYL_xu_OGsat_rn.parallel_generate_solution_curves<orthopolynomial_basis,rn_infgen,DoP853>(bases0,OGYL_xu_OGsat_rn_ign,intgr_rec_rn);
+    generated_ode_observations gen_OGYL_xu_OGsat_rn(OGYL_xu_OGsat_rn_ign,Sobs.ncrvs_tot,Sobs.npts_per_crv);
+    gen_OGYL_xu_OGsat_rn.set_solcurve_ICs(Sobs.curves);
+    gen_OGYL_xu_OGsat_rn.parallel_generate_solution_curves<orthopolynomial_basis,rn_infgen,DoP853>(bases0,OGYL_xu_OGsat_rn_ign,intgr_rec_rn);
 
   nbuf2.load_name(obs_name.name,".",fam_name.name);
-  gen_OG_rn.write_observed_solutions(nbuf0.name_file(nbuf1.load_name(nbuf2.name,".OG_null",".DoP853rnrec")));
 
-  gen_OG_OGsat_rn.write_observed_solutions(nbuf0.name_file(nbuf1.load_name(nbuf2.name,".OG_OGsat",rec_suf)));
-  gen_OGYL_x_OGsat_rn.write_observed_solutions(nbuf0.name_file(nbuf1.load_name(nbuf2.name,".OG_YLx_OGsat",rec_suf)));
-  gen_OGYL_xu_OGsat_rn.write_observed_solutions(nbuf0.name_file(nbuf1.load_name(nbuf2.name,".OG_YLxu_OGsat",rec_suf)));
+  gen_OG_rn.write_observed_solutions(nbuf0.name_file(nbuf1.load_name(nbuf2.name,".OG_null",".DoP853rnrec")));
+    gen_OG_OGsat_rn.write_observed_solutions(nbuf0.name_file(nbuf1.load_name(nbuf2.name,".OG_OGsat",rec_suf)));
+    gen_OGYL_x_OGsat_rn.write_observed_solutions(nbuf0.name_file(nbuf1.load_name(nbuf2.name,".OG_YLx_OGsat",rec_suf)));
+    gen_OGYL_xu_OGsat_rn.write_observed_solutions(nbuf0.name_file(nbuf1.load_name(nbuf2.name,".OG_YLxu_OGsat",rec_suf)));
 
   free_evaluation_bases<orthopolynomial_basis>(bases0);
   return 0;
