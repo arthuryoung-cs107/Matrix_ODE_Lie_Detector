@@ -1,12 +1,16 @@
 #include "LD_framework.hh"
 
-ode_curve_observations::ode_curve_observations(int eor_, int ndep_, int ncrv_, int nobs_):
-eor(eor_), ndep(ndep_), ncrv(ncrv_), nobs(nobs_),
-npts_per_crv(new int[ncrv_]), pts_in(new double[(1+ndep_*(eor_+1))*nobs_])
-{for (int i = 0, np = nobs_/ncrv_; i < ncrv_; i++) npts_per_crv[i] = np;}
 ode_curve_observations::ode_curve_observations(int eor_, int ndep_, int nobs_):
-eor(eor_), ndep(ndep_), nobs(nobs_),
-pts_in(new double[(1+ndep_*(eor_+1))*nobs_]) {}
+  eor(eor_), ndep(ndep_), nobs(nobs_),
+  pts_in(new double[(1+ndep_*(eor_+1))*nobs_]) {}
+ode_curve_observations::ode_curve_observations(int eor_, int ndep_, int ncrv_, int nobs_):
+  eor(eor_), ndep(ndep_), ncrv(ncrv_), nobs(nobs_),
+  npts_per_crv(new int[ncrv_]), pts_in(new double[(1+ndep_*(eor_+1))*nobs_])
+  {for (int i = 0, np = nobs_/ncrv_; i < ncrv_; i++) npts_per_crv[i] = np;}
+ode_curve_observations::ode_curve_observations(int eor_, int ndep_, int ncrv_, int *npts_per_crv_):
+  eor(eor_), ndep(ndep_), ncrv(ncrv_), nobs(LD_linalg::sum_vec<int>(npts_per_crv_,ncrv_)),
+  npts_per_crv(new int[ncrv_]), pts_in(new double[(1+ndep_*(eor_+1))*nobs])
+  {LD_linalg::copy_vec<int>(npts_per_crv,npts_per_crv_,ncrv_);}
 ode_curve_observations::ode_curve_observations(const char name_[])
 {
   FILE * file_in = LD_io::fopen_SAFE(name_,"r");
@@ -132,42 +136,36 @@ void ode_curve_observations::write_observed_solutions(const char name_[])
 }
 
 generated_ode_observations::generated_ode_observations(ode_system &ode_, int nc_, int np_):
-ode_curve_observations(ode_,nc_,nc_*np_), ode(ode_), npts(np_),
-pts_IC(new double*[nc_])
-{
-  for (size_t i = 0, iic = 0, idelic = npts*ndim; i < nc_; i++, iic+=idelic)
-    pts_IC[i] = pts_in + iic;
-}
+  ode_curve_observations(ode_,nc_,nc_*np_), ode(ode_), pts_IC(new double*[nc_]), xrange_mat(Tmatrix<double>(nc_,2))
+  {for (size_t i = 0, iic = 0, idelic = np_*ndim; i < nc_; i++, iic+=idelic) pts_IC[i] = pts_in + iic;}
+generated_ode_observations::generated_ode_observations(ode_system &ode_, int nc_, int *npts_per_crv_):
+  ode_curve_observations(ode_,nc_,npts_per_crv_), ode(ode_), pts_IC(new double*[nc_]), xrange_mat(Tmatrix<double>(nc_,2))
+  {for (size_t ic = 0, iic = 0; ic < nc_; iic+=ndim*(npts_per_crv_[ic++])) pts_IC[ic] = pts_in + iic;}
 
-generated_ode_observations::~generated_ode_observations()
-{
-  delete [] pts_IC;
-}
-
-void generated_ode_observations::set_random_ICs(LD_rng rng_, const double *ICR_)
+void generated_ode_observations::set_random_ICs(LD_rng rng_, const double *ICr_, const double *xrange_)
 {
   for (size_t i = 0; i < ncrv; i++)
+  {
+    xrange_mat[i][0] = xrange_[0]; xrange_mat[i][1] = xrange_[1];
     for (size_t i_dim = 1, iicr = 0; i_dim <= ndof_ODE; i_dim++, iicr+=2)
-      pts_IC[i][i_dim] = rng_.rand_uni(ICR_[iicr],ICR_[iicr+1]);
+      pts_IC[i][i_dim] = rng_.rand_uni(ICr_[iicr],ICr_[iicr+1]);
+  }
 }
-
-void generated_ode_observations::generate_solution_curves(ode_integrator &integrator_, const double * indep_range_)
+void generated_ode_observations::generate_solution_curves(ode_integrator &integrator_)
 {
-  integrator_.del_t = (indep_range_[1]-indep_range_[0])/((double)(npts-1));
   double  * const u_state = integrator_.get_u_state(),
-          ** const integr_wkspc = Tmatrix<double>(npts,ndof_ODE),
+          ** const integr_wkspc = Tmatrix<double>(LD_linalg::max_val<int>(npts_per_crv,ncrv),ndof_ODE),
           t0 = LD_threads::tic();
   for (size_t icrv = 0; icrv < ncrv; icrv++)
   {
-    for (size_t i_dof = 0; i_dof < ndof_ODE; i_dof++)
-      u_state[i_dof] = pts_IC[icrv][i_dof+1];
-    integrator_.init_curve_integration(icrv);
-    integrator_.set_and_solve_time(indep_range_[0],indep_range_[1],npts,integr_wkspc);
-    integrator_.unpack_time_sol(indep_range_[0],npts,integr_wkspc,pts_IC[icrv]);
+    for (size_t i_dof = 0; i_dof < ndof_ODE; i_dof++) u_state[i_dof] = pts_IC[icrv][i_dof+1];
+    integrator_.init_curve_integration((xrange_mat[icrv][1]-xrange_mat[icrv][0])/((double) (npts_per_crv[icrv]-1)),icrv);
+    integrator_.set_and_solve_time(xrange_mat[icrv][0],xrange_mat[icrv][1],npts_per_crv[icrv],integr_wkspc);
+    integrator_.unpack_time_sol(xrange_mat[icrv][0],npts_per_crv[icrv],integr_wkspc,pts_IC[icrv]);
   }
   free_Tmatrix<double>(integr_wkspc);
   printf("(generated_ode_observations::generate_solution_curves) exponentiated %d integral curves (%d net snaps, %d degrees of freedom) in %.4f seconds (SINGLE thread)\n",
-  ncrv, nobs, integrator_.ndof_ODE, LD_threads::toc(t0));
+    ncrv, nobs, integrator_.ndof_ODE, LD_threads::toc(t0));
 }
 
 void generated_ode_observations::generate_JFs()

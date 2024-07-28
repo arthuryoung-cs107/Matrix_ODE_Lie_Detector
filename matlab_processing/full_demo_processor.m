@@ -18,6 +18,7 @@ eqn_name = [ode_name '_xrange' num2str(xrange)];
 % eqn_name = [ode_name '_xrange' num2str(xrange) '_extrap'];
 
 fam_name = 'Chebyshev1';
+% fam_name = 'Chebyshev2';
 % fam_name = 'Legendre';
 
 bor = 10;
@@ -110,35 +111,24 @@ S4array(3) = LD_observations_set(dir_name,[nbuf0 '.10.OG_YLxu_OGsat.' nbuf1],dat
 % S4array(5) = LD_observations_set(dir_name,[nbuf0 '.9.OG_YLx_OGsat.' nbuf1],dat_suff);
 % S4array(6) = LD_observations_set(dir_name,[nbuf0 '.9.OG_YLxu_OGsat.' nbuf1],dat_suff);
 
-S5array(1) = LD_observations_set(dir_name,[nbuf0 '.10.OG_OGsat_1.' nbuf1],dat_suff);
-S5array(2) = LD_observations_set(dir_name,[nbuf0 '.10.OG_YLx_OGsat_1.' nbuf1],dat_suff);
-S5array(3) = LD_observations_set(dir_name,[nbuf0 '.10.OG_YLxu_OGsat_1.' nbuf1],dat_suff);
+% S5array(1) = LD_observations_set(dir_name,[nbuf0 '.10.OG_OGsat_1.' nbuf1],dat_suff);
+% S5array(2) = LD_observations_set(dir_name,[nbuf0 '.10.OG_YLx_OGsat_1.' nbuf1],dat_suff);
+% S5array(3) = LD_observations_set(dir_name,[nbuf0 '.10.OG_YLxu_OGsat_1.' nbuf1],dat_suff);
 % S5array(4) = LD_observations_set(dir_name,[nbuf0 '.9.OG_OGsat_1.' nbuf1],dat_suff);
 % S5array(5) = LD_observations_set(dir_name,[nbuf0 '.9.OG_YLx_OGsat_1.' nbuf1],dat_suff);
 % S5array(6) = LD_observations_set(dir_name,[nbuf0 '.9.OG_YLxu_OGsat_1.' nbuf1],dat_suff);
 
-% S6array(1) = LD_observations_set(dir_name,[nbuf0 '.10.OG_OGsat_2.' nbuf1],dat_suff);
-% S6array(2) = LD_observations_set(dir_name,[nbuf0 '.10.OG_YLx_OGsat_2.' nbuf1],dat_suff);
-% S6array(3) = LD_observations_set(dir_name,[nbuf0 '.10.OG_YLxu_OGsat_2.' nbuf1],dat_suff);
-% S6array(4) = LD_observations_set(dir_name,[nbuf0 '.9.OG_OGsat_2.' nbuf1],dat_suff);
-% S6array(5) = LD_observations_set(dir_name,[nbuf0 '.9.OG_YLx_OGsat_2.' nbuf1],dat_suff);
-% S6array(6) = LD_observations_set(dir_name,[nbuf0 '.9.OG_YLxu_OGsat_2.' nbuf1],dat_suff);
-
-% S7array(1) = LD_observations_set(dir_name,[nbuf0 '.10.OG_OGsat_3.' nbuf1],dat_suff);
-% S7array(2) = LD_observations_set(dir_name,[nbuf0 '.10.OG_YLx_OGsat_3.' nbuf1],dat_suff);
-% S7array(3) = LD_observations_set(dir_name,[nbuf0 '.10.OG_YLxu_OGsat_3.' nbuf1],dat_suff);
-% S7array(4) = LD_observations_set(dir_name,[nbuf0 '.9.OG_OGsat_3.' nbuf1],dat_suff);
-% S7array(5) = LD_observations_set(dir_name,[nbuf0 '.9.OG_YLx_OGsat_3.' nbuf1],dat_suff);
-% S7array(6) = LD_observations_set(dir_name,[nbuf0 '.9.OG_YLxu_OGsat_3.' nbuf1],dat_suff);
 
 % Sarray = [S1array S2array];
+% Sarray = [S1array S2array S3array S4array];
 % Sarray = [S1array(2) S2array(2) S3array ];
-% Sarray = [S1array(2) S2array(2) S3array S4array ];
+Sarray = [S1array(2) S2array(2) S3array S4array ];
 % Sarray = [S1array(2) S2array(2) S3array S4array S5array ];
 % Sarray = [S1array(2) S2array(2) S3array S4array S5array S6array ];
 
 % Sarray = [S3array S4array];
-Sarray = [S3array S4array S5array];
+% Sarray = [S3array S4array S5array];
+% Sarray = [S3array S4array S5array S6array];
 % Sarray = [S3array S4array S5array S6array S7array ];
 
 % Scheck = S7array;
@@ -167,7 +157,9 @@ crverr_check = reshape(sum(err_tns_check,1),Sref.ncrv,size(err_tns_check,3));
 
 % [~,iicrv_check] = min(crverr_check(:)); % best performance overall
 [~,iicrv_check] = max(crverr_check(:)); % worst performance overall
-[icrv_check,iS_check] = find(crverr_check == crverr_check(iicrv_check))
+% [icrv_check,iS_check] = find(crverr_check == crverr_check(iicrv_check))
+[icrv_check,iS_check] = deal(   rem(iicrv_check,size(crverr_check,1)), ...
+                                floor(iicrv_check/size(crverr_check,1))+1)
 
 spc.color = [0 0 0];
 spc.lw = 2.0;

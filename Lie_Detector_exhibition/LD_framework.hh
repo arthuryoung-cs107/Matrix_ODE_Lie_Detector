@@ -10,7 +10,11 @@ struct ode_curve_observations
   ode_curve_observations() {}
   ode_curve_observations(int eor_, int ndep_, int nobs_);
   ode_curve_observations(int eor_, int ndep_, int ncrv_, int nobs_);
-  ode_curve_observations(ode_solspc_meta &meta_, int ncrv_, int nobs_): ode_curve_observations(meta_.eor,meta_.ndep,ncrv_,nobs_) {}
+  ode_curve_observations(int eor_, int ndep_, int ncrv_, int *npts_per_crv_);
+  ode_curve_observations(ode_solspc_meta &meta_, int ncrv_, int nobs_):
+    ode_curve_observations(meta_.eor,meta_.ndep,ncrv_,nobs_) {}
+  ode_curve_observations(ode_solspc_meta &meta_, int ncrv_, int *npts_per_crv_):
+    ode_curve_observations(meta_.eor,meta_.ndep,ncrv_,npts_per_crv_) {}
   ode_curve_observations(const char name_[]);
   ode_curve_observations(const char name_[], const char name1_[]):
     ode_curve_observations(name_) {read_additional_observations(name1_);}
@@ -51,16 +55,29 @@ struct ode_curve_observations
 struct generated_ode_observations: public ode_curve_observations
 {
   generated_ode_observations(ode_system &ode_, int nc_, int np_);
-  ~generated_ode_observations();
+  generated_ode_observations(ode_system &ode_, int nc_, int *npts_per_crv_);
+  ~generated_ode_observations() {delete [] pts_IC; free_Tmatrix<double>(xrange_mat);}
 
   ode_system &ode;
 
-  const int npts,
-            ndim = ode.ndim,
+  const int ndim = ode.ndim,
             ndof_ODE = ode.ndep*ode.eor;
-  double ** const pts_IC;
+  double  ** const pts_IC,
+          ** const xrange_mat;
 
-  template <class INFGN, class INTGR> void parallel_generate_solution_curves(INFGN &infgn_, INTGR &intgr_, const double *indep_range_)
+  void set_random_ICs(LD_rng rng_, const double *IC_range_, const double *xrange_);
+  void generate_solution_curves(ode_integrator &integrator_);
+
+  inline void set_solcurve_ICs(ode_solcurve **crvs_)
+  {
+    for (size_t i = 0; i < ncrv; i++)
+    {
+      xrange_mat[i][0] = crvs_[i]->sol_0->x; xrange_mat[i][1] = crvs_[i]->sol_f->x;
+      for (size_t idim = 0; idim <= ndof_ODE; idim++)
+        pts_IC[i][idim] = crvs_[i]->pts0[idim];
+    }
+  }
+  template <class INFGN, class INTGR> void parallel_generate_solution_curves(INFGN &infgn_, INTGR &intgr_)
   {
     double t0 = LD_threads::tic();
     #pragma omp parallel
@@ -68,25 +85,23 @@ struct generated_ode_observations: public ode_curve_observations
       INFGN infgn_t(infgn_);
       INTGR intgr_t(infgn_t,intgr_);
 
-      intgr_t.del_t = (indep_range_[1]-indep_range_[0])/((double)(npts-1));
-
       double  * const u_state_t = intgr_t.get_u_state(),
-              ** const integr_wkspc_t = Tmatrix<double>(npts,ndof_ODE);
+              ** const integr_wkspc_t = Tmatrix<double>(LD_linalg::max_val<int>(npts_per_crv,ncrv),ndof_ODE);
       #pragma omp for
       for (size_t icrv = 0; icrv < ncrv; icrv++)
       {
         for (size_t i_dof = 0; i_dof < ndof_ODE; i_dof++) u_state_t[i_dof] = pts_IC[icrv][i_dof+1];
-        intgr_t.init_curve_integration(icrv);
-        intgr_t.set_and_solve_time(indep_range_[0],indep_range_[1],npts,integr_wkspc_t);
-        intgr_t.unpack_time_sol(indep_range_[0],npts,integr_wkspc_t,pts_IC[icrv]);
+        intgr_t.init_curve_integration((xrange_mat[icrv][1]-xrange_mat[icrv][0])/((double) (npts_per_crv[icrv]-1)),icrv);
+        intgr_t.set_and_solve_time(xrange_mat[icrv][0],xrange_mat[icrv][1],npts_per_crv[icrv],integr_wkspc_t);
+        intgr_t.unpack_time_sol(xrange_mat[icrv][0],npts_per_crv[icrv],integr_wkspc_t,pts_IC[icrv]);
       }
       free_Tmatrix<double>(integr_wkspc_t);
     }
     double work_time = LD_threads::toc(t0);
     printf("(generated_ode_observations::parallel_generate_solution_curves) exponentiated %d integral curves (%d net snaps, %d degrees of freedom) in %.4f seconds (%d threads)\n",
-    ncrv, nobs, infgn_.ndof_ODE, work_time, LD_threads::numthreads());
+      ncrv, nobs, infgn_.ndof_ODE, work_time, LD_threads::numthreads());
   }
-  template <class BSIS, class INFGN, class INTGR> void parallel_generate_solution_curves(BSIS **bases_, INFGN &infgn_, INTGR &intgr_, const double *indep_range_)
+  template <class BSIS, class INFGN, class INTGR> void parallel_generate_solution_curves(BSIS **bases_, INFGN &infgn_, INTGR &intgr_)
   {
     double t0 = LD_threads::tic();
     #pragma omp parallel
@@ -95,32 +110,22 @@ struct generated_ode_observations: public ode_curve_observations
       INFGN infgn_t(infgn_,basis_t);
       INTGR intgr_t(infgn_t,intgr_);
 
-      intgr_t.del_t = (indep_range_[1]-indep_range_[0])/((double)(npts-1));
-
       double  * const u_state_t = intgr_t.get_u_state(),
-              ** const integr_wkspc_t = Tmatrix<double>(npts,ndof_ODE);
+              ** const integr_wkspc_t = Tmatrix<double>(LD_linalg::max_val<int>(npts_per_crv,ncrv),ndof_ODE);
       #pragma omp for
       for (size_t icrv = 0; icrv < ncrv; icrv++)
       {
         for (size_t i_dof = 0; i_dof < ndof_ODE; i_dof++) u_state_t[i_dof] = pts_IC[icrv][i_dof+1];
-        intgr_t.init_curve_integration(icrv);
-        intgr_t.set_and_solve_time(indep_range_[0],indep_range_[1],npts,integr_wkspc_t);
-        intgr_t.unpack_time_sol(indep_range_[0],npts,integr_wkspc_t,pts_IC[icrv]);
+        intgr_t.init_curve_integration((xrange_mat[icrv][1]-xrange_mat[icrv][0])/((double) (npts_per_crv[icrv]-1)),icrv);
+        intgr_t.set_and_solve_time(xrange_mat[icrv][0],xrange_mat[icrv][1],npts_per_crv[icrv],integr_wkspc_t);
+        intgr_t.unpack_time_sol(xrange_mat[icrv][0],npts_per_crv[icrv],integr_wkspc_t,pts_IC[icrv]);
       }
       free_Tmatrix<double>(integr_wkspc_t);
     }
     double work_time = LD_threads::toc(t0);
     printf("(generated_ode_observations::parallel_generate_solution_curves) exponentiated %d integral curves (%d net snaps, %d degrees of freedom) in %.4f seconds (%d threads)\n",
-    ncrv, nobs, infgn_.ndof_ODE, work_time, LD_threads::numthreads());
+      ncrv, nobs, infgn_.ndof_ODE, work_time, LD_threads::numthreads());
   }
-  inline void set_solcurve_ICs(ode_solcurve **crvs_)
-  {
-    for (size_t i = 0; i < ncrv; i++)
-      for (size_t idim = 0; idim <= ndof_ODE; idim++)
-        pts_IC[i][idim] = crvs_[i]->pts0[idim];
-  }
-  void set_random_ICs(LD_rng rng_, const double *IC_range_);
-  void generate_solution_curves(ode_integrator &integrator_, const double *indep_range_);
 
   void generate_JFs();
   void write_JFs(const char name_[]);

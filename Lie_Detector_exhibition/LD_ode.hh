@@ -153,10 +153,14 @@ struct ode_integrator
 
   const int ndof_ODE = ode.ndep*ode.eor;
 
-  double del_t;
+  double del_x;
 
   inline void ff(double tt_, double *in_, double *out_) {ode.dudx_eval(tt_,in_,out_);}
-  inline void init_curve_integration(int crv_count_) {ode.init_dudx_eval(crv_count_);}
+  inline void init_curve_integration(double del_x_, int crv_count_)
+  {
+    del_x = del_x_;
+    ode.init_dudx_eval(crv_count_);
+  }
 
   inline void unpack_time_sol(double xstart_, int snaps_, double **wkspc_, double *pts_chunk_)
   {
@@ -166,7 +170,7 @@ struct ode_integrator
     for (size_t j_obs = 0, jj = 0; j_obs < snaps_; j_obs++, jj+=ndim)
     {
       double  * const pts_j = pts_chunk_+jj,
-              x_j = pts_j[0] = xstart_ + del_t*((double) j_obs);
+              x_j = pts_j[0] = xstart_ + del_x*((double) j_obs);
       for (size_t l = 0; l < ndof_ODE; l++) pts_j[l+1] = wkspc_[j_obs][l];
       ode.dudx_eval(x_j,wkspc_[j_obs],pts_j+nvar);
     }

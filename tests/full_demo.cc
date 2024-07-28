@@ -134,10 +134,10 @@ int generate_observational_data()
   strcpy(intgen_name,ode_integrator.name);
 
   generated_ode_observations inputs_gen(ode,nc,np);
-  inputs_gen.set_random_ICs(LD_rng(9365),ode.get_default_IC_range());  // shay's number
-  // inputs_gen.set_random_ICs(LD_rng(8426),ode.get_default_IC_range());  // my number
-  // inputs_gen.set_random_ICs(LD_rng(86427),ode.get_default_IC_range());  // another number
-  inputs_gen.generate_solution_curves(ode_integrator,ode.get_default_IC_indep_range(xrange));
+  inputs_gen.set_random_ICs(LD_rng(9365),ode.get_default_IC_range(),ode.get_default_IC_indep_range(xrange));  // shay's number
+  // inputs_gen.set_random_ICs(LD_rng(8426),ode.get_default_IC_range(),ode.get_default_IC_indep_range(xrange));  // my number
+  // inputs_gen.set_random_ICs(LD_rng(86427),ode.get_default_IC_range(),ode.get_default_IC_indep_range(xrange));  // another number
+  inputs_gen.generate_solution_curves(ode_integrator);
 
   if (noise_level>=0)
   {
@@ -380,25 +380,25 @@ int decode_data_matrices()
 
 template <class BSIS, class INFGN, class INTGR> void infgen_reconstruct(BSIS **bases_,INFGN &infgn_,INTGR &intgr_)
 {
-  generated_ode_observations inputs_recon(infgn_,Sobs.ncrvs_tot,Sobs.min_npts_curve());
+  generated_ode_observations inputs_recon(infgn_,Sobs.ncrvs_tot,Sobs.npts_per_crv);
   sprintf(name_buffer, "%s/%s_%s.%s.%srec.%s",dir_name,data_name,bse_name,recon_mat_name,intrec_name,dat_suff);
   inputs_recon.set_solcurve_ICs(Sobs.curves);
-  inputs_recon.parallel_generate_solution_curves<BSIS,INFGN,INTGR>(bases_,infgn_,intgr_,Sobs.get_default_IC_indep_range());
+  inputs_recon.parallel_generate_solution_curves<BSIS,INFGN,INTGR>(bases_,infgn_,intgr_);
   inputs_recon.write_observed_solutions(name_buffer);
 }
 
 template <class INFGN, class INTGR> void infgen_reconstruct(INFGN &infgn_,INTGR &intgr_)
 {
-  generated_ode_observations inputs_recon(infgn_,Sobs.ncrvs_tot,Sobs.min_npts_curve());
+  generated_ode_observations inputs_recon(infgn_,Sobs.ncrvs_tot,Sobs.npts_per_crv);
   sprintf(name_buffer, "%s/%s_%s.%s.%srec.%s",dir_name,data_name,bse_name,recon_mat_name,intrec_name,dat_suff);
   inputs_recon.set_solcurve_ICs(Sobs.curves);
-  inputs_recon.parallel_generate_solution_curves<INFGN,INTGR>(infgn_,intgr_,Sobs.get_default_IC_indep_range());
+  inputs_recon.parallel_generate_solution_curves<INFGN,INTGR>(infgn_,intgr_);
   inputs_recon.write_observed_solutions(name_buffer);
 }
 
 template <class BSIS, class INFGN> void infgen_extend(BSIS **bases_,INFGN &infgn_)
 {
-  generated_ode_observations inputs_recon(infgn_,Sobs.ncrvs_tot,Sobs.min_npts_curve());
+  generated_ode_observations inputs_recon(infgn_,Sobs.ncrvs_tot,Sobs.npts_per_crv);
   sprintf(name_buffer, "%s/%s_%s.%s.%srec.%s", dir_name,data_name,bse_name,recon_mat_name,intrec_name,dat_suff);
   inputs_recon.read_basic_observations(name_buffer);
 
@@ -411,12 +411,12 @@ template <class BSIS, class INFGN> void infgen_extend(BSIS **bases_,INFGN &infgn
 
 template <class BSIS, class INFGN, class INTGR> void infgen_reconstruct_extend(BSIS **bases_,INFGN &infgn_,INTGR &intgr_)
 {
-  generated_ode_observations inputs_recon(infgn_,Sobs.ncrvs_tot,Sobs.min_npts_curve());
+  generated_ode_observations inputs_recon(infgn_,Sobs.ncrvs_tot,Sobs.npts_per_crv);
   if (write_recon_data)
   {
     sprintf(name_buffer, "%s/%s_%s.%s.%srec.%s",dir_name,data_name,bse_name,recon_mat_name,intrec_name,dat_suff);
     inputs_recon.set_solcurve_ICs(Sobs.curves);
-    inputs_recon.parallel_generate_solution_curves<INFGN,INTGR>(infgn_,intgr_,Sobs.get_default_IC_indep_range());
+    inputs_recon.parallel_generate_solution_curves<INFGN,INTGR>(infgn_,intgr_);
     inputs_recon.write_observed_solutions(name_buffer);
   }
   else

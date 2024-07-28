@@ -87,6 +87,13 @@ struct LD_linalg
     return val_out;
   }
 
+  template <typename T> static T sum_vec(T *vec_,int len_)
+  {
+    T acc = 0;
+    for (size_t i = 0; i < len_; i++) acc += vec_[i];
+    return acc;
+  }
+
   template <typename T> static void scale_vec(T *vec_,int len_,T val_)
     {for (size_t i = 0; i < len_; i++) vec_[i] *= val_;}
 
@@ -172,13 +179,6 @@ struct LD_linalg
     for (size_t i = 0; i < n_; i++) acc += x_[i]*y_[i];
     return acc;
   }
-
-  // static double l2_x(double *x_, int n_)
-  // {
-  //   double r2_acc = 0.0;
-  //   for (size_t i = 0; i < n_; i++) r2_acc += x_[i]*x_[i];
-  //   return sqrt(r2_acc);
-  // }
 
   static void fill_x_012(double *x_, int n_, double offset_=0.0)
     {for (size_t i = 0; i < n_; i++) x_[i] = ((double)(i)) + offset_;}

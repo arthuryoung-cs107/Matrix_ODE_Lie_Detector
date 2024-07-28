@@ -28,8 +28,8 @@ int main()
                                                           nbuf2.name_file(obs_name,"_JFs")));
 
   // const int bor = 8;
-  const int bor = 9;
-  // const int bor = 10;
+  // const int bor = 9;
+  const int bor = 10;
 
   LD_name_buffer fam_name; fam_name.name_function_space("Chebyshev1",bor);
   orthopolynomial_space fspace0(meta0,orthopolynomial_config_file(nbuf0.name_domain_config_file(obs_name,fam_name)));
@@ -39,6 +39,7 @@ int main()
   orthopolynomial_basis &basis0 = *(bases0[0]);
 
   bool normalize_flag = true;
+  // bool normalize_flag = false;
 
   LD_encoding_bundle Lcode(Sobs.ncrvs_tot,fspace0.perm_len,Sobs.npts_per_crv,1);
   LD_L_encoder::encode_L_bundle<orthopolynomial_basis>(Lcode,Sobs,bases0,normalize_flag);
@@ -66,7 +67,9 @@ int main()
   double  tol_use_L = 1e-10,
           tol_use_G = 1e-06,
           atol_use_R = 1e-08,
-          rtol_use_R = 0e-00;
+          // atol_use_R = 1e-09,
+          // rtol_use_R = 0e-00;
+          rtol_use_R = 1e-08;
   // const char rec_suf[] = ".DoP853rnrec";
   const char rec_suf[] = "_1.DoP853rnrec";
 
@@ -130,25 +133,21 @@ int main()
             OGYL_xu_OGsat_rn_ign(basis0,OGYL_Tbndl_xu.Vspaces);
   DoP853_settings intgr_rec_settings; DoP853 intgr_rec_rn(OG_rn_ign,intgr_rec_settings);
 
-  generated_ode_observations gen_OG_rn(OG_rn_ign,Sobs.ncrvs_tot,Sobs.min_npts_curve());
+  generated_ode_observations gen_OG_rn(OG_rn_ign,Sobs.ncrvs_tot,Sobs.npts_per_crv);
   gen_OG_rn.set_solcurve_ICs(Sobs.curves);
-  gen_OG_rn.parallel_generate_solution_curves<orthopolynomial_basis,rn_infgen,DoP853>(bases0,
-    OG_rn_ign,intgr_rec_rn,Sobs.get_default_IC_indep_range());
+  gen_OG_rn.parallel_generate_solution_curves<orthopolynomial_basis,rn_infgen,DoP853>(bases0,OG_rn_ign,intgr_rec_rn);
 
-  generated_ode_observations gen_OG_OGsat_rn(OG_rn_OGsat_ign,Sobs.ncrvs_tot,Sobs.min_npts_curve());
+  generated_ode_observations gen_OG_OGsat_rn(OG_rn_OGsat_ign,Sobs.ncrvs_tot,Sobs.npts_per_crv);
   gen_OG_OGsat_rn.set_solcurve_ICs(Sobs.curves);
-  gen_OG_OGsat_rn.parallel_generate_solution_curves<orthopolynomial_basis,rn_infgen,DoP853>(bases0,
-    OG_rn_OGsat_ign,intgr_rec_rn,Sobs.get_default_IC_indep_range());
+  gen_OG_OGsat_rn.parallel_generate_solution_curves<orthopolynomial_basis,rn_infgen,DoP853>(bases0,OG_rn_OGsat_ign,intgr_rec_rn);
 
-  generated_ode_observations gen_OGYL_x_OGsat_rn(OGYL_x_rn_OGsat_ign,Sobs.ncrvs_tot,Sobs.min_npts_curve());
+  generated_ode_observations gen_OGYL_x_OGsat_rn(OGYL_x_rn_OGsat_ign,Sobs.ncrvs_tot,Sobs.npts_per_crv);
   gen_OGYL_x_OGsat_rn.set_solcurve_ICs(Sobs.curves);
-  gen_OGYL_x_OGsat_rn.parallel_generate_solution_curves<orthopolynomial_basis,rn_infgen,DoP853>(bases0,
-    OGYL_x_rn_OGsat_ign,intgr_rec_rn,Sobs.get_default_IC_indep_range());
+  gen_OGYL_x_OGsat_rn.parallel_generate_solution_curves<orthopolynomial_basis,rn_infgen,DoP853>(bases0,OGYL_x_rn_OGsat_ign,intgr_rec_rn);
 
-  generated_ode_observations gen_OGYL_xu_OGsat_rn(OGYL_xu_OGsat_rn_ign,Sobs.ncrvs_tot,Sobs.min_npts_curve());
+  generated_ode_observations gen_OGYL_xu_OGsat_rn(OGYL_xu_OGsat_rn_ign,Sobs.ncrvs_tot,Sobs.npts_per_crv);
   gen_OGYL_xu_OGsat_rn.set_solcurve_ICs(Sobs.curves);
-  gen_OGYL_xu_OGsat_rn.parallel_generate_solution_curves<orthopolynomial_basis,rn_infgen,DoP853>(bases0,
-    OGYL_xu_OGsat_rn_ign,intgr_rec_rn,Sobs.get_default_IC_indep_range());
+  gen_OGYL_xu_OGsat_rn.parallel_generate_solution_curves<orthopolynomial_basis,rn_infgen,DoP853>(bases0,OGYL_xu_OGsat_rn_ign,intgr_rec_rn);
 
   nbuf2.load_name(obs_name.name,".",fam_name.name);
   gen_OG_rn.write_observed_solutions(nbuf0.name_file(nbuf1.load_name(nbuf2.name,".OG_null",".DoP853rnrec")));
