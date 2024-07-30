@@ -622,7 +622,9 @@ class LD_vspace_organizer
       vlen(vbndle_.vlen_full), nset0(vbndle_.nspc), nset(vbndle_.nspc),
       dsym0(Tsym<double>(nset0m1)), dsym(new double*[nset0])
     {
+      double t0_0 = LD_threads::tic();
       LD_vspace_organizer::compute_Frobenius_distances(dsym,dsym0_vec,nset0,vbndle_.Vtns,vbndle_.nV_spcvec,vlen);
+      printf("computed distance matrix in %.3f seconds\n", LD_threads::toc(t0_0));
       // LD_linalg::print_Asym("dsym",dsym,nset0m1);
     }
     LD_vspace_organizer(int vlen_, int nset0_):
@@ -638,14 +640,19 @@ class LD_vspace_organizer
       {LD_vspace_organizer::compute_Frobenius_distances(dsym,dsym0_vec,nset=nset0,vbndle_.Vtns,vbndle_.nV_spcvec,vlen);}
     static void compute_Frobenius_distances(double **dsym_,double *dvec_,int nset_,double ***Vtns_,int *nV_,int vlen_)
     {
-      const int nsetm1 = nset_-1;
-      for (size_t i = 0, jcap = nsetm1, isym = 0; i < nsetm1; i++, jcap--)
+      const int nsetm1 = nset_-1,
+                len_sym = (nsetm1*nset_)/2;
+      for (size_t i = 0, jcap = nsetm1, isym = 0; i < nsetm1; i++, isym += jcap--) dsym_[i] = dvec_+isym;
+      #pragma omp parallel
       {
-        dsym_[i] = dvec_+isym;
-        for (size_t j = 0, l = i+1; j < jcap; j++, l++, isym++)
-          dvec_[isym]=1.0-LD_vspace_organizer::compute_Frobenius_closeness(Vtns_[i],nV_[i],Vtns_[l],nV_[l],vlen_);
+        int i,j;
+        #pragma omp for
+        for (size_t isym = 0; isym < len_sym; isym++)
+        {
+          LD_vspace_organizer::get_rowcol_isym(i,j,isym,nsetm1);
+          dvec_[isym]=1.0-LD_vspace_organizer::compute_Frobenius_closeness(Vtns_[i],nV_[i],Vtns_[j],nV_[j],vlen_);
+        }
       }
-      // for (size_t i = 0, jcap = nsetm1, isym = 0; i < nsetm1; i++, isym += jcap--) dsym_[i] = dvec_+isym;
     }
     static double compute_Frobenius_closeness(double **Va_,int na_,double **Vb_,int nb_,int vlen_)
     {
@@ -659,6 +666,18 @@ class LD_vspace_organizer
         }
       return sqrt(acc_fro/((double)((na_<nb_)?(na_):(nb_))));
     }
+
+  protected:
+
+    static void get_rowcol_isym(int &row, int &col, int isym_, int nsetm1_)
+    {
+      row = 0;
+      int lenr_dec = nsetm1_,
+          isym_dec = isym_;
+      while ((isym_dec -= (lenr_dec--)) >= 0) row++;
+      col = isym_dec+lenr_dec+row+2;
+    }
+
 };
 
 struct LD_svd_bundle: public LD_vector_bundle

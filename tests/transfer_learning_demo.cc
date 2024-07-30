@@ -122,9 +122,9 @@ int main()
   LD_vector_bundle Obndl_maxnull(Ocode_svd.rec);
   Obndl_maxnull.rec.set_record_uninull(Ocode_svd.max_nulldim()); Obndl_maxnull.set_Vspaces();
 
-  double t0_0 = LD_threads::tic();
+
   LD_vspace_organizer O_maxnull_org(Obndl_maxnull);
-  printf("computed distance matrix in %.3f seconds\n", LD_threads::toc(t0_0));
+
   double t0_1 = LD_threads::tic();
   k_medoids_package k_med_O(3,O_maxnull_org.dsym,O_maxnull_org.nset);
   printf("performed k medoids in %.3f seconds\n", LD_threads::toc(t0_1));
