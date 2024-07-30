@@ -219,7 +219,7 @@ classdef LD_aux
         function [med_pckg_out,det_pckg_out] = post_process_medoid_package(med_pckg_)
             det_pckg_out = LD_aux.compute_medoid_silhouette(med_pckg_);
             [i_meds,n_meds,net_d,clst_mem,loc_d,med2med_d,dmat_] = LD_aux.unpack_medoid_package(med_pckg_);
-            
+
             [kfull,npts] = deal(length(i_meds), length(clst_mem));
             i_full = 1:npts;
             ii_nmeds = logical(prod( i_full ~= i_meds', 1 ));

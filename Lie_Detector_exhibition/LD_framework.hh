@@ -398,59 +398,6 @@ struct LD_matrix: public function_space_element, public LD_experiment
       {return ((m0_.net_cols==m1_.net_cols)&&(m1_.net_cols==m2_.net_cols));}
 };
 
-struct LD_svd_bundle: public LD_vector_bundle
-{
-  LD_svd_bundle(int nspc_,int vlen_): LD_vector_bundle(nspc_,vlen_),
-    rank_vec(new int[nspc_]), Smat(Tmatrix<double>(nspc_,vlen_)) {}
-  LD_svd_bundle(LD_encoding_bundle &Abndl_,bool verbose_=true):
-    LD_svd_bundle(Abndl_.nset,Abndl_.ncol_full)
-    {compute_Acode_curve_svds(Abndl_,verbose_);}
-  LD_svd_bundle(LD_encoding_bundle &Abndle_,LD_Theta_bundle &Tbndle_,bool init_=false,bool verbose_=true):
-    LD_svd_bundle(Abndle_.nset,Abndle_.ncol_full)
-  {
-    compute_AYmat_curve_svds(Abndle_,Tbndle_.Tspaces,verbose_);
-    if (init_) Tbndle_.init_Vbndle_premult(VTtns);
-  }
-  ~LD_svd_bundle()
-  {
-    free_Tmatrix<double>(Smat);
-    delete [] rank_vec;
-  }
-
-  int * const rank_vec;
-  double  ** const Smat,
-          *** const VTtns = Vtns_data;
-
-  static void project_Theta_bundle(LD_Theta_bundle &Tbndle_,LD_encoding_bundle &Abndle_,bool verbose_=true)
-    {LD_svd_bundle svd_bndle(Abndle_,Tbndle_,true,verbose_);}
-
-  void compute_Acode_curve_svds(LD_encoding_bundle &Abndle_,bool verbose_=true);
-  void compute_AYmat_curve_svds(LD_encoding_bundle &Abndle_,LD_Theta_space ** const Tspaces_,bool verbose_=true);
-  void compute_AYmat_curve_svds(LD_matrix &Amat_,LD_Theta_space ** const Tspaces_,bool verbose_=true);
-
-  void print_details(const char name_[] =  "Amat_SVD");
-
-  inline int nulldim_i(int i_) {return nV_spcvec[i_]-rank_vec[i_];}
-  inline int min_rank() {return LD_linalg::min_val<int>(rank_vec,nspc);}
-  inline int max_rank() {return LD_linalg::max_val<int>(rank_vec,nspc);}
-  inline int min_nulldim()
-  {
-    int nd_out = vlen_full, nd_i;
-    for (size_t i = 0; i < nspc; i++)
-      if (nd_out > (nd_i=nulldim_i(i))) nd_out = nd_i;
-    return nd_out;
-  }
-  inline int max_nulldim()
-  {
-    int nd_out = 0, nd_i;
-    for (size_t i = 0; i < nspc; i++)
-      if (nd_out < (nd_i=nulldim_i(i))) nd_out = nd_i;
-    return nd_out;
-  }
-
-  void write_LD_svd_bundle(const char name_[]);
-};
-
 struct LD_vector_field: public ode_system
 {
   protected:

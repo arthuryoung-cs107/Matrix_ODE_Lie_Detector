@@ -77,17 +77,17 @@ Sref_crv_svd_plot = LD_plots.plot_curve_svds(Sref_svd_array,LD_plots('svd',[9 9]
 
 %%%%%%%%%%%%%%%%%%%%%%%%
 
-% Asvd = Sref_Osvd;
-% AYLsvd = Sref_OYLsvd;
-% AYLrstsvd = Sref_OYLsvd_rst;
+Asvd = Sref_Osvd;
+AYLsvd = Sref_OYLsvd;
+AYLrstsvd = Sref_OYLsvd_rst;
 
 % Asvd = Sref_Gsvd;
 % AYLsvd = Sref_GYLsvd;
 % AYLrstsvd = Sref_GYLsvd_rst;
 
-Asvd = Sref_OGsvd;
-AYLsvd = Sref_OGYLsvd;
-AYLrstsvd = Sref_OGYLsvd_rst;
+% Asvd = Sref_OGsvd;
+% AYLsvd = Sref_OGYLsvd;
+% AYLrstsvd = Sref_OGYLsvd_rst;
 
 
 [ndep,nvar] = deal(meta0.ndep,meta0.ndep+1);
@@ -98,7 +98,8 @@ Atns = permute(reshape(Amat',ncol,[],ncrv),[2 1 3]);
 Ytns_L = AYLrstsvd.Ytns_L;
 AtnsYL_rst = LD_aux.Atns_Ytns_mult(Atns,Ytns_L);
 
-k_clst = 2:5;
+k_clst = 2:10;
+% k_clst = 2:25;
 
 %%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -138,6 +139,7 @@ k_clusters_KA = k_clst(i_SC_KA_max);
 [medoid_KA_pckg,greedy_medoid_KA_pckg,improved_on_greedy_KA] = LD_aux.naive_k_medoid(dmat_K_A,k_clusters_KA)
 [~,medoid_KA_pckg_detailed] = LD_aux.post_process_medoid_package(medoid_KA_pckg)
 
+return
 
 Ktns_A_YLrst = LD_aux.compute_Ktns_A_YLrst(AYLrstsvd);
 cmat_K_A_YLrst = LD_aux.compute_frobenius_closeness_matrix(Ktns_A_YLrst);

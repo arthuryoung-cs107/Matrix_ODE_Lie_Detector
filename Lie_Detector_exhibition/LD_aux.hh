@@ -441,4 +441,141 @@ struct LD_svd
 
 };
 
+struct k_medoids_package
+{
+
+  k_medoids_package(int kclst_,double **dsym_,int npts_): dsym(dsym_), npts(npts_),
+    f_nmeds(new bool[npts_]), i_meds(new int[2*npts_]), i_nmeds(i_meds+npts_)
+  {
+    double  dclst_greedy = greedy_k_medoids(kclst_,i_nmeds,f_nmeds), // perform greedy k medoids to start
+            dclst_kmdoid = k_medoids(kclst_,i_nmeds,f_nmeds,dclst_greedy);
+    dclst = (dclst_kmdoid<dclst_greedy)?(dclst_kmdoid):(dclst_kmdoid);
+
+    printf("dclst_greedy = %e, dclst = %e\n", dclst_greedy,dclst_kmdoid);
+  }
+  ~k_medoids_package()
+  {
+    delete [] f_nmeds;
+    delete [] i_meds;
+  }
+
+  // input data
+  const int npts;
+  double  ** const dsym,
+           * const dsym_vec = dsym[0];
+
+  bool * const f_nmeds;
+  int * const i_meds,
+      * const i_nmeds;
+  double dclst;
+
+  double k_medoids(int kclst_,int inmed_[],bool fnmed_[],double dclst_greedy_)
+  {
+    const int n_nmed = npts-kclst_;
+    double dclst_out = dclst_greedy_;
+    while (true)
+    {
+      populate_nmed(inmed_,fnmed_,kclst_);
+      int mswap_best = -1,
+          oswap_best;
+      double  dswap_best = dclst_out,
+              dswap_try;
+      for (size_t k = 0; k < kclst_; k++)
+        for (size_t ik = 0; ik < n_nmed; ik++)
+          if (dswap_best > (dswap_try = comp_dclst_itry_kskp(inmed_,kclst_,inmed_[ik],k)))
+          {
+            mswap_best = k;
+            oswap_best = inmed_[ik];
+            dswap_best = dswap_try;
+          }
+
+      if (mswap_best == -1) break;
+      else
+      {
+        i_meds[mswap_best] = oswap_best;
+        dclst_out = dswap_best;
+      }
+    }
+    return dclst_out;
+  }
+
+  double greedy_k_medoids(int kclst_,int inmed_[],bool fnmed_[])
+  {
+    i_meds[0] = imin_net_d();
+    double dclst_out;
+    for (size_t km1 = 1, n_nmed = npts-1; km1 < kclst_; km1++, n_nmed--)
+    {
+      populate_nmed(inmed_,fnmed_,km1);
+      int &ik = i_meds[km1] = inmed_[0];
+      double  dik = dclst_out = comp_itry_dclst(inmed_,km1,i_meds[km1]);
+      for (size_t iik = 1; iik < n_nmed; iik++)
+        if (dclst_out > (dik = comp_itry_dclst(inmed_,km1,inmed_[iik])))
+          {ik = inmed_[iik]; dclst_out = dik;}
+    }
+    return dclst_out;
+  }
+
+  private:
+
+    inline double comp_dclst_itry_kskp(int inmed_[],int k_,int ik_try_,int k_skp_)
+    {
+      const int n_nmed = npts-k_;
+      double dclst_acc = get_min_dclst_i_kskp(i_meds[k_skp_],k_,ik_try_,k_skp_); // initialize w replaced k distance
+      for (size_t i = 0; i < n_nmed; i++)
+        if (inmed_[i] != ik_try_) dclst_acc += get_min_dclst_i_kskp(inmed_[i],k_,ik_try_,k_skp_);
+      return dclst_acc;
+    }
+    inline double get_min_dclst_i_kskp(int i_,int k_,int ik_try_,int k_skp_)
+    {
+      double  dclst_min = dij(i_,ik_try_),
+              dclst_kk;
+      for (size_t kk = 0; kk < k_skp_; kk++)
+        if (dclst_min > (dclst_kk = dij(i_,i_meds[kk]))) dclst_min = dclst_kk;
+      for (size_t kk = k_skp_+1; kk < k_; kk++)
+        if (dclst_min > (dclst_kk = dij(i_,i_meds[kk]))) dclst_min = dclst_kk;
+      return dclst_min;
+    }
+
+    inline double comp_itry_dclst(int inmed_[],int k_,int ik_try_)
+    {
+      const int n_nmed = npts-k_;
+      double dclst_acc = 0.0;
+      for (size_t i = 0; i < n_nmed; i++)
+        if (inmed_[i] != ik_try_) dclst_acc += get_min_dclst_i(inmed_[i],k_,ik_try_);
+      return dclst_acc;
+    }
+    inline double get_min_dclst_i(int i_,int k_,int ik_try_)
+    {
+      double  dclst_min = dij(i_,ik_try_),
+              dclst_kk;
+      for (size_t kk = 0; kk < k_; kk++)
+        if (dclst_min > (dclst_kk = dij(i_,i_meds[kk]))) dclst_min = dclst_kk;
+      return dclst_min;
+    }
+
+    inline double dij(int i_,int j_) {return (i_<j_)?(dsym[i_][j_-i_-1]):((i_>j_)?(dsym[j_][i_-j_-1]):(0.0));}
+    inline void populate_nmed(int inmed_[],bool fnmed_[],int k_)
+    {
+      for (size_t i = 0; i < npts; i++) fnmed_[i] = true;
+      for (size_t i = 0; i < k_; i++) fnmed_[i_meds[i]] = false;
+      for (size_t i = 0, ii = 0; i < npts; i++) if (fnmed_[i]) inmed_[ii++] = i;
+    }
+    inline double comp_ipts_net_d(int i_)
+    {
+      double acc = 0.0;
+      for (size_t j = 0; j < npts; j++) acc += dij(i_,j);
+      return acc;
+    }
+    inline int imin_net_d()
+    {
+      int imin_out = 0;
+      double  dmin = comp_ipts_net_d(0),
+              dmin_comp;
+      for (size_t i = 1; i < npts; i++)
+        if (dmin > ( dmin_comp = comp_ipts_net_d(i) ))
+          {imin_out = i; dmin = dmin_comp;}
+      return imin_out;
+    }
+};
+
 #endif

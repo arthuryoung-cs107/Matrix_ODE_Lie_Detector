@@ -471,10 +471,7 @@ class LD_encoding_bundle
 
 struct vspace_evaluation_package
 {
-  vspace_evaluation_package(ode_solspc_subset &Sset_,int ncon_,int nvec_,int nsol_,double tol_): Sset(Sset_),
-    ncon(ncon_), nvec_max(nvec_), nsol_max(nsol_),
-    sat_flags_mat(Tmatrix<bool>(nsol_,nvec_)),
-    tol(tol_), nvec_evl(nvec_), nsol_evl(nsol_) {}
+  vspace_evaluation_package(ode_solspc_subset &Sset_,int ncon_,int nvec_,int nsol_,double tol_);
   vspace_evaluation_package(vspace_evaluation_package &evl_,int nsol_): vspace_evaluation_package(evl_.Sset,evl_.ncon,evl_.nvec_evl,nsol_,evl_.tol) {}
   ~vspace_evaluation_package() {free_Tmatrix<bool>(sat_flags_mat);}
 
@@ -608,6 +605,112 @@ struct vspace_evaluation_package
         work_time,LD_threads::numthreads());
     }
   }
+};
+
+class LD_vspace_organizer
+{
+  const int nset0,
+            nset0m1 = nset0-1,
+            dsym0_len = (nset0*nset0m1)/2;
+
+  double  ** const dsym0,
+           * const dsym0_vec = dsym0[0];
+
+  public:
+
+    LD_vspace_organizer(LD_vector_bundle &vbndle_):
+      vlen(vbndle_.vlen_full), nset0(vbndle_.nspc), nset(vbndle_.nspc),
+      dsym0(Tsym<double>(nset0m1)), dsym(new double*[nset0])
+    {
+      LD_vspace_organizer::compute_Frobenius_distances(dsym,dsym0_vec,nset0,vbndle_.Vtns,vbndle_.nV_spcvec,vlen);
+      // LD_linalg::print_Asym("dsym",dsym,nset0m1);
+    }
+    LD_vspace_organizer(int vlen_, int nset0_):
+      vlen(vlen_), nset0(nset0_), nset(nset0_),
+      dsym0(Tsym<double>(nset0m1)), dsym(new double*[nset0]) {}
+    ~LD_vspace_organizer() {free_Tmatrix<double>(dsym0); delete [] dsym;}
+
+    const int vlen;
+    int nset;
+    double ** const dsym;
+
+    inline void init_Frobenius_distances(LD_vector_bundle &vbndle_, int nset_)
+      {LD_vspace_organizer::compute_Frobenius_distances(dsym,dsym0_vec,nset=nset0,vbndle_.Vtns,vbndle_.nV_spcvec,vlen);}
+    static void compute_Frobenius_distances(double **dsym_,double *dvec_,int nset_,double ***Vtns_,int *nV_,int vlen_)
+    {
+      const int nsetm1 = nset_-1;
+      for (size_t i = 0, jcap = nsetm1, isym = 0; i < nsetm1; i++, jcap--)
+      {
+        dsym_[i] = dvec_+isym;
+        for (size_t j = 0, l = i+1; j < jcap; j++, l++, isym++)
+          dvec_[isym]=1.0-LD_vspace_organizer::compute_Frobenius_closeness(Vtns_[i],nV_[i],Vtns_[l],nV_[l],vlen_);
+      }
+      // for (size_t i = 0, jcap = nsetm1, isym = 0; i < nsetm1; i++, isym += jcap--) dsym_[i] = dvec_+isym;
+    }
+    static double compute_Frobenius_closeness(double **Va_,int na_,double **Vb_,int nb_,int vlen_)
+    {
+      double acc_fro = 0.0;
+      for (size_t i = 0; i < na_; i++)
+        for (size_t j = 0; j < nb_; j++)
+        {
+          double acc_ij = 0.0;
+          for (size_t l = 0; l < vlen_; l++) acc_ij += Va_[i][l]*Vb_[j][l];
+          acc_fro += acc_ij*acc_ij;
+        }
+      return sqrt(acc_fro/((double)((na_<nb_)?(na_):(nb_))));
+    }
+};
+
+struct LD_svd_bundle: public LD_vector_bundle
+{
+  LD_svd_bundle(int nspc_,int vlen_): LD_vector_bundle(nspc_,vlen_),
+    rank_vec(new int[nspc_]), Smat(Tmatrix<double>(nspc_,vlen_)) {}
+  LD_svd_bundle(LD_encoding_bundle &Abndl_,bool verbose_=true):
+    LD_svd_bundle(Abndl_.nset,Abndl_.ncol_full)
+    {compute_Acode_curve_svds(Abndl_,verbose_);}
+  LD_svd_bundle(LD_encoding_bundle &Abndle_,LD_Theta_bundle &Tbndle_,bool init_=false,bool verbose_=true):
+    LD_svd_bundle(Abndle_.nset,Abndle_.ncol_full)
+  {
+    compute_AYmat_curve_svds(Abndle_,Tbndle_.Tspaces,verbose_);
+    if (init_) Tbndle_.init_Vbndle_premult(VTtns);
+  }
+  ~LD_svd_bundle()
+  {
+    free_Tmatrix<double>(Smat);
+    delete [] rank_vec;
+  }
+
+  int * const rank_vec;
+  double  ** const Smat,
+          *** const VTtns = Vtns_data;
+
+  static void project_Theta_bundle(LD_Theta_bundle &Tbndle_,LD_encoding_bundle &Abndle_,bool verbose_=true)
+    {LD_svd_bundle svd_bndle(Abndle_,Tbndle_,true,verbose_);}
+
+  void compute_Acode_curve_svds(LD_encoding_bundle &Abndle_,bool verbose_=true);
+  void compute_AYmat_curve_svds(LD_encoding_bundle &Abndle_,LD_Theta_space ** const Tspaces_,bool verbose_=true);
+
+  void print_details(const char name_[] =  "Amat_SVD");
+
+  inline int nulldim_i(int i_) {return nV_spcvec[i_]-rank_vec[i_];}
+  inline int min_rank() {return LD_linalg::min_val<int>(rank_vec,nspc);}
+  inline int max_rank() {return LD_linalg::max_val<int>(rank_vec,nspc);}
+  inline int min_nulldim()
+  {
+    int nd_out = vlen_full, nd_i;
+    for (size_t i = 0; i < nspc; i++)
+      if (nd_out > (nd_i=nulldim_i(i))) nd_out = nd_i;
+    return nd_out;
+  }
+  inline int max_nulldim()
+  {
+    int nd_out = 0, nd_i;
+    for (size_t i = 0; i < nspc; i++)
+      if (nd_out < (nd_i=nulldim_i(i))) nd_out = nd_i;
+    return nd_out;
+  }
+
+  void write_LD_svd_bundle(const char name_[]);
 };
 
 #endif
