@@ -38,8 +38,8 @@ int main()
   orthopolynomial_basis **bases0 = make_evaluation_bases<orthopolynomial_basis, orthopolynomial_space>(fspace0);
   orthopolynomial_basis &basis0 = *(bases0[0]);
 
-  // bool normalize_flag = true;
-  bool normalize_flag = false;
+  bool normalize_flag = true;
+  // bool normalize_flag = false;
 
   LD_encoding_bundle Lcode(Sobs.ncrvs_tot,fspace0.perm_len,Sobs.npts_per_crv,1);
   LD_L_encoder::encode_L_bundle<orthopolynomial_basis>(Lcode,Sobs,bases0,normalize_flag);
@@ -116,18 +116,24 @@ int main()
 
   OG_OGsat_rec.compare_subspaces(OGYL_x_OGsat_rec,"OGYL_x_OGsat_rec",OGYL_xu_OGsat_rec,"OGYL_xu_OGsat_rec");
 
-  // LD_vspace_organizer OG_OGsat_org(OGbndl);
-  //   k_medoids_package k_med_OG_OGsat(5, OG_OGsat_org.dsym, OG_OGsat_org.nset);
+  // LD_vspace_organizer OG_OGsat_org(OGbndl); OG_OGsat_org.init_Frobenius_distances(OGbndl)
+  //   k_medoids_package k_med_OG_OGsat(OG_OGsat_org.dsym,OG_OGsat_org.nset);
+  //   double sc3 = k_med_OG_OGsat.comp_k_medoids(3);
 
-  LD_vector_bundle Obndl_maxnull(Ocode_svd.rec);
-  Obndl_maxnull.rec.set_record_uninull(Ocode_svd.max_nulldim()); Obndl_maxnull.set_Vspaces();
+  // debugging dataset
+  LD_encoding_bundle Ocode_check(Sobs.ncrvs_tot,fspace0.ndof_full,Sobs.npts_per_crv,meta0.ndep);
+  LD_R_encoder::encode_O_bundle<orthopolynomial_basis>(Ocode_check,Sobs,bases0,false);
+  LD_svd_bundle Ocode_check_svd(Ocode_check); Ocode_check_svd.print_details("Ocode_check_svd");
+  LD_vector_bundle Obndl_check_maxnull(Ocode_check_svd.rec);
+    Obndl_check_maxnull.rec.set_record_uninull(Ocode_check_svd.max_nulldim()); Obndl_check_maxnull.set_Vspaces();
+    LD_vspace_organizer Oorg_maxnull(Obndl_check_maxnull); Oorg_maxnull.init_Frobenius_distances(Obndl_check_maxnull);
+      k_medoids_package k_med_O_maxnull(Oorg_maxnull.dsym,Oorg_maxnull.nset);
+      // double sc3 = k_med_O_maxnull.comp_k_medoids(3); printf("sc3 = %.4f \n", sc3);
+      // int k_SC = k_med_O_maxnull.find_k_SC_krange(10);
+      int k_SC = k_med_O_maxnull.find_k_SC(); 
+      printf("k_SC = %d, SC = %.4f \n", k_SC, k_med_O_maxnull.silh_coeff);
 
 
-  LD_vspace_organizer O_maxnull_org(Obndl_maxnull);
-
-  double t0_1 = LD_threads::tic();
-  k_medoids_package k_med_O(3,O_maxnull_org.dsym,O_maxnull_org.nset);
-  printf("performed k medoids in %.3f seconds\n", LD_threads::toc(t0_1));
 
   bool reintegrate_data = false;
   if (reintegrate_data)

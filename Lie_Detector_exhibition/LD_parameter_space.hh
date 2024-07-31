@@ -618,32 +618,31 @@ class LD_vspace_organizer
 
   public:
 
-    LD_vspace_organizer(LD_vector_bundle &vbndle_):
-      vlen(vbndle_.vlen_full), nset0(vbndle_.nspc), nset(vbndle_.nspc),
-      dsym0(Tsym<double>(nset0m1)), dsym(new double*[nset0])
-    {
-      double t0_0 = LD_threads::tic();
-      LD_vspace_organizer::compute_Frobenius_distances(dsym,dsym0_vec,nset0,vbndle_.Vtns,vbndle_.nV_spcvec,vlen);
-      printf("computed distance matrix in %.3f seconds\n", LD_threads::toc(t0_0));
-      // LD_linalg::print_Asym("dsym",dsym,nset0m1);
-    }
     LD_vspace_organizer(int vlen_, int nset0_):
       vlen(vlen_), nset0(nset0_), nset(nset0_),
       dsym0(Tsym<double>(nset0m1)), dsym(new double*[nset0]) {}
+    LD_vspace_organizer(LD_vector_bundle &vbndle_,bool verbose_=true):
+      LD_vspace_organizer(vbndle_.vlen_full,vbndle_.nspc) {}
     ~LD_vspace_organizer() {free_Tmatrix<double>(dsym0); delete [] dsym;}
 
     const int vlen;
     int nset;
     double ** const dsym;
 
-    inline void init_Frobenius_distances(LD_vector_bundle &vbndle_, int nset_)
-      {LD_vspace_organizer::compute_Frobenius_distances(dsym,dsym0_vec,nset=nset0,vbndle_.Vtns,vbndle_.nV_spcvec,vlen);}
-    static void compute_Frobenius_distances(double **dsym_,double *dvec_,int nset_,double ***Vtns_,int *nV_,int vlen_)
+    inline void init_Frobenius_distances(LD_vector_bundle &vbndle_, int nset_=0, bool verbose_=true)
+    {
+      LD_vspace_organizer::compute_Frobenius_distances(dsym,dsym0_vec,(nset_)?(nset = nset_):(nset),
+        vbndle_.Vtns,vbndle_.nV_spcvec,vlen,verbose_);
+    }
+
+    static void compute_Frobenius_distances(double **dsym_,double *dvec_,int nset_,double ***Vtns_,int *nV_,int vlen_,bool verbose_=true)
     {
       const int nsetm1 = nset_-1,
                 len_sym = (nsetm1*nset_)/2;
       for (size_t i = 0, jcap = nsetm1, isym = 0; i < nsetm1; i++, isym += jcap--) dsym_[i] = dvec_+isym;
-      #pragma omp parallel
+      int ncol_acc = 0;
+      double t0 = LD_threads::tic();
+      #pragma omp parallel reduction(+:ncol_acc)
       {
         int i,j;
         #pragma omp for
@@ -651,8 +650,12 @@ class LD_vspace_organizer
         {
           LD_vspace_organizer::get_rowcol_isym(i,j,isym,nsetm1);
           dvec_[isym]=1.0-LD_vspace_organizer::compute_Frobenius_closeness(Vtns_[i],nV_[i],Vtns_[j],nV_[j],vlen_);
+          ncol_acc += nV_[i] + nV_[j];
         }
       }
+      double work_time = LD_threads::toc(t0);
+      if (verbose_) printf("(LD_vspace_organizer::compute_Frobenius_distances) computed distance matrix (%d vspaces, %d matrix products of avg. dims. %d x %.1f) in %.3f seconds\n",
+        nset_, len_sym, vlen_, ncol_acc/((double) (2*len_sym)),work_time);
     }
     static double compute_Frobenius_closeness(double **Va_,int na_,double **Vb_,int nb_,int vlen_)
     {
