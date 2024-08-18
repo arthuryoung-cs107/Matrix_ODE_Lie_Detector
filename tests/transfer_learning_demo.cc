@@ -3,6 +3,7 @@
 #include "LD_integrators.hh"
 #include "LD_encodings.hh"
 #include "LD_vspace_evaluators.hh"
+#include "solution_space_cokernals.hh"
 
 // specify data directory for writing binary files
 const char dir_name[] = "./data_directory";
@@ -62,6 +63,7 @@ int main()
   //         rtol_use_R = 1e-08;
   double  tol_use_L = 1e-10,
           tol_use_G = 1e-06,
+          // atol_use_R = 1e-06,
           atol_use_R = 1e-08,
           // atol_use_R = 1e-09,
           rtol_use_R = 0e-00;
@@ -77,63 +79,67 @@ int main()
   LD_vector_bundle  OGbndl0(OGcode_svd.rec);
     OGbndl0.rec.set_record_nullspc(OGcode_svd.rank_vec);
       OGbndl0.set_Vspaces();
-        OGcode_svd.rec.print_subspace_details(OGbndl0.rec,"OGbndl0.rec");
+        OGcode_svd.rec.print_subspace_details(OGbndl0.rec,"OGbndl0");
 
     LD_vector_bundle  OGbndl(OGcode_svd.rec);
-    LD_vspace_record  OG_rec0(OGbndl.rec),
-                      OG_Osat_rec(OG_rec0),
-                      OG_Gsat_rec(OG_rec0);
-    Rk_vspace_eval::evaluate_kth_ratio_condition<orthopolynomial_basis>(OG_Osat_rec,OG_rec0,
-      Sobs,bases0,atol_use_R,rtol_use_R);
-    G_vspace_eval::evaluate_infinitesimal_criterion<orthopolynomial_basis>(OG_Gsat_rec,OG_rec0,
-      Sobs,bases0,tol_use_G);
-    LD_vspace_record  OG_OGsat_rec(OG_Osat_rec,OG_Gsat_rec); OGbndl.set_Vspaces(OG_OGsat_rec);
-    OG_rec0.print_subspace_details(OGbndl.rec,"OGbndl.rec");
+    LD_vspace_record  OG_rec0(OGbndl.rec);
+      OG_vspace_eval::evaluate_nthcond_infcrit(OGbndl,OG_rec0,Sobs,bases0,atol_use_R,rtol_use_R,tol_use_G);
+    OG_rec0.print_subspace_details(OGbndl.rec,"OGbndl");
 
     LD_Theta_bundle OGYL_Tbndl_x(meta0,Sobs.ncrvs_tot,fspace0.ndof_full,LYbndl,0);
-    LD_svd_bundle::project_Theta_bundle(OGYL_Tbndl_x,OGcode);
-    LD_vspace_record  OGYL_x_rec0(OGYL_Tbndl_x.rec),
-                      OGYL_x_Osat_rec(OGYL_x_rec0),
-                      OGYL_x_Gsat_rec(OGYL_x_rec0);
-    Rk_vspace_eval::evaluate_kth_ratio_condition<orthopolynomial_basis>(OGYL_x_Osat_rec,OGYL_x_rec0,
-      Sobs,bases0,atol_use_R,rtol_use_R);
-    G_vspace_eval::evaluate_infinitesimal_criterion<orthopolynomial_basis>(OGYL_x_Gsat_rec,OGYL_x_rec0,
-      Sobs,bases0,tol_use_G);
-    LD_vspace_record  OGYL_x_OGsat_rec(OGYL_x_Osat_rec,OGYL_x_Gsat_rec); OGYL_Tbndl_x.set_Vspaces(OGYL_x_OGsat_rec);
-    OGYL_x_rec0.print_subspace_details(OGYL_Tbndl_x.rec,"OGYL_Tbndl_x.rec");
+      LD_svd_bundle::project_Theta_bundle(OGYL_Tbndl_x,OGcode);
+    LD_vspace_record  OGYL_x_rec0(OGYL_Tbndl_x.rec);
+      OG_vspace_eval::evaluate_nthcond_infcrit(OGYL_Tbndl_x,OGYL_x_rec0,Sobs,bases0,atol_use_R,rtol_use_R,tol_use_G);
+    OGYL_x_rec0.print_subspace_details(OGYL_Tbndl_x.rec,"OGYL_x");
 
     LD_Theta_bundle OGYL_Tbndl_xu(meta0,Sobs.ncrvs_tot,fspace0.ndof_full,LYbndl,-1);
-    LD_svd_bundle::project_Theta_bundle(OGYL_Tbndl_xu,OGcode);
-    LD_vspace_record  OGYL_xu_rec0(OGYL_Tbndl_xu.rec),
-                      OGYL_xu_Osat_rec(OGYL_xu_rec0),
-                      OGYL_xu_Gsat_rec(OGYL_xu_rec0);
-    Rk_vspace_eval::evaluate_kth_ratio_condition<orthopolynomial_basis>(OGYL_xu_Osat_rec,OGYL_xu_rec0,
-      Sobs,bases0,atol_use_R,rtol_use_R);
-    G_vspace_eval::evaluate_infinitesimal_criterion<orthopolynomial_basis>(OGYL_xu_Gsat_rec,OGYL_xu_rec0,
-      Sobs,bases0,tol_use_G);
-    LD_vspace_record  OGYL_xu_OGsat_rec(OGYL_xu_Osat_rec,OGYL_xu_Gsat_rec); OGYL_Tbndl_xu.set_Vspaces(OGYL_xu_OGsat_rec);
-    OGYL_xu_rec0.print_subspace_details(OGYL_Tbndl_xu.rec,"OGYL_Tbndl_xu.rec");
+      LD_svd_bundle::project_Theta_bundle(OGYL_Tbndl_xu,OGcode);
+    LD_vspace_record  OGYL_xu_rec0(OGYL_Tbndl_xu.rec);
+      OG_vspace_eval::evaluate_nthcond_infcrit(OGYL_Tbndl_xu,OGYL_xu_rec0,Sobs,bases0,atol_use_R,rtol_use_R,tol_use_G);
+    OGYL_xu_rec0.print_subspace_details(OGYL_Tbndl_xu.rec,"OGYL_xu");
 
-  OG_OGsat_rec.compare_subspaces(OGYL_x_OGsat_rec,"OGYL_x_OGsat_rec",OGYL_xu_OGsat_rec,"OGYL_xu_OGsat_rec");
+  OGbndl.rec.compare_subspaces(OGYL_Tbndl_x.rec,"OGYL_x",OGYL_Tbndl_xu.rec,"OGYL_xu");
 
-  // LD_vspace_organizer OG_OGsat_org(OGbndl); OG_OGsat_org.init_Frobenius_distances(OGbndl)
-  //   k_medoids_package k_med_OG_OGsat(OG_OGsat_org.dsym,OG_OGsat_org.nset);
-  //   double sc3 = k_med_OG_OGsat.comp_k_medoids(3);
+  Frobenius_vspace_measure OGmsr_OGsat(OGbndl); OGmsr_OGsat.init_Frobenius_distances(OGbndl);
+    k_medoids_package k_med_OG_OGsat(OGmsr_OGsat.dsym,OGmsr_OGsat.nset);
+    int k_SC = k_med_OG_OGsat.comp_kSC_medoids();
+    // const int kmin=2,kmax=10,klen=kmax-kmin+1;
+    // int k_SC = k_med_OG_OGsat.comp_kSC_krange_medoids(kmin,kmax);
+    // double SCs_OG_OGsat[klen]; k_med_OG_OGsat.comp_SC_krange_medoids(SCs_OG_OGsat,kmin,kmax);
+    // for (size_t k = kmin, ik=0; k <= kmax; k++, ik++) printf("(%d, %e) ", k,SCs_OG_OGsat[ik]); printf("\n");
 
-  // debugging dataset
-  LD_encoding_bundle Ocode_check(Sobs.ncrvs_tot,fspace0.ndof_full,Sobs.npts_per_crv,meta0.ndep);
-  LD_R_encoder::encode_O_bundle<orthopolynomial_basis>(Ocode_check,Sobs,bases0,false);
-  LD_svd_bundle Ocode_check_svd(Ocode_check); Ocode_check_svd.print_details("Ocode_check_svd");
-  LD_vector_bundle Obndl_check_maxnull(Ocode_check_svd.rec);
-    Obndl_check_maxnull.rec.set_record_uninull(Ocode_check_svd.max_nulldim()); Obndl_check_maxnull.set_Vspaces();
-    LD_vspace_organizer Oorg_maxnull(Obndl_check_maxnull); Oorg_maxnull.init_Frobenius_distances(Obndl_check_maxnull);
-      k_medoids_package k_med_O_maxnull(Oorg_maxnull.dsym,Oorg_maxnull.nset);
-      // double sc3 = k_med_O_maxnull.comp_k_medoids(3); printf("sc3 = %.4f \n", sc3);
-      // int k_SC = k_med_O_maxnull.find_k_SC_krange(10);
-      int k_SC = k_med_O_maxnull.find_k_SC(); 
-      printf("k_SC = %d, SC = %.4f \n", k_SC, k_med_O_maxnull.silh_coeff);
+  // // debugging dataset
+  // LD_encoding_bundle Ocode_check(Sobs.ncrvs_tot,fspace0.ndof_full,Sobs.npts_per_crv,meta0.ndep);
+  // LD_R_encoder::encode_O_bundle<orthopolynomial_basis>(Ocode_check,Sobs,bases0,false);
+  // LD_svd_bundle Ocode_check_svd(Ocode_check); Ocode_check_svd.print_details("Ocode_check_svd");
+  // LD_vector_bundle Obndl_check_maxnull(Ocode_check_svd.rec);
+  //   Obndl_check_maxnull.rec.set_record_uninull(Ocode_check_svd.max_nulldim()); Obndl_check_maxnull.set_Vspaces();
+  //   Frobenius_vspace_measure Omsr_maxnull(Obndl_check_maxnull); Omsr_maxnull.init_Frobenius_distances(Obndl_check_maxnull);
+  //     k_medoids_package k_med_O_maxnull(Omsr_maxnull.dsym,Omsr_maxnull.nset);
+  //     // double sc3 = k_med_O_maxnull.comp_k_medoids(3); printf("sc3 = %.4f \n", sc3);
+  //     // int k_SC = k_med_O_maxnull.find_k_SC_krange(10); printf("k_SC = %d, SC = %.4f \n", k_SC, k_med_O_maxnull.silh_coeff);
+  //     // int k_SC = k_med_O_maxnull.find_kSC(); printf("k_SC = %d, SC = %.4f \n", k_SC, k_med_O_maxnull.silh_coeff);
+  //     // int k_SC = k_med_O_maxnull.comp_kSC_medoids();
+  //     int k_SC = k_med_O_maxnull.comp_kSC_krange_medoids(2,10);
 
+  // double  atol_R_cok = atol_use_R,
+  double  atol_R_cok = 1e-3,
+          // rtol_R_cok = rtol_use_R,
+          rtol_R_cok = 1e-3,
+          // tol_G_cok = tol_use_G;
+          tol_G_cok = 1e-3;
 
+  LD_vector_bundle  OGbndl_cok(OGcode_svd.rec);
+  // LD_vector_bundle  OGbndl_cok(OGYL_x_rec0);
+  // LD_vector_bundle  OGbndl_cok(OGYL_xu_rec0);
+  OG_vspace_eval OG_evl(Sobs,OGbndl_cok.vlen_full,atol_R_cok,rtol_R_cok,tol_G_cok);
+  Frobenius_vspace_measure OGmsr_cok(OGbndl_cok);
+
+  printf("\ntesting cokernals\n\n");
+
+  solution_space_cokernals solspc_cok(Sobs.ncrvs_tot,Sobs.nobs);
+
+  solspc_cok.compute_solspc_cokernals<OG_vspace_eval,orthopolynomial_basis>(OGbndl_cok,Sobs,OG_evl,OGmsr_cok,bases0);
 
   bool reintegrate_data = false;
   if (reintegrate_data)

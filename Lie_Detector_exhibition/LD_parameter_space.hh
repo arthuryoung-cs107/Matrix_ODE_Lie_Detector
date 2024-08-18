@@ -18,7 +18,10 @@ struct LD_vspace_record
     nspc(rec_.nspc), nvec(rec_.nvec), vlen(rec_.vlen),
     nV_spcvec(new int[rec_.nspc]), iV_spcmat(Tmatrix<int>(rec_.nspc,rec_.nvec)), Vtns_data(rec_.Vtns_data)
     {copy_record(rec_);}
-  LD_vspace_record(LD_vspace_record &rec1_,LD_vspace_record &rec2_); // combine records
+  LD_vspace_record(LD_vspace_record &rec1_,LD_vspace_record &rec2_): // combine records
+    LD_vspace_record(LD_linalg::max_T<int>(rec1_.nspc,rec2_.nspc),
+      LD_linalg::max_T<int>(rec1_.nvec,rec2_.nvec),LD_linalg::max_T<int>(rec1_.vlen,rec2_.vlen),
+      rec1_.Vtns_data,false) {init_combined_records(rec1_,rec2_);}
   ~LD_vspace_record() { free_Tmatrix<int>(iV_spcmat); delete [] nV_spcvec; }
 
   const int nspc,
@@ -28,6 +31,7 @@ struct LD_vspace_record
       ** const iV_spcmat;
   double *** const Vtns_data;
 
+  void init_combined_records(LD_vspace_record &rec1_,LD_vspace_record &rec2_);
   inline void init_default()
     {for (size_t i = 0; i < nspc; i++) LD_linalg::fill_vec_012<int>(iV_spcmat[i],nV_spcvec[i]=nvec);}
   inline void copy_record(LD_vspace_record &rec_)
@@ -74,6 +78,7 @@ class LD_vector_space
 
     LD_vector_space(int vlen_);
     LD_vector_space(int vlen_,int *inds_V_,double **Vmat_data_,double **Vmat_);
+    LD_vector_space(LD_vector_space &Vspc_, bool deepcopy_);
     ~LD_vector_space();
 
     const int vlen_full;
@@ -84,8 +89,37 @@ class LD_vector_space
 
     double ** const Vmat;
 
+    // inline int set_Vspace(LD_vector_space &Vspc_,bool set_complements_=true)
+    // {
+    //   nvec_use = Vspc_.nvec_use; vlen_use = Vspc_.vlen_use;
+    //
+    //   double ** const Vdata_in = Vspc_.get_Vmat_data();
+    //   for (size_t i = 0; i < nvec_use; i++)
+    //     for (size_t j = 0; j < vlen_use; j++) Vmat_data[i][j] = Vdata_in[i][j];
+    //   for (size_t i = 0; i < nvec_use; i++) Vmat[i] = Vmat_data[inds_V[i] = Vspc_.inds_V[i]];
+    //   return nvec_use;
+    // }
+    inline void reset_Vspace()
+    {
+      nvec_use = vlen_use = vlen_full;
+      for (size_t i = 0; i < vlen_full; i++) Vmat[i] = Vmat_data[inds_V[i] = i];
+    }
+    // inline int load_Vmat_data(double **Vmat_, bool fsat_[], int nvec_)
+    // {
+    //   int iv = 0;
+    //   for (size_t i = 0, inv = 0; i < nvec_; i++)
+    //     if (fsat_[i]) LD_linalg::copy_vec<double>(Vmat[iv++] = Vmat_data[inds_V[iv] = iv],Vmat_[i],vlen_use);
+    //   return nvec_use = iv;
+    // }
     inline void set_Vmat(int nvec_use_)
-      {nvec_use = nvec_use_; for (size_t i = 0; i < nvec_use; i++) Vmat[i] = Vmat_data[inds_V[i]];}
+    {
+      bool fevl[vlen_full]; for (size_t i = 0; i < vlen_full; i++) fevl[i] = false;
+      for (size_t i = 0; i < nvec_use_; i++) fevl[inds_V[i]] = true;
+      for (size_t i = 0, iV = 0, inV = nvec_use_; i < vlen_full; i++)
+        if (fevl[i]) Vmat[iV++] = Vmat_data[inds_V[iV] = i]; // reorder if necessary
+        else Vmat[inV++] = Vmat_data[inds_V[inV] = i]; // place extraneous indices outside
+      nvec_use = nvec_use_;
+    }
     inline bool check_default_configuration()
     {
       if (nvec_use==vlen_use)
@@ -112,6 +146,11 @@ class LD_vector_space
           AVcol_[iele] += Acol_[jvec]*Vmat[jvec][iele];
     }
     inline double * Vrowi_data(int i_) {return Vmat_data[i_];}
+
+  protected:
+
+    double ** get_Vmat_data() {return Vmat_data;}
+
 };
 
 class LD_vector_bundle
@@ -134,12 +173,18 @@ class LD_vector_bundle
     LD_vector_bundle(LD_vspace_record &rec_): LD_vector_bundle(rec_.nspc,rec_.vlen,rec_.Vtns_data) {set_Vspaces(rec_);}
     ~LD_vector_bundle();
 
-    inline void load_Vtns_data(double ***Vtns_)
+    inline void load_Vtns_data(double ***Vtns_,bool load_complements_=true)
     {
-      for (size_t i = 0; i < nspc; i++)
-        for (size_t j = 0; j < nV_spcvec[i]; j++)
-          for (size_t k = 0; k < Vspaces[i]->vlen_use; k++)
-            Vtns_data[i][j][k] = Vtns_[i][j][k];
+      if (load_complements_)
+        for (size_t i = 0; i < nspc; i++)
+          for (size_t j = 0; j < vlen_full; j++)
+            for (size_t k = 0; k < vlen_full; k++)
+              Vtns_data[i][j][k] = Vtns_[i][j][k];
+      else
+        for (size_t i = 0; i < nspc; i++)
+          for (size_t j = 0; j < nV_spcvec[i]; j++)
+            for (size_t k = 0; k < Vspaces[i]->vlen_use; k++)
+              Vtns_data[i][j][k] = Vtns_[i][j][k];
     }
 
     LD_vspace_record &rec = *(rec_ptr);
@@ -197,18 +242,18 @@ class LD_Theta_space: public ode_solspc_element
 
     inline int set_ivar_Yspace(LD_vector_space *Yspace_, int ivar_=0)
     {
-      if ((0<=ivar_)&&(ivar_<nvar)) {bse_ptrs[ivar_] = Yspace_; return spc.nvec_use = verify_Yspaces();}
+      if ((0<=ivar_)&&(ivar_<nvar)) {bse_ptrs[ivar_] = Yspace_; return spc.nvec_use = verify_Yspaces(true);}
       else return spc.nvec_use = set_evry_Yspace(Yspace_);
     }
     inline int set_evry_Yspace(LD_vector_space *Yspace_)
     {
       for (size_t ivar = 0; ivar < nvar; ivar++) bse_ptrs[ivar] = Yspace_;
-      return spc.nvec_use = verify_Yspaces();
+      return spc.nvec_use = verify_Yspaces(true);
     }
     inline int set_evry_Yspace(LD_vector_space **Yspaces_)
     {
       for (size_t ivar = 0; ivar < nvar; ivar++) bse_ptrs[ivar] = Yspaces_[ivar];
-      return spc.nvec_use = verify_Yspaces();
+      return spc.nvec_use = verify_Yspaces(true);
     }
 
     inline void post_multiply_bases(double **AYmat_, double **Amat_, int mrows_, bool force_check_=false)
@@ -231,12 +276,26 @@ class LD_Theta_space: public ode_solspc_element
 
   protected:
 
-    inline int verify_Yspaces()
+    inline int verify_Yspaces(bool fset_complements_=false)
     {
       int ndof_acc = 0;
       for (size_t ivar = 0; ivar < nvar; ivar++)
         ndof_acc += (pbse_nvar_use[ivar] = (bse_ptrs[ivar]==NULL)?(perm_len):(bse_ptrs[ivar]->nvec_use));
+      if (fset_complements_) set_Yspace_complements(ndof_acc);
       return ndof_use = ndof_acc;
+    }
+    inline void set_Yspace_complements(int ndof_)
+    {
+      const int ndof_full = perm_len*nvar;
+      for (size_t ivar = 0, icmp = ndof_, iKiv = 0; ivar < nvar; ivar++, iKiv+=perm_len)
+        if (bse_ptrs[ivar] != NULL)
+          for (size_t ivc = bse_ptrs[ivar]->nvec_use; ivc < perm_len; ivc++, icmp++)
+          {
+            double  * const Vrow_cmp_i = spc.Vrowi_data(icmp);
+            for (size_t jcmp = 0; jcmp < iKiv; jcmp++) Vrow_cmp_i[jcmp] = 0.0;
+            LD_linalg::copy_vec<double>(Vrow_cmp_i+iKiv,spc.Vmat[ivc],perm_len);
+            for (size_t jcmp = iKiv+perm_len; jcmp < ndof_full; jcmp++) Vrow_cmp_i[jcmp] = 0.0;
+          }
     }
     inline int check_bse_case(bool force_check_=false)
     {
@@ -308,6 +367,7 @@ class LD_Theta_bundle: public ode_solspc_element
     }
     inline void set_Vspaces() {Vbndle.set_Vspaces();}
     inline void set_Vspaces(LD_vspace_record &rec_) {Vbndle.set_Vspaces(rec_);}
+    // inline void set_Vspace_data_i(int i_) {Vbndle.set_Vspace_data_i(i_);}
 };
 
 struct LD_encoder
@@ -469,11 +529,11 @@ class LD_encoding_bundle
     inline int nrows_mat_i(int i_) {return Acodes[i_]->nrow;}
 };
 
-struct vspace_evaluation_package
+struct LD_vspace_evaluator
 {
-  vspace_evaluation_package(ode_solspc_subset &Sset_,int ncon_,int nvec_,int nsol_,double tol_);
-  vspace_evaluation_package(vspace_evaluation_package &evl_,int nsol_): vspace_evaluation_package(evl_.Sset,evl_.ncon,evl_.nvec_evl,nsol_,evl_.tol) {}
-  ~vspace_evaluation_package() {free_Tmatrix<bool>(sat_flags_mat);}
+  LD_vspace_evaluator(ode_solspc_subset &Sset_,int ncon_,int nvec_,int nsol_,double tol_);
+  LD_vspace_evaluator(LD_vspace_evaluator &evl_,int nsol_): LD_vspace_evaluator(evl_.Sset,evl_.ncon,evl_.nvec_evl,nsol_,evl_.tol) {}
+  ~LD_vspace_evaluator() {free_Tmatrix<bool>(sat_flags_mat);}
 
   ode_solspc_subset &Sset;
   const int ncon,
@@ -533,16 +593,17 @@ struct vspace_evaluation_package
         }
         if (nVsat[iset] = nsat_seti)
         {
-          for (size_t iV = 0, isat = 0; iV < nvec_evl; iV++)
+          for (size_t iV = 0, isat = 0, insat = nsat_seti; iV < nvec_evl; iV++)
             if (sat_setmat[iset][iV]) iVsat[iset][isat++] = iV;
+            else iVsat[iset][insat++] = iV;
         }
-        else LD_linalg::fill_vec<int>(iVsat[iset],nvec_evl,-1);
+        // else LD_linalg::fill_vec<int>(iVsat[iset],nvec_evl,-1);
       }
     }
     double work_time = LD_threads::toc(t0);
     if (verbose_)
     {
-      printf("(vspace_evaluation_package::leniently_evaluate_vspace) evaluated %d conds. (%d sols) over %d bases (%.1f x %d, on avg.) in %.4f seconds (%d threads)\n",
+      printf("(LD_vspace_evaluator::leniently_evaluate_vspace) evaluated %d conds. (%d sols) over %d bases (%.1f x %d, on avg.) in %.4f seconds (%d threads)\n",
         nsol_acc*evl_.ncon,nsol_acc,nset,((double)nvec_acc)/((double)nset),reci_.vlen,
         work_time,LD_threads::numthreads());
     }
@@ -591,86 +652,46 @@ struct vspace_evaluation_package
         }
         if (nVsat[iset] = nsat_seti)
         {
-          for (size_t iV = 0, isat = 0; iV < nvec_evl; iV++)
+          for (size_t iV = 0, isat = 0, insat = nsat_seti; iV < nvec_evl; iV++)
             if (sat_setmat[iset][iV]) iVsat[iset][isat++] = iV;
+            else iVsat[iset][insat++] = iV;
         }
-        else LD_linalg::fill_vec<int>(iVsat[iset],nvec_evl,-1);
+        // else LD_linalg::fill_vec<int>(iVsat[iset],nvec_evl,-1);
       }
     }
     double work_time = LD_threads::toc(t0);
     if (verbose_)
     {
-      printf("(vspace_evaluation_package::strictly_evaluate_vspace) evaluated %d conds. (%d sols) over %d bases (%.1f x %d, on avg.) in %.4f seconds (%d threads)\n",
+      printf("(LD_vspace_evaluator::strictly_evaluate_vspace) evaluated %d conds. (%d sols) over %d bases (%.1f x %d, on avg.) in %.4f seconds (%d threads)\n",
         nsol_acc*evl_.ncon,nsol_acc,nset,((double)nvec_acc)/((double)nset),reci_.vlen,
         work_time,LD_threads::numthreads());
     }
   }
 };
 
-class LD_vspace_organizer
+struct LD_vspace_measure
 {
-  const int nset0,
-            nset0m1 = nset0-1,
-            dsym0_len = (nset0*nset0m1)/2;
+  LD_vspace_measure(int vlen_, int nset0_):
+    vlen(vlen_), nset0(nset0_), nset(nset0_),
+    dsym0(Tsym<double>(nset0_-1)), dsym(new double*[nset0_-1]) {}
+  ~LD_vspace_measure() {free_Tmatrix<double>(dsym0); delete [] dsym;}
 
-  double  ** const dsym0,
-           * const dsym0_vec = dsym0[0];
+  const int vlen;
+  int nset;
+  double ** const dsym;
 
-  public:
+  virtual void init_distances(LD_vector_bundle &vbndle_, int nset_=0, bool verbose_=true) = 0;
 
-    LD_vspace_organizer(int vlen_, int nset0_):
-      vlen(vlen_), nset0(nset0_), nset(nset0_),
-      dsym0(Tsym<double>(nset0m1)), dsym(new double*[nset0]) {}
-    LD_vspace_organizer(LD_vector_bundle &vbndle_,bool verbose_=true):
-      LD_vspace_organizer(vbndle_.vlen_full,vbndle_.nspc) {}
-    ~LD_vspace_organizer() {free_Tmatrix<double>(dsym0); delete [] dsym;}
-
-    const int vlen;
-    int nset;
-    double ** const dsym;
-
-    inline void init_Frobenius_distances(LD_vector_bundle &vbndle_, int nset_=0, bool verbose_=true)
-    {
-      LD_vspace_organizer::compute_Frobenius_distances(dsym,dsym0_vec,(nset_)?(nset = nset_):(nset),
-        vbndle_.Vtns,vbndle_.nV_spcvec,vlen,verbose_);
-    }
-
-    static void compute_Frobenius_distances(double **dsym_,double *dvec_,int nset_,double ***Vtns_,int *nV_,int vlen_,bool verbose_=true)
-    {
-      const int nsetm1 = nset_-1,
-                len_sym = (nsetm1*nset_)/2;
-      for (size_t i = 0, jcap = nsetm1, isym = 0; i < nsetm1; i++, isym += jcap--) dsym_[i] = dvec_+isym;
-      int ncol_acc = 0;
-      double t0 = LD_threads::tic();
-      #pragma omp parallel reduction(+:ncol_acc)
-      {
-        int i,j;
-        #pragma omp for
-        for (size_t isym = 0; isym < len_sym; isym++)
-        {
-          LD_vspace_organizer::get_rowcol_isym(i,j,isym,nsetm1);
-          dvec_[isym]=1.0-LD_vspace_organizer::compute_Frobenius_closeness(Vtns_[i],nV_[i],Vtns_[j],nV_[j],vlen_);
-          ncol_acc += nV_[i] + nV_[j];
-        }
-      }
-      double work_time = LD_threads::toc(t0);
-      if (verbose_) printf("(LD_vspace_organizer::compute_Frobenius_distances) computed distance matrix (%d vspaces, %d matrix products of avg. dims. %d x %.1f) in %.3f seconds\n",
-        nset_, len_sym, vlen_, ncol_acc/((double) (2*len_sym)),work_time);
-    }
-    static double compute_Frobenius_closeness(double **Va_,int na_,double **Vb_,int nb_,int vlen_)
-    {
-      double acc_fro = 0.0;
-      for (size_t i = 0; i < na_; i++)
-        for (size_t j = 0; j < nb_; j++)
-        {
-          double acc_ij = 0.0;
-          for (size_t l = 0; l < vlen_; l++) acc_ij += Va_[i][l]*Vb_[j][l];
-          acc_fro += acc_ij*acc_ij;
-        }
-      return sqrt(acc_fro/((double)((na_<nb_)?(na_):(nb_))));
-    }
+  inline double dij(int i_,int j_) {return (i_<j_)?(dsym[i_][j_-i_-1]):((i_>j_)?(dsym[j_][i_-j_-1]):(0.0));}
 
   protected:
+
+    const int nset0,
+              nset0m1 = nset0-1,
+              dsym0_len = (nset0*nset0m1)/2;
+
+    double  ** const dsym0,
+             * const dsym0_vec = dsym0[0];
 
     static void get_rowcol_isym(int &row, int &col, int isym_, int nsetm1_)
     {
@@ -681,6 +702,65 @@ class LD_vspace_organizer
       col = isym_dec+lenr_dec+row+2;
     }
 
+};
+
+struct Frobenius_vspace_measure: public LD_vspace_measure
+{
+  Frobenius_vspace_measure(int vlen_, int nset0_): LD_vspace_measure(vlen_,nset0_) {}
+  Frobenius_vspace_measure(LD_vector_bundle &vbndle_): LD_vspace_measure(vbndle_.vlen_full,vbndle_.nspc) {}
+  ~Frobenius_vspace_measure() {}
+
+  virtual void init_distances(LD_vector_bundle &vbndle_, int nset_=0, bool verbose_=true)
+    {init_Frobenius_distances(vbndle_,nset_,verbose_);}
+
+  inline void init_Frobenius_distances(LD_vector_bundle &vbndle_, int nset_=0, bool verbose_=true)
+  {
+    Frobenius_vspace_measure::comp_Frob_distances(dsym,dsym0_vec,
+      (nset_)?(nset = nset_):(nset),vbndle_.Vtns,vbndle_.nV_spcvec,vlen,verbose_);
+  }
+
+  static void comp_Frob_distances(double **dsym_,double *dvec_,int nset_,double ***Vtns_,int *nV_,int vlen_,bool verbose_=true)
+  {
+    const int nsetm1 = nset_-1,
+              len_sym = (nsetm1*nset_)/2;
+    for (size_t i = 0, jcap = nsetm1, isym = 0; i < nsetm1; i++, isym += jcap--) dsym_[i] = dvec_+isym;
+    int ncol_acc = 0;
+    double t0 = LD_threads::tic();
+    #pragma omp parallel reduction(+:ncol_acc)
+    {
+      int i,j;
+      #pragma omp for
+      for (size_t isym = 0; isym < len_sym; isym++)
+      {
+        Frobenius_vspace_measure::get_rowcol_isym(i,j,isym,nsetm1);
+        // dvec_[isym]=1.0-Frobenius_vspace_measure::comp_Frob_closeness(Vtns_[i],nV_[i],Vtns_[j],nV_[j],vlen_);
+        dvec_[isym] = Frobenius_vspace_measure::comp_Frob_distance(Vtns_[i],nV_[i],Vtns_[j],nV_[j],vlen_);
+
+        ncol_acc += nV_[i] + nV_[j];
+      }
+    }
+    double work_time = LD_threads::toc(t0);
+    if (verbose_) printf("(LD_vspace_measure::comp_Frob_distances) computed distance matrix (%d vspaces, %d matrix products of avg. dims. %d x %.1f) in %.3f seconds\n",
+      nset_, len_sym, vlen_, ncol_acc/((double) (2*len_sym)),work_time);
+  }
+  static double comp_Frob_distance(double **Va_,int na_,double **Vb_,int nb_,int vlen_)
+  {
+    return 1.0 - sqrt(Frobenius_vspace_measure::comp_Frob_closeness(Va_,na_,Vb_,nb_,vlen_)/((double) ((na_<nb_)?(na_):(nb_))));
+    // return ((double) ((na_>nb_)?(na_):(nb_))) - sqrt(Frobenius_vspace_measure::comp_Frob_closeness(Va_,na_,Vb_,nb_,vlen_));
+    // return ((double) ((na_>nb_)?(na_):(nb_))) - sqrt(Frobenius_vspace_measure::comp_Frob_closeness(Va_,na_,Vb_,nb_,vlen_)/((double) ((na_<nb_)?(na_):(nb_))));
+  }
+  static double comp_Frob_closeness(double **Va_,int na_,double **Vb_,int nb_,int vlen_)
+  {
+    double acc_fro = 0.0;
+    for (size_t i = 0; i < na_; i++)
+      for (size_t j = 0; j < nb_; j++)
+      {
+        double acc_ij = 0.0;
+        for (size_t l = 0; l < vlen_; l++) acc_ij += Va_[i][l]*Vb_[j][l];
+        acc_fro += acc_ij*acc_ij;
+      }
+    return acc_fro;
+  }
 };
 
 struct LD_svd_bundle: public LD_vector_bundle

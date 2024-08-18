@@ -72,7 +72,7 @@ struct generated_ode_observations: public ode_curve_observations
   {
     for (size_t i = 0; i < ncrv; i++)
     {
-      xrange_mat[i][0] = crvs_[i]->sol_0->x; xrange_mat[i][1] = crvs_[i]->sol_f->x;
+      xrange_mat[i][0] = crvs_[i]->sol_0()->x; xrange_mat[i][1] = crvs_[i]->sol_f()->x;
       for (size_t idim = 0; idim <= ndof_ODE; idim++)
         pts_IC[i][idim] = crvs_[i]->pts0[idim];
     }

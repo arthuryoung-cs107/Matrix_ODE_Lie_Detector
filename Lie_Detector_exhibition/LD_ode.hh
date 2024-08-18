@@ -55,8 +55,8 @@ struct ode_solspc_subset: public ode_solspc_element // when the data is not nece
   double  ** const pts_mat;
   ode_solution ** const sols;
 
-  double  ** dnp1xu_mat = NULL,
-          *** JFs_tns = NULL;
+  double  ** dnp1xu_mat,
+          *** JFs_tns;
 
   inline  void initialize_solutions(bool force_alloc_=false)
   {
@@ -124,8 +124,8 @@ struct ode_solcurve: public solspc_data_chunk // data is vectorized, and on a on
   double  * const pts0 = pts_chunk,
           * const eps_vec;
 
-  ode_solution  * const sol_0 = sols[0],
-                * const sol_f = sols[nobs-1];
+  inline ode_solution * sol_0() {return sols[0];}
+  inline ode_solution * sol_f() {return sols[nobs-1];}
 
   inline void print_curve() {print_subset();}
 };

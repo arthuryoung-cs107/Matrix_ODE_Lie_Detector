@@ -7,28 +7,6 @@
 /*
   constructors
 */
-LD_vspace_record::LD_vspace_record(LD_vspace_record &rec1_,LD_vspace_record &rec2_):
-  nspc(LD_linalg::max_T<int>(rec1_.nspc,rec2_.nspc)),
-  nvec(LD_linalg::max_T<int>(rec1_.nvec,rec2_.nvec)),
-  vlen(LD_linalg::max_T<int>(rec1_.vlen,rec2_.vlen)),
-  nV_spcvec(new int[nspc]), iV_spcmat(Tmatrix<int>(nspc,nvec)), Vtns_data(rec1_.Vtns_data)
-  {
-    if (rec1_.Vtns_data != rec2_.Vtns_data) printf("(LD_vspace_record::LD_vspace_record): WARNING - combining vector space records with dissimilar vector space data tensors \n");
-    else
-    {
-      bool fV_cmpmat[2][nvec];
-      const int min_nspc = LD_linalg::min_T<int>(rec1_.nspc,rec2_.nspc);
-      for (size_t ispc = 0; ispc < min_nspc; ispc++)
-      {
-        for (size_t iV = 0; iV < nvec; iV++) fV_cmpmat[0][iV] = false;
-        for (size_t iV = 0; iV < rec1_.nV_spcvec[ispc]; iV++) fV_cmpmat[0][rec1_.iV_spcmat[ispc][iV]] = true;
-        for (size_t iV = 0; iV < nvec; iV++) fV_cmpmat[1][iV] = false;
-        for (size_t iV = 0; iV < rec2_.nV_spcvec[ispc]; iV++) fV_cmpmat[1][rec2_.iV_spcmat[ispc][iV]] = true;
-        int &nV_i = nV_spcvec[ispc] = 0;
-        for (size_t iV = 0; iV < nvec; iV++) if ((fV_cmpmat[0][iV])&&(fV_cmpmat[1][iV])) iV_spcmat[ispc][nV_i++] = iV;
-      }
-    }
-  }
 
 LD_vector_space::LD_vector_space(int vlen_): data_owner(true),
   Vmat_data(Tmatrix<double>(vlen_,vlen_)),
@@ -39,6 +17,20 @@ LD_vector_space::LD_vector_space(int vlen_,int *inds_V_,double **Vmat_data_,doub
   Vmat_data(Vmat_data_),
   vlen_full(vlen_), nvec_use(vlen_), vlen_use(vlen_),
   inds_V(inds_V_), Vmat(Vmat_) {}
+LD_vector_space::LD_vector_space(LD_vector_space &Vspc_,bool deepcopy_): data_owner(deepcopy_),
+  Vmat_data((deepcopy_)?(Tmatrix<double>(Vspc_.vlen_full,Vspc_.vlen_full)):(Vspc_.get_Vmat_data())),
+  vlen_full(Vspc_.vlen_full), nvec_use(Vspc_.nvec_use), vlen_use(Vspc_.vlen_use),
+  inds_V((deepcopy_)?(new int[vlen_full]):(Vspc_.inds_V)),
+  Vmat((deepcopy_)?(new double*[vlen_full]):(Vspc_.Vmat))
+  {
+    if (deepcopy_)
+    {
+      double ** const Vdata_in = Vspc_.get_Vmat_data();
+      for (size_t i = 0; i < vlen_full; i++)
+        for (size_t j = 0; j < vlen_full; j++) Vmat_data[i][j] = Vdata_in[i][j];
+      for (size_t i = 0; i < vlen_full; i++) Vmat[i] = Vmat_data[inds_V[i] = Vspc_.inds_V[i]];
+    }
+  }
 LD_vector_space::~LD_vector_space()
   {if (data_owner) {delete [] inds_V; free_Tmatrix<double>(Vmat_data); delete [] Vmat;}}
 
@@ -115,7 +107,7 @@ LD_Theta_bundle::~LD_Theta_bundle()
     if (Vbndl_owner) delete Vbndle_ptr;
   }
 
-vspace_evaluation_package::vspace_evaluation_package(ode_solspc_subset &Sset_,int ncon_,int nvec_,int nsol_,double tol_): Sset(Sset_),
+LD_vspace_evaluator::LD_vspace_evaluator(ode_solspc_subset &Sset_,int ncon_,int nvec_,int nsol_,double tol_): Sset(Sset_),
   ncon(ncon_), nvec_max(nvec_), nsol_max(nsol_),
   sat_flags_mat(Tmatrix<bool>(nsol_,nvec_)),
   tol(tol_), nvec_evl(nvec_), nsol_evl(nsol_) {}
@@ -123,7 +115,20 @@ vspace_evaluation_package::vspace_evaluation_package(ode_solspc_subset &Sset_,in
 /*
   definitions
 */
-
+void LD_vspace_record::init_combined_records(LD_vspace_record &rec1_,LD_vspace_record &rec2_)
+{
+  bool fV_cmpmat[2][nvec];
+  const int min_nspc = LD_linalg::min_T<int>(rec1_.nspc,rec2_.nspc);
+  for (size_t ispc = 0; ispc < min_nspc; ispc++)
+  {
+    for (size_t iV = 0; iV < nvec; iV++) fV_cmpmat[0][iV] = false;
+    for (size_t iV = 0; iV < rec1_.nV_spcvec[ispc]; iV++) fV_cmpmat[0][rec1_.iV_spcmat[ispc][iV]] = true;
+    for (size_t iV = 0; iV < nvec; iV++) fV_cmpmat[1][iV] = false;
+    for (size_t iV = 0; iV < rec2_.nV_spcvec[ispc]; iV++) fV_cmpmat[1][rec2_.iV_spcmat[ispc][iV]] = true;
+    int &nV_i = nV_spcvec[ispc] = 0;
+    for (size_t iV = 0; iV < nvec; iV++) if ((fV_cmpmat[0][iV])&&(fV_cmpmat[1][iV])) iV_spcmat[ispc][nV_i++] = iV;
+  }
+}
 void LD_Theta_space::post_multiply_evry_basis(double **AYmat_, double **Amat_, int mrows_)
 {
   for (size_t irow = 0; irow < mrows_; irow++)

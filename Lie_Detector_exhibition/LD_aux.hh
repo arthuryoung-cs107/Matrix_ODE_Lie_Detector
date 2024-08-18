@@ -380,6 +380,13 @@ struct LD_svd
           * const svec,
           * const wvec;
 
+  inline void print_result(const char name_[])
+  {
+    printf("(LD_svd::print_result) %s (%d x %d) SVD (rank = %d):\n", name_, Muse, Nuse, comp_rank());
+    LD_linalg::print_xT("  s",svec,Nuse);
+
+  }
+
   inline void load_and_decompose_U(double **Amat_, int Muse_=0, int Nuse_=0)
   {
     set_use_dims(Muse_,Nuse_);
@@ -411,10 +418,22 @@ struct LD_svd
   inline int unpack_rank_svec_VTmat(double *svec_, double **VTmat_)
   {
     unpack_svec_VTmat(svec_,VTmat_);
-    const double tol_eps = ((double) Muse)*(LD_linalg::eps(svec_[0]));
+    return comp_rank(((double) Muse)*(LD_linalg::eps(svec_[0])));
+  }
+  inline int comp_rank(double tol_eps_)
+  {
     int rank_out = 0;
     for (size_t i = 0; i < Nuse; i++)
-      if (svec_[i]>tol_eps) rank_out++;
+      if (svec[i]>tol_eps_) rank_out++;
+      else break;
+    return rank_out;
+  }
+  inline int comp_rank()
+  {
+    const double tol_eps = ((double) Muse)*(LD_linalg::eps(svec[0]));
+    int rank_out = 0;
+    for (size_t i = 0; i < Nuse; i++)
+      if (svec[i]>tol_eps) rank_out++;
       else break;
     return rank_out;
   }
@@ -444,7 +463,7 @@ struct LD_svd
 struct k_medoids_package
 {
   k_medoids_package(double **dsym_,int npts_): dsym(dsym_), npts(npts_),
-    i_meds(new int[2*npts_]) {}
+    i_meds(new int[2*npts_]), i_nmeds(i_meds+npts_) {}
   k_medoids_package(int kclst_,double **dsym_,int npts_): k_medoids_package(dsym_,npts_)
     {comp_k_medoids(kclst_);}
   ~k_medoids_package() {delete [] i_meds;}
@@ -454,33 +473,117 @@ struct k_medoids_package
   double  ** const dsym;
 
   int * const i_meds,
-      * const i_nmeds = i_meds + npts;
+      * const i_nmeds;
   double  dclst,
           silh_coeff;
 
-  inline int find_k_SC_krange(int khigh_) {return find_k_SC_krange(2,khigh_);}
-  int find_k_SC_krange(int klow_,int khigh_)
+  inline double get_nearest_neighbors(int inn_[],int imems_[],int nmem_)
   {
-    bool  f_nmeds[npts];
-    int k_SC;
-    double  SC_max = 0.0, SC_try;
+    const int nmem_m1 = nmem_-1;
+    double  dij_min = DBL_MAX,
+            dij_try;
+    for (size_t i = 0; i < nmem_m1; i++)
+      for (size_t j = i+1; j < nmem_; j++)
+        if (dij_min > (dij_try = dij(imems_[i],imems_[j])))
+          {dij_min = dij_try; inn_[0] = imems_[i]; inn_[1] = imems_[j];}
+    return dij_min;
+  }
 
-    for (size_t k = klow_; k <= khigh_; k++)
-      if (SC_max < (SC_try = comp_k_medoids(k,f_nmeds)))
-        {SC_max = SC_try; k_SC = k;}
-    if (k_SC != khigh_) comp_k_medoids(k_SC,f_nmeds);
+  void assign_clusters(int nmem_v_[],int imem_v_[],int *imem_m_[],int kclst_,int inmed_[],bool fnmed_[])
+  {
+    populate_nmed(inmed_,fnmed_,kclst_);
+    const int n_nmed = npts-kclst_;
+    bool fmem_clst[kclst_][npts];
+
+    for (size_t k = 0; k < kclst_; k++) // assign cluster centres to selves
+    {
+      for (size_t kk = 0; kk < k; kk++) fmem_clst[kk][i_meds[k]] = 0;
+      fmem_clst[k][i_meds[k]] = (bool)(nmem_v_[k] = 1);
+      for (size_t kk = k+1; kk < kclst_; kk++) fmem_clst[kk][i_meds[k]] = 0;
+    }
+    for (size_t inm = 0; inm < n_nmed; inm++) // assign non medoid members
+    {
+      const int kclst_inm = assign_ipt_kcluster(inmed_[inm],kclst_);
+      for (size_t k = 0; k < kclst_inm; k++) fmem_clst[k][inmed_[inm]] = 0;
+      nmem_v_[kclst_inm] += (int)(fmem_clst[kclst_inm][inmed_[inm]] = 1);
+      for (size_t k = kclst_inm+1; k < kclst_; k++) fmem_clst[k][inmed_[inm]] = 0;
+    }
+    for (size_t k = 0, iv = 0; k < kclst_; k++)
+    {
+      imem_m_[k] = imem_v_ + iv;
+      for (size_t i = 0; i < npts; i++) if (fmem_clst[k][i]) imem_v_[iv++] = i;
+    }
+  }
+  inline void assign_clusters(int nmem_v_[],int imem_v_[],int *imem_m_[],int kclst_)
+    {bool  f_nmeds[npts]; assign_clusters(nmem_v_,imem_v_,imem_m_,kclst_,i_nmeds,f_nmeds);}
+
+  int comp_kSC_medoids(int klow_=2,bool verbose_=true)
+  {
+    bool f_nmeds[npts];
+    int k_SC;
+    double SC_max = comp_k_medoids(k_SC=find_kSC(klow_,f_nmeds),f_nmeds);
+    if (verbose_)
+      printf("(k_medoids_package::comp_kSC_medoids) optimal k=%d clusters identified for %d points (SC= %e)\n",
+        k_SC,npts,SC_max);
     return k_SC;
   }
-  int find_k_SC(int klow_=2)
+  inline int find_kSC(int klow_=2) {bool f_nmeds[npts]; return find_kSC(klow_,f_nmeds);}
+  int find_kSC(int klow_,bool fnmed_[])
   {
-    bool  f_nmeds[npts];
     int k_SC = klow_;
-    double  SC_max = comp_k_medoids(k_SC,f_nmeds),
+    double  SC_max = comp_k_medoids(k_SC,fnmed_),
             SC_try;
+    while ((k_SC < npts)&&((SC_try=comp_k_medoids(++k_SC,fnmed_))>SC_max)) SC_max=SC_try;
+    silh_coeff = SC_max;
+    return k_SC-1;
+  }
 
-    while ((k_SC < npts)&&((SC_try=comp_k_medoids(k_SC+1,f_nmeds))>SC_max)) {k_SC++; SC_max=SC_try;}
-    comp_k_medoids(k_SC,f_nmeds);
+  void comp_SC_krange_medoids(double SCvec_[],int klow_,int khigh_)
+  {
+    bool f_nmeds[npts];
+    for (size_t k = klow_, ik=0; k <= khigh_; k++, ik++)
+      SCvec_[ik] = comp_k_medoids(k,f_nmeds);
+  }
+  int comp_kSC_krange_medoids(int klow_,int khigh_,bool verbose_=true)
+  {
+    bool f_nmeds[npts];
+    int k_SC;
+    double SC_max = comp_k_medoids(k_SC=find_kSC_krange(klow_,khigh_,f_nmeds),f_nmeds);
+    if (verbose_)
+      printf("(k_medoids_package::comp_kSC_medoids) optimal k=%d clusters identified of %d points (SC= %e, considered %d <= k <= %d)\n",
+        k_SC,npts,SC_max,klow_,khigh_);
     return k_SC;
+  }
+
+  inline int find_kSC_krange(int klow_,int khigh_)
+    {bool f_nmeds[npts]; return find_kSC_krange(klow_,khigh_,f_nmeds);}
+  int find_kSC_krange(int klow_,int khigh_,bool f_nmeds_[])
+  {
+    int k_SC;
+    double  SC_max = 0.0, SC_try;
+    for (size_t k = klow_; k <= khigh_; k++)
+      if (SC_max < (SC_try = comp_k_medoids(k,f_nmeds_)))
+        {SC_max = SC_try; k_SC = k;}
+    silh_coeff = SC_max;
+    return k_SC;
+  }
+
+  double comp_sc_k(int kclst_,int inmed_[],bool fnmed_[])
+  {
+    const int n_nmed = npts-kclst_;
+    bool fmem_clst[kclst_][npts];
+    populate_nmed(inmed_,fnmed_,kclst_);
+    assign_cluster_members(fmem_clst[0],kclst_,inmed_);
+
+    double s_acc = 0.0;
+    for (size_t k = 0; k < kclst_; k++)
+    {
+      for (size_t ipt = 0; ipt < i_meds[k]; ipt++)
+        if (fmem_clst[k][ipt]) s_acc += (1.0 - (dij(ipt,i_meds[k])/get_min_dclst_i_kskp(ipt,kclst_,k)));
+      for (size_t ipt = i_meds[k]+1; ipt < npts; ipt++)
+        if (fmem_clst[k][ipt]) s_acc += (1.0 - (dij(ipt,i_meds[k])/get_min_dclst_i_kskp(ipt,kclst_,k)));
+    }
+    return s_acc/((double) n_nmed);
   }
 
   inline double comp_k_medoids(int kclst_) {bool  f_nmeds[npts]; return comp_k_medoids(kclst_,f_nmeds);}
@@ -519,6 +622,7 @@ struct k_medoids_package
     }
     return dclst_out;
   }
+
   double comp_greedy_k_medoids(int kclst_,int inmed_[],bool fnmed_[])
   {
     i_meds[0] = imin_net_d();
@@ -533,24 +637,6 @@ struct k_medoids_package
           {ik = inmed_[iik]; dclst_out = dik;}
     }
     return dclst_out;
-  }
-
-  double comp_sc_k(int kclst_,int inmed_[],bool fnmed_[])
-  {
-    const int n_nmed = npts-kclst_;
-    bool fmem_clst[kclst_][npts];
-    populate_nmed(inmed_,fnmed_,kclst_);
-    assign_cluster_members(fmem_clst[0],kclst_,inmed_);
-
-    double s_acc = 0.0;
-    for (size_t k = 0; k < kclst_; k++)
-    {
-      for (size_t ipt = 0; ipt < i_meds[k]; ipt++)
-        if (fmem_clst[k][ipt]) s_acc += (1.0 - (dij(ipt,i_meds[k])/get_min_dclst_i_kskp(ipt,kclst_,k)));
-      for (size_t ipt = i_meds[k]+1; ipt < npts; ipt++)
-        if (fmem_clst[k][ipt]) s_acc += (1.0 - (dij(ipt,i_meds[k])/get_min_dclst_i_kskp(ipt,kclst_,k)));
-    }
-    return s_acc/((double) n_nmed);
   }
 
   private:
@@ -624,7 +710,7 @@ struct k_medoids_package
         fmem_clst_[ifm] = 1; ifm+=npts;
         for (size_t kk = k+1; kk < k_; kk++, ifm+=npts) fmem_clst_[ifm] = 0;
       }
-      for (size_t inm = 0; inm < n_nmed; inm++) // assign non cluster members
+      for (size_t inm = 0; inm < n_nmed; inm++) // assign non medoid members
       {
         const int kclst_inm = assign_ipt_kcluster(inmed_[inm],k_);
         int ifnm = inmed_[inm];
