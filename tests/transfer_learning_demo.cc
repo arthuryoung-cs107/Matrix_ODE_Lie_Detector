@@ -100,6 +100,8 @@ int main()
 
   OGbndl.rec.compare_subspaces(OGYL_Tbndl_x.rec,"OGYL_x",OGYL_Tbndl_xu.rec,"OGYL_xu");
 
+  printf("\ntesting medoids\n\n");
+
   Frobenius_vspace_measure OGmsr_OGsat(OGbndl); OGmsr_OGsat.init_Frobenius_distances(OGbndl);
     k_medoids_package k_med_OG_OGsat(OGmsr_OGsat.dsym,OGmsr_OGsat.nset);
     int k_SC = k_med_OG_OGsat.comp_kSC_medoids();
@@ -122,24 +124,32 @@ int main()
   //     // int k_SC = k_med_O_maxnull.comp_kSC_medoids();
   //     int k_SC = k_med_O_maxnull.comp_kSC_krange_medoids(2,10);
 
+  printf("\ntesting cokernals\n\n");
+
   // double  atol_R_cok = atol_use_R,
-  double  atol_R_cok = 1e-3,
+  double  atol_R_cok = 1e-10,
           // rtol_R_cok = rtol_use_R,
-          rtol_R_cok = 1e-3,
-          // tol_G_cok = tol_use_G;
-          tol_G_cok = 1e-3;
+          rtol_R_cok = 1e-5,
+          tol_G_cok = tol_use_G;
+          // tol_G_cok = 1e-3;
+
+  LD_OG_encoder OGenc(meta0);
+  OG_vspace_eval OG_evl(Sobs,fspace0.ndof_full,atol_R_cok,rtol_R_cok,tol_G_cok,false);
+
+  // Jet_function_vector_space jfvs(Sobs,fspace0,OGenc);
+   // jfvs.encode_decompose_bundle<orthopolynomial_basis>(bases0,normalize_flag);
+  Jet_function_vector_space jfvs(Sobs,fspace0,OGenc,bases0,normalize_flag);
+
+  jfvs.evaluate_Vbndle0<OG_vspace_eval,orthopolynomial_basis>(OG_evl,bases0,true);
 
   LD_vector_bundle  OGbndl_cok(OGcode_svd.rec);
   // LD_vector_bundle  OGbndl_cok(OGYL_x_rec0);
   // LD_vector_bundle  OGbndl_cok(OGYL_xu_rec0);
-  OG_vspace_eval OG_evl(Sobs,OGbndl_cok.vlen_full,atol_R_cok,rtol_R_cok,tol_G_cok);
+  // OG_vspace_eval OG_evl(Sobs,OGbndl_cok.vlen_full,atol_R_cok,rtol_R_cok,tol_G_cok);
   Frobenius_vspace_measure OGmsr_cok(OGbndl_cok);
 
-  printf("\ntesting cokernals\n\n");
-
-  solution_space_cokernals solspc_cok(Sobs.ncrvs_tot,Sobs.nobs);
-
-  solspc_cok.compute_solspc_cokernals<OG_vspace_eval,orthopolynomial_basis>(OGbndl_cok,Sobs,OG_evl,OGmsr_cok,bases0);
+  // solution_space_cokernals solspc_cok(Sobs.ncrvs_tot,Sobs.nobs);
+  // solspc_cok.compute_solspc_cokernals<OG_vspace_eval,orthopolynomial_basis>(OGbndl_cok,Sobs,OG_evl,OGmsr_cok,bases0);
 
   bool reintegrate_data = false;
   if (reintegrate_data)
@@ -181,6 +191,5 @@ int main()
       gen_OGYL_xu_OGsat_rn.write_observed_solutions(nbuf0.name_file(nbuf1.load_name(nbuf2.name,".OG_YLxu_OGsat",rec_suf)));
   }
 
-  free_evaluation_bases<orthopolynomial_basis>(bases0);
-  return 0;
+  free_evaluation_bases<orthopolynomial_basis>(bases0); return 0;
 }

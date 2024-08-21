@@ -177,19 +177,18 @@ void LD_svd_bundle::compute_Acode_curve_svds(LD_encoding_bundle &Abndle_, bool v
       ncols_acc = 0;
   double t0 = LD_threads::tic();
 
+  printf("(LD_svd_bundle::compute_Acode_curve_svds) mrows_max = %d, vlen_full = %d, nspc = %d\n", mrows_max, vlen_full, nspc);
   #pragma omp parallel reduction(+:mrows_acc,ncols_acc)
   {
     LD_svd svd_t(mrows_max,vlen_full);
+    int mrows_Ai, ncols_Ai;
     #pragma omp for
     for (size_t ispc = 0; ispc < nspc; ispc++)
     {
-      LD_encoded_matrix &Acode_i = *(Acodes[ispc]);
-      const int mrows_Ai = Acode_i.verify_nrow(),
-                ncols_Ai = nV_spcvec[ispc] = Vspaces[ispc]->vlen_use = Acode_i.ncol;
-      svd_t.load_and_decompose_U(Acode_i.Amat,mrows_Ai,ncols_Ai);
+      mrows_acc += (mrows_Ai = Acodes[ispc]->verify_nrow());
+      ncols_acc += (ncols_Ai = nV_spcvec[ispc] = Vspaces[ispc]->vlen_use = Acodes[ispc]->ncol);
+      svd_t.load_and_decompose_U(Acodes[ispc]->Amat,mrows_Ai,ncols_Ai);
       rank_vec[ispc] = svd_t.unpack_rank_svec_VTmat(Smat[ispc],VTtns[ispc]);
-
-      mrows_acc += mrows_Ai; ncols_acc += ncols_Ai;
     }
   }
   double work_time = LD_threads::toc(t0);
@@ -211,17 +210,16 @@ void LD_svd_bundle::compute_AYmat_curve_svds(LD_encoding_bundle &Abndle_,LD_Thet
   #pragma omp parallel reduction(+:mrows_acc,ncols_acc)
   {
     LD_svd svd_t(mrows_max,vlen_full);
+    int mrows_Ai, ncols_Ai;
     double ** const Umat_t = svd_t.Umat;
     #pragma omp for
     for (size_t ispc = 0; ispc < nspc; ispc++)
     {
-      const int mrows_Ai = Abndle_.nrows_mat_i(ispc),
-                ncols_Ai = nV_spcvec[ispc] = Vspaces[ispc]->vlen_use = Tspaces_[ispc]->ndof_use;
+      mrows_acc += (mrows_Ai = Abndle_.nrows_mat_i(ispc));
+      ncols_acc += (ncols_Ai = nV_spcvec[ispc] = Vspaces[ispc]->vlen_use = Tspaces_[ispc]->ndof_use);
       Tspaces_[ispc]->post_multiply_bases(Umat_t,Amats[ispc],mrows_Ai);
       svd_t.decompose_U(mrows_Ai,ncols_Ai);
       rank_vec[ispc] = svd_t.unpack_rank_svec_VTmat(Smat[ispc],VTtns[ispc]);
-
-      mrows_acc += mrows_Ai; ncols_acc += ncols_Ai;
     }
   }
   double work_time = LD_threads::toc(t0);
@@ -235,29 +233,32 @@ void LD_svd_bundle::compute_AYmat_curve_svds(LD_encoding_bundle &Abndle_,LD_Thet
   diagnostics
 */
 
-void LD_vspace_record::print_subspace_details(const char name_[], bool longwinded_)
+void LD_vspace_record::print_subspace_details(const char name_[], bool longwinded_, bool print_comp_)
 {
-  printf("\n");
+  printf("\n(LD_vspace_record::print_subspace_details) %s ", name_);
   if (longwinded_)
   {
-    printf("(LD_vspace_record::print_subspace_details) %s isat_vec\n", name_);
+    printf("isat_vec\n", name_);
     for (size_t ispc = 0; ispc < nspc; ispc++)
     {
       printf("spc %d (nsat = %d): ", ispc, nV_spcvec[ispc]);
       for (size_t isat = 0; isat < nV_spcvec[ispc]; isat++) printf("%d ", iV_spcmat[ispc][isat]);
+      if (print_comp_)
+      {
+        printf("|| ");
+        for (size_t insat = nV_spcvec[ispc]; insat < nvec; insat++) printf("%d ", iV_spcmat[ispc][insat]);
+      }
       printf("\n");
     }
   }
-  char name_buf[strlen(name_) + 20];
-  sprintf(name_buf,"  %s nsat_vec", name_);
-  LD_linalg::print_xT(name_buf,nV_spcvec,nspc);
-  printf("  nvec_use = %d, vlen_use = %d, min nsat = %d, max nsat = %d \n",
-            nvec, vlen,
-            LD_linalg::min_val<int>(nV_spcvec,nspc), LD_linalg::max_val<int>(nV_spcvec,nspc));
+  LD_linalg::print_xT("nsat_vec",nV_spcvec,nspc);
+  double nV_stats[3]; LD_linalg::comp_Tvec_maM_stats<int>(nV_stats,nV_spcvec,nspc);
+  printf("  nvec_use = %d, vlen_use = %d, min nsat = %d, avg. nsat = %.2f, max nsat = %d \n",
+            nvec, vlen, (int)(nV_stats[0]), nV_stats[1], (int)(nV_stats[2]));
   printf("\n");
 }
 
-void LD_vspace_record::print_subspace_details(LD_vspace_record &rec1_,const char name_[], bool longwinded_)
+void LD_vspace_record::print_subspace_details(LD_vspace_record &rec1_,const char name_[], bool longwinded_, bool print_comp_)
 {
   printf("\n");
   if (longwinded_)
@@ -267,6 +268,11 @@ void LD_vspace_record::print_subspace_details(LD_vspace_record &rec1_,const char
     {
       printf("spc %d (nsat = %d): ", ispc, rec1_.nV_spcvec[ispc]);
       for (size_t isat = 0; isat < rec1_.nV_spcvec[ispc]; isat++) printf("%d ", rec1_.iV_spcmat[ispc][isat]);
+      if (print_comp_)
+      {
+        printf("|| ");
+        for (size_t insat = rec1_.nV_spcvec[ispc]; insat < nV_spcvec[ispc]; insat++) printf("%d ", rec1_.iV_spcmat[ispc][insat]);
+      }
       printf("(of %d)\n", nV_spcvec[ispc]);
     }
   }
@@ -277,7 +283,7 @@ void LD_vspace_record::print_subspace_details(LD_vspace_record &rec1_,const char
     nvec0_acc += nV_spcvec[i];
     nvec1_acc += rec1_.nV_spcvec[i];
   }
-  printf("(LD_vspace_record::print_subspace_details) V1: %s (V0 nspc = %d). Avg. nV0 = %.1f, nV1 = %.1f, (embedded in %d dimensions)\n nV0: --v\n  ",
+  printf("(LD_vspace_record::print_subspace_details) V1: %s (V0 nspc = %d). Avg. nV0 = %.2f, nV1 = %.2f, (embedded in %d dimensions)\n nV0: --v\n  ",
   name_,nspc,((double)nvec0_acc)/((double)nspc),((double)nvec1_acc)/((double)nspc),vlen);
   for (size_t i = 0; i < nspc; i++) printf("%d ", nV_spcvec[i]); printf("\n  ");
   for (size_t i = 0; i < nspc; i++) printf("%d ", rec1_.nV_spcvec[i]); printf("<-- %s nV\n",name_);
@@ -299,7 +305,7 @@ void LD_vspace_record::compare_subspaces(LD_vspace_record &rec1_,const char name
     nvec1_acc += rec1_.nV_spcvec[i];
     nvec2_acc += rec2_.nV_spcvec[i];
   }
-  printf("(LD_vspace_record::compare_subspaces) comparing V1: %s vs. V2: %s (V0 nspc = %d). Avg. nV0 = %.1f, nV1 = %.1f, nV2 = %.1f, nV1-nV2 = %.1f (embedded in %d dimensions)\n nV0: --v\n  ",
+  printf("(LD_vspace_record::compare_subspaces) comparing V1: %s vs. V2: %s (V0 nspc = %d). Avg. nV0 = %.2f, nV1 = %.2f, nV2 = %.2f, nV1-nV2 = %.2f (embedded in %d dimensions)\n nV0: --v\n  ",
   name1_,name2_,nspc, ((double)nvec0_acc)/((double)nspc),
   ((double)nvec1_acc)/((double)nspc),((double)nvec2_acc)/((double)nspc),
   ((double)diff_acc)/((double)nspc), vlen);
@@ -311,26 +317,30 @@ void LD_vspace_record::compare_subspaces(LD_vspace_record &rec1_,const char name
 }
 void LD_svd_bundle::print_details(const char name_[])
 {
-  const char preamble[] = "(LD_matrix_svd_result::print_details)";
-  char name_buf[strlen(preamble) + strlen(name_) + 20];
-  sprintf(name_buf,"%s %s rank_vec", preamble, name_);
-  LD_linalg::print_xT(name_buf,rank_vec,nspc);
+  printf("\n(LD_matrix_svd_result::print_details) %s ", name_);
+  LD_linalg::print_xT("rank_vec",rank_vec,nspc);
   for (size_t i = 0; i < nspc; i++) printf("%d ", nV_spcvec[i]); printf("\n  ^-- (out of n columns)\n");
-  int ncol_acc = 0,
-      max_nulldim = 0,
-      min_nulldim = vlen_full;
+  int ncol_acc = 0, max_ncol = 0, min_ncol = vlen_full,
+      rank_acc = 0, max_rank = 0, min_rank = vlen_full,
+      nuld_acc = 0, max_nuld = 0, min_nuld = vlen_full,
+      ncol_i, rank_i, nuld_i;
   for (size_t i = 0; i < nspc; i++)
   {
-    int nulldim_i = nV_spcvec[i]-rank_vec[i];
-    if (min_nulldim>nulldim_i) min_nulldim=nulldim_i;
-    if (max_nulldim<nulldim_i) max_nulldim=nulldim_i;
-    ncol_acc += nV_spcvec[i];
-    printf("%d ", nulldim_i);
+    ncol_acc += (ncol_i = nV_spcvec[i]);
+    rank_acc += (rank_i = rank_vec[i]);
+    nuld_acc += (nuld_i = ncol_i-rank_i);
+    if (min_ncol>ncol_i) min_ncol=ncol_i;
+    if (max_ncol<ncol_i) max_ncol=ncol_i;
+    if (min_rank>rank_i) min_rank=rank_i;
+    if (max_rank<rank_i) max_rank=rank_i;
+    if (min_nuld>nuld_i) min_nuld=nuld_i;
+    if (max_nuld<nuld_i) max_nuld=nuld_i;
+    printf("%d ", nuld_i);
   }
-  printf("\n  ^-- (nullspace dimension)\n");
-  printf("avg. ncol_use = %.1f, min_nulldim = %d, max_nulldim = %d \n",
-        ((double)(ncol_acc))/((double)(nspc)),min_nulldim,max_nulldim);
-
+  printf("\n  ^-- (nullspace dimension)\n  ");
+  printf("min. ncol = %d, avg. ncol = %.2f, max. ncol = %d; ", min_ncol,((double)(ncol_acc))/((double)(nspc)),max_ncol);
+  printf("min. rank = %d, avg. rank = %.2f, max. rank = %d; ", min_rank,((double)(rank_acc))/((double)(nspc)),max_rank);
+  printf("min. nuld = %d, avg. nuld = %.2f, max. nuld = %d\n", min_nuld,((double)(nuld_acc))/((double)(nspc)),max_nuld);
 }
 
 /*

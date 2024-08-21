@@ -47,16 +47,10 @@ struct LD_vspace_record
   inline void set_record_unirank(int nvec_)
     {for (size_t i = 0; i < nspc; i++) LD_linalg::fill_vec_012<int>(iV_spcmat[i],nV_spcvec[i] = nvec_);}
   inline void set_record_uninull(int nvec_)
-  {
-    for (size_t i = 0; i < nspc; i++)
-    {
-      LD_linalg::fill_vec_012<int>(iV_spcmat[i],nvec_,nV_spcvec[i]-nvec_);
-      nV_spcvec[i] = nvec_;
-    }
-  }
+    {for (size_t i = 0; i < nspc; nV_spcvec[i++] = nvec_) LD_linalg::fill_vec_012<int>(iV_spcmat[i],nvec_,nV_spcvec[i]-nvec_);}
 
-  void print_subspace_details(const char name_[], bool longwinded_=false);
-  void print_subspace_details(LD_vspace_record &rec1_,const char name_[], bool longwinded_=false);
+  void print_subspace_details(const char name_[], bool longwinded_=false, bool print_comp_=false);
+  void print_subspace_details(LD_vspace_record &rec1_,const char name_[],bool longwinded_=false,bool print_comp_=false);
   void compare_subspaces(LD_vspace_record &rec1_,const char name1_[],LD_vspace_record &rec2_,const char name2_[]);
   void write_vspace_record(const char name_[],bool write_Vtns_data_=false);
 
@@ -197,6 +191,11 @@ class LD_vector_bundle
 
     LD_vector_space ** const Vspaces;
 
+    inline void reset_Vspaces()
+    {
+      for (size_t i = 0; i < nspc; i++) Vspaces[i]->reset_Vspace();
+      LD_linalg::fill_vec<int>(nV_spcvec,nspc,vlen_full);
+    }
     inline void set_Vspaces() {for (size_t i = 0; i < nspc; i++) Vspaces[i]->set_Vmat(nV_spcvec[i]);}
     inline void set_Vspaces(LD_vspace_record &rec_)
       {rec.copy_record(rec_); for (size_t i = 0; i < nspc; i++) Vspaces[i]->set_Vmat(nV_spcvec[i]);}
@@ -370,15 +369,6 @@ class LD_Theta_bundle: public ode_solspc_element
     // inline void set_Vspace_data_i(int i_) {Vbndle.set_Vspace_data_i(i_);}
 };
 
-struct LD_encoder
-{
-  LD_encoder(int ncod_,ode_solspc_meta &meta_): ncod(ncod_), meta(meta_) {}
-  ~LD_encoder() {}
-
-  ode_solspc_meta &meta;
-  const int ncod;
-};
-
 struct LD_matrix_record
 {
   LD_matrix_record(int ncol_, int nrow_, double **Amat_data_, bool init_=true):
@@ -459,7 +449,8 @@ class LD_encoded_matrix
 
     inline double ** get_submat_i(int i_) {return Amat + i_*ncod;}
 
-    inline int verify_nrow(int ncod_=0,int nobs_=0) {return nrow = ( (ncod_>0)?(ncod=ncod_):(ncod) )*( (nobs_>0)?(nobs=nobs_):(nobs) );}
+    inline int verify_nrow(int ncod_=0,int nobs_=0)
+      {return nrow = ( (ncod_>0)?(ncod=ncod_):(ncod) )*( (nobs_>0)?(nobs=nobs_):(nobs) );}
 };
 
 class LD_encoding_bundle
@@ -493,17 +484,9 @@ class LD_encoding_bundle
     LD_encoded_matrix ** const Acodes;
 
     inline int nobs()
-    {
-      int acc = 0;
-      for (size_t i = 0; i < nset; i++) acc += Acodes[i]->nobs;
-      return acc;
-    }
-    inline int verify_nrow(int ncod_=0,int nobs_=0)
-    {
-      int acc = 0;
-      for (size_t i = 0; i < nset; i++) acc += Acodes[i]->verify_nrow(ncod_,nobs_);
-      return acc;
-    }
+      {int acc = 0; for (size_t i = 0; i < nset; i++) acc += Acodes[i]->nobs; return acc;}
+    inline int verify_nrows(int ncod_=0,int nobs_=0)
+      {int acc = 0; for (size_t i = 0; i < nset; i++) acc += Acodes[i]->verify_nrow(ncod_,nobs_); return acc;}
     inline double ** get_iobs_encoding(int i_)
     {
       int iiAcode = 0,
@@ -514,19 +497,41 @@ class LD_encoding_bundle
       return Acodes[iiAcode]->get_submat_i(iiobs);
     }
     inline int max_nrows()
-    {
-      int mrows = 0;
-      for (size_t i = 0; i < nset; i++) if (mrows < Acodes[i]->nrow) mrows = Acodes[i]->nrow;
-      return mrows;
-    }
+      {int mrows = 0; for (size_t i = 0; i < nset; i++) if (mrows < Acodes[i]->nrow) mrows = Acodes[i]->nrow; return mrows;}
     inline int min_nrows()
-    {
-      int mrows = Acodes[0]->nrow;
-      for (size_t i = 1; i < nset; i++) if (mrows > Acodes[i]->nrow) mrows = Acodes[i]->nrow;
-      return mrows;
-    }
-
+      {int mrows = Acodes[0]->nrow; for (size_t i = 1; i < nset; i++) if (mrows > Acodes[i]->nrow) mrows = Acodes[i]->nrow; return mrows;}
     inline int nrows_mat_i(int i_) {return Acodes[i_]->nrow;}
+};
+
+struct LD_encoder
+{
+  LD_encoder(int ncod_,ode_solspc_meta &meta_): ncod(ncod_), meta(meta_) {}
+  ~LD_encoder() {}
+
+  ode_solspc_meta &meta;
+  const int ncod;
+
+  virtual void encode_normalize_rows(double **rows_i_,function_space_basis &fbse_,ode_solution &sol_i_,bool normalize_) = 0;
+
+  template <class BSIS> static void encode_bundle(LD_encoding_bundle &bndle_,ode_solspc_subset &set_,BSIS **bases_,LD_encoder &enc_,bool normalize_,bool verbose_=true)
+  {
+    const int nobs_max = bndle_.nobs();
+    ode_solution ** const sols = set_.sols;
+    double t0 = LD_threads::tic();
+    #pragma omp parallel
+    {
+      BSIS &base_t = *(bases_[LD_threads::thread_id()]);
+      #pragma omp for
+      for (size_t i = 0; i < nobs_max; i++)
+      {
+        enc_.encode_normalize_rows(bndle_.get_iobs_encoding(i),base_t,*(sols[i]),normalize_);
+      }
+    }
+    double work_time = LD_threads::toc(t0);
+    if (verbose_)
+      printf("(LD_encoder::encode_bundle) encoded %d row constraints (nobs = %d, ncod = %d) in %.2f seconds (%d threads).\n",
+        nobs_max*(enc_.ncod), nobs_max, enc_.ncod, work_time, LD_threads::numthreads());
+  }
 };
 
 struct LD_vspace_evaluator
@@ -767,6 +772,8 @@ struct LD_svd_bundle: public LD_vector_bundle
 {
   LD_svd_bundle(int nspc_,int vlen_): LD_vector_bundle(nspc_,vlen_),
     rank_vec(new int[nspc_]), Smat(Tmatrix<double>(nspc_,vlen_)) {}
+  LD_svd_bundle(LD_vector_bundle &Vbndl_): LD_vector_bundle(Vbndl_),
+    rank_vec(new int[Vbndl_.nspc]), Smat(Tmatrix<double>(Vbndl_.nspc,Vbndl_.vlen_full)) {}
   LD_svd_bundle(LD_encoding_bundle &Abndl_,bool verbose_=true):
     LD_svd_bundle(Abndl_.nset,Abndl_.ncol_full)
     {compute_Acode_curve_svds(Abndl_,verbose_);}
@@ -811,6 +818,9 @@ struct LD_svd_bundle: public LD_vector_bundle
       if (nd_out < (nd_i=nulldim_i(i))) nd_out = nd_i;
     return nd_out;
   }
+
+  inline void set_Vspaces_nullspc() {rec.set_record_nullspc(rank_vec); set_Vspaces();}
+  inline void set_Vspaces_rankvec() {rec.set_record_rankvec(rank_vec); set_Vspaces();}
 
   void write_LD_svd_bundle(const char name_[]);
 };

@@ -56,6 +56,19 @@ struct LD_linalg
   template <typename T> static T min_T_3way(T a_, T b_, T c_) {return min_T<T>(min_T<T>(a_,b_),c_);}
   template <typename T> static T max_T_3way(T a_, T b_, T c_) {return max_T<T>(max_T<T>(a_,b_),c_);}
 
+  template <typename T> static void comp_Tvec_maM_stats(double stats_[], T *vec_, int len_)
+  {
+    T vec_acc = vec_[0], max_vec = vec_[0], min_vec = vec_[0], vec_i;
+    for (size_t i = 1; i < len_; i++)
+    {
+      vec_acc += (vec_i = vec_[i]);
+      if (min_vec > vec_i) min_vec = vec_i;
+      if (max_vec < vec_i) max_vec = vec_i;
+    }
+    stats_[0] = (double)(min_vec);
+    stats_[1] = ((double)(vec_acc))/((double)(len_));
+    stats_[2] = (double)(max_vec);
+  }
   template <typename T> static T min_val(T *vec_, int len_, int &ind_, int ind_offset_=0)
   {
     T val_out = vec_[ind_=0];

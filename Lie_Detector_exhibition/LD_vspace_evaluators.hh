@@ -107,11 +107,12 @@ struct G_vspace_eval: public LD_vspace_evaluator
 
 struct R_vspace_eval: public LD_vspace_evaluator
 {
-  R_vspace_eval(ode_solspc_subset &Sset_,int ncon_,int nvec_,int ord_,double atol_=1e-8,double rtol_=0e-0): LD_vspace_evaluator(Sset_,ncon_,nvec_,1,atol_), ord(ord_), rtol(rtol_) {}
+  R_vspace_eval(ode_solspc_subset &Sset_,int ncon_,int nvec_,int ord_,double atol_,double rtol_, bool rat_err_): LD_vspace_evaluator(Sset_,ncon_,nvec_,1,atol_), ord(ord_), rtol(rtol_), rat_err(rat_err_) {}
   R_vspace_eval(R_vspace_eval &evl_,int nsol_):
-    LD_vspace_evaluator(evl_,nsol_), ord(evl_.ord), rtol(evl_.rtol) {}
+    LD_vspace_evaluator(evl_,nsol_), ord(evl_.ord), rtol(evl_.rtol), rat_err(evl_.rat_err) {}
   ~R_vspace_eval() {}
 
+  const bool rat_err;
   const int ord;
   double  &atol = tol,
           rtol;
@@ -126,20 +127,40 @@ struct R_vspace_eval: public LD_vspace_evaluator
 
   protected:
 
-    static double R_err(double vdkm1xu_, double vx_, double dkxu_)
-    {
-      return dkxu_ - (vdkm1xu_/vx_); // absolute error
-    }
+    // inline double R_err_sat(double vdkm1xu_, double vx_, double dkxu_)
+    //   {return abs_d(dkxu_ - (vdkm1xu_/vx_)) < max_d(atol,abs_d(rtol*dkxu_));}
+
     inline double R_err_sat(double vdkm1xu_, double vx_, double dkxu_)
-      {return fabs(dkxu_ - (vdkm1xu_/vx_)) < max_d(atol,fabs(rtol*dkxu_));}
-    inline double max_d(double a_,double b_)
-      {return (a_>b_)?(a_):(b_);}
+      {return (rat_err)?(ar_err_sat(dkxu_,vdkm1xu_/vx_)):(ar_err_sat(dkxu_*vx_,vdkm1xu_));}
+    inline double ar_err_sat(double y_, double yh_)
+      {return abs_d(y_ - yh_) < max_d(atol,abs_d(rtol*y_));}
+
+    static double R_rerr_lin(double vdkm1xu_, double vx_, double dkxu_)
+    {
+      return vx_ - vdkm1xu_/dkxu_; // linear homogenous RELATIVE error
+    }
+    static double R_rerr_rat(double vdkm1xu_, double vx_, double dkxu_)
+    {
+      return 1.0 - (vdkm1xu_/(vx_*dkxu_));
+    }
+
+    static double R_aerr_lin(double vdkm1xu_, double vx_, double dkxu_)
+    {
+      return dkxu_*vx_ - vdkm1xu_; // linear homogenous error
+    }
+    static double R_aerr_rat(double vdkm1xu_, double vx_, double dkxu_)
+    {
+      return dkxu_ - (vdkm1xu_/vx_); // absolute ratio error
+    }
+
+    inline double abs_d(double a_) {return (a_>0.0)?(a_):(-a_);}
+    inline double max_d(double a_,double b_) {return (a_>b_)?(a_):(b_);}
 };
 
 struct Rk_vspace_eval: public R_vspace_eval
 {
-  Rk_vspace_eval(ode_solspc_subset &Sset_,int nvec_,int kor_,double atol_,double rtol_):
-    R_vspace_eval(Sset_,Sset_.ndep,nvec_,kor_,atol_,rtol_) {}
+  Rk_vspace_eval(ode_solspc_subset &Sset_,int nvec_,int kor_,double atol_,double rtol_,bool rat_err_):
+    R_vspace_eval(Sset_,Sset_.ndep,nvec_,kor_,atol_,rtol_,rat_err_) {}
   Rk_vspace_eval(Rk_vspace_eval &evl_,int nsol_):
     R_vspace_eval(evl_,nsol_) {}
   ~Rk_vspace_eval() {}
@@ -181,8 +202,8 @@ struct Rk_vspace_eval: public R_vspace_eval
 
 struct Rn_vspace_eval: public R_vspace_eval
 {
-  Rn_vspace_eval(ode_solspc_subset &Sset_,int nvec_,int nor_,double atol_,double rtol_):
-    R_vspace_eval(Sset_,Sset_.ndep*nor_,nvec_,nor_,atol_,rtol_) {}
+  Rn_vspace_eval(ode_solspc_subset &Sset_,int nvec_,int nor_,double atol_,double rtol_,bool rat_err_):
+    R_vspace_eval(Sset_,Sset_.ndep*nor_,nvec_,nor_,atol_,rtol_,rat_err_) {}
   Rn_vspace_eval(Rn_vspace_eval &evl_, int nsol_):
     R_vspace_eval(evl_,nsol_) {}
   ~Rn_vspace_eval() {}
@@ -251,14 +272,15 @@ struct OG_vspace_eval: public LD_vspace_evaluator
 
   public:
 
-    OG_vspace_eval(ode_solspc_subset &Sset_,int nvec_,double atol_,double rtol_,double gtol_):
+    OG_vspace_eval(ode_solspc_subset &Sset_,int nvec_,double atol_,double rtol_,double gtol_,bool rat_err_):
       LD_vspace_evaluator(Sset_,2*(Sset_.ndep),nvec_,1,atol_),
-      O_evl(Rk_vspace_eval(Sset_,nvec_,Sset_.eor,atol_,rtol_)), G_evl(G_vspace_eval(Sset_,nvec_,gtol_)) {}
+      O_evl(Rk_vspace_eval(Sset_,nvec_,Sset_.eor,atol_,rtol_,rat_err_)), G_evl(G_vspace_eval(Sset_,nvec_,gtol_)) {}
     OG_vspace_eval(OG_vspace_eval &evl_,int nsol_): // sharing solution space and settings
       LD_vspace_evaluator(evl_,nsol_),
       O_evl(Rk_vspace_eval(evl_.O_evl,1)), G_evl(G_vspace_eval(evl_.G_evl,1)) {}
     ~OG_vspace_eval() {}
 
+    const bool rat_err = O_evl.rat_err;
     double  &gtol = G_evl.tol,
             &atol = O_evl.atol,
             &rtol = O_evl.rtol;
@@ -267,25 +289,25 @@ struct OG_vspace_eval: public LD_vspace_evaluator
       bool verbose_=true)
     {
       LD_vspace_record reci_(reco_);
-      OG_vspace_eval::evaluate_nthcond_infcrit<BSE>(reco_,reci_,Sset_,bases_,atol,rtol,gtol);
+      OG_vspace_eval::evaluate_nthcond_infcrit<BSE>(reco_,reci_,Sset_,bases_,atol,rtol,gtol,rat_err);
     }
     template <class BND,class BSE> static void evaluate_nthcond_infcrit(BND &bndle_,
-      LD_vspace_record &reci_,ode_solspc_subset &Sset_,BSE **bases_,double atol_,double rtol_,double gtol_,bool verbose_=true)
+      LD_vspace_record &reci_,ode_solspc_subset &Sset_,BSE **bases_,double atol_,double rtol_,double gtol_,bool rat_err_=true,bool verbose_=true)
     {
       OG_vspace_eval::evaluate_nthcond_infcrit<BSE>(bndle_.rec,reci_,Sset_,bases_,atol_,rtol_,gtol_,verbose_);
       bndle_.set_Vspaces();
     }
     template <class BSE> static void evaluate_nthcond_infcrit(LD_vspace_record &reco_,
-      LD_vspace_record &reci_,ode_solspc_subset &Sset_,BSE **bases_,double atol_,double rtol_,double gtol_,bool verbose_=true)
+      LD_vspace_record &reci_,ode_solspc_subset &Sset_,BSE **bases_,double atol_,double rtol_,double gtol_,bool rat_err_=true,bool verbose_=true)
     {
       LD_vspace_evaluator::strictly_evaluate_vspace<OG_vspace_eval,BSE>(reco_,reci_,
-        OG_vspace_eval(Sset_,reco_.nvec,atol_,rtol_,gtol_),bases_,verbose_);
+        OG_vspace_eval(Sset_,reco_.nvec,atol_,rtol_,gtol_,rat_err_),bases_,verbose_);
     }
     template <class BSE> static void evaluate_nthcond_infcrit(LD_vspace_record &recO_,LD_vspace_record &recG_,
-      LD_vspace_record &reci_,ode_solspc_subset &Sset_,BSE **bases_,double atol_,double rtol_,double gtol_,bool verbose_=true)
+      LD_vspace_record &reci_,ode_solspc_subset &Sset_,BSE **bases_,double atol_,double rtol_,double gtol_,bool rat_err_=true,bool verbose_=true)
     {
       LD_vspace_evaluator::strictly_evaluate_vspace<Rk_vspace_eval,BSE>(recO_,reci_,
-        Rk_vspace_eval(Sset_,recO_.nvec,Sset_.eor,atol_,rtol_),bases_,verbose_);
+        Rk_vspace_eval(Sset_,recO_.nvec,Sset_.eor,atol_,rtol_,rat_err_),bases_,verbose_);
       LD_vspace_evaluator::strictly_evaluate_vspace<G_vspace_eval,BSE>(recG_,reci_,
         G_vspace_eval(Sset_,recG_.nvec,gtol_),bases_,verbose_);
     }

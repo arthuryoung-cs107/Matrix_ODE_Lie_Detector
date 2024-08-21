@@ -21,6 +21,48 @@ struct ode_solspc_setbundle: public ode_solspc_subset
     {int acc = 0; for (size_t i = 0; i < i_; i++) acc+=nsol_per_set[i]; return acc;}
 };
 
+class Jet_function_vector_space
+{
+    LD_observations_set &Sobs;
+    function_space &fspc;
+    LD_encoder &enc;
+
+  public:
+
+    Jet_function_vector_space(LD_observations_set &Sobs_,function_space &fspc_,LD_encoder &enc_):
+      Sobs(Sobs_), fspc(fspc_), enc(enc_),
+      Acode(LD_encoding_bundle(Sobs_.ncrvs_tot,fspc_.ndof_full,Sobs_.npts_per_crv,enc_.ncod)),
+      Vbndle0(LD_vector_bundle(Sobs_.ncrvs_tot,fspc_.ndof_full)),
+      svd0(LD_svd_bundle(Vbndle0))
+      {}
+    template <class BSE> Jet_function_vector_space(LD_observations_set &Sobs_,function_space &fspc_,LD_encoder &enc_,BSE **bases_, bool normalize_, bool verbose_=true):
+      Jet_function_vector_space(Sobs_,fspc_,enc_) {encode_decompose_bundle<BSE>(bases_,normalize_,verbose_);}
+
+    ~Jet_function_vector_space() {}
+
+    LD_encoding_bundle Acode;
+    LD_vector_bundle Vbndle0;
+    LD_svd_bundle svd0; // shared data with Vbndle0
+
+    LD_vspace_record &rec0 = Vbndle0.rec;
+
+    template <class BSE> void encode_decompose_bundle(BSE **bases_,bool normalize_,bool verbose_=true)
+    {
+      LD_encoder::encode_bundle<BSE>(Acode,Sobs,bases_,enc,normalize_,verbose_);
+      svd0.compute_Acode_curve_svds(Acode,verbose_);
+        if (verbose_) svd0.print_details("svd0");
+      svd0.set_Vspaces_nullspc();
+        if (verbose_) rec0.print_subspace_details("rec0",false,false);
+    }
+    template <class EVL,class BSE> void evaluate_Vbndle0(EVL &evl_, BSE **bases_, bool reset_=true, bool verbose_=true)
+    {
+      if (reset_) Vbndle0.reset_Vspaces();
+      evl_.template evaluate_vspace_record<BSE>(rec0,evl_.Sset,bases_,verbose_); Vbndle0.set_Vspaces();
+        rec0.print_subspace_details("rec0",false,false);
+    }
+
+};
+
 class cokernal_reduction
 {
 

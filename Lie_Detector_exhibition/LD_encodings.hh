@@ -8,6 +8,13 @@ struct LD_L_encoder: public LD_encoder
   LD_L_encoder(ode_solspc_meta &meta_): LD_encoder(1,meta_) {}
   ~LD_L_encoder() {}
 
+  virtual void encode_normalize_rows(double **rows_i_,function_space_basis &fbse_,ode_solution &sol_i_,bool normalize_)
+  {
+    fbse_.fill_partial_chunk(sol_i_.pts,0);
+    LD_L_encoder::encode_L_row(rows_i_[0],fbse_.Jac_mat[0],fbse_.dof_tun_flags,fbse_.perm_len);
+    if (normalize_) LD_L_encoder::normalize_L_row(rows_i_[0],fbse_.perm_len);
+  }
+
   /*
     encoding routines
   */
@@ -52,6 +59,13 @@ struct LD_G_encoder: public LD_encoder
 {
   LD_G_encoder(ode_solspc_meta &meta_): LD_encoder(meta_.ndep,meta_) {}
   ~LD_G_encoder() {}
+
+  virtual void encode_normalize_rows(double **rows_i_,function_space_basis &fbse_,ode_solution &sol_i_,bool normalize_)
+  {
+    fbse_.fill_partial_chunk(sol_i_.pts,sol_i_.eor);
+    LD_G_encoder::encode_G_rows(rows_i_,fbse_.partials,sol_i_,fbse_.dof_tun_flags_mat);
+    if (normalize_) LD_G_encoder::normalize_G_rows(rows_i_,sol_i_,fbse_.ndof_tun);
+  }
 
   /*
     encoding routines
@@ -132,6 +146,24 @@ struct LD_R_encoder: public LD_encoder
 {
   LD_R_encoder(ode_solspc_meta &meta_,int nor_=0): LD_encoder(meta_.ndep*((nor_)?(nor_):(meta_.eor)),meta_) {}
   ~LD_R_encoder() {}
+
+  virtual void encode_normalize_rows(double **rows_i_,function_space_basis &fbse_,ode_solution &sol_i_,bool normalize_)
+  {
+    const int nor = ncod/sol_i_.ndep;
+    fbse_.fill_partial_chunk(sol_i_.pts,nor-1);
+    LD_R_encoder::encode_R1_rows(rows_i_,fbse_.Jac_mat,sol_i_,fbse_.dof_tun_flags_mat,fbse_.perm_len);
+    if (nor>1)
+    {
+      const int eor = sol_i_.eor;
+      LD_R_encoder::encode_R2n_rows(rows_i_+sol_i_.ndep,fbse_.partials,sol_i_,fbse_.dof_tun_flags_mat,((nor>eor)?(eor):(nor))-1);
+      if (nor==(eor+1)) LD_R_encoder::encode_P_rows(rows_i_+(eor*sol_i_.ndep),fbse_.partials,sol_i_,fbse_.dof_tun_flags_mat);
+    }
+    if (normalize_)
+    {
+      LD_R_encoder::normalize_Rn_rows(rows_i_,sol_i_,nor-1,fbse_.ndof_tun);
+      if (nor==(sol_i_.eor+1)) LD_R_encoder::normalize_P_rows(rows_i_+(sol_i_.eor*sol_i_.ndep),sol_i_,fbse_.ndof_tun);
+    }
+  }
 
   /*
     encoding routines
@@ -231,7 +263,7 @@ struct LD_R_encoder: public LD_encoder
         base_t.fill_partial_chunk(sol_i.pts,eor);
         double ** const Q_rows_i = bndle_.get_iobs_encoding(i);
         LD_R_encoder::encode_R1_rows(Q_rows_i,Lambda_xu_mat_t,sol_i,dof_tun_flags_mat,perm_len);
-        LD_R_encoder::encode_R2n_rows(Q_rows_i+ndep,chunk_t,sol_i,dof_tun_flags_mat,eorm1);
+        if (eorm1>0) LD_R_encoder::encode_R2n_rows(Q_rows_i+ndep,chunk_t,sol_i,dof_tun_flags_mat,eorm1);
         LD_R_encoder::encode_P_rows(Q_rows_i+i_eorp1,chunk_t,sol_i,dof_tun_flags_mat);
         if (normalize_)
         {
@@ -265,7 +297,7 @@ struct LD_R_encoder: public LD_encoder
           base_t.fill_partial_chunk(sol_i.pts,eorm1);
           double ** const Rn_rows_i = bndle_.get_iobs_encoding(i);
           LD_R_encoder::encode_R1_rows(Rn_rows_i,Lambda_xu_mat_t,sol_i,dof_tun_flags_mat,perm_len);
-          LD_R_encoder::encode_R2n_rows(Rn_rows_i+ndep,chunk_t,sol_i,dof_tun_flags_mat,eorm1);
+          if (eorm1>0) LD_R_encoder::encode_R2n_rows(Rn_rows_i+ndep,chunk_t,sol_i,dof_tun_flags_mat,eorm1);
           if (normalize_) LD_R_encoder::normalize_Rn_rows(Rn_rows_i,sol_i,eorm1,base_t.ndof_tun);
         }
       }
@@ -335,25 +367,28 @@ struct LD_R_encoder: public LD_encoder
   }
   static void encode_R2n_rows(double **R2rows_,partial_chunk &chunk_,ode_solution &sol_,bool **dof_tflags_mat_,int eorm1_)
   {
-    const int ndep = sol_.ndep,
-              perm_len = chunk_.perm_len;
-    int i_dof = 0;
-    double  * const d2xu = sol_.dxu+ndep,
-            ** const Lambda_xu_mat = chunk_.Jac_mat,
-            *** const Jac_xtheta_vdxu_tns = chunk_.C_x,
-            ** const Jac_utheta_vdxu_mat = chunk_.C_u;
+    if (eorm1_>0)
+    {
+      const int ndep = sol_.ndep,
+                perm_len = chunk_.perm_len;
+      int i_dof = 0;
+      double  * const d2xu = sol_.dxu+ndep,
+              ** const Lambda_xu_mat = chunk_.Jac_mat,
+              *** const Jac_xtheta_vdxu_tns = chunk_.C_x,
+              ** const Jac_utheta_vdxu_mat = chunk_.C_u;
 
-    for (size_t i_L = 0; i_L < perm_len; i_dof += (int)(dof_tflags_mat_[0][i_L++]))
-      if (dof_tflags_mat_[0][i_L])
-        for (size_t k = 0, idim = 0; k < eorm1_; k++)
-          for (size_t idep = 0; idep < ndep; idep++, idim++)
-            R2rows_[idim][i_dof] = d2xu[idim]*Lambda_xu_mat[0][i_L] - Jac_xtheta_vdxu_tns[i_L][k][idep];
+      for (size_t i_L = 0; i_L < perm_len; i_dof += (int)(dof_tflags_mat_[0][i_L++]))
+        if (dof_tflags_mat_[0][i_L])
+          for (size_t k = 0, idim = 0; k < eorm1_; k++)
+            for (size_t idep = 0; idep < ndep; idep++, idim++)
+              R2rows_[idim][i_dof] = d2xu[idim]*Lambda_xu_mat[0][i_L] - Jac_xtheta_vdxu_tns[i_L][k][idep];
 
-    for (size_t idep = 0; idep < ndep; idep++)
-      for (size_t i_L = 0; i_L < perm_len; i_dof += (int)(dof_tflags_mat_[idep+1][i_L++]))
-        if (dof_tflags_mat_[idep+1][i_L])
-          for (size_t k = 0, i_R = idep; k < eorm1_; k++, i_R+=ndep)
-            R2rows_[i_R][i_dof] = -(Jac_utheta_vdxu_mat[i_L][k]);
+      for (size_t idep = 0; idep < ndep; idep++)
+        for (size_t i_L = 0; i_L < perm_len; i_dof += (int)(dof_tflags_mat_[idep+1][i_L++]))
+          if (dof_tflags_mat_[idep+1][i_L])
+            for (size_t k = 0, i_R = idep; k < eorm1_; k++, i_R+=ndep)
+              R2rows_[i_R][i_dof] = -(Jac_utheta_vdxu_mat[i_L][k]);
+    }
   }
 
   /*
@@ -372,21 +407,75 @@ struct LD_R_encoder: public LD_encoder
     if (kor_==(sol_.eor+1)) LD_R_encoder::normalize_P_rows(Rkrows_,sol_,ndof_);
     else
       for (size_t idep = 0, idxu = kor_*sol_.ndep; idep < sol_.ndep; idep++, idxu++)
-      {
         for (size_t icol = 0; icol < ndof_; icol++) Rkrows_[idep][icol] /= sol_.u[idxu];
         // LD_linalg::normalize_vec_l2(Rkrows_[idep],ndof_);
-      }
   }
   static void normalize_Rn_rows(double **Rnrows_,ode_solution &sol_,int eorm1_,int ndof_)
   {
     for (size_t k = 0, idxu = 0; k <= eorm1_; k++)
       for (size_t idep = 0; idep < sol_.ndep; idep++, idxu++)
-      {
         for (size_t icol = 0; icol < ndof_; icol++) Rnrows_[idxu][icol] /= sol_.dxu[idxu];
         // LD_linalg::normalize_vec_l2(Rnrows_[idxu],ndof_);
-      }
+  }
+};
+
+struct LD_O_encoder: public LD_encoder
+{
+  LD_O_encoder(ode_solspc_meta &meta_): LD_encoder(meta_.ndep,meta_) {}
+  ~LD_O_encoder() {}
+
+  virtual void encode_normalize_rows(double **rows_i_,function_space_basis &fbse_,ode_solution &sol_i_,bool normalize_)
+  {
+    fbse_.fill_partial_chunk(sol_i_.pts,sol_i_.eor-1);
+    LD_R_encoder::encode_Rk_rows(rows_i_,fbse_.partials,sol_i_,fbse_.dof_tun_flags_mat,sol_i_.eor);
+    if (normalize_) LD_R_encoder::normalize_Rk_rows(rows_i_,sol_i_,sol_i_.eor,fbse_.ndof_tun);
+  }
+};
+
+struct LD_OG_encoder: public LD_encoder
+{
+  LD_OG_encoder(ode_solspc_meta &meta_): LD_encoder(2*meta_.ndep,meta_) {}
+  ~LD_OG_encoder() {}
+
+  virtual void encode_normalize_rows(double **rows_i_,function_space_basis &fbse_,ode_solution &sol_i_,bool normalize_)
+  {
+    fbse_.fill_partial_chunk(sol_i_.pts,sol_i_.eor);
+    LD_R_encoder::encode_Rk_rows(rows_i_,fbse_.partials,sol_i_,fbse_.dof_tun_flags_mat,sol_i_.eor);
+    LD_G_encoder::encode_G_rows(rows_i_+sol_i_.ndep,fbse_.partials,sol_i_,fbse_.dof_tun_flags_mat);
+    if (normalize_)
+    {
+      LD_R_encoder::normalize_Rk_rows(rows_i_,sol_i_,sol_i_.eor,fbse_.ndof_tun);
+      LD_G_encoder::normalize_G_rows(rows_i_+sol_i_.ndep,sol_i_,fbse_.ndof_tun);
+    }
   }
 
+  template <class BSIS> static void encode_OG_bundle(LD_encoding_bundle &bndle_,ode_solspc_subset &set_,BSIS **bases_,bool normalize_=false)
+  {
+    const int eor = set_.eor,
+              ndep = set_.ndep,
+              nobs_max = bndle_.nobs();
+    ode_solution ** const sols = set_.sols;
+    #pragma omp parallel
+    {
+      BSIS &base_t = *(bases_[LD_threads::thread_id()]);
+      partial_chunk &chunk_t = base_t.partials;
+      bool ** const dof_tun_flags_mat = base_t.dof_tun_flags_mat;
+      #pragma omp for
+      for (size_t i = 0; i < nobs_max; i++)
+      {
+        ode_solution &sol_i = *(sols[i]);
+        base_t.fill_partial_chunk(sol_i.pts,eor);
+        double ** const OG_rows_i = bndle_.get_iobs_encoding(i);
+        LD_R_encoder::encode_Rk_rows(OG_rows_i,chunk_t,sol_i,dof_tun_flags_mat,eor);
+        LD_G_encoder::encode_G_rows(OG_rows_i+ndep,chunk_t,sol_i,dof_tun_flags_mat);
+        if (normalize_)
+        {
+          LD_R_encoder::normalize_Rk_rows(OG_rows_i,sol_i,eor,base_t.ndof_tun);
+          LD_G_encoder::normalize_G_rows(OG_rows_i+ndep,sol_i,base_t.ndof_tun);
+        }
+      }
+    }
+  }
 };
 
 #endif
