@@ -12,16 +12,20 @@ LD_vector_space::LD_vector_space(int vlen_): data_owner(true),
   Vmat_data(Tmatrix<double>(vlen_,vlen_)),
   vlen_full(vlen_), nvec_use(vlen_), vlen_use(vlen_),
   inds_V(new int[vlen_]), Vmat(new double*[vlen_])
+  // ,vdata(LD_vspace_data(vlen_full,nvec_use,vlen_use,inds_V,Vmat_data))
   {for (size_t i = 0; i < vlen_; i++) Vmat[i] = Vmat_data[inds_V[i] = i];}
 LD_vector_space::LD_vector_space(int vlen_,int *inds_V_,double **Vmat_data_,double **Vmat_): data_owner(false),
   Vmat_data(Vmat_data_),
   vlen_full(vlen_), nvec_use(vlen_), vlen_use(vlen_),
-  inds_V(inds_V_), Vmat(Vmat_) {}
+  inds_V(inds_V_), Vmat(Vmat_)
+  // ,vdata(LD_vspace_data(vlen_full,nvec_use,vlen_use,inds_V,Vmat_data))
+  {}
 LD_vector_space::LD_vector_space(LD_vector_space &Vspc_,bool deepcopy_): data_owner(deepcopy_),
   Vmat_data((deepcopy_)?(Tmatrix<double>(Vspc_.vlen_full,Vspc_.vlen_full)):(Vspc_.get_Vmat_data())),
   vlen_full(Vspc_.vlen_full), nvec_use(Vspc_.nvec_use), vlen_use(Vspc_.vlen_use),
   inds_V((deepcopy_)?(new int[vlen_full]):(Vspc_.inds_V)),
   Vmat((deepcopy_)?(new double*[vlen_full]):(Vspc_.Vmat))
+  // ,vdata(LD_vspace_data(vlen_full,nvec_use,vlen_use,inds_V,Vmat_data))
   {
     if (deepcopy_)
     {

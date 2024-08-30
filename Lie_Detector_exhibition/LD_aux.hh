@@ -118,6 +118,31 @@ struct LD_linalg
   template <typename T> static void fill_vec_012(T *vec_, int len_, T offset_=0)
     {for (int i = 0; i < len_; i++) vec_[i] = ((T)(i)) + offset_;}
 
+  template <typename T> static void sort_vec_inc(T *vec_, int len_)
+    {T m_; int im_; LD_linalg::sort_vec_inc<T>(vec_,len_,m_,im_);}
+  template <typename T> static void sort_vec_inc(T *vec_, int len_, T &m_, int &im_)
+  {
+    if (len_>1)
+    {
+      m_ = vec_[im_=0];
+      for (size_t i = 1; i < len_; i++) if (m_>vec_[i]) m_ = vec_[im_ = i];
+      vec_[im_] = vec_[0]; vec_[0] = m_;
+      if (len_>2) LD_linalg::sort_vec_inc<T>(vec_+1,len_-1,m_,im_);
+    }
+  }
+  template <typename T> static void sort_vec_dec(T *vec_, int len_)
+    {T m_; int im_; LD_linalg::sort_vec_dec<T>(vec_,len_,m_,im_);}
+  template <typename T> static void sort_vec_dec(T *vec_, int len_, T &m_, int &im_)
+  {
+    if (len_>1)
+    {
+      m_ = vec_[im_=0];
+      for (size_t i = 1; i < len_; i++) if (m_<vec_[i]) m_ = vec_[im_ = i];
+      vec_[im_] = vec_[0]; vec_[0] = m_;
+      if (len_>2) LD_linalg::sort_vec_dec<T>(vec_+1,len_-1,m_,im_);
+    }
+  }
+
   template <typename T> static void sort_vec_inc(T *vec_, int len_, int &ind_m_)
   {
     if (len_>1)
@@ -395,7 +420,7 @@ struct LD_svd
 
   inline void print_result(const char name_[])
   {
-    printf("(LD_svd::print_result) %s (%d x %d) SVD (rank = %d):\n", name_, Muse, Nuse, comp_rank());
+    printf("(LD_svd::print_result) %s (%d x %d) SVD (rank = %d):\n", name_, Muse, Nuse, rank());
     LD_linalg::print_xT("  s",svec,Nuse);
 
   }
@@ -433,20 +458,12 @@ struct LD_svd
     unpack_svec_VTmat(svec_,VTmat_);
     return comp_rank(((double) Muse)*(LD_linalg::eps(svec_[0])));
   }
+  inline int rank(int iscl_=0) {return comp_rank( ((double) ((iscl_)?(iscl_):(Muse)))*(LD_linalg::eps(svec[0])) );}
   inline int comp_rank(double tol_eps_)
   {
     int rank_out = 0;
     for (size_t i = 0; i < Nuse; i++)
       if (svec[i]>tol_eps_) rank_out++;
-      else break;
-    return rank_out;
-  }
-  inline int comp_rank()
-  {
-    const double tol_eps = ((double) Muse)*(LD_linalg::eps(svec[0]));
-    int rank_out = 0;
-    for (size_t i = 0; i < Nuse; i++)
-      if (svec[i]>tol_eps) rank_out++;
       else break;
     return rank_out;
   }
@@ -490,6 +507,20 @@ struct k_medoids_package
   double  dclst,
           silh_coeff;
 
+  inline void comp_sort_cluster_distances(double dpairs_[], int ipairs_[], int ijpairs_[],int imems_[],int nmem_)
+  {
+    const int nmem_m1 = nmem_-1;
+    int inn0,iinn00,iinn01;
+    double  dij_min = DBL_MAX,
+            dij_try;
+    for (size_t i = 0, iprs = 0, i_ij = 0; i < nmem_m1; i++)
+      for (size_t j = i+1; j < nmem_; j++, iprs++, i_ij+=2)
+        if (dij_min > (dpairs_[ipairs_[iprs] = iprs] = (dij_try = dij(ijpairs_[i_ij] = imems_[i],ijpairs_[i_ij+1] = imems_[j]))))
+          {dij_min = dij_try; inn0=iprs; iinn00 = imems_[i]; iinn01 = imems_[j];}
+    dpairs_[inn0] = dpairs_[0]; ipairs_[inn0] = ipairs_[0]; ijpairs_[2*inn0] = ijpairs_[0]; ijpairs_[(2*inn0)+1] = ijpairs_[1];
+    dpairs_[0] = dij_min; ipairs_[0] = inn0; ijpairs_[0] = iinn00; ijpairs_[1] = iinn01;
+    if (nmem_>2) sort_cluster_distances(dpairs_+1,ipairs_+1,ijpairs_+2,(((nmem_)*(nmem_-1))/2)-1);
+  }
   inline double get_nearest_neighbors(int inn_[],int imems_[],int nmem_)
   {
     const int nmem_m1 = nmem_-1;
@@ -502,7 +533,7 @@ struct k_medoids_package
     return dij_min;
   }
 
-  void assign_clusters(int nmem_v_[],int imem_v_[],int *imem_m_[],int kclst_,int inmed_[],bool fnmed_[])
+  void assign_clusters(int nmem_v_[],int imem_v_[],int *imem_m_[],int kclst_,int inmed_[],bool fnmed_[],bool verbose_=false)
   {
     populate_nmed(inmed_,fnmed_,kclst_);
     const int n_nmed = npts-kclst_;
@@ -526,9 +557,19 @@ struct k_medoids_package
       imem_m_[k] = imem_v_ + iv;
       for (size_t i = 0; i < npts; i++) if (fmem_clst[k][i]) imem_v_[iv++] = i;
     }
+    if (verbose_)
+    {
+      printf("(k_medoids_package::assign_clusters) k = %d cluster assignments:\n", kclst_);
+      for (size_t k = 0; k < kclst_; k++)
+      {
+        printf("  (k=%d) imed=%d, nmed=%d - ", k,i_meds[k],nmem_v_[k]);
+        for (size_t i = 0; i < nmem_v_[k]; i++) printf("%d ", imem_m_[k][i]);
+        printf("\n");
+      }
+    }
   }
-  inline void assign_clusters(int nmem_v_[],int imem_v_[],int *imem_m_[],int kclst_)
-    {bool  f_nmeds[npts]; assign_clusters(nmem_v_,imem_v_,imem_m_,kclst_,i_nmeds,f_nmeds);}
+  inline void assign_clusters(int nmem_v_[],int imem_v_[],int *imem_m_[],int kclst_,bool verbose_=false)
+    {bool  f_nmeds[npts]; assign_clusters(nmem_v_,imem_v_,imem_m_,kclst_,i_nmeds,f_nmeds,verbose_);}
 
   int comp_kSC_medoids(int klow_=2,bool verbose_=true)
   {
@@ -654,6 +695,22 @@ struct k_medoids_package
 
   private:
 
+    inline void sort_cluster_distances(double dpairs_[],int ipairs_[],int ijpairs_[], int npairs_)
+    {
+      if (npairs_ >= 2)
+      {
+        double d_m = dpairs_[0];
+        int i_m = 0,
+            inn_m = ipairs_[0],
+            iinn_m0 = ijpairs_[0],
+            iinn_m1 = ijpairs_[1];
+        for (size_t i = 1, i_ij = 2; i < npairs_; i++, i_ij+=2)
+          if (d_m > dpairs_[i]) {d_m = dpairs_[i]; i_m = i; inn_m = ipairs_[i]; iinn_m0 = ijpairs_[i_ij]; iinn_m1 = ijpairs_[i_ij+1];}
+        dpairs_[i_m] = dpairs_[0]; ipairs_[i_m] = ipairs_[0]; ijpairs_[2*i_m] = ijpairs_[0]; ijpairs_[(2*i_m)+1] = ijpairs_[1];
+        dpairs_[0] = d_m; ipairs_[0] = inn_m; ijpairs_[0] = iinn_m0; ijpairs_[1] = iinn_m1;
+      }
+      if (npairs_ > 2) sort_cluster_distances(dpairs_+1,ipairs_+1,ijpairs_+2,npairs_-1);
+    }
     inline double comp_dclst_itry_kskp(int inmed_[],int k_,int ik_try_,int k_skp_)
     {
       const int n_nmed = npts-k_;

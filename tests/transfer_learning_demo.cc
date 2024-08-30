@@ -1,4 +1,3 @@
-#include "LD_matrices.hh"
 #include "LD_infinitesimal_generators.hh"
 #include "LD_integrators.hh"
 #include "LD_encodings.hh"
@@ -127,26 +126,28 @@ int main()
   printf("\ntesting cokernals\n\n");
 
   // double  atol_R_cok = atol_use_R,
-  double  atol_R_cok = 1e-10,
+  double  atol_R_cok = 1e-12,
           // rtol_R_cok = rtol_use_R,
-          rtol_R_cok = 1e-5,
+          rtol_R_cok = 1e-6,
           tol_G_cok = tol_use_G;
           // tol_G_cok = 1e-3;
 
   LD_OG_encoder OGenc(meta0);
-  OG_vspace_eval OG_evl(Sobs,fspace0.ndof_full,atol_R_cok,rtol_R_cok,tol_G_cok,false);
+  Frobenius_vspace_measure msr(fspace0.ndof_full,Sobs.ncrvs_tot);
 
-  // Jet_function_vector_space jfvs(Sobs,fspace0,OGenc);
+  // Jet_function_vector_space jfvs(Sobs,fspace0,OGenc,msr);
    // jfvs.encode_decompose_bundle<orthopolynomial_basis>(bases0,normalize_flag);
-  Jet_function_vector_space jfvs(Sobs,fspace0,OGenc,bases0,normalize_flag);
+  Jet_function_vector_space jfvs(Sobs,fspace0,OGenc,msr,bases0,normalize_flag);
 
-  jfvs.evaluate_Vbndle0<OG_vspace_eval,orthopolynomial_basis>(OG_evl,bases0,true);
+  // OG_vspace_eval OG_evl(Sobs,fspace0.ndof_full,atol_R_cok,rtol_R_cok,tol_G_cok,false);
+    // jfvs.evaluate_Vbndle0<OG_vspace_eval,orthopolynomial_basis>(OG_evl,bases0,true);
+    // jfvs.init_encoded_clustering<OG_vspace_eval,orthopolynomial_basis>(OG_vspace_eval,);
 
-  LD_vector_bundle  OGbndl_cok(OGcode_svd.rec);
+  // LD_vector_bundle  OGbndl_cok(OGcode_svd.rec);
   // LD_vector_bundle  OGbndl_cok(OGYL_x_rec0);
   // LD_vector_bundle  OGbndl_cok(OGYL_xu_rec0);
   // OG_vspace_eval OG_evl(Sobs,OGbndl_cok.vlen_full,atol_R_cok,rtol_R_cok,tol_G_cok);
-  Frobenius_vspace_measure OGmsr_cok(OGbndl_cok);
+  // Frobenius_vspace_measure OGmsr_cok(OGbndl_cok);
 
   // solution_space_cokernals solspc_cok(Sobs.ncrvs_tot,Sobs.nobs);
   // solspc_cok.compute_solspc_cokernals<OG_vspace_eval,orthopolynomial_basis>(OGbndl_cok,Sobs,OG_evl,OGmsr_cok,bases0);
@@ -191,5 +192,5 @@ int main()
       gen_OGYL_xu_OGsat_rn.write_observed_solutions(nbuf0.name_file(nbuf1.load_name(nbuf2.name,".OG_YLxu_OGsat",rec_suf)));
   }
 
-  free_evaluation_bases<orthopolynomial_basis>(bases0); return 0;
+  printf("ending main\n"); free_evaluation_bases<orthopolynomial_basis>(bases0); return 0;
 }

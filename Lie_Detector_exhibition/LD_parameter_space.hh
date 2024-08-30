@@ -139,12 +139,9 @@ class LD_vector_space
         for (size_t iele = 0; iele < vlen_use; iele++)
           AVcol_[iele] += Acol_[jvec]*Vmat[jvec][iele];
     }
+
     inline double * Vrowi_data(int i_) {return Vmat_data[i_];}
-
-  protected:
-
-    double ** get_Vmat_data() {return Vmat_data;}
-
+    inline double ** get_Vmat_data() {return Vmat_data;}
 };
 
 class LD_vector_bundle
@@ -685,7 +682,12 @@ struct LD_vspace_measure
   int nset;
   double ** const dsym;
 
-  virtual void init_distances(LD_vector_bundle &vbndle_, int nset_=0, bool verbose_=true) = 0;
+  inline void init_distances(LD_vector_bundle &vbndle_, int nset_=0, bool verbose_=true)
+    {init_distances(vbndle_.Vtns,vbndle_.nV_spcvec,nset_,verbose_);}
+  virtual void init_distances(double ***Vtns_, int *nV_spcvec_, int nset_=0, bool verbose_=true) = 0;
+  virtual double comp_distance(double **Va_,int na_,double **Vb_,int nb_) = 0;
+
+  // inline void update_distances(int nrdc_,int *ickrn_rdc_,int *jckrn_rdc_,double **Vtns_old_[],double **Vtns_rdc_[]) {}
 
   inline double dij(int i_,int j_) {return (i_<j_)?(dsym[i_][j_-i_-1]):((i_>j_)?(dsym[j_][i_-j_-1]):(0.0));}
 
@@ -715,14 +717,15 @@ struct Frobenius_vspace_measure: public LD_vspace_measure
   Frobenius_vspace_measure(LD_vector_bundle &vbndle_): LD_vspace_measure(vbndle_.vlen_full,vbndle_.nspc) {}
   ~Frobenius_vspace_measure() {}
 
-  virtual void init_distances(LD_vector_bundle &vbndle_, int nset_=0, bool verbose_=true)
-    {init_Frobenius_distances(vbndle_,nset_,verbose_);}
+  virtual void init_distances(double ***Vtns_, int *nV_spcvec_, int nset_=0, bool verbose_=true)
+    {init_Frobenius_distances(Vtns_,nV_spcvec_,nset_,verbose_);}
+  virtual double comp_distance(double **Va_,int na_,double **Vb_,int nb_)
+    {return Frobenius_vspace_measure::comp_Frob_distance(Va_,na_,Vb_,nb_,vlen);}
 
   inline void init_Frobenius_distances(LD_vector_bundle &vbndle_, int nset_=0, bool verbose_=true)
-  {
-    Frobenius_vspace_measure::comp_Frob_distances(dsym,dsym0_vec,
-      (nset_)?(nset = nset_):(nset),vbndle_.Vtns,vbndle_.nV_spcvec,vlen,verbose_);
-  }
+    {init_Frobenius_distances(vbndle_.Vtns,vbndle_.nV_spcvec,nset_,verbose_);}
+  inline void init_Frobenius_distances(double ***Vtns_, int *nV_spcvec_, int nset_, bool verbose_)
+    {Frobenius_vspace_measure::comp_Frob_distances(dsym,dsym0_vec,(nset_)?(nset = nset_):(nset),Vtns_,nV_spcvec_,vlen,verbose_);}
 
   static void comp_Frob_distances(double **dsym_,double *dvec_,int nset_,double ***Vtns_,int *nV_,int vlen_,bool verbose_=true)
   {
@@ -738,7 +741,6 @@ struct Frobenius_vspace_measure: public LD_vspace_measure
       for (size_t isym = 0; isym < len_sym; isym++)
       {
         Frobenius_vspace_measure::get_rowcol_isym(i,j,isym,nsetm1);
-        // dvec_[isym]=1.0-Frobenius_vspace_measure::comp_Frob_closeness(Vtns_[i],nV_[i],Vtns_[j],nV_[j],vlen_);
         dvec_[isym] = Frobenius_vspace_measure::comp_Frob_distance(Vtns_[i],nV_[i],Vtns_[j],nV_[j],vlen_);
 
         ncol_acc += nV_[i] + nV_[j];
@@ -749,11 +751,7 @@ struct Frobenius_vspace_measure: public LD_vspace_measure
       nset_, len_sym, vlen_, ncol_acc/((double) (2*len_sym)),work_time);
   }
   static double comp_Frob_distance(double **Va_,int na_,double **Vb_,int nb_,int vlen_)
-  {
-    return 1.0 - sqrt(Frobenius_vspace_measure::comp_Frob_closeness(Va_,na_,Vb_,nb_,vlen_)/((double) ((na_<nb_)?(na_):(nb_))));
-    // return ((double) ((na_>nb_)?(na_):(nb_))) - sqrt(Frobenius_vspace_measure::comp_Frob_closeness(Va_,na_,Vb_,nb_,vlen_));
-    // return ((double) ((na_>nb_)?(na_):(nb_))) - sqrt(Frobenius_vspace_measure::comp_Frob_closeness(Va_,na_,Vb_,nb_,vlen_)/((double) ((na_<nb_)?(na_):(nb_))));
-  }
+    {return 1.0 - sqrt(Frobenius_vspace_measure::comp_Frob_closeness(Va_,na_,Vb_,nb_,vlen_)/((double) ((na_<nb_)?(na_):(nb_))));}
   static double comp_Frob_closeness(double **Va_,int na_,double **Vb_,int nb_,int vlen_)
   {
     double acc_fro = 0.0;
