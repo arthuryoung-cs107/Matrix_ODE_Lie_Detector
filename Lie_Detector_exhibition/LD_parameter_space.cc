@@ -171,6 +171,60 @@ int LD_Theta_space::init_Vspce_premult(double **Wmat_)
   return spc.nvec_use = nV;
 }
 
+void LD_vspace_measure::update_distances(int nrdc_, int *ij_prnts_, LD_vector_space **vspcs_new_, bool verbose_)
+{
+  const int nset_old = nset,
+            nsetm1_old = nset_old-1,
+            len_sym_old = (nsetm1_old*nset_old)/2;
+  double dvec_old[len_sym_old];
+  for (size_t i = 0; i < len_sym_old; i++) dvec_old[i] = dsym0_vec[i];
+
+  int fset_old[nset_old];
+  for (size_t i = 0; i < nset_old; i++) fset_old[i] = 1; // unchanged vector spaces are flagged with 1
+  for (size_t i = 0, i_ij = 0; i < nrdc_; i++, i_ij+=2) // updated vector spaces are flagged with 2, deleted ones with 0
+    {fset_old[ij_prnts_[i_ij]] = 2; fset_old[ij_prnts_[i_ij+1]] = 0;}
+
+  const int nset_new = nset-nrdc_,
+            nsetm1_new = nset_new-1,
+            len_sym_new = (nsetm1_new*nset_new)/2;
+  int iset_new[nset_new];
+  for (size_t iold = 0, inew = 0, isrt = 0; inew < nset_new; inew += ((bool)(fset_old[iold++])))
+    if (fset_old[iold]) iset_new[inew] = iold;
+
+  const int nset_recomp = nrdc_*(nset_new - nrdc_) + (((nrdc_-1)*nrdc_)/2);
+  int isym_recomp[nset_recomp],
+      i_old, j_old, i_new, j_new;
+  for (size_t isym_new = 0, i_recomp = 0; isym_new < len_sym_new; isym_new++)
+  {
+    LD_vspace_measure::get_rowcol_isym(i_new,j_new,isym_new,nsetm1_new); // get row col coords of new set
+    // if either index is new, needs recomputation
+    if ( (fset_old[i_old=iset_new[i_new]] == 2) || (fset_old[j_old=iset_new[j_new]] == 2) ) isym_recomp[i_recomp++] = isym_new;
+    else dsym0_vec[isym_new] = dvec_old[LD_vspace_measure::get_isym_rowcol(i_old,j_old,nsetm1_old)];
+  }
+  
+  int ncol_acc = 0;
+  double t0 = LD_threads::tic();
+  #pragma omp parallel reduction(+:ncol_acc)
+  {
+    int i_new, j_new, n_i_new, n_j_new, isym_new;
+    #pragma omp for
+    for (size_t i = 0; i < nset_recomp; i++)
+    {
+      LD_vspace_measure::get_rowcol_isym(i_new,j_new,isym_new = isym_recomp[i],nsetm1_new); // get row col coords of new set
+      dsym0_vec[isym_new] = comp_distance(vspcs_new_[i_new]->Vmat,n_i_new = vspcs_new_[i_new]->nvec_use,
+                                          vspcs_new_[j_new]->Vmat,n_j_new = vspcs_new_[j_new]->nvec_use);
+      ncol_acc += n_i_new+n_j_new;
+    }
+  }
+  double work_time = LD_threads::toc(t0);
+  if (verbose_) printf("(LD_vspace_measure::update_distances) updated %d entries (%d reductions, avg. dims. %d x %.1f) of distance matrix (%d -> %d vspaces, %d -> %d matrix products) in %.3f seconds\n",
+  nset_recomp, nrdc_, vlen, ((double) ncol_acc)/((double) (2*nset_recomp)),
+  nset_old, nset_new,len_sym_old,len_sym_new,work_time);
+
+  for (size_t i = 0, jcap = nsetm1_new, isym = 0; i < nsetm1_new; i++, isym += jcap--) dsym[i] = dsym0_vec + isym;
+  nset = nset_new;
+}
+
 void LD_svd_bundle::compute_Acode_curve_svds(LD_encoding_bundle &Abndle_, bool verbose_)
 {
   const int mrows_max = Abndle_.max_nrows();

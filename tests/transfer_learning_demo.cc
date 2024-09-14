@@ -133,7 +133,8 @@ int main()
           // tol_G_cok = 1e-3;
 
   LD_OG_encoder OGenc(meta0);
-  Frobenius_vspace_measure msr(fspace0.ndof_full,Sobs.ncrvs_tot);
+  // Frobenius_vspace_measure msr(fspace0.ndof_full,Sobs.ncrvs_tot);
+  indepcomp_vspace_measure msr(fspace0.ndof_full,Sobs.ncrvs_tot);
 
   // Jet_function_vector_space jfvs(Sobs,fspace0,OGenc,msr);
    // jfvs.encode_decompose_bundle<orthopolynomial_basis>(bases0,normalize_flag);

@@ -687,7 +687,7 @@ struct LD_vspace_measure
   virtual void init_distances(double ***Vtns_, int *nV_spcvec_, int nset_=0, bool verbose_=true) = 0;
   virtual double comp_distance(double **Va_,int na_,double **Vb_,int nb_) = 0;
 
-  // inline void update_distances(int nrdc_,int *ickrn_rdc_,int *jckrn_rdc_,double **Vtns_old_[],double **Vtns_rdc_[]) {}
+  void update_distances(int nrdc_,int ij_prnts_[],LD_vector_space *vspcs_new_[],bool verbose_=true);
 
   inline double dij(int i_,int j_) {return (i_<j_)?(dsym[i_][j_-i_-1]):((i_>j_)?(dsym[j_][i_-j_-1]):(0.0));}
 
@@ -700,6 +700,14 @@ struct LD_vspace_measure
     double  ** const dsym0,
              * const dsym0_vec = dsym0[0];
 
+    static int get_isym_rowcol(int row_, int col_, int nsetm1_)
+    {
+      if (row_==col_) return -1;
+      const int rw = (row_<col_)?(row_):(col_);
+      int lrws = 0;
+      for (size_t i = 0, lrw = nsetm1_; i < rw; i++, lrw--) lrws += lrw;
+      return lrws + ((row_<col_)?(col_-row_):(row_-col_)) - 1;
+    }
     static void get_rowcol_isym(int &row, int &col, int isym_, int nsetm1_)
     {
       row = 0;
@@ -708,6 +716,77 @@ struct LD_vspace_measure
       while ((isym_dec -= (lenr_dec--)) >= 0) row++;
       col = isym_dec+lenr_dec+row+2;
     }
+
+};
+
+struct indepcomp_vspace_measure: public LD_vspace_measure
+{
+  indepcomp_vspace_measure(int vlen_, int nset0_): LD_vspace_measure(vlen_,nset0_) {}
+  indepcomp_vspace_measure(LD_vector_bundle &vbndle_): LD_vspace_measure(vbndle_.vlen_full,vbndle_.nspc) {}
+  ~indepcomp_vspace_measure() {}
+
+  virtual void init_distances(double ***Vtns_, int *nV_spcvec_, int nset_=0, bool verbose_=true)
+    {init_indepcomp_distances(Vtns_,nV_spcvec_,nset_,verbose_);}
+  virtual double comp_distance(double **Va_,int na_,double **Vb_,int nb_)
+    {return indepcomp_vspace_measure::comp_indp_distance(Va_,na_,Vb_,nb_,vlen);}
+
+  inline void init_indepcomp_distances(LD_vector_bundle &vbndle_, int nset_=0, bool verbose_=true)
+    {init_indepcomp_distances(vbndle_.Vtns,vbndle_.nV_spcvec,nset_,verbose_);}
+  inline void init_indepcomp_distances(double ***Vtns_, int *nV_spcvec_, int nset_, bool verbose_)
+    {indepcomp_vspace_measure::comp_indp_distances(dsym,dsym0_vec,(nset_)?(nset = nset_):(nset),Vtns_,nV_spcvec_,vlen,verbose_);}
+
+  static void comp_indp_distances(double **dsym_,double *dvec_,int nset_,double ***Vtns_,int *nV_,int vlen_,bool verbose_=true)
+  {
+    const int nsetm1 = nset_-1,
+              len_sym = (nsetm1*nset_)/2;
+    for (size_t i = 0, jcap = nsetm1, isym = 0; i < nsetm1; i++, isym += jcap--) dsym_[i] = dvec_+isym;
+    int ncol_acc = 0;
+    double t0 = LD_threads::tic();
+    #pragma omp parallel reduction(+:ncol_acc)
+    {
+      int i,j;
+      #pragma omp for
+      for (size_t isym = 0; isym < len_sym; isym++)
+      {
+        LD_vspace_measure::get_rowcol_isym(i,j,isym,nsetm1);
+        dvec_[isym] = indepcomp_vspace_measure::comp_indp_distance(Vtns_[i],nV_[i],Vtns_[j],nV_[j],vlen_);
+
+        ncol_acc += nV_[i] + nV_[j];
+      }
+    }
+    double work_time = LD_threads::toc(t0);
+    if (verbose_) printf("(indepcomp_vspace_measure::comp_indp_distances) computed distance matrix (%d vspaces, %d matrix products of avg. dims. %d x %.1f) in %.3f seconds\n",
+      nset_, len_sym, vlen_, ncol_acc/((double) (2*len_sym)),work_time);
+  }
+  static double comp_indp_distance(double **Va_,int na_,double **Vb_,int nb_,int vlen_)
+  {
+    const int ma = vlen_-na_,
+              mb = vlen_-nb_;
+    double  ** const  Ya = Va_ + na_, // assumes that complementary bases stored behind
+            ** const  Yb = Vb_ + nb_,
+                      acc_indep = 0.0;
+
+    // compute | KbT Ya |^2_F
+    for (size_t i = 0; i < nb_; i++)
+      for (size_t j = 0; j < ma; j++)
+      {
+        double acc_ij = 0.0;
+        for (size_t l = 0; l < vlen_; l++) acc_ij += Vb_[i][l]*Ya[j][l];
+        acc_indep += acc_ij*acc_ij;
+      }
+
+    // compute | YbT Ka |^2_F
+    for (size_t i = 0; i < mb; i++)
+      for (size_t j = 0; j < na_; j++)
+      {
+        double acc_ij = 0.0;
+        for (size_t l = 0; l < vlen_; l++) acc_ij += Yb[i][l]*Va_[j][l];
+        acc_indep += acc_ij*acc_ij;
+      }
+
+    return acc_indep;
+  }
+
 
 };
 
@@ -740,14 +819,14 @@ struct Frobenius_vspace_measure: public LD_vspace_measure
       #pragma omp for
       for (size_t isym = 0; isym < len_sym; isym++)
       {
-        Frobenius_vspace_measure::get_rowcol_isym(i,j,isym,nsetm1);
+        LD_vspace_measure::get_rowcol_isym(i,j,isym,nsetm1);
         dvec_[isym] = Frobenius_vspace_measure::comp_Frob_distance(Vtns_[i],nV_[i],Vtns_[j],nV_[j],vlen_);
 
         ncol_acc += nV_[i] + nV_[j];
       }
     }
     double work_time = LD_threads::toc(t0);
-    if (verbose_) printf("(LD_vspace_measure::comp_Frob_distances) computed distance matrix (%d vspaces, %d matrix products of avg. dims. %d x %.1f) in %.3f seconds\n",
+    if (verbose_) printf("(Frobenius_vspace_measure::comp_Frob_distances) computed distance matrix (%d vspaces, %d matrix products of avg. dims. %d x %.1f) in %.3f seconds\n",
       nset_, len_sym, vlen_, ncol_acc/((double) (2*len_sym)),work_time);
   }
   static double comp_Frob_distance(double **Va_,int na_,double **Vb_,int nb_,int vlen_)
@@ -796,6 +875,9 @@ struct LD_svd_bundle: public LD_vector_bundle
 
   void compute_Acode_curve_svds(LD_encoding_bundle &Abndle_,bool verbose_=true);
   void compute_AYmat_curve_svds(LD_encoding_bundle &Abndle_,LD_Theta_space ** const Tspaces_,bool verbose_=true);
+
+  inline void evaluate_iscl_ranks(int iscl_)
+    {for (size_t i = 0; i < nspc; i++) rank_vec[i] = LD_svd::rank(Smat[i],nV_spcvec[i],iscl_);}
 
   void print_details(const char name_[] =  "Amat_SVD");
 

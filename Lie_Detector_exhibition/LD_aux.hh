@@ -33,7 +33,8 @@ struct LD_linalg
   LD_linalg() {}
   ~LD_linalg() {}
 
-  static double eps(double x_=1.0) {return nextafter(x_,DBL_MAX)-x_;}
+  template <typename T> static void abs_vec(T *vec_, int len_)
+    {for (size_t i = 0; i < len_; i++) if (vec_[i] < 0) vec_[i] = -vec_[i];}
 
   static void normalize_vec_l2(double *vec_, int len_)
   {
@@ -55,6 +56,19 @@ struct LD_linalg
 
   template <typename T> static T min_T_3way(T a_, T b_, T c_) {return min_T<T>(min_T<T>(a_,b_),c_);}
   template <typename T> static T max_T_3way(T a_, T b_, T c_) {return max_T<T>(max_T<T>(a_,b_),c_);}
+
+  template <typename T> static void comp_Tvec_stats(double stats_[], T *vec_, int len_)
+    {T wrk[len_]; LD_linalg::comp_Tvec_stats<T>(stats_,vec_,wrk,len_);}
+  template <typename T> static void comp_Tvec_stats(double stats_[], T *vec_, T *wrk_, int len_)
+  {
+    T acc = 0;
+    for (size_t i = 0; i < len_; i++) acc += (wrk_[i] = vec_[i]);
+    LD_linalg::sort_vec_inc<T>(wrk_,len_);
+    stats_[0] = (double) wrk_[0]; // min
+    stats_[1] = (len_%2)?((double) wrk_[len_/2]):(0.5*((double) (wrk_[(len_/2) - 1] + wrk_[len_/2]) )); // med
+    stats_[2] = ((double) acc)/((double) len_);
+    stats_[3] = wrk_[len_-1];
+  }
 
   template <typename T> static void comp_Tvec_maM_stats(double stats_[], T *vec_, int len_)
   {
@@ -162,6 +176,14 @@ struct LD_linalg
     if (len_>2) LD_linalg::sort_vec_dec<T>(vec_+1,len_-1,ind_m_);
   }
 
+  static void A__B_CT(double **Amat_,double **Bmat_,double **Cmat_,int m_,int l_,int n_,bool init0_=false)
+  {
+    if (init0_) LD_linalg::fill_vec<double>(Amat_[0],m_*n_,0.0);
+    for (size_t i = 0; i < m_; i++)
+      for (size_t j = 0; j < n_; j++)
+        for (size_t ii = 0; ii < l_; ii++)
+          Amat_[i][j] += Bmat_[i][ii]*Cmat_[j][ii];
+  }
   static void A_x_b(double **A_, double *x_, double *b_, int m_, int n_)
   {
     for (size_t i = 0; i < m_; i++)
@@ -262,6 +284,8 @@ struct LD_linalg
       }
     return i_it;
   }
+
+  static double eps(double x_=1.0) {return nextafter(x_,DBL_MAX)-x_;}
 
   static void print_x(const char vec_name_[], double *x_, int n_)
   {
@@ -417,12 +441,20 @@ struct LD_svd
           ** const Vmat,
           * const svec,
           * const wvec;
+  double &s0 = svec[0];
+
+  inline double norm_oprt() {return svec[0];}
+  inline double norm_nuke()
+  {
+    double acc = 0.0;
+    for (size_t i = 0; i < Nuse; i++) acc += svec[i];
+    return acc;
+  }
 
   inline void print_result(const char name_[])
   {
     printf("(LD_svd::print_result) %s (%d x %d) SVD (rank = %d):\n", name_, Muse, Nuse, rank());
     LD_linalg::print_xT("  s",svec,Nuse);
-
   }
 
   inline void load_and_decompose_U(double **Amat_, int Muse_=0, int Nuse_=0)
@@ -464,6 +496,16 @@ struct LD_svd
     int rank_out = 0;
     for (size_t i = 0; i < Nuse; i++)
       if (svec[i]>tol_eps_) rank_out++;
+      else break;
+    return rank_out;
+  }
+
+  static int rank(double *s_, int len_, int iscl_)
+  {
+    const double tol_eps = ((double) iscl_) * LD_linalg::eps(s_[0]);
+    int rank_out = 0;
+    for (size_t i = 0; i < len_; i++)
+      if (s_[i]>tol_eps) rank_out++;
       else break;
     return rank_out;
   }
@@ -562,7 +604,7 @@ struct k_medoids_package
       printf("(k_medoids_package::assign_clusters) k = %d cluster assignments:\n", kclst_);
       for (size_t k = 0; k < kclst_; k++)
       {
-        printf("  (k=%d) imed=%d, nmed=%d - ", k,i_meds[k],nmem_v_[k]);
+        printf("  (k=%d) imed=%d, nmem=%d - ", k,i_meds[k],nmem_v_[k]);
         for (size_t i = 0; i < nmem_v_[k]; i++) printf("%d ", imem_m_[k][i]);
         printf("\n");
       }
@@ -677,6 +719,7 @@ struct k_medoids_package
     return dclst_out;
   }
 
+  inline void set_one_medoid() {i_meds[0] = imin_net_d();}
   double comp_greedy_k_medoids(int kclst_,int inmed_[],bool fnmed_[])
   {
     i_meds[0] = imin_net_d();

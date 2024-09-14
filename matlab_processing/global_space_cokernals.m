@@ -139,42 +139,42 @@ k_clusters_KA = k_clst(i_SC_KA_max);
 [medoid_KA_pckg,greedy_medoid_KA_pckg,improved_on_greedy_KA] = LD_aux.naive_k_medoid(dmat_K_A,k_clusters_KA)
 [~,medoid_KA_pckg_detailed] = LD_aux.post_process_medoid_package(medoid_KA_pckg)
 
-iV_Vmati = LD_aux.read_Tmat('../iV_Vmati.lddat');
-iV_Vmatj = LD_aux.read_Tmat('../iV_Vmatj.lddat');
-Vmat_data_i = LD_aux.read_Tmat('../Vmat_data_i.lddat');
-Vmat_data_j = LD_aux.read_Tmat('../Vmat_data_j.lddat');
-Vmat_full_i = LD_aux.read_Tmat('../Vmat_full_i.lddat');
-Vmat_full_j = LD_aux.read_Tmat('../Vmat_full_j.lddat');
-Vmat_i = LD_aux.read_Tmat('../Vmat_i.lddat');
-Vmat_j = LD_aux.read_Tmat('../Vmat_j.lddat');
-Umat_t = LD_aux.read_Tmat('../Umat_t.lddat');
-Vmat_t = LD_aux.read_Tmat('../Vmat_t.lddat');
-Km = LD_aux.read_Tmat('../Km.lddat');
-Km_nrm = LD_aux.read_Tmat('../Km_nrm.lddat');
-Wm = LD_aux.read_Tmat('../Wm.lddat');
+% iV_Vmati = LD_aux.read_Tmat('../iV_Vmati.lddat');
+% iV_Vmatj = LD_aux.read_Tmat('../iV_Vmatj.lddat');
+% Vmat_data_i = LD_aux.read_Tmat('../Vmat_data_i.lddat');
+% Vmat_data_j = LD_aux.read_Tmat('../Vmat_data_j.lddat');
+% Vmat_full_i = LD_aux.read_Tmat('../Vmat_full_i.lddat');
+% Vmat_full_j = LD_aux.read_Tmat('../Vmat_full_j.lddat');
+% Vmat_i = LD_aux.read_Tmat('../Vmat_i.lddat');
+% Vmat_j = LD_aux.read_Tmat('../Vmat_j.lddat');
+% Umat_t = LD_aux.read_Tmat('../Umat_t.lddat');
+% Vmat_t = LD_aux.read_Tmat('../Vmat_t.lddat');
+% Km = LD_aux.read_Tmat('../Km.lddat');
+% Km_nrm = LD_aux.read_Tmat('../Km_nrm.lddat');
+% Wm = LD_aux.read_Tmat('../Wm.lddat');
+%
+% Kmat_i = Vmat_full_i((size(Vmat_i,1) + 1):end,:);
+% Kmat_j = Vmat_full_j((size(Vmat_j,1) + 1):end,:);
+% Kmat_ij = [Kmat_i; Kmat_j];
+% [~,s_Kij,V_Kij] = svd(Kmat_ij,'econ','vector');
+%
+% aV_t = Vmat_t(1:size(Vmat_i,1),:);
+% bV_t = Vmat_t((size(Vmat_i,1)+1):end,:);
+%
+% Via_t = Vmat_i'*aV_t;
+% Vjb_t = Vmat_j'*bV_t;
+%
+% [Via_t(:,end) Vjb_t(:,end) Wm(end,:)' (aV_t(:,end)'*Vmat_i)' (Km(:,end)'*Vmat_i)' (Km_nrm(:,end)'*Vmat_i)']
+%
+% Vmat_l = Vmat_i';
+% Vmat_cok = Vmat_l(:,1:3);
+% Vmat_li = [Vmat_cok,Vmat_l(:,4:10)];
+% Vmat_lj = [Vmat_cok,Vmat_l(:,11:20)];
+% Vmat_l_Psi = [Vmat_li,-Vmat_lj];
+% [~,s_Vl,V_Vl] = svd(Vmat_l_Psi,'econ','vector');
 
-Kmat_i = Vmat_full_i((size(Vmat_i,1) + 1):end,:);
-Kmat_j = Vmat_full_j((size(Vmat_j,1) + 1):end,:);
-Kmat_ij = [Kmat_i; Kmat_j];
-[~,s_Kij,V_Kij] = svd(Kmat_ij,'econ','vector');
 
-aV_t = Vmat_t(1:size(Vmat_i,1),:);
-bV_t = Vmat_t((size(Vmat_i,1)+1):end,:);
-
-Via_t = Vmat_i'*aV_t;
-Vjb_t = Vmat_j'*bV_t;
-
-[Via_t(:,end) Vjb_t(:,end) Wm(end,:)' (aV_t(:,end)'*Vmat_i)' (Km(:,end)'*Vmat_i)' (Km_nrm(:,end)'*Vmat_i)']
-
-Vmat_l = Vmat_i';
-Vmat_cok = Vmat_l(:,1:3);
-Vmat_li = [Vmat_cok,Vmat_l(:,4:10)];
-Vmat_lj = [Vmat_cok,Vmat_l(:,11:20)];
-Vmat_l_Psi = [Vmat_li,-Vmat_lj];
-[~,s_Vl,V_Vl] = svd(Vmat_l_Psi,'econ','vector');
-
-
-return
+% return
 
 Ktns_A_YLrst = LD_aux.compute_Ktns_A_YLrst(AYLrstsvd);
 cmat_K_A_YLrst = LD_aux.compute_frobenius_closeness_matrix(Ktns_A_YLrst);
