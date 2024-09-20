@@ -2,7 +2,8 @@
 #include "LD_integrators.hh"
 #include "LD_encodings.hh"
 #include "LD_vspace_evaluators.hh"
-#include "solution_space_cokernals.hh"
+// #include "solution_space_cokernals.hh"
+#include "LD_cokernals.hh"
 
 // specify data directory for writing binary files
 const char dir_name[] = "./data_directory";
@@ -102,6 +103,7 @@ int main()
   printf("\ntesting medoids\n\n");
 
   Frobenius_vspace_measure OGmsr_OGsat(OGbndl); OGmsr_OGsat.init_Frobenius_distances(OGbndl);
+  // indepcomp_vspace_measure OGmsr_OGsat(OGbndl); OGmsr_OGsat.init_indepcomp_distances(OGbndl);
     k_medoids_package k_med_OG_OGsat(OGmsr_OGsat.dsym,OGmsr_OGsat.nset);
     int k_SC = k_med_OG_OGsat.comp_kSC_medoids();
     // const int kmin=2,kmax=10,klen=kmax-kmin+1;
@@ -125,6 +127,9 @@ int main()
 
   printf("\ntesting cokernals\n\n");
 
+  const bool wdistance = true;
+  // const bool wdistance = false;
+
   // double  atol_R_cok = atol_use_R,
   double  atol_R_cok = 1e-12,
           // rtol_R_cok = rtol_use_R,
@@ -133,12 +138,20 @@ int main()
           // tol_G_cok = 1e-3;
 
   LD_OG_encoder OGenc(meta0);
-  // Frobenius_vspace_measure msr(fspace0.ndof_full,Sobs.ncrvs_tot);
-  indepcomp_vspace_measure msr(fspace0.ndof_full,Sobs.ncrvs_tot);
 
   // Jet_function_vector_space jfvs(Sobs,fspace0,OGenc,msr);
    // jfvs.encode_decompose_bundle<orthopolynomial_basis>(bases0,normalize_flag);
-  Jet_function_vector_space jfvs(Sobs,fspace0,OGenc,msr,bases0,normalize_flag);
+  // Jet_function_vector_space jfvs(Sobs,fspace0,OGenc,msr,bases0,normalize_flag);
+
+  Jet_function_vector_space jfvs(Sobs,fspace0,OGenc,bases0,normalize_flag);
+
+  // Frobenius_vspace_measure msr(fspace0.ndof_full,Sobs.ncrvs_tot);
+  indepcomp_vspace_measure msr(fspace0.ndof_full,Sobs.ncrvs_tot);
+
+  nullspace_clst_policy pol(msr,wdistance);
+  // nullspace_near_policy pol(msr,wdistance);
+
+  cokernal_sub_bundle ckrn(jfvs,pol,true);
 
   // OG_vspace_eval OG_evl(Sobs,fspace0.ndof_full,atol_R_cok,rtol_R_cok,tol_G_cok,false);
     // jfvs.evaluate_Vbndle0<OG_vspace_eval,orthopolynomial_basis>(OG_evl,bases0,true);

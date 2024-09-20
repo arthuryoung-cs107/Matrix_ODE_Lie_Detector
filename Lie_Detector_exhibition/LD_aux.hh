@@ -549,6 +549,7 @@ struct k_medoids_package
   double  dclst,
           silh_coeff;
 
+  inline void set_one_medoid() {i_meds[0] = imin_net_d();}
   inline void comp_sort_cluster_distances(double dpairs_[], int ipairs_[], int ijpairs_[],int imems_[],int nmem_)
   {
     const int nmem_m1 = nmem_-1;
@@ -719,7 +720,6 @@ struct k_medoids_package
     return dclst_out;
   }
 
-  inline void set_one_medoid() {i_meds[0] = imin_net_d();}
   double comp_greedy_k_medoids(int kclst_,int inmed_[],bool fnmed_[])
   {
     i_meds[0] = imin_net_d();

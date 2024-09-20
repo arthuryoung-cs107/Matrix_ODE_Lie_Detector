@@ -3,6 +3,7 @@
 EXHIB:= LD_ode LD_function_space LD_parameter_space LD_framework
 EXHIBDEC:= matrix_Lie_detector
 EXHIBGEN:= LD_integrators
+EXHIBCOK:= LD_cokernals
 
 include config/includes.mak
 
@@ -10,12 +11,14 @@ include config/includes.mak
 EXHIBOBJS:= $(addprefix $(LD_EXHIB_DIR), $(addsuffix .o, $(EXHIB)))
 EXHIBDECOBJS:= $(addprefix $(LD_EXHIB_DIR), $(addsuffix .o, $(EXHIBDEC)))
 EXHIBGENOBJS:= $(addprefix $(LD_EXHIB_DIR), $(addsuffix .o, $(EXHIBGEN)))
+EXHIBCOKOBJS:= $(addprefix $(LD_EXHIB_DIR), $(addsuffix .o, $(EXHIBCOK)))
 
 # final executable object files
 LDEXHIBOBJS:= $(EXHIBOBJS)
 LDEXHIBDECOBJS:= $(EXHIBOBJS) $(EXHIBDECOBJS)
 LDEXHIBGENOBJS:= $(EXHIBOBJS) $(EXHIBGENOBJS)
 LDEXHIBRECOBJS:= $(EXHIBOBJS) $(EXHIBGENOBJS) $(EXHIBDECOBJS)
+LDEXHIBCOKOBJS:= $(EXHIBOBJS) $(EXHIBGENOBJS) $(EXHIBDECOBJS) $(EXHIBCOKOBJS)
 
 # Lie detector exhibition rules
 $(LD_EXHIB_DIR)%.o: $(LD_EXHIB_SRC)%.cc | $(LD_EXHIB_DIR)
@@ -36,7 +39,7 @@ gendata_demo: $(TEST_SRC)generate_data_demo.cc $(LDEXHIBGENOBJS)
 full_demo: $(TEST_SRC)full_demo.cc $(LDEXHIBRECOBJS)
 	$(CXX) $(IDIR_EXHIB) $(CFLAGS_EXHIB) $(LINK) $^ $(LIBS_EXHIB) -o $@
 
-transfer_demo: $(TEST_SRC)transfer_learning_demo.cc $(LDEXHIBRECOBJS)
+transfer_demo: $(TEST_SRC)transfer_learning_demo.cc $(LDEXHIBCOKOBJS)
 	$(CXX) $(IDIR_EXHIB) $(CFLAGS_EXHIB) $(LINK) $^ $(LIBS_EXHIB) -o $@
 
 $(LD_EXHIB_DIR):
