@@ -122,6 +122,68 @@ struct cokernal_space
 
 };
 
+class cokernal_family
+{
+  cokernal_workspace ** const wkspcs;
+
+  public:
+
+    cokernal_family(cokernal_space &ckrn_med_,int nckrn_,cokernal_workspace **wkspcs_):
+      wkspcs(wkspcs_),
+      ckrn_med(ckrn_med_),
+      nckrn(nckrn_), nkrn0_ckrn(new int[nckrn_]),
+      ckrn_spcs(new cokernal_space*[nckrn_]) {}
+    cokernal_family(int nckrn_,int imed_,int ipts_med_[],cokernal_space **ckrn_spcs_,cokernal_workspace **wkspcs_):
+      cokernal_family(*(ckrn_spcs_[imed_]),nckrn_,wkspcs_)
+      {for (size_t i = 0; i < nckrn_; i++) nkrn0_ckrn[i] = (ckrn_spcs[i] = ckrn_spcs_[ipts_med_[i]])->n_0Vkrn;}
+
+    ~cokernal_family()
+    {
+      delete [] nkrn0_ckrn;
+      delete [] ckrn_spcs;
+    }
+
+    cokernal_space &ckrn_med;
+
+    const int nckrn;
+    int * const nkrn0_ckrn;
+    cokernal_space ** const ckrn_spcs;
+
+    void print_details(int k_)
+    {
+      printf("\n(cokernal_family::print_details) k=%d cokernal family: imed = %d, nkcrn = %d, nkrn0=%d, nvec0=%d -> %d=nvecf \n", k_,ckrn_med.ickrn,nckrn,nkrn0(),nvec0(),nvecf());
+      for (size_t i = 0; i < nckrn; i++)
+      {
+        printf("  %s ckrn %d, ickrn=%d, nkrn0_i=%d, nvec0=%d -> %d=nvecf %s jkrn0: ",
+          (ckrn_med.ickrn == ckrn_spcs[i]->ickrn)?("["):("("),
+            i,ckrn_spcs[i]->ickrn,ckrn_spcs[i]->n_0Vkrn, nvec0_i(i), ckrn_spcs[i]->nvec_use,
+          (ckrn_med.ickrn == ckrn_spcs[i]->ickrn)?("]"):(")"));
+        for (size_t j = 0; j < ckrn_spcs[i]->n_0Vkrn; j++) printf("%d ", ckrn_spcs[i]->ivec_0Vkrn[j]);
+        printf("\n");
+      }
+    }
+
+    inline int nvecf() {int nvecf_out = 0; for (size_t i = 0; i < nckrn; i++) nvecf_out += ckrn_spcs[i]->nvec_use; return nvecf_out;}
+    inline int nkrn0() {int nkrn0_out = 0; for (size_t i = 0; i < nckrn; i++) nkrn0_out += ckrn_spcs[i]->n_0Vkrn; return nkrn0_out;}
+
+    inline int nvec0()
+    {
+      int nvec_acc = 0;
+      for (size_t i = 0; i < nckrn; i++)
+        for (size_t j = 0; j < nkrn0_ckrn[i]; j++)
+          nvec_acc += wkspcs[ckrn_spcs[i]->ivec_0Vkrn[j]]->vspc->nvec_use;
+      return nvec_acc;
+
+    }
+
+    inline int nvec0_i(int i_)
+    {
+      int nvec_acc = 0;
+      for (size_t j = 0; j < nkrn0_ckrn[i_]; j++) nvec_acc += wkspcs[ckrn_spcs[i_]->ivec_0Vkrn[j]]->vspc->nvec_use;
+      return nvec_acc;
+    }
+};
+
 class cokernal_bundle
 {
 
@@ -131,28 +193,32 @@ class cokernal_bundle
   bool  * const factive_ckrn_wkspc,
         * const factive_ckrn_wkspc_xtra = factive_ckrn_wkspc + nset0;
 
-  int nxtra_wkspc,
-      * const cokern_dimvec;
+  int nxtra_wkspc;
+
+  double ** const Wmat;
 
   cokernal_workspace  ** const ckrn_wkspcs,
                       ** const ckrn_wkspcs_xtra = ckrn_wkspcs + nset0;
 
+  LD_vector_space ** const vspcs;
+
   public:
 
-    cokernal_bundle(LD_vector_bundle &Vb0_,int *cokern_dimvec_,double **Wmat0_):
+    cokernal_bundle(LD_vector_bundle &Vb0_,double **Wmat0_):
       nset0(Vb0_.nspc), vlen(Vb0_.vlen_full),
       factive_ckrn_wkspc(new bool[2*nset0]),
       nxtra_wkspc(0),
-      cokern_dimvec(cokern_dimvec_),
+      Wmat(new double*[nset0]),
       ckrn_wkspcs(new cokernal_workspace*[2*nset0]),
+      vspcs(new LD_vector_space*[nset0]),
+      nset(nset0), kSC(2), nred_succ(0), generation(0),
       ckrn_spcs(new cokernal_space*[nset0])
       {
         LD_vector_space ** const Vspcs0 = Vb0_.Vspaces;
         for (size_t i = 0; i < nset0; i++)
         {
           ckrn_spcs[i] = new cokernal_space( ckrn_wkspcs[i] =
-                          new cokernal_workspace(i, factive_ckrn_wkspc[i] = true, Wmat0_[i], Vspcs0[i]) );
-
+                          new cokernal_workspace(i, factive_ckrn_wkspc[i] = true, Wmat[i] = Wmat0_[i], vspcs[i] = Vspcs0[i]));
           ckrn_wkspcs_xtra[i] = NULL;
           factive_ckrn_wkspc_xtra[i] = false;
         }
@@ -161,6 +227,7 @@ class cokernal_bundle
     ~cokernal_bundle()
     {
       delete [] factive_ckrn_wkspc;
+      delete [] Wmat; delete [] vspcs;
 
       for (size_t i = 0; i < nset0; i++) if (ckrn_spcs[i] != NULL) delete ckrn_spcs[i];
       delete [] ckrn_spcs;
@@ -168,13 +235,42 @@ class cokernal_bundle
       delete [] ckrn_wkspcs;
     }
 
-    int &nset = cokern_dimvec[0],
-        &kSC = cokern_dimvec[1],
-        &nred_succ = cokern_dimvec[2];
+    int nset,
+        kSC,
+        nred_succ,
+        generation;
 
     cokernal_space ** const ckrn_spcs;
 
-    int collapse_cokernals(LD_vspace_measure &msr_,int gen_spawn_,bool *frdc_succ_,int *nsat_ckrn_,int *ij_prs_,
+    inline cokernal_workspace * kern0_i(int i_) {return ckrn_wkspcs[i_];}
+    inline int nvK(int nK_, int i_vK_[])
+    {
+      int nvK_out = 0;
+      for (size_t i = 0; i < nK_; i++) nvK_out += ckrn_spcs[i_vK_[i]]->nvec_use;
+      return nvK_out;
+    }
+    inline int nvK()
+    {
+      int nvK_out = 0;
+      for (size_t i = 0; i < nset; i++) nvK_out += ckrn_spcs[i]->nvec_use;
+      return nvK_out;
+    }
+
+    cokernal_family ** spawn_cokernal_families(int **i_vspc0_fam_[],int *i_vspc0_set_[],k_medoids_results &Kf_res_,bool verbose_=true)
+    {
+      cokernal_family ** const ckfams = new cokernal_family*[Kf_res_.Kmed];
+      for (size_t k = 0, kk = 0; k < Kf_res_.Kmed; k++)
+      {
+        ckfams[k] = new cokernal_family(Kf_res_.npts_med[k],Kf_res_.i_meds[k],Kf_res_.ipts_med[k],ckrn_spcs,ckrn_wkspcs);
+        i_vspc0_fam_[k] = i_vspc0_set_+kk;
+        for (size_t imem = 0; imem < ckfams[k]->nckrn; kk++, imem++)
+          i_vspc0_set_[kk] = (ckfams[k]->ckrn_spcs[imem])->ivec_0Vkrn;
+        ckfams[k]->print_details(k);
+      }
+      return ckfams;
+    }
+
+    int collapse_cokernals(LD_vspace_measure &msr_,bool *frdc_succ_,int *nsat_ckrn_,int *ij_prs_,
       double *w_ckrn_,double *vvec_ckrn_,int *isat_ckrn_,bool wdistance_,bool verbose_);
 };
 
@@ -212,114 +308,95 @@ struct Jet_function_vector_space
 
 };
 
-class cokernal_policy
+class LD_cokernal_policy
 {
 
   public:
 
-    cokernal_policy(LD_vspace_measure &msr_,bool wdistance_): wdistance(wdistance_), msr(msr_) {}
-    ~cokernal_policy() {}
+    LD_cokernal_policy(LD_vspace_measure &msr_,bool wdistance_): wdistance(wdistance_), msr(msr_) {}
+    ~LD_cokernal_policy() {}
 
     const bool wdistance;
     LD_vspace_measure &msr;
 
     virtual double ** init_cokernal_collapse(Jet_function_vector_space &jfvs_,bool verbose_=true) = 0;
-    virtual int iterate_cokernal_reduction(cokernal_bundle &cokern_,int gen_,bool verbose_=true) = 0;
+    virtual int reduce_cokernal_bundle(cokernal_bundle &cokern_,bool verbose_=true) = 0;
+
 };
 
-class nullspace_ckrn_policy: public cokernal_policy
+class cokernal_refinement
 {
+  const int vlen_full,
+            nset0;
+
+  int * const ckrn_V0_assign,
+      * const ckfm_V0_assign;
+
+  cokernal_bundle cokern;
+  cokernal_space ** const ckrn_spcs = cokern.ckrn_spcs;
+
   public:
 
-    nullspace_ckrn_policy(LD_vspace_measure &msr_,bool wdistance_): cokernal_policy(msr_,wdistance_) {}
-    ~nullspace_ckrn_policy() {}
-
-    virtual double ** init_cokernal_collapse(Jet_function_vector_space &jfvs_,bool verbose_=true)
+    cokernal_refinement(Jet_function_vector_space &jfvs_,LD_cokernal_policy &pol_,bool verbose_=true);
+    ~cokernal_refinement()
     {
-      jfvs_.svd0.compute_Acode_curve_svds(jfvs_.Acode,verbose_);
-      jfvs_.svd0.evaluate_iscl_ranks(2*(jfvs_.vlen_full));
-      if (verbose_) jfvs_.svd0.print_details("svd0");
+      delete [] ckrn_V0_assign;
+      delete [] ckfm_V0_assign;
 
-      jfvs_.svd0.set_Vspaces_nullspc();
-      if (verbose_) jfvs_.rec0.print_subspace_details("rec0",false,false);
+      for (size_t i = 0; i < nfam; i++) delete ckfams[i];
+      delete [] ckfams;
+    }
 
-      if (wdistance) msr.init_distances(jfvs_.Vbndle0.Vspaces,jfvs_.svd0.Smat,jfvs_.nset0,verbose_);
-      else msr.init_distances(jfvs_.Vbndle0.Vspaces,jfvs_.nset0,verbose_);
+    const int nvKf,
+              nset,
+              nfam;
 
-      return jfvs_.svd0.Smat;
+    int ** const i_vspc0_set,
+        *** const i_vspc0_fam;
+
+    k_medoids_results Kf_res;
+    // LD_svd  Kf_svd;
+
+    cokernal_family ** const ckfams;
+
+    void print_refinement_diagnostics(Jet_function_vector_space &jfvs_,LD_cokernal_policy &pol_)
+    {
+      LD_vector_space ** const vspcs0 = jfvs_.Vbndle0.Vspaces;
+      printf("(cokernal_refinement::print_refinement_diagnostics) k = %d kernal families of %d cokernals:\n",
+        nfam, nset);
+      for (size_t k = 0; k < nfam; k++)
+      {
+        cokernal_family &ckfk = *(ckfams[k]);
+        const int imed_k = Kf_res.i_meds[k];
+        int * const ickrn_fam_k = Kf_res.ipts_med[k];
+        printf("\n(k=%d) imed = %d, nckrn = %d.\n  i_ckrns : ", k, imed_k, ckfk.nckrn);
+
+        for (size_t i = 0; i < ckfams[k]->nckrn; i++)
+          printf("%s%d%s ",(ickrn_fam_k[i]==imed_k)?("["):(""),ickrn_fam_k[i],(ickrn_fam_k[i]==imed_k)?("]"):(""));
+
+        printf("--> iV0 : ");
+        for (size_t i = 0; i < ckfams[k]->nckrn; i++)
+          for (size_t j = 0; j < ckfams[k]->nkrn0_ckrn[i]; j++)
+            printf("%d ", ckfams[k]->ckrn_spcs[i]->ivec_0Vkrn[j]);
+
+        printf("\n  (tot. nV0 = %d ; nvec0=%d -> %d=nvecf )\n  [ ickrn : iV0 | (nV0, nvec0->nvecf) ] - \n",
+                ckfams[k]->nkrn0(), ckfams[k]->nvec0(), ckfams[k]->nvecf()
+              );
+        for (size_t i = 0; i < ckfams[k]->nckrn; i++)
+        {
+          printf("  [ %d : ", ickrn_fam_k[i]);
+          for (size_t j = 0; j < ckfams[k]->ckrn_spcs[i]->n_0Vkrn; j++)
+            printf("%d ", ckfams[k]->ckrn_spcs[i]->ivec_0Vkrn[j]);
+          printf(" | (%d, %d->%d) ] %s\n",
+            ckfams[k]->ckrn_spcs[i]->n_0Vkrn, ckfams[k]->nvec0_i(i), ckfams[k]->ckrn_spcs[i]->nvec_use,
+                                            (ickrn_fam_k[i]==imed_k)?(" (<-MED)"):(""));
+        }
+      }
+
     }
 
   protected:
 
-    int iterate_nullspace_cokernals(cokernal_bundle &cokern_,int gen_,k_medoids_package &kmed_,bool verbose_);
-
-};
-
-class nullspace_clst_policy: public nullspace_ckrn_policy
-{
-  public:
-
-    nullspace_clst_policy(LD_vspace_measure &msr_,bool wdistance_): nullspace_ckrn_policy(msr_,wdistance_) {}
-    ~nullspace_clst_policy() {}
-
-    virtual int iterate_cokernal_reduction(cokernal_bundle &cokern_,int gen_,bool verbose_=true)
-    {
-      k_medoids_package kmed(msr.dsym,cokern_.nset);
-      printf("\n");
-      const int kSC0 = cokern_.kSC = kmed.comp_kSC_medoids(2,verbose_);
-      if (iterate_nullspace_cokernals(cokern_,gen_,kmed,verbose_)) return cokern_.nred_succ;
-      else
-      {
-        if (kSC0 > 2)
-        {
-          printf("\n(nullspace_clst_policy::iterate_cokernal_reduction) gen %d - IRREDUCABLE kSC0=%d clusters (nset=%d). Attempting to reduce kSC < %d clusters.\n",gen_,kSC0,cokern_.nset,kSC0);
-          int kSCm1 = kSC0-1; cokern_.kSC = kmed.comp_kSC_krange_medoids(2,kSCm1,verbose_);
-          while ( (kSCm1 >= 2) && !(iterate_nullspace_cokernals(cokern_,gen_,kmed,verbose_)) )
-            if (kSCm1 == 2) break;
-            else cokern_.kSC = kmed.comp_kSC_krange_medoids(2,--kSCm1,verbose_);
-          if (cokern_.nred_succ) return cokern_.nred_succ;
-        }
-        printf("\n(nullspace_clst_policy::iterate_cokernal_reduction) gen %d - IRREDUCABLE CLUSTERS (kSC0=%d, nset=%d). Attempting to consolidate remaining cokernal spaces\n",gen_,kSC0,cokern_.nset);
-        // if all else fails, just try consolidating one pair
-        kmed.set_one_medoid(); cokern_.kSC = 1;
-        return iterate_nullspace_cokernals(cokern_,gen_,kmed,verbose_);
-      }
-    }
-
-};
-
-class nullspace_near_policy: public nullspace_ckrn_policy
-{
-  public:
-
-    nullspace_near_policy(LD_vspace_measure &msr_,bool wdistance_): nullspace_ckrn_policy(msr_,wdistance_) {}
-    ~nullspace_near_policy() {}
-
-    virtual int iterate_cokernal_reduction(cokernal_bundle &cokern_,int gen_,bool verbose_=true)
-    {
-      k_medoids_package kmed(msr.dsym,cokern_.nset);
-      printf("\n");
-      kmed.set_one_medoid(); cokern_.kSC = 1;
-      return iterate_nullspace_cokernals(cokern_,gen_,kmed,verbose_);
-    }
-
-};
-
-class cokernal_sub_bundle
-{
-  const int vlen_full;
-  int nset,
-      kSC,
-      nred_succ,
-      * const cokern_dimvec = &nset;
-
-  cokernal_bundle cokern;
-  cokernal_space ** const ckrn_spcs =  cokern.ckrn_spcs;
-
-  public:
-
-    cokernal_sub_bundle(Jet_function_vector_space &jfvs_,cokernal_policy &pol_,bool verbose_);
-    ~cokernal_sub_bundle() {}
 
 };
 

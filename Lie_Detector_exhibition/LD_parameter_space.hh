@@ -212,11 +212,6 @@ class LD_vector_bundle
     }
 };
 
-// class LD_vec_subbundle: public LD_vector_bundle
-// {
-//
-// };
-
 class LD_Theta_space: public ode_solspc_element
 {
   const bool  vspc_owner,
@@ -534,6 +529,9 @@ struct LD_encoder
       printf("(LD_encoder::encode_bundle) encoded %d row constraints (nobs = %d, ncod = %d) in %.2f seconds (%d threads).\n",
         nobs_max*(enc_.ncod), nobs_max, enc_.ncod, work_time, LD_threads::numthreads());
   }
+
+  static void normalize_rows(double **rows_, int ncod_, int ndof_)
+    {for (size_t i = 0; i < ncod_; i++) LD_linalg::normalize_vec_l2(rows_[i],ndof_);}
 };
 
 struct LD_vspace_evaluator

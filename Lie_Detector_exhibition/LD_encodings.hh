@@ -446,6 +446,7 @@ struct LD_OG_encoder: public LD_encoder
     {
       LD_R_encoder::normalize_Rk_rows(rows_i_,sol_i_,sol_i_.eor,fbse_.ndof_tun);
       LD_G_encoder::normalize_G_rows(rows_i_+sol_i_.ndep,sol_i_,fbse_.ndof_tun);
+      // LD_encoder::normalize_rows(rows_i_,ncod,fbse_.ndof_tun);
     }
   }
 

@@ -647,7 +647,7 @@ struct k_medoids_package
     int k_SC;
     double SC_max = comp_k_medoids(k_SC=find_kSC_krange(klow_,khigh_,f_nmeds),f_nmeds);
     if (verbose_)
-      printf("(k_medoids_package::comp_kSC_medoids) optimal k=%d clusters identified of %d points (SC= %e, considered %d <= k <= %d)\n",
+      printf("(k_medoids_package::comp_kSC_krange_medoids) optimal k=%d clusters identified of %d points (SC= %e, considered %d <= k <= %d)\n",
         k_SC,npts,SC_max,klow_,khigh_);
     return k_SC;
   }
@@ -853,6 +853,54 @@ struct k_medoids_package
         if (dclst_min > (dclst_kk = dij(i_,i_meds[kk]))) dclst_min = dclst_kk;
       return dclst_min;
     }
+};
+
+class k_medoids_results
+{
+  int * const inds_pts,
+      * const ipts_med_vec;
+
+  public:
+
+    k_medoids_results(int npts_,int Kmed_,double silh_coeff_,double dclst_):
+      inds_pts(new int[npts_]), ipts_med_vec(new int[npts_]),
+      npts(npts_), Kmed(Kmed_),
+      silh_coeff(silh_coeff_), dclst(dclst_),
+      npts_med(new int[Kmed_]), imed_pts(new int[npts_]), ipts_med(new int*[Kmed_]) {}
+    k_medoids_results(k_medoids_package &kmed_,int Kmed_,bool recomp_=false,bool verbose_=true):
+      k_medoids_results(kmed_.npts,Kmed_,(recomp_)?(kmed_.comp_k_medoids(Kmed_)):(kmed_.silh_coeff),kmed_.dclst)
+      {init_clusters(kmed_,verbose_);}
+    k_medoids_results(k_medoids_package kmed_,int Kmed_,bool recomp_=false,bool verbose_=true):
+      k_medoids_results(kmed_.npts,Kmed_,(recomp_)?(kmed_.comp_k_medoids(Kmed_)):(kmed_.silh_coeff),kmed_.dclst)
+      {init_clusters(kmed_,verbose_);}
+
+    ~k_medoids_results()
+    {
+      delete [] inds_pts;
+      delete [] npts_med;
+      delete [] imed_pts;
+      delete [] ipts_med;
+    }
+
+    inline void init_clusters(k_medoids_package &kmed_,bool verbose_=true)
+    {
+      LD_linalg::copy_vec<int>(i_meds,kmed_.i_meds,Kmed);
+      LD_linalg::copy_vec<int>(i_nmeds,kmed_.i_nmeds,npts-Kmed);
+      kmed_.assign_clusters(npts_med,ipts_med_vec,ipts_med,Kmed,verbose_);
+    }
+
+    const int npts,
+              Kmed;
+
+    const double  silh_coeff,
+                  dclst;
+
+    int * const i_meds = inds_pts,
+        * const i_nmeds = inds_pts + Kmed,
+        * const npts_med,
+        * const imed_pts,
+        ** const ipts_med;
+        
 };
 
 #endif
