@@ -1,5 +1,5 @@
-CXX:=g++-13
-CC:=gcc-13
+CXX:=g++-14
+CC:=gcc-14
 OS:=OSX
 CFLAGS_EXHIB:= -march=native -O3 -fopenmp -DGSL -DHAVE_INLINE
 

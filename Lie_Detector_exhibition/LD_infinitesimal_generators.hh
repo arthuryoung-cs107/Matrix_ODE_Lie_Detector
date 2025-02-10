@@ -62,7 +62,7 @@ class rn_infgen: public LD_prolonged_vfield, private rinfgen_workspace
     rn_infgen(rn_infgen &rn_, function_space_basis &fbse_): rn_infgen(fbse_,rn_.Vspaces) {}
     ~rn_infgen() {delete [] s_local; delete [] v_local; delete [] theta_local;}
 
-    void dudx_eval(double x_, double *u_, double *dudx_)
+    virtual void dudx_eval(double x_, double *u_, double *dudx_)
     {
       s_local[0] = x_;
       for (size_t i = 0; i < ndep; i++) s_local[i+1] = u_[i];

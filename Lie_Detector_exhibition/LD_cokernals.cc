@@ -4,14 +4,26 @@
 cokernal_refinement::cokernal_refinement(Jet_function_vector_space &jfvs_,LD_cokernal_policy &pol_,bool verbose_):
   vlen_full(jfvs_.vlen_full), nset0(jfvs_.nset0),
   ckrn_V0_assign(new int[nset0]), ckfm_V0_assign(new int[nset0]),
-  cokern(cokernal_bundle(jfvs_.Vbndle0,pol_.init_cokernal_collapse(jfvs_,verbose_))),
-  nvKf(pol_.reduce_cokernal_bundle(cokern,verbose_)), nset(cokern.nset), nfam(cokern.kSC),
-  Kf_res(k_medoids_results(k_medoids_package(nfam,pol_.msr.dsym,nset),nfam,false,verbose_)),
+  cokern(cokernal_bundle(jfvs_.Vbndle0,pol_.init_cokernal_collapse(jfvs_,verbose_))), // construct initial cokernal bundle
+  nvKf(pol_.reduce_cokernal_bundle(cokern,verbose_)), // perform cokernal reduction
+    nset(cokern.nset), nfam(cokern.kSC), // set final kernal and kernal family count
+  Kf_res(k_medoids_results(k_medoids_package(nfam,pol_.msr.dsym,nset),nfam,false,verbose_)), // save final cokernal clustering
   // Kf_svd(LD_svd(vlen_full,nvKf)),
-  i_vspc0_set(new int*[nset]), i_vspc0_fam(new int**[nfam]),
-  ckfams(cokern.spawn_cokernal_families(i_vspc0_fam,i_vspc0_set,Kf_res,verbose_))
+  i_vspc0_set(new int*[nset]), i_vspc0_fam(new int**[nfam]), // allocate indices for referring to cokernal reduction
+  ckfams(cokern.spawn_cokernal_families(i_vspc0_fam,i_vspc0_set,Kf_res,verbose_)) // construct vector spaces for final kernals
 {
+  int nKf = 0;
+  for (size_t ickrn = 0; ickrn < nset; nKf+=ckrn_spcs[ickrn++]->nvec_use)
+    for (size_t iset = 0; iset < ckrn_spcs[ickrn]->n_0Vkrn; iset++)
+      ckrn_V0_assign[ckrn_spcs[ickrn]->ivec_0Vkrn[iset]] = ickrn;
+
+  for (size_t ifam = 0; ifam < nfam; ifam++)
+    for (size_t ickrn = 0; ickrn < (ckfams[ifam])->nckrn; ickrn++)
+      for (size_t ikrn0 = 0; ikrn0 < (ckfams[ifam])->nkrn0_ckrn[ickrn]; ikrn0++)
+        ckfm_V0_assign[ ((ckfams[ifam])->ckrn_spcs[ickrn])->ivec_0Vkrn[ikrn0] ] = ifam;
+
   if (verbose_) print_refinement_diagnostics(jfvs_,pol_);
+  
   // int nKf = 0,
   //     ckrn_V0_assign[nset0];
   // for (size_t ickrn = 0; ickrn < nset_f; nKf+=ckrn_spcs[ickrn++]->nvec_use)

@@ -2,7 +2,6 @@
 #define LD_COKERN_HH
 
 #include "LD_framework.hh"
-// #include "LD_vspace_evaluators.hh"
 
 struct ode_solspc_setbundle: public ode_solspc_subset
 {
@@ -265,7 +264,7 @@ class cokernal_bundle
         i_vspc0_fam_[k] = i_vspc0_set_+kk;
         for (size_t imem = 0; imem < ckfams[k]->nckrn; kk++, imem++)
           i_vspc0_set_[kk] = (ckfams[k]->ckrn_spcs[imem])->ivec_0Vkrn;
-        ckfams[k]->print_details(k);
+        if (verbose_) ckfams[k]->print_details(k);
       }
       return ckfams;
     }
@@ -324,8 +323,18 @@ class LD_cokernal_policy
 
 };
 
-class cokernal_refinement
+struct cokernal_refinement
 {
+  cokernal_refinement(Jet_function_vector_space &jfvs_,LD_cokernal_policy &pol_,bool verbose_=true);
+  ~cokernal_refinement()
+  {
+    delete [] ckrn_V0_assign;
+    delete [] ckfm_V0_assign;
+
+    for (size_t i = 0; i < nfam; i++) delete ckfams[i];
+    delete [] ckfams;
+  }
+
   const int vlen_full,
             nset0;
 
@@ -335,70 +344,55 @@ class cokernal_refinement
   cokernal_bundle cokern;
   cokernal_space ** const ckrn_spcs = cokern.ckrn_spcs;
 
-  public:
+  const int nvKf,
+            nset,
+            nfam;
 
-    cokernal_refinement(Jet_function_vector_space &jfvs_,LD_cokernal_policy &pol_,bool verbose_=true);
-    ~cokernal_refinement()
+  int ** const i_vspc0_set,
+      *** const i_vspc0_fam;
+
+  k_medoids_results Kf_res;
+  // LD_svd  Kf_svd;
+
+  cokernal_family ** const ckfams;
+
+  void print_refinement_diagnostics(Jet_function_vector_space &jfvs_,LD_cokernal_policy &pol_)
+  {
+    LD_vector_space ** const vspcs0 = jfvs_.Vbndle0.Vspaces;
+    printf("(cokernal_refinement::print_refinement_diagnostics) k = %d kernal families of %d cokernals:\n",
+      nfam, nset);
+    for (size_t k = 0; k < nfam; k++)
     {
-      delete [] ckrn_V0_assign;
-      delete [] ckfm_V0_assign;
+      cokernal_family &ckfk = *(ckfams[k]);
+      const int imed_k = Kf_res.i_meds[k];
+      int * const ickrn_fam_k = Kf_res.ipts_med[k];
+      printf("\n(k=%d) imed = %d, nckrn = %d.\n  i_ckrns : ", k, imed_k, ckfk.nckrn);
 
-      for (size_t i = 0; i < nfam; i++) delete ckfams[i];
-      delete [] ckfams;
-    }
+      for (size_t i = 0; i < ckfams[k]->nckrn; i++)
+        printf("%s%d%s ",(ickrn_fam_k[i]==imed_k)?("["):(""),ickrn_fam_k[i],(ickrn_fam_k[i]==imed_k)?("]"):(""));
 
-    const int nvKf,
-              nset,
-              nfam;
+      printf("--> iV0 : ");
+      for (size_t i = 0; i < ckfams[k]->nckrn; i++)
+        for (size_t j = 0; j < ckfams[k]->nkrn0_ckrn[i]; j++)
+          printf("%d ", ckfams[k]->ckrn_spcs[i]->ivec_0Vkrn[j]);
 
-    int ** const i_vspc0_set,
-        *** const i_vspc0_fam;
-
-    k_medoids_results Kf_res;
-    // LD_svd  Kf_svd;
-
-    cokernal_family ** const ckfams;
-
-    void print_refinement_diagnostics(Jet_function_vector_space &jfvs_,LD_cokernal_policy &pol_)
-    {
-      LD_vector_space ** const vspcs0 = jfvs_.Vbndle0.Vspaces;
-      printf("(cokernal_refinement::print_refinement_diagnostics) k = %d kernal families of %d cokernals:\n",
-        nfam, nset);
-      for (size_t k = 0; k < nfam; k++)
+      printf("\n  (tot. nV0 = %d ; nvec0=%d -> %d=nvecf )\n  [ ickrn : iV0 | (nV0, nvec0->nvecf) ] - \n",
+              ckfams[k]->nkrn0(), ckfams[k]->nvec0(), ckfams[k]->nvecf()
+            );
+      for (size_t i = 0; i < ckfams[k]->nckrn; i++)
       {
-        cokernal_family &ckfk = *(ckfams[k]);
-        const int imed_k = Kf_res.i_meds[k];
-        int * const ickrn_fam_k = Kf_res.ipts_med[k];
-        printf("\n(k=%d) imed = %d, nckrn = %d.\n  i_ckrns : ", k, imed_k, ckfk.nckrn);
-
-        for (size_t i = 0; i < ckfams[k]->nckrn; i++)
-          printf("%s%d%s ",(ickrn_fam_k[i]==imed_k)?("["):(""),ickrn_fam_k[i],(ickrn_fam_k[i]==imed_k)?("]"):(""));
-
-        printf("--> iV0 : ");
-        for (size_t i = 0; i < ckfams[k]->nckrn; i++)
-          for (size_t j = 0; j < ckfams[k]->nkrn0_ckrn[i]; j++)
-            printf("%d ", ckfams[k]->ckrn_spcs[i]->ivec_0Vkrn[j]);
-
-        printf("\n  (tot. nV0 = %d ; nvec0=%d -> %d=nvecf )\n  [ ickrn : iV0 | (nV0, nvec0->nvecf) ] - \n",
-                ckfams[k]->nkrn0(), ckfams[k]->nvec0(), ckfams[k]->nvecf()
-              );
-        for (size_t i = 0; i < ckfams[k]->nckrn; i++)
-        {
-          printf("  [ %d : ", ickrn_fam_k[i]);
-          for (size_t j = 0; j < ckfams[k]->ckrn_spcs[i]->n_0Vkrn; j++)
-            printf("%d ", ckfams[k]->ckrn_spcs[i]->ivec_0Vkrn[j]);
-          printf(" | (%d, %d->%d) ] %s\n",
-            ckfams[k]->ckrn_spcs[i]->n_0Vkrn, ckfams[k]->nvec0_i(i), ckfams[k]->ckrn_spcs[i]->nvec_use,
-                                            (ickrn_fam_k[i]==imed_k)?(" (<-MED)"):(""));
-        }
+        printf("  [ %d : ", ickrn_fam_k[i]);
+        for (size_t j = 0; j < ckfams[k]->ckrn_spcs[i]->n_0Vkrn; j++)
+          printf("%d ", ckfams[k]->ckrn_spcs[i]->ivec_0Vkrn[j]);
+        printf(" | (%d, %d->%d) ] %s\n",
+          ckfams[k]->ckrn_spcs[i]->n_0Vkrn, ckfams[k]->nvec0_i(i), ckfams[k]->ckrn_spcs[i]->nvec_use,
+                                          (ickrn_fam_k[i]==imed_k)?(" (<-MED)"):(""));
       }
-
     }
-
-  protected:
-
-
+    printf("\nFinal kernal assignments:\n");
+    for (size_t ikrn = 0; ikrn < nset0; ikrn++)
+      printf("krn %d -> ckrn %d (ckrn_fam %d) \n",ikrn,ckrn_V0_assign[ikrn],ckfm_V0_assign[ikrn]);
+  }
 };
-
 
 #endif

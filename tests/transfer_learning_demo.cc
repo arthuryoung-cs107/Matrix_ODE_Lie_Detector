@@ -146,14 +146,13 @@ int main()
    // jfvs.encode_decompose_bundle<orthopolynomial_basis>(bases0,normalize_flag);
   // Jet_function_vector_space jfvs(Sobs,fspace0,OGenc,msr,bases0,normalize_flag);
 
-  Jet_function_vector_space jfvs(Sobs,fspace0,OGenc,bases0,normalize_flag);
-
   // Frobenius_vspace_measure msr(fspace0.ndof_full,Sobs.ncrvs_tot);
   indepcomp_vspace_measure msr(fspace0.ndof_full,Sobs.ncrvs_tot);
 
   // nullspace_clst_policy pol(msr,wdistance);
   nullspace_near_policy pol(msr,wdistance);
 
+  Jet_function_vector_space jfvs(Sobs,fspace0,OGenc,bases0,normalize_flag);
   cokernal_refinement ckrn(jfvs,pol,true);
 
   // OG_vspace_eval OG_evl(Sobs,fspace0.ndof_full,atol_R_cok,rtol_R_cok,tol_G_cok,false);

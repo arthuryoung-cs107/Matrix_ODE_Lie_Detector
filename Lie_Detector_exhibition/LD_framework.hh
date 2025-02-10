@@ -431,4 +431,13 @@ struct LD_prolonged_vfield: public LD_vector_field
     function_space_basis &fbse;
 };
 
+// struct LD_integration_package : public ode_curve_observations
+// {
+//   LD_integration_package(LD_observations_set &Sobs_): ode_curve_observations(Sobs_.meta,Sobs_.ncrvs_tot,Sobs_.npts_per_crv)
+//
+//     {}
+//   ~LD_integration_package() {}
+//
+// };
+
 #endif
