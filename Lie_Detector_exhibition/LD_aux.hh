@@ -295,12 +295,12 @@ struct LD_linalg
   static void print_x(const char vec_name_[], int *x_, int n_)
   {
     printf("%s (%d x 1)\n", vec_name_, n_);
-    for (size_t i = 0; i < n_; i++) printf("%d\n", x_[i]);
+    for (int i = 0; i < n_; i++) printf("%d\n", x_[i]);
   }
   static void print_x(const char vec_name_[], bool *x_, int n_)
   {
     printf("%s (%d x 1)\n", vec_name_, n_);
-    for (size_t i = 0; i < n_; i++) printf("%d\n", (int) x_[i]);
+    for (int i = 0; i < n_; i++) printf("%d\n", (int) x_[i]);
   }
   static void print_xT(const char vec_name_[], double *x_, int n_)
   {
@@ -311,13 +311,13 @@ struct LD_linalg
   static void print_xT(const char vec_name_[], int *x_, int n_)
   {
     printf("%s (1 x %d)\n", vec_name_, n_);
-    for (size_t i = 0; i < n_; i++) printf("%d ", x_[i]);
+    for (int i = 0; i < n_; i++) printf("%d ", x_[i]);
     printf("\n");
   }
   static void print_xT(const char vec_name_[], bool *x_, int n_)
   {
     printf("%s (1 x %d)\n", vec_name_, n_);
-    for (size_t i = 0; i < n_; i++) printf("%d ", (int) x_[i]);
+    for (int i = 0; i < n_; i++) printf("%d ", (int) x_[i]);
     printf("\n");
   }
   static void print_A(const char mat_name_[], double **A_, int m_, int n_)
@@ -387,7 +387,7 @@ struct LD_gsl
 
   static void print_A_gsl(const char mat_name_[], gsl_matrix *mat_)
   {
-    printf("%s (%d x %d)\n", mat_name_, mat_->size1, mat_->size2);
+    printf("%s (%ld x %ld)\n", mat_name_, mat_->size1, mat_->size2);
     for (size_t i = 0; i < mat_->size1; i++)
       {for (size_t j = 0; j < mat_->size2; j++) printf("%.2e ", gsl_matrix_get(mat_,i,j)); printf("\n");}
   }
@@ -605,7 +605,7 @@ struct k_medoids_package
       printf("(k_medoids_package::assign_clusters) k = %d cluster assignments:\n", kclst_);
       for (size_t k = 0; k < kclst_; k++)
       {
-        printf("  (k=%d) imed=%d, nmem=%d - ", k,i_meds[k],nmem_v_[k]);
+        printf("  (k=%ld) imed=%d, nmem=%d - ", k,i_meds[k],nmem_v_[k]);
         for (size_t i = 0; i < nmem_v_[k]; i++) printf("%d ", imem_m_[k][i]);
         printf("\n");
       }
@@ -900,7 +900,7 @@ class k_medoids_results
         * const npts_med,
         * const imed_pts,
         ** const ipts_med;
-        
+
 };
 
 #endif

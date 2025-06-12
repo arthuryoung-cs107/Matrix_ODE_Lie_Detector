@@ -62,40 +62,47 @@ classdef LD_plots
             end
         end
         function obj_out = set_screen_posdim(obj,grid_dim_,tile_dim_,origin_tile_,screen_)
-            if (nargin==5)
-                grid_dim = grid_dim_;
-                tile_dim = tile_dim_;
-                origin_tile = origin_tile_;
-                screen = screen_;
-            elseif (nargin == 4)
-                grid_dim = grid_dim_;
-                tile_dim = tile_dim_;
-                origin_tile = origin_tile_;
-                screen = 1;
-            elseif(nargin == 2)
-                specs = grid_dim_;
-                grid_dim = specs.grid_dim;
-                tile_dim = specs.tile_dim;
-                origin_tile = specs.origin_tile;
-                screen = specs.screen;
-            end
+            if (nargin==2)
+                % specs = grid_dim_;
+                % grid_dim = specs.grid_dim;
+                % tile_dim = specs.tile_dim;
+                % origin_tile = specs.origin_tile;
+                % screen = specs.screen;
 
-            if (screen>size(LD_plots.screens,1))
-                screen_specs = LD_plots.screens(1,:);
+                posdim_use = grid_dim_;
             else
-                screen_specs = LD_plots.screens(screen,:);
+                if (nargin==5)
+                    grid_dim = grid_dim_;
+                    tile_dim = tile_dim_;
+                    origin_tile = origin_tile_;
+                    screen = screen_;
+                else (nargin == 4)
+                    grid_dim = grid_dim_;
+                    tile_dim = tile_dim_;
+                    origin_tile = origin_tile_;
+                    screen = 1;
+                end
+
+                sys_screens = LD_plots.get_sys_screens();
+
+                if (screen>size(sys_screens,1))
+                    screen_specs = sys_screens(1,:); % default to screen 1
+                else
+                    screen_specs = sys_screens(screen,:);
+                end
+
+                [o_screen d_screen] = deal(screen_specs(1:2), screen_specs(3:4)-1);
+                dels_grid = (d_screen)./[grid_dim(2) grid_dim(1)];
+                dels_tile = dels_grid.*[tile_dim(2) tile_dim(1)];
+
+                oy_plot = floor(o_screen(2) + dels_grid(2)*(grid_dim(1) - origin_tile(1)));
+                ox_plot = floor(o_screen(1) + dels_grid(1)*(origin_tile(2)-1));
+                ly_plot = floor(dels_tile(2));
+                lx_plot = floor(dels_tile(1));
+
+                posdim_use = [ox_plot oy_plot lx_plot ly_plot];
             end
 
-            [o_screen d_screen] = deal(screen_specs(1:2), screen_specs(3:4)-1);
-            dels_grid = (d_screen)./[grid_dim(2) grid_dim(1)];
-            dels_tile = dels_grid.*[tile_dim(2) tile_dim(1)];
-
-            oy_plot = floor(o_screen(2) + dels_grid(2)*(grid_dim(1) - origin_tile(1)));
-            ox_plot = floor(o_screen(1) + dels_grid(1)*(origin_tile(2)-1));
-            ly_plot = floor(dels_tile(2));
-            lx_plot = floor(dels_tile(1));
-
-            posdim_use = [ox_plot oy_plot lx_plot ly_plot];
             props_struct = LD_plots.make_posdim_plot_specs(obj.name,posdim_use);
 
             obj_out = obj;
@@ -104,6 +111,48 @@ classdef LD_plots
                 % obj_out.fig.set(props_struct{i, 1}, props_struct{i, 2});
                 set(obj_out.fig,props_struct{i, 1},props_struct{i, 2})
             end
+            % if (nargin==5)
+            %     grid_dim = grid_dim_;
+            %     tile_dim = tile_dim_;
+            %     origin_tile = origin_tile_;
+            %     screen = screen_;
+            % elseif (nargin == 4)
+            %     grid_dim = grid_dim_;
+            %     tile_dim = tile_dim_;
+            %     origin_tile = origin_tile_;
+            %     screen = 1;
+            % elseif(nargin == 2)
+            %     specs = grid_dim_;
+            %     grid_dim = specs.grid_dim;
+            %     tile_dim = specs.tile_dim;
+            %     origin_tile = specs.origin_tile;
+            %     screen = specs.screen;
+            % end
+            %
+            % if (screen>size(LD_plots.screens,1))
+            %     screen_specs = LD_plots.screens(1,:);
+            % else
+            %     screen_specs = LD_plots.screens(screen,:);
+            % end
+            %
+            % [o_screen d_screen] = deal(screen_specs(1:2), screen_specs(3:4)-1);
+            % dels_grid = (d_screen)./[grid_dim(2) grid_dim(1)];
+            % dels_tile = dels_grid.*[tile_dim(2) tile_dim(1)];
+            %
+            % oy_plot = floor(o_screen(2) + dels_grid(2)*(grid_dim(1) - origin_tile(1)));
+            % ox_plot = floor(o_screen(1) + dels_grid(1)*(origin_tile(2)-1));
+            % ly_plot = floor(dels_tile(2));
+            % lx_plot = floor(dels_tile(1));
+            %
+            % posdim_use = [ox_plot oy_plot lx_plot ly_plot];
+            % props_struct = LD_plots.make_posdim_plot_specs(obj.name,posdim_use);
+            %
+            % obj_out = obj;
+            % obj_out.fig = figure('MenuBar', 'none', 'ToolBar', 'none');
+            % for i=1:size(props_struct, 1)
+            %     % obj_out.fig.set(props_struct{i, 1}, props_struct{i, 2});
+            %     set(obj_out.fig,props_struct{i, 1},props_struct{i, 2})
+            % end
         end
         function obj_out = init_tiles_safe(obj,tdim1_,tdim2_)
             if (~isempty(obj.axs))
@@ -119,6 +168,36 @@ classdef LD_plots
                 obj_out.axs = gobjects(tile_num, 1);
                 for i=1:tile_num
                     obj_out.axs(i) = nexttile(obj_out.tile);
+                end
+            end
+        end
+        function obj_out = set_subplots_safe(obj,dims_)
+            if (~isempty(obj.axs))
+                obj_out = obj;
+            else
+                obj_out = obj;
+                clf(obj_out.fig);
+
+                nax = size(dims_,1);
+                obj_out.axs = gobjects(nax,1);
+
+                for i = 1:nax
+                    obj_out.axs(i) = subplot(dims_(i,1),dims_(i,2),dims_(i,3));
+                end
+            end
+        end
+        function obj_out = set_axes_safe(obj,dims_)
+            if (~isempty(obj.axs))
+                obj_out = obj;
+            else
+                obj_out = obj;
+                clf(obj_out.fig);
+
+                nax = size(dims_,1);
+                obj_out.axs = gobjects(nax,1);
+
+                for i = 1:nax
+                    obj_out.axs(i) = axes('Position',dims_(i,:));
                 end
             end
         end
@@ -896,6 +975,11 @@ classdef LD_plots
             end
             set(axs,'YScale', 'linear', 'XScale', 'linear', 'TickLabelInterpreter','Latex','FontSize',12);
         end
+
+
+        %% meta figure functions
+
+
         function specs_out = posdim_specs(grid_dim_,tile_dim_,origin_tile_,screen_)
             if (nargin==3)
                 screen = 1;
@@ -922,6 +1006,48 @@ classdef LD_plots
         function struct_out = make_posdim_plot_specs(name_in_, pos_in_)
             struct_out = {'Name', name_in_; 'Renderer', 'painters'; 'Position', pos_in_;};
         end
+        function sys_screens_out = get_sys_screens()
+            sys_screens_out = get(groot,'MonitorPositions');
+            arch = getenv('ARCH');
+            [istart,iend] = regexp(arch,'mac');
+            if ( (length(istart)*length(iend)) == 0 ) % works fine if osx
+                [istart,iend] = regexp(arch,'win'); % assume works fine if windows
+                if ( (length(istart)*length(iend)) == 0 ) % assume linux
+                    [~,raw_out] = system('xrandr -q'); % query xrandr for linux displays
+                    [match,nomatch] = regexp(raw_out,'\w*connected\w*','match','split');
+                    nmonitors = length(match);
+
+                    screen0 = nomatch{1,1};
+                    i_c = regexp(screen0,'current');
+                    i_m = regexp(screen0,'maximum');
+                    numstrings0 = extract(screen0(i_c:(i_m-1)),digitsPattern);
+                    height0 = str2num(numstrings0{2,1});
+
+                    sys_screens_out = nan(nmonitors,4);
+                    for i = 1:nmonitors
+                        substr_i = nomatch{1,i+1};
+                        i_p = regexp(substr_i,'(');
+                        dimstring = substr_i(2:(i_p-1));
+                        numstrings = extract(dimstring,digitsPattern);
+                        heighti_true = str2num(numstrings{2});
+
+                        if (length(regexp(dimstring,'primary')))
+                            heighti = floor(0.9*heighti_true);
+                        else
+                            heighti = heighti_true;
+                        end
+
+                        sys_screens_out(i,:) = [    str2num(numstrings{3}), ...
+                                                    height0-str2num(numstrings{4})-heighti, ...
+                                                    str2num(numstrings{1}), ...
+                                                    heighti];
+                    end
+                end
+            end
+        end
+
+        %% solution space meta plots
+
         function plt = plot_pts(pts_,meta_,plt_,spc_)
             if (nargin==3)
                 spc = LD_plots.make_default_plot_specs;

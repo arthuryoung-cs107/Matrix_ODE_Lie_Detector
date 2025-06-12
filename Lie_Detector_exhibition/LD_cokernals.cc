@@ -23,7 +23,7 @@ cokernal_refinement::cokernal_refinement(Jet_function_vector_space &jfvs_,LD_cok
         ckfm_V0_assign[ ((ckfams[ifam])->ckrn_spcs[ickrn])->ivec_0Vkrn[ikrn0] ] = ifam;
 
   if (verbose_) print_refinement_diagnostics(jfvs_,pol_);
-  
+
   // int nKf = 0,
   //     ckrn_V0_assign[nset0];
   // for (size_t ickrn = 0; ickrn < nset_f; nKf+=ckrn_spcs[ickrn++]->nvec_use)
@@ -250,7 +250,7 @@ int nullspace_ckrn_policy::iterate_nullspace_cokernals(cokernal_bundle &cokern_,
     for (size_t k = 0; k < kSC; k++)
     {
       int imd=kmed_.i_meds[k], inn=ij_nn_pairs[k][0], jnn=ij_nn_pairs[k][1];
-      printf("    k=%d: imed=%d (nv=%d), nclst=%d. inn=%d, jnn=%d (nv = %d, %d ; dij=%.2e) of %d pairs. Intersection %s",
+      printf("    k=%ld: imed=%d (nv=%d), nclst=%d. inn=%d, jnn=%d (nv = %d, %d ; dij=%.2e) of %d pairs. Intersection %s",
         k,imd,ckrn_spcs[imd]->nvec_use,nmem_clst_vec[k],
         inn,jnn,ckrn_spcs[inn]->nvec_use,ckrn_spcs[jnn]->nvec_use,dpairs_ckrn[k][1],
         i_n_pairs_ckrn[k][1],
@@ -339,7 +339,7 @@ int cokernal_bundle::collapse_cokernals(LD_vspace_measure &msr_, bool *frdc_succ
     for (size_t irdc = 0; irdc < nred_succ; irdc++)
     {
       cokernal_space &ckrni = *(ckrn_rdc[irdc]);
-      printf("      (irdc=%d) [iVprnt=%d, jVprnt=%d -> ickrn=%d] : gen [%d,%d -> %d] ; nV [%d,%d -> %d] ; nV0krn [%d,%d -> %d]. iV0krn = ( ",
+      printf("      (irdc=%ld) [iVprnt=%d, jVprnt=%d -> ickrn=%d] : gen [%d,%d -> %d] ; nV [%d,%d -> %d] ; nV0krn [%d,%d -> %d]. iV0krn = ( ",
         irdc,
         ckrni.ickrn_parent,ckrni.jckrn_parent,ckrni.ickrn,
         gen_iprnt[irdc],gen_jprnt[irdc],ckrni.gen_spawn,

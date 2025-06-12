@@ -45,6 +45,9 @@ transfer_demo: $(TEST_SRC)transfer_learning_demo.cc $(LDEXHIBCOKOBJS)
 cokernal_demo: $(TEST_SRC)cokernal_demo.cc $(LDEXHIBCOKOBJS)
 	$(CXX) $(IDIR_EXHIB) $(CFLAGS_EXHIB) $(LINK) $^ $(LIBS_EXHIB) -o $@
 
+denoise_demo: $(TEST_SRC)denoise_demo.cc $(LDEXHIBCOKOBJS)
+	$(CXX) $(IDIR_EXHIB) $(CFLAGS_EXHIB) $(LINK) $^ $(LIBS_EXHIB) -o $@
+
 $(LD_EXHIB_DIR):
 	mkdir -p $@
 

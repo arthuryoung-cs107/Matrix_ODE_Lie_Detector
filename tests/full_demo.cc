@@ -114,13 +114,13 @@ char  eqn_name[50],
       noise_name[20],
       data_name[100],
       bse_name[75],
-      intrec_name[50],
+      intrec_name[75],
       recon_mat_name[50];
 
 // character buffer for writing / reading data
-char  name_buffer[250],
-      name_dnp1xu_buffer[250],
-      name_JFs_buffer[250];
+char  name_buffer[350],
+      name_dnp1xu_buffer[300],
+      name_JFs_buffer[300];
 
 bool  dnp1xu_empty = true,
       JFs_empty = true;

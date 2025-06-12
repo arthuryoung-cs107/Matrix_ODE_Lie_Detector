@@ -151,13 +151,13 @@ class cokernal_family
     void print_details(int k_)
     {
       printf("\n(cokernal_family::print_details) k=%d cokernal family: imed = %d, nkcrn = %d, nkrn0=%d, nvec0=%d -> %d=nvecf \n", k_,ckrn_med.ickrn,nckrn,nkrn0(),nvec0(),nvecf());
-      for (size_t i = 0; i < nckrn; i++)
+      for (int i = 0; i < nckrn; i++)
       {
         printf("  %s ckrn %d, ickrn=%d, nkrn0_i=%d, nvec0=%d -> %d=nvecf %s jkrn0: ",
           (ckrn_med.ickrn == ckrn_spcs[i]->ickrn)?("["):("("),
             i,ckrn_spcs[i]->ickrn,ckrn_spcs[i]->n_0Vkrn, nvec0_i(i), ckrn_spcs[i]->nvec_use,
           (ckrn_med.ickrn == ckrn_spcs[i]->ickrn)?("]"):(")"));
-        for (size_t j = 0; j < ckrn_spcs[i]->n_0Vkrn; j++) printf("%d ", ckrn_spcs[i]->ivec_0Vkrn[j]);
+        for (int j = 0; j < ckrn_spcs[i]->n_0Vkrn; j++) printf("%d ", ckrn_spcs[i]->ivec_0Vkrn[j]);
         printf("\n");
       }
     }
@@ -361,28 +361,28 @@ struct cokernal_refinement
     LD_vector_space ** const vspcs0 = jfvs_.Vbndle0.Vspaces;
     printf("(cokernal_refinement::print_refinement_diagnostics) k = %d kernal families of %d cokernals:\n",
       nfam, nset);
-    for (size_t k = 0; k < nfam; k++)
+    for (int k = 0; k < nfam; k++)
     {
       cokernal_family &ckfk = *(ckfams[k]);
       const int imed_k = Kf_res.i_meds[k];
       int * const ickrn_fam_k = Kf_res.ipts_med[k];
       printf("\n(k=%d) imed = %d, nckrn = %d.\n  i_ckrns : ", k, imed_k, ckfk.nckrn);
 
-      for (size_t i = 0; i < ckfams[k]->nckrn; i++)
+      for (int i = 0; i < ckfams[k]->nckrn; i++)
         printf("%s%d%s ",(ickrn_fam_k[i]==imed_k)?("["):(""),ickrn_fam_k[i],(ickrn_fam_k[i]==imed_k)?("]"):(""));
 
       printf("--> iV0 : ");
-      for (size_t i = 0; i < ckfams[k]->nckrn; i++)
-        for (size_t j = 0; j < ckfams[k]->nkrn0_ckrn[i]; j++)
+      for (int i = 0; i < ckfams[k]->nckrn; i++)
+        for (int j = 0; j < ckfams[k]->nkrn0_ckrn[i]; j++)
           printf("%d ", ckfams[k]->ckrn_spcs[i]->ivec_0Vkrn[j]);
 
       printf("\n  (tot. nV0 = %d ; nvec0=%d -> %d=nvecf )\n  [ ickrn : iV0 | (nV0, nvec0->nvecf) ] - \n",
               ckfams[k]->nkrn0(), ckfams[k]->nvec0(), ckfams[k]->nvecf()
             );
-      for (size_t i = 0; i < ckfams[k]->nckrn; i++)
+      for (int i = 0; i < ckfams[k]->nckrn; i++)
       {
         printf("  [ %d : ", ickrn_fam_k[i]);
-        for (size_t j = 0; j < ckfams[k]->ckrn_spcs[i]->n_0Vkrn; j++)
+        for (int j = 0; j < ckfams[k]->ckrn_spcs[i]->n_0Vkrn; j++)
           printf("%d ", ckfams[k]->ckrn_spcs[i]->ivec_0Vkrn[j]);
         printf(" | (%d, %d->%d) ] %s\n",
           ckfams[k]->ckrn_spcs[i]->n_0Vkrn, ckfams[k]->nvec0_i(i), ckfams[k]->ckrn_spcs[i]->nvec_use,
@@ -390,7 +390,7 @@ struct cokernal_refinement
       }
     }
     printf("\nFinal kernal assignments:\n");
-    for (size_t ikrn = 0; ikrn < nset0; ikrn++)
+    for (int ikrn = 0; ikrn < nset0; ikrn++)
       printf("krn %d -> ckrn %d (ckrn_fam %d) \n",ikrn,ckrn_V0_assign[ikrn],ckfm_V0_assign[ikrn]);
   }
 };

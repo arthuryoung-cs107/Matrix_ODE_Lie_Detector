@@ -222,7 +222,7 @@ void LD_vspace_measure::copy_unchanged_distances(int isym_recomp_[], int nrdc_, 
 
     /*
       if either index corresponds to newly generated vector space, flag for recomputation.
-      Otherwise, old index pair has invariant distance, can be copied to new index pair. 
+      Otherwise, old index pair has invariant distance, can be copied to new index pair.
     */
     if ( (fset_old[i_old=iset_new[i_new]] == 2) || (fset_old[j_old=iset_new[j_new]] == 2) ) isym_recomp_[i_recomp++] = isym_new;
     else dsym0_vec[isym_new] = dvec_old[LD_vspace_measure::get_isym_rowcol(i_old,j_old,nsetm1_old)];
@@ -334,10 +334,10 @@ void LD_vspace_record::print_subspace_details(const char name_[], bool longwinde
   printf("\n(LD_vspace_record::print_subspace_details) %s ", name_);
   if (longwinded_)
   {
-    printf("isat_vec\n", name_);
+    printf("isat_vec %s\n", name_);
     for (size_t ispc = 0; ispc < nspc; ispc++)
     {
-      printf("spc %d (nsat = %d): ", ispc, nV_spcvec[ispc]);
+      printf("spc %ld (nsat = %d): ", ispc, nV_spcvec[ispc]);
       for (size_t isat = 0; isat < nV_spcvec[ispc]; isat++) printf("%d ", iV_spcmat[ispc][isat]);
       if (print_comp_)
       {
@@ -362,7 +362,7 @@ void LD_vspace_record::print_subspace_details(LD_vspace_record &rec1_,const char
     printf("(LD_vspace_record::print_subspace_details) V1: %s isat_vec\n", name_);
     for (size_t ispc = 0; ispc < nspc; ispc++)
     {
-      printf("spc %d (nsat = %d): ", ispc, rec1_.nV_spcvec[ispc]);
+      printf("spc %ld (nsat = %d): ", ispc, rec1_.nV_spcvec[ispc]);
       for (size_t isat = 0; isat < rec1_.nV_spcvec[ispc]; isat++) printf("%d ", rec1_.iV_spcmat[ispc][isat]);
       if (print_comp_)
       {
