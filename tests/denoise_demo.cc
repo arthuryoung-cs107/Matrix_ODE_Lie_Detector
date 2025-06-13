@@ -6,6 +6,8 @@
 #include "LD_cokernal_policies.hh"
 // #include "LD_cokernal_vfields.hh"
 
+#include "LD_noise_aux.hh"
+
 // specify data directory for writing binary files
 const char dir_name[] = "./denoise_data_directory";
 const char dat_suff[] = "lddat";
@@ -32,8 +34,8 @@ const bool  write_dnp1xu = true,
             write_JFs = true;
 
 // level of noise applied to observational data. If <0, then unnoised
-const int noise_level = -1;
-// const int noise_level = 0;
+// const int noise_level = -1;
+const int noise_level = 2;
 
 LD_observations_set Sobs(meta0,nc,np,write_dnp1xu,write_JFs);
 
@@ -54,6 +56,7 @@ const char fam_name[] = "Chebyshev1";
 
 const bool  write_gen_obs_data = true,
             write_fspace_config = true;
+
 char  eqn_name[50],
       intgen_name[50],
       noise_name[20],
@@ -89,6 +92,7 @@ int generate_trajectories()
   if (noise_level>=0)
   {
     // inputs_gen.apply_noise_pts();
+    LD_noise_aux::perturb_pts(inputs_gen,noise_level,1234,0.1);
     sprintf(noise_name,"noise%d",noise_level);
   }
   else sprintf(noise_name,"true");

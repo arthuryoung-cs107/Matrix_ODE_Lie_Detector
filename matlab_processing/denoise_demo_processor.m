@@ -31,6 +31,10 @@ meta0 = Sref.meta_data;
 
 spc.color = [0 0 0 0.2];
 solspc_ref_plot = LD_plots.plot_solspc(Sref,LD_plots('Sref',[4 4],[1 4],[1 1],1),spc);
-
 fspace0 = LD_orthopolynomial_space(bor,meta0);
 fspace0 = fspace0.read_domain_configuration(Sref.make_fspace_config_name(fam_name,bor));
+
+noise_level = 2;
+Snse = LD_observations_set(dir_name,eqn_name,['noise' num2str(noise_level)],'DoP853', dat_suff);
+
+solspc_ref_plot = LD_plots.plot_solspc(Sref,LD_plots('Sref',[4 4],[1 4],[1 1],1),spc);
