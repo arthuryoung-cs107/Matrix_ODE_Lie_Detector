@@ -305,6 +305,13 @@ struct Jet_function_vector_space
 
   LD_vspace_record &rec0 = Vbndle0.rec;
 
+  inline void compute_svds(bool verbose_=true)
+  {
+    svd0.compute_Acode_curve_svds(Acode,verbose_);
+    svd0.evaluate_iscl_ranks(fspc.perm_len); // standardizing by perm_len
+    if (verbose_) svd0.print_details("svd0");
+  }
+
 };
 
 class LD_cokernal_policy

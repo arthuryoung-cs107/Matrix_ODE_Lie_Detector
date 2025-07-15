@@ -13,7 +13,8 @@ class nullspace_ckrn_policy: public LD_cokernal_policy
     virtual double ** init_cokernal_collapse(Jet_function_vector_space &jfvs_,bool verbose_=true)
     {
       jfvs_.svd0.compute_Acode_curve_svds(jfvs_.Acode,verbose_);
-      jfvs_.svd0.evaluate_iscl_ranks(2*(jfvs_.vlen_full));
+      jfvs_.svd0.evaluate_iscl_ranks(2*(jfvs_.vlen_full)); // using 2*N, debiasing tall matrices
+      // jfvs_.svd0.evaluate_iscl_ranks(jfvs_.fspc.perm_len); // consider standardizing w perm_len
       if (verbose_) jfvs_.svd0.print_details("svd0");
 
       jfvs_.svd0.set_Vspaces_nullspc();

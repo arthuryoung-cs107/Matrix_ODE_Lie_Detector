@@ -479,6 +479,25 @@ void LD_vector_bundle::write_LD_vector_bundle(const char name_[],bool write_Vtns
   printf("(LD_vector_bundle::write_LD_vector_bundle) wrote %s\n",name_);
 }
 
+void LD_encoding_bundle::write_LD_encoding_bundle(const char name_[])
+{
+  // simple, assumes uniform constraints, writes out each encoded matrix with standalone dimensions.
+  FILE * file = LD_io::fopen_SAFE(name_,"wb");
+  int hlen = 3,
+      header[] = {hlen,nset,ncol_full,verify_nrows()/nobs()};
+  fwrite(header, sizeof(int), hlen+1, file);
+  int dim_i[2];
+  for (int i = 0; i < nset; i++)
+  {
+    dim_i[0] = Acodes[i]->nrow; dim_i[1] = Acodes[i]->ncol;
+    fwrite(dim_i, sizeof(int), 2, file);
+    if (dim_i[1] == ncol_full) fwrite(Amats[i][0], sizeof(double), dim_i[0]*dim_i[1], file);
+    else for (int j = 0; j < dim_i[0]; j++) fwrite(Amats[i][j], sizeof(double), dim_i[1], file);
+  }
+  fclose(file);
+  printf("(LD_encoding_bundle::write_encoding_bundle) wrote %s\n",name_);
+}
+
 void LD_svd_bundle::write_LD_svd_bundle(const char name_[])
 {
   FILE * file = LD_io::fopen_SAFE(name_,"wb");
@@ -492,7 +511,7 @@ void LD_svd_bundle::write_LD_svd_bundle(const char name_[])
   fwrite(rank_vec, sizeof(int), nspc, file);
   for (size_t i = 0; i < nspc; i++)
     for (size_t j = 0; j < nV_spcvec[i]; j++) fwrite(Vtns[i][j], sizeof(double), Vspaces[i]->vlen_use, file);
-  for (size_t i = 0; i < nspc; i++) fwrite(Smat[i], sizeof(int), nV_spcvec[i], file);
+  for (size_t i = 0; i < nspc; i++) fwrite(Smat[i], sizeof(double), nV_spcvec[i], file);
   fclose(file);
   printf("(LD_svd_bundle::write_LD_svd_bundle) wrote %s\n",name_);
 }

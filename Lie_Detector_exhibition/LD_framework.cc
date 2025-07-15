@@ -142,6 +142,16 @@ generated_ode_observations::generated_ode_observations(ode_system &ode_, int nc_
   ode_curve_observations(ode_,nc_,npts_per_crv_), ode(ode_), pts_IC(new double*[nc_]), xrange_mat(Tmatrix<double>(nc_,2))
   {for (size_t ic = 0, iic = 0; ic < nc_; iic+=ndim*(npts_per_crv_[ic++])) pts_IC[ic] = pts_in + iic;}
 
+void generated_ode_observations::set_Gaussian_random_ICs(LD_rng rng_, const double *ICr_, const double *xrange_)
+{
+  for (size_t i = 0; i < ncrv; i++)
+  {
+    xrange_mat[i][0] = xrange_[0]; xrange_mat[i][1] = xrange_[1];
+    for (size_t i_dim = 1, iicr = 0; i_dim <= ndof_ODE; i_dim++, iicr+=2)
+      pts_IC[i][i_dim] = rng_.rand_gau( 0.5*(ICr_[iicr+1]+ICr_[iicr]),
+                                        (ICr_[iicr+1]-ICr_[iicr])/10 );
+  }
+}
 void generated_ode_observations::set_random_ICs(LD_rng rng_, const double *ICr_, const double *xrange_)
 {
   for (size_t i = 0; i < ncrv; i++)

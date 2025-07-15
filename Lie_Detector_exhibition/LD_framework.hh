@@ -65,6 +65,7 @@ struct generated_ode_observations: public ode_curve_observations
   double  ** const pts_IC,
           ** const xrange_mat;
 
+  void set_Gaussian_random_ICs(LD_rng rng_, const double *IC_range_, const double *xrange_);
   void set_random_ICs(LD_rng rng_, const double *IC_range_, const double *xrange_);
   void generate_solution_curves(ode_integrator &integrator_);
 
@@ -236,6 +237,68 @@ class LD_matrix_file
         ncols_in,
         * const header_in = &nrows_in;
     double ** Amat_in = NULL;
+};
+
+struct LD_trivial_jet_experiment : public LD_experiment
+{
+  LD_trivial_jet_experiment(LD_observations_set &Sset_) : LD_experiment(Sset_),
+    jmeta_trivial(Sset_.meta, 2*( Sset_.meta.eor + ((Sset.dnp1xu_tns==NULL)?(1):(2)) )-1),
+    tcrvjets(new ode_trivial_curvejet*[ncrvs_tot])
+    {
+      for (size_t i = 0; i < ncrvs_tot; i++)
+        tcrvjets[i] = new ode_trivial_curvejet(*(curves[i]),jmeta_trivial);
+    }
+  ~LD_trivial_jet_experiment()
+  {
+    for (size_t i = 0; i < ncrvs_tot; i++) delete tcrvjets[i];
+    delete [] tcrvjets;
+  }
+
+  ode_jetspc_meta jmeta_trivial;
+
+  ode_trivial_curvejet ** const tcrvjets;
+
+  // scratch debugging printout
+  void print_details()
+  {
+    printf("(LD_trivial_jet_experiment::print_details) \n");
+    int icrv = 0,
+        ipts = 0;
+    tcrvjets[icrv]->print_jet_j_details(ipts);
+    // tcrvjets[10]->print_jet_j_details(10);
+  }
+
+  void determine_trivial_jets()
+  {
+    int net_clcp = 0;
+    double t0 = LD_threads::tic();
+    #pragma omp parallel reduction(+:net_clcp)
+    {
+      const int ndep = Sset.ndep;
+      LD_lu lu_t(jmeta_trivial.jor+1,jmeta_trivial.jor+1);
+      double  ** const LUmat_t = lu_t.LUmat;
+      #pragma omp for
+      for (int icrv = 0; icrv < ncrvs_tot; icrv++)
+      {
+        ode_trivial_curvejet &tcj_icrv = *(tcrvjets[icrv]);
+        for (int j = 0; j < tcj_icrv.nxh; j++)
+        {
+          tcj_icrv.set_trivial_Amat(LUmat_t,j);
+          lu_t.decompose_A();
+          for (int i = 0; i < ndep; i++)
+            lu_t.solve_system(tcj_icrv.set_trivial_bvec(j,i));
+        }
+        net_clcp += tcj_icrv.nxh;
+      }
+    }
+    double work_time = LD_threads::toc(t0);
+    printf("(LD_trivial_jet_experiment::determine_trivial_jets) determined %d jets (%d dimensions, %d collocation points, order %d) over %d flows (%.1f points, on avg.) in %.4f seconds (%d threads)\n",
+      (Sset.ndep)*net_clcp,
+      Sset.ndep,net_clcp,jmeta_trivial.jor,
+      ncrvs_tot, ((double)net_clcp)/((double)ncrvs_tot),
+      work_time,LD_threads::numthreads());
+  }
+
 };
 
 struct LD_matrix: public function_space_element, public LD_experiment

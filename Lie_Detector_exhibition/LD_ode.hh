@@ -2,6 +2,8 @@
 #define LD_ODE_HH
 #include "LD_util.hh"
 
+#include <cstdio>
+
 struct ode_solspc_meta
 {
   ode_solspc_meta(int eor_,int ndep_): eor(eor_), ndep(ndep_) {}
@@ -40,6 +42,11 @@ struct ode_solution: public ode_solspc_element
           ** JFs = NULL;
 
   void print_sol();
+
+  inline double s_idim(int i_)
+    {return (i_>=0)?( (i_<ndim)?(pts[i_]):( dnp1xu[ i_-ndim ] ) ):(0.0);}
+  inline double dkui(int k_,int i_)
+    {return ( k_<=eor )?( u[i_ + ndep*k_] ):( dnp1xu[i_+ndep*(k_-(eor+1))] );}
 };
 
 struct ode_solspc_subset: public ode_solspc_element // when the data is not necessarily contiguous
@@ -128,6 +135,182 @@ struct ode_solcurve: public solspc_data_chunk // data is vectorized, and on a on
   inline ode_solution * sol_f() {return sols[nobs-1];}
 
   inline void print_curve() {print_subset();}
+};
+
+struct ode_jetspc_meta : public ode_solspc_element
+{
+  ode_jetspc_meta(ode_solspc_meta &smeta_,int jor_) : ode_solspc_element(smeta_),
+    jor(jor_), Fjor(Tsym<int>(jor+1))
+  {
+    for (int i = 0; i <= jor; i++) Fjor[0][i] = 1;
+    for (int i = 1, jend = jor-1; i <= jor; i++, jend--)
+      for (int j = 0; j <= jend; j++)
+        Fjor[i][j] = (j+1)*Fjor[i-1][j+1];
+  }
+  ~ode_jetspc_meta()
+    {free_Tmatrix<int>(Fjor);}
+
+  const int jor;
+
+  inline int get_F_lder_kcol(int l_,int k_) {return (l_<=k_)?( Fjor[l_][k_-l_] ):(0);}
+
+  inline void print_details()
+  {
+    printf("(ode_jetspc_meta::print_details) jor = %d. F coefficients: \n", jor);
+    for (int l = 0; l <= jor; l++)
+    {
+      for (int k = 0; k <= jor; k++) printf("%.1e ", (double) get_F_lder_kcol(l,k) );
+      printf("\n");
+    }
+  }
+  inline void print_F()
+  {
+    printf("(ode_jetspc_meta::print_F) F coefficients : \n");
+    for (int l = 0; l <= jor; l++)
+    {
+      for (int k = 0; k <= jor; k++) printf("%.1e ", (double) get_F_lder_kcol(l,k) );
+      printf("\n");
+    }
+  }
+
+  private:
+
+    int ** const Fjor;
+
+};
+
+struct ode_jetspc_element : public ode_solspc_element
+{
+  ode_jetspc_element(ode_jetspc_meta &jmeta_) : ode_solspc_element(jmeta_.meta),
+    jmeta(jmeta_) {}
+  ~ode_jetspc_element() {}
+
+  ode_jetspc_meta &jmeta;
+  const int &jor = jmeta.jor;
+
+  inline int F_lk(int l_,int k_) {return jmeta.get_F_lder_kcol(l_,k_);}
+};
+
+struct ode_sjet : public ode_jetspc_element
+{
+  ode_sjet(ode_jetspc_meta &jmeta_, double *avec_, double e0_=0.0) : ode_jetspc_element(jmeta_),
+    avec(avec_), e0(e0_) {}
+  ~ode_sjet() {}
+  double  * const avec,
+                  e0;
+
+  inline double * a_i(int i_) {return avec + i_*(jor+1);}
+  inline double a_ij(int i_,int j_) {return avec[j_ + i_*(jor+1)];}
+};
+
+struct ode_trivial_sjet : public ode_sjet
+{
+  ode_trivial_sjet(ode_jetspc_meta &jmeta_,double *avec_,ode_solution &sol0_,ode_solution &sol1_) :
+    ode_sjet(jmeta_,avec_,0.5*(sol0_.x + sol1_.x)),
+    sol0(sol0_), sol1(sol1_) // jor = 2*(kor+1)-1, as 2*(kor+1) constraints determine jor order polynomial
+    {}
+  ~ode_trivial_sjet() {}
+
+  double &xh = e0;
+  ode_solution  &sol0,
+                &sol1;
+
+  void print_jet_details()
+  {
+    printf("(ode_trivial_sjet::print_jet_details) jor = %d, alpha coefficients: \n  ", jor);
+    for (int i = 0; i < ndep; i++)
+    {
+      double *avec_i = a_i(i);
+      for (int k = 0; k <= jor; k++) printf("%.3e ", avec_i[k]);
+      printf("\n  ");
+    }
+    printf("s0, sh, s1:\n");
+    for (int i = 0; i < ndim; i++) printf("   %.3e, %.3e, %.3e \n", sol0.s_idim(i),s_hat_idim(i),sol1.s_idim(i));
+  }
+  inline void set_trivial_Amat(double **Amat_)
+  {
+    const int kor = comp_kor();
+    const double hx_local = hx();
+    double  ** const Amat0 = Amat_,
+             * const Avec0 = Amat0[0],
+            ** const Amat1 = Amat0+(kor+1),
+             * const Avec1 = Amat1[0];
+
+    Amat0[0][0] = Amat1[0][0] = 1.0;
+    for (int k = 1; k <= jor; k++)
+    {
+      Amat0[0][k] = -hx_local*Amat0[0][k-1];
+      Amat1[0][k] =  hx_local*Amat1[0][k-1];
+    }
+    for (int l = 1; l <= kor; l++)
+    {
+      for (int k = 0; k < l; k++)
+        Amat0[l][k] = Amat1[l][k] = 0.0;
+      for (int k = l, ih = 0; k <= jor; k++, ih++)
+      {
+        const double F_lk_local = (double)(F_lk(l,k));
+        Amat0[l][k] = F_lk_local*Amat0[0][ih];
+        Amat1[l][k] = F_lk_local*Amat1[0][ih];
+      }
+    }
+  }
+  inline double * set_trivial_bvec(int i_)
+  {
+    const int kor = comp_kor();
+    double * const avec_i = a_i(i_);
+
+    /*
+      Set 2*(kor+1) entries of constraint vector in each dimension.
+      Return address of assigned coefficients for solve in place
+    */
+    for (int k = 0; k <= kor; k++)
+      avec_i[k] = sol0.dkui(k,i_);
+    for (int k = 0, ik = kor+1; k <= kor; k++, ik++)
+      avec_i[ik] = sol1.dkui(k,i_);
+    return avec_i;
+  }
+
+  inline double s_hat_idim(int i_) {return (i_>0)?( dkxui_hat((i_-1)/ndep,(i_-1)%ndep) ):(xh);}
+  inline double dkxui_hat(int k_, int i_) {return (k_<=jor)?( a_ij(i_,k_)*F_lk(k_,k_) ):(0.0);}
+
+  inline double hx() {return 0.5*(sol1.x-sol0.x);}
+  inline int comp_kor() {return (((jor+1)/2)-1);}
+};
+
+struct ode_trivial_curvejet : public ode_solspc_element
+{
+  ode_trivial_curvejet(ode_solcurve &crv_,ode_jetspc_meta &jmeta_trivial_) : ode_solspc_element(crv_.meta),
+    jmeta_trivial(jmeta_trivial_),
+    nxh(crv_.nobs-1),
+    achunk_tjets(new double[nxh*ndep*(jmeta_trivial.jor+1)]),
+    tjets(new ode_trivial_sjet*[nxh])
+    {
+      for (int i = 0, ia = 0, alen = ndep*(jmeta_trivial.jor+1); i < nxh; i++, ia+=alen)
+        tjets[i] = new ode_trivial_sjet(jmeta_trivial,achunk_tjets+ia,*(crv_.sols[i]),*(crv_.sols[i+1]));
+    }
+  ~ode_trivial_curvejet()
+  {
+    for (size_t i = 0; i < nxh; i++) delete tjets[i];
+    delete [] tjets;
+    delete [] achunk_tjets;
+  }
+
+  ode_jetspc_meta &jmeta_trivial;
+
+  const int nxh;
+  double * const achunk_tjets;
+
+  ode_trivial_sjet ** const tjets;
+
+  void print_jet_j_details(int j_)
+  {
+    tjets[j_]->print_jet_details();
+  }
+
+  inline void set_trivial_Amat(double **Amat_,int j_)
+    {tjets[j_]->set_trivial_Amat(Amat_);}
+  inline double * set_trivial_bvec(int j_,int i_)
+    {return tjets[j_]->set_trivial_bvec(i_);}
 };
 
 struct ode_system: public ode_solspc_meta

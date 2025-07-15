@@ -498,6 +498,8 @@ class LD_encoding_bundle
     inline int min_nrows()
       {int mrows = Acodes[0]->nrow; for (size_t i = 1; i < nset; i++) if (mrows > Acodes[i]->nrow) mrows = Acodes[i]->nrow; return mrows;}
     inline int nrows_mat_i(int i_) {return Acodes[i_]->nrow;}
+
+    void write_LD_encoding_bundle(const char name_[]);
 };
 
 struct LD_encoder

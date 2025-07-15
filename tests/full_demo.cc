@@ -10,9 +10,9 @@ const char dat_suff[] = "lddat";
 const char addtl_prefix[] = "";
 
 // specify subject ordinary differential equation for tests
-Duffing_ode ode;
+// Duffing_ode ode;
 // VanDerPol_ode ode;
-// Pendulum_ode ode;
+Pendulum_ode ode(2.0,1.0,0.0,0.0,1.0,-9.81); // Pendulum_ode ode;
 // Bessel_ode ode;
 // Riccati_ode ode;
 // Brusselator_ode ode;
@@ -39,8 +39,10 @@ const bool  write_dnp1xu = true,
             write_JFs = true;
 
 // level of noise applied to observational data. If <0, then unnoised
-const int noise_level = -1;
+// const int noise_level = -1;
 // const int noise_level = 0;
+const int noise_level = 1;
+// const int noise_level = 2;
 
 LD_observations_set Sobs(meta0,nc,np,write_dnp1xu,write_JFs);
 

@@ -420,23 +420,145 @@ struct LD_rng
     {for (size_t i = 0; i < n_; i++) v_[i] = rand_gau(mu_,sigma_);}
 };
 
-struct LD_svd
+struct LD_rectangular_decomp
 {
-  LD_svd(size_t Mmax_, size_t Nmax_): Mmax(LD_linalg::max_T<int>(Mmax_,2)), Nmax(LD_linalg::min_T<int>(Mmax,Nmax_)),
+  LD_rectangular_decomp(size_t Mmax_, size_t Nmax_) :
+    Mmax(LD_linalg::max_T<int>(Mmax_,2)),
+    Nmax(LD_linalg::min_T<int>(Mmax,Nmax_)),
     Muse(Mmax), Nuse(Nmax),
-    Umat(Tmatrix<double>(Mmax,Nmax)), Vmat(Tmatrix<double>(Nmax,Nmax)), svec(new double[Nmax]), wvec(new double[Nmax]) {}
-  ~LD_svd()
+    rec_mat(Tmatrix<double>(Mmax,Nmax))
+    {}
+  ~LD_rectangular_decomp()
   {
-    delete [] wvec; delete [] svec;
-    free_Tmatrix<double>(Vmat); free_Tmatrix<double>(Umat);
+    free_Tmatrix<double>(rec_mat);
   }
 
   const int Mmax,
             Nmax;
   int Muse,
-      Nuse,
-      Iuse,
-      Juse;
+      Nuse;
+  double ** const rec_mat;
+
+  inline void init_use_dims() { Muse = Mmax; Nuse = Nmax; }
+  inline void set_use_dims(int Muse_, int Nuse_) {if (Muse_) Muse = Muse_; if (Nuse_) Nuse = Nuse_; verify_use_dims();}
+
+  protected:
+
+    virtual void print_square_message() {}
+
+    inline void verify_use_dims()
+    {
+      // verify adequate space
+      if (!( (0<Muse)&&(Muse<Mmax) )) Muse = Mmax; if (!( (0<Nuse)&&(Nuse<Nmax) )) Nuse = Nmax;
+
+      // verify sub matrix
+      if (Muse>Mmax) Muse = Mmax; if (Nuse>Nmax) Nuse = Nmax;
+
+      // verify thin matrix
+      if (Nuse>Muse) Nuse = Muse;
+
+      if (Nuse==Muse) print_square_message();
+    }
+};
+
+struct LD_lu : public LD_rectangular_decomp
+{
+  LD_lu(size_t Mmax_, size_t Nmax_) :
+    LD_rectangular_decomp(Mmax_,Nmax_),
+    prmu(new size_t[Nmax]),
+    LUmat(rec_mat)
+  {}
+  ~LD_lu() {delete prmu;}
+
+  int signum;
+  size_t * const prmu;
+  double  ** const LUmat;
+
+  inline void load_and_decompose_A(double **Amat_, int Muse_=0, int Nuse_=0)
+  {
+    set_use_dims(Muse_,Nuse_);
+    for (size_t i = 0; i < Muse; i++)
+      for (size_t j = 0; j < Nuse; j++)
+        LUmat[i][j] = Amat_[i][j];
+    gsl_matrix_view LU_gsl = gsl_matrix_view_array_with_tda(LUmat[0],Muse,Nuse,Nmax);
+    gsl_permutation P_gsl; P_gsl.size = Nuse; P_gsl.data = prmu;
+    int status_decomp = gsl_linalg_LU_decomp(&(LU_gsl.matrix),&(P_gsl),&(signum));
+  }
+  inline void decompose_A(int Muse_=0, int Nuse_=0)
+  {
+    set_use_dims(Muse_,Nuse_);
+    gsl_matrix_view LU_gsl = gsl_matrix_view_array_with_tda(LUmat[0],Muse,Nuse,Nmax);
+    gsl_permutation P_gsl; P_gsl.size = Nuse; P_gsl.data = prmu;
+    int status_decomp = gsl_linalg_LU_decomp(&(LU_gsl.matrix),&(P_gsl),&(signum));
+  }
+  inline void load_decompose_solve_system(double *xvec_,double **Amat_,double *bvec_,int Nuse_=0)
+  {
+    set_use_dims(Nuse_,Nuse_);
+    for (size_t i = 0; i < Nuse; i++)
+      for (size_t j = 0; j < Nuse; j++)
+        LUmat[i][j] = Amat_[i][j];
+
+    gsl_matrix_view LU_gsl = gsl_matrix_view_array_with_tda(LUmat[0],Nuse,Nuse,Nmax);
+    gsl_permutation P_gsl; P_gsl.size = Nuse; P_gsl.data = prmu;
+    int status_decomp = gsl_linalg_LU_decomp(&(LU_gsl.matrix),&(P_gsl),&(signum));
+
+    for (size_t i = 0; i < Nuse; i++) xvec_[i] = bvec_[i];
+    gsl_vector_view x_gsl = gsl_vector_view_array(xvec_,Nuse);
+    int status_solve = gsl_linalg_LU_svx(&(LU_gsl.matrix),&(P_gsl),&(x_gsl.vector));
+  }
+  inline void decompose_solve_system(double *xvec_,double *bvec_,int Nuse_=0)
+  {
+    set_use_dims(Nuse_,Nuse_);
+    gsl_matrix_view LU_gsl = gsl_matrix_view_array_with_tda(LUmat[0],Nuse,Nuse,Nmax);
+    gsl_permutation P_gsl; P_gsl.size = Nuse; P_gsl.data = prmu;
+    int status_decomp = gsl_linalg_LU_decomp(&(LU_gsl.matrix),&(P_gsl),&(signum));
+
+    for (size_t i = 0; i < Nuse; i++) xvec_[i] = bvec_[i];
+    gsl_vector_view x_gsl = gsl_vector_view_array(xvec_,Nuse);
+    int status_solve = gsl_linalg_LU_svx(&(LU_gsl.matrix),&(P_gsl),&(x_gsl.vector));
+  }
+  inline void decompose_solve_system(double *xvec_,int Nuse_=0)
+  {
+    set_use_dims(Nuse_,Nuse_);
+    gsl_matrix_view LU_gsl = gsl_matrix_view_array_with_tda(LUmat[0],Nuse,Nuse,Nmax);
+    gsl_permutation P_gsl; P_gsl.size = Nuse; P_gsl.data = prmu;
+    int status_decomp = gsl_linalg_LU_decomp(&(LU_gsl.matrix),&(P_gsl),&(signum));
+    gsl_vector_view x_gsl = gsl_vector_view_array(xvec_,Nuse);
+    int status_solve = gsl_linalg_LU_svx(&(LU_gsl.matrix),&(P_gsl),&(x_gsl.vector));
+  }
+  inline void solve_system(double *xvec_,double *bvec_,int Nuse_=0)
+  {
+    set_use_dims(Nuse_,Nuse_);
+    for (size_t i = 0; i < Nuse; i++) xvec_[i] = bvec_[i];
+    gsl_matrix_view LU_gsl = gsl_matrix_view_array_with_tda(LUmat[0],Nuse,Nuse,Nmax);
+    gsl_permutation P_gsl; P_gsl.size = Nuse; P_gsl.data = prmu;
+    gsl_vector_view x_gsl = gsl_vector_view_array(xvec_,Nuse);
+    int status_solve = gsl_linalg_LU_svx(&(LU_gsl.matrix),&(P_gsl),&(x_gsl.vector));
+  }
+  inline void solve_system(double *xvec_,int Nuse_=0)
+  {
+    set_use_dims(Nuse_,Nuse_);
+    gsl_matrix_view LU_gsl = gsl_matrix_view_array_with_tda(LUmat[0],Nuse,Nuse,Nmax);
+    gsl_permutation P_gsl; P_gsl.size = Nuse; P_gsl.data = prmu;
+    gsl_vector_view x_gsl = gsl_vector_view_array(xvec_,Nuse);
+    int status_solve = gsl_linalg_LU_svx(&(LU_gsl.matrix),&(P_gsl),&(x_gsl.vector));
+  }
+
+};
+
+struct LD_svd : public LD_rectangular_decomp
+{
+  LD_svd(size_t Mmax_, size_t Nmax_):
+    LD_rectangular_decomp(Mmax_,Nmax_),
+    Umat(rec_mat),
+    Vmat(Tmatrix<double>(Nmax,Nmax)),
+    svec(new double[Nmax]), wvec(new double[Nmax]) {}
+  ~LD_svd()
+  {
+    delete [] wvec; delete [] svec;
+    free_Tmatrix<double>(Vmat);
+  }
+
   double  ** const Umat,
           ** const Vmat,
           * const svec,
@@ -510,25 +632,10 @@ struct LD_svd
     return rank_out;
   }
 
-  inline void init_use_dims() { Muse = Mmax; Nuse = Nmax; }
-  inline void set_use_dims(int Muse_, int Nuse_) {if (Muse_) Muse = Muse_; if (Nuse_) Nuse = Nuse_; verify_use_dims();}
+  protected:
 
-  private:
-
-    inline void verify_use_dims()
-    {
-      // verify adequate space
-      if (!( (0<Muse)&&(Muse<Mmax) )) Muse = Mmax; if (!( (0<Nuse)&&(Nuse<Nmax) )) Nuse = Nmax;
-
-      // verify sub matrix
-      if (Muse>Mmax) Muse = Mmax; if (Nuse>Nmax) Nuse = Nmax;
-
-      // verify thin matrix
-      if (Nuse>Muse) Nuse = Muse;
-
-      if (Nuse==Muse)
-        printf("(LD_svd::verify_use_dims) WARNING - intialized as eigendecomposition (square matrix, %d x %d)\n",Muse,Nuse);
-    }
+    void print_square_message()
+      {printf("(LD_svd::verify_use_dims) WARNING - intialized as square matrix (%d x %d)\n",Muse,Nuse);}
 
 };
 

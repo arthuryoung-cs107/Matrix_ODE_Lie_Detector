@@ -1107,6 +1107,25 @@ classdef LD_plots
                     end
             end
         end
+        function set_containing_axis_lims(axs_)
+            axs = axs_(:);
+            naxes = length(axs);
+            axlim_tns = nan( 2, size( axis(axs(1)),2)/2, naxes );
+            for i = 1:naxes
+                axlim_mat(:,:,i) = reshape(axis(axs(i)),2,[]);
+            end
+
+            min_axlw = reshape(min(axlim_mat(1,:,:),[],3),1,[]);
+            max_axhi = reshape(max(axlim_mat(2,:,:),[],3),1,[]);
+
+            axlim_cnt = reshape([min_axlw;max_axhi],1,[]);
+
+            for i = 1:naxes
+                axis(axs(i), axlim_cnt)
+            end
+
+        end
+
         function out_ = greys()
             out_ = [    LD_plots.grey1; ...
                         LD_plots.grey2; ...

@@ -42,6 +42,11 @@ classdef LD_observations_set
 
         JFs_in;
         dnp1xu_in;
+        sigma_s;
+        sigma_dnp1xu;
+        sigma_JFs;
+
+        crvs;
     end
     methods
         function obj = LD_observations_set(dir_name_,eqn_,nse_,gen_,fam_,bor_,mat_,rec_,suf_,dat_suff_)
@@ -97,6 +102,171 @@ classdef LD_observations_set
             obj.npts_uniform = prod(double(obj.npts_per_crv==obj.npts_per_crv(1)));
 
             obj.pts_mat = reshape(obj.pts_in,obj.ndim,[]);
+
+            %% conditional loading of extra data
+            obj = obj.load_JFs;
+            obj = obj.load_dnp1xu;
+            obj = obj.load_sigmas;
+
+            obj.crvs = [];
+        end
+        function obj_out = load_sigmas(obj,suffix_)
+            if (nargin==1)
+                suffix = 'sigmas';
+            else
+                suffix = suffix_;
+            end
+            obj_out = obj;
+            name = [obj.dir_name '/' obj.dat_name '_' suffix '.' obj.dat_suff];
+            file = fopen(name);
+            if (file == -1)
+                [sigma_s,sigma_dnp1xu,sigma_JFs] = deal([]);
+            else
+                hlen = fread(file,1,'int=>int');
+                header = fread(file,hlen,'int=>int');
+                [eor,ndep] = deal(header(1),header(2));
+                sigma_s = fread(file,1 + ndep*(eor+1),'double=>double');
+                sigma_dnp1xu = fread(file,ndep,'double=>double');
+                sigma_JFs = fread(file,ndep*(1 + ndep*(eor+1)),'double=>double');
+                fclose(file);
+            end
+            obj_out.sigma_s = sigma_s;
+            obj_out.sigma_dnp1xu = sigma_dnp1xu;
+            obj_out.sigma_JFs = sigma_JFs;
+        end
+        function obj_out = load_dnp1xu(obj,suffix_)
+            if (nargin==1)
+                suffix = 'dnp1xu';
+            else
+                suffix = suffix_;
+            end
+            obj_out = obj;
+            obj_out.dnp1xu_in = obj.read_adtl(suffix);
+        end
+        function obj_out = load_JFs(obj,suffix_)
+            if (nargin==1)
+                suffix = 'JFs';
+            else
+                suffix = suffix_;
+            end
+            obj_out = obj;
+            obj_out.JFs_in = obj.read_adtl(suffix);
+        end
+        function adtl_out = read_adtl(obj,suffix_)
+            suffix = suffix_;
+            name = [obj.dir_name '/' obj.dat_name '_' suffix '.' obj.dat_suff];
+            file = fopen(name);
+            if (file == -1)
+                fprintf('(read_adtl) : WARNING - failed to read %s. Defaulting to empty output \n',name);
+                adtl_out = [];
+            else
+                hlen = fread(file,1,'int=>int');
+                header = fread(file,hlen,'int=>int');
+                adtl_in = fread(file,header(1),'double=>double');
+                adtl_out = adtl_in;
+            end
+            fclose(file);
+        end
+        function [mats_out,svd_cell] = read_encoded_matrices(obj,mname_)
+            mname = mname_;
+
+            name = [obj.dir_name '/' obj.dat_name '_' mname '.' obj.dat_suff];
+            file = fopen(name);
+            hlen = fread(file,1,'int=>int');
+            header = fread(file,hlen,'int=>int');
+            [nset,ncol_full,ncon] = deal(header(1),header(2),header(3));
+            mats_out = LD_encoded_matrix.empty(nset,0);
+
+            for i = 1:nset
+                dims_i = fread(file,2,'int=>int');
+                vec_i = fread(file,prod(dims_i),'double=>double');
+                mats_out(i) = LD_encoded_matrix(dims_i,reshape(vec_i,dims_i(2),dims_i(1))');
+            end
+            fclose(file);
+
+            if (nargout == 2)
+                name = [obj.dir_name '/' obj.dat_name '_' mname 'svd' '.' obj.dat_suff];
+                file_svd = fopen(name);
+                hlen = fread(file_svd,1,'int=>int');
+                header = fread(file_svd,hlen,'int=>int');
+                [nspc,vlen_full,ilen,dlen] = deal(header(1),header(2),header(3),header(4));
+                nV_spcvec = fread(file,nspc,'int=>int');
+                if ((ilen-(2*nspc))~=(vlen_full*nspc))
+                    iV_spcmat = nan(nspc,vlen_full);
+                    for i = 1:nspc
+                        iV_spcmat(i,1:nV_spcvec(i)) = fread(file_svd,nV_spcvec(i),'int=>int');
+                    end
+                else
+                    iV_spcmat = double(0:(vlen_full-1)) .* ones(nspc,vlen_full);
+                end
+                rank_vec = fread(file_svd,nspc,'int=>int');
+                svd_cell = cell([5,nspc]); % nV, iVvec, rank, Vmat, svec
+                for i = 1:nspc
+                    svd_cell{1,i} = nV_spcvec(i);
+                    svd_cell{2,i} = iV_spcmat(i,1:nV_spcvec(i));
+                    svd_cell{3,i} = rank_vec(i);
+                    svd_cell{4,i} = fread(file_svd,[nV_spcvec(i) nV_spcvec(i)],'double=>double');
+                end
+                for i = 1:nspc
+                    svd_cell{5,i} = fread(file_svd,nV_spcvec(i),'double=>double');
+                end
+                fclose(file_svd);
+            end
+        end
+        function [curves_out,icrvs] = make_curve_array(obj,icrvs_)
+            if (nargin == 2)
+                icrvs = icrvs_;
+            else
+                icrvs = 1:(obj.ncrv);
+            end
+            len_icrvs = length(icrvs(:));
+            curves_out = LD_curve.empty(len_icrvs,0);
+
+            [eor,ndep,ndim] = deal(obj.eor,obj.ndep,obj.ndim);
+
+            [dnp1xu_loaded,JFs_loaded] = deal(~isempty(obj.dnp1xu_in),~isempty(obj.JFs_in));
+            load_flag = double(dnp1xu_loaded)+double(JFs_loaded);
+
+            npts_per_crv = obj.npts_per_crv;
+            pts_in = obj.pts_in;
+            inds_pts = LD_observations_set.dat_crv_inds(ndim,npts_per_crv);
+            if (logical(load_flag))
+                [JFs_in,dnp1xu_in] = deal(obj.JFs_in,obj.dnp1xu_in);
+                inds_dnp1xu = LD_observations_set.dat_crv_inds(ndep,npts_per_crv);
+                inds_JFs = LD_observations_set.dat_crv_inds(ndep*ndim,npts_per_crv);
+                if (load_flag==2) % n+1 derivatives AND JFs loaded
+                    for i = 1:len_icrvs
+                        icrv = icrvs(i);
+                        curves_out(i) = LD_curve(   eor, ndep, ...
+                            pts_in(inds_pts(1,icrv):inds_pts(2,icrv)), ...
+                            dnp1xu_in(inds_dnp1xu(1,icrv):inds_dnp1xu(2,icrv)), ...
+                            JFs_in(inds_JFs(1,icrv):inds_JFs(2,icrv)) );
+                    end
+                elseif (dnp1xu_loaded) % just n+1 derivatives loaded
+                    for i = 1:len_icrvs
+                        icrv = icrvs(i);
+                        curves_out(i) = LD_curve(   eor, ndep, ...
+                            pts_in(inds_pts(1,icrv):inds_pts(2,icrv)), ...
+                            dnp1xu_in(inds_dnp1xu(1,icrv):inds_dnp1xu(2,icrv)), ...
+                            [] );
+                    end
+                else % just JFs loaded
+                    for i = 1:len_icrvs
+                        icrv = icrvs(i);
+                        curves_out(i) = LD_curve(   eor, ndep, ...
+                            pts_in(inds_pts(1,icrv):inds_pts(2,icrv)), ...
+                            [], ...
+                            JFs_in(inds_JFs(1,icrv):inds_JFs(2,icrv)) );
+                    end
+                end
+            else % niether n+1 derivatives nor JFs loaded
+                for i = 1:len_icrvs
+                    icrv = icrvs(i);
+                    curves_out(i) = LD_curve(eor,ndep, ...
+                            pts_in(inds_pts(1,icrv):inds_pts(2,icrv)));
+                end
+            end
+
         end
         function fspace_name_out = make_fspace_config_name(obj,fam_,bor_)
             fspace_name_out = [obj.dir_name '/' obj.dat_name '_' fam_ '.' num2str(bor_) '.domain_config.' obj.dat_suff];
@@ -152,13 +322,38 @@ classdef LD_observations_set
             pckg_out.smat = obj.smat;
             pckg_out.Vtns = obj.Vtns;
         end
-        function pts_cell_out = pts_cell(obj)
-            [ncrv,ndim,pts_in] = deal(obj.ncrv,obj.ndim,obj.pts_in);
-            inds = LD_observations_set.pts_crv_inds(ndim,obj.npts_per_crv);
-            pts_cell_out = cell([ncrv,1]);
-            for i = 1:ncrv
-                pts_cell_out{i,1} = reshape(pts_in(inds(1,i):inds(2,i)),ndim,[]);
+        function cell_out = dnp1xu_cell(obj,icrvs_)
+            if (nargin == 2)
+                icrvs = icrvs_;
+            else
+                icrvs = 1:(obj.ncrv);
             end
+            cell_out = LD_observations_set.dat_cell(obj.ndep, ...
+                                                    obj.dnp1xu_in, ...
+                                                    icrvs, ...
+                                                    obj.npts_per_crv);
+        end
+        function cell_out = JFs_cell(obj,icrvs_)
+            if (nargin == 2)
+                icrvs = icrvs_;
+            else
+                icrvs = 1:(obj.ncrv);
+            end
+            cell_out = LD_observations_set.dat_cell(obj.ndep*obj.ndim, ...
+                                                    obj.JFs_in, ...
+                                                    icrvs, ...
+                                                    obj.npts_per_crv);
+        end
+        function cell_out = pts_cell(obj,icrvs_)
+            if (nargin == 2)
+                icrvs = icrvs_;
+            else
+                icrvs = 1:(obj.ncrv);
+            end
+            cell_out = LD_observations_set.dat_cell(obj.ndim, ...
+                                                    obj.pts_in, ...
+                                                    icrvs, ...
+                                                    obj.npts_per_crv);
         end
         function pts_mat_out = pts_mat_crvi(obj,i_)
             [ncrv,ndim,pts_in] = deal(obj.ncrv,obj.ndim,obj.pts_in);
@@ -167,6 +362,31 @@ classdef LD_observations_set
         end
     end
     methods (Static)
+        function crvs_out = regularize_curve_jets(crvs_,sigma_,lam_)
+            if (nargin==1)
+                sigma = ones(crvs_(1).jets.kor+1,crvs_(1).jets.ndep);
+                lam = ones(crvs_(1).jets.ndep);
+            else
+                [sigma,lam] = deal(sigma_,lam_);
+            end
+            ncrvs = length(crvs_);
+            crvs_out = crvs_;
+
+            for i = 1:ncrvs
+                crvs_out(i).rjets = LD_jets.regularize_jet(crvs_(i).jets,sigma,lam);
+            end
+        end
+        function dat_cell_out = dat_cell(dlen_,dat_in_,icrvs_,npts_per_crv_)
+            icrvs = icrvs_;
+            len_icrvs = length(icrvs(:));
+            inds = LD_observations_set.dat_crv_inds(dlen_,npts_per_crv_);
+            dat_cell_out = cell([len_icrvs,1]);
+            for i_cell = 1:len_icrvs
+                icrv = icrvs(i_cell);
+                dat_cell_out{i_cell,1} = reshape(dat_in_(inds(1,icrv):inds(2,icrv)), ...
+                dlen_,[]);
+            end
+        end
         function meta_out = make_meta_data(eor_,ndep_)
             meta_out = struct(  'eor', eor_, ...
                                 'ndep', ndep_, ...
@@ -229,8 +449,11 @@ classdef LD_observations_set
             end
         end
         function inds_out = pts_crv_inds(ndim_,npts_per_crv_)
+            inds_out = LD_observations_set.dat_crv_inds(ndim_,npts_per_crv_);
+        end
+        function inds_out = dat_crv_inds(dlen_,npts_per_crv_)
             ncrv = length(npts_per_crv_);
-            chunk_len_vec = ndim_*npts_per_crv_;
+            chunk_len_vec = dlen_*npts_per_crv_;
             inds_out = nan(2,ncrv);
             i_start = 0;
             for i = 1:ncrv
