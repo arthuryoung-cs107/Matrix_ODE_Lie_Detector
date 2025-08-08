@@ -5,21 +5,23 @@
 #include "LD_aux.hh"
 #include <cstring>
 
-struct known_ode: public ode_system
+struct named_ode: public ode_system
 {
-  known_ode(int eor_, int ndep_, const char name_[]): ode_system(eor_,ndep_),
+  named_ode(int eor_, int ndep_, const char name_[]): ode_system(eor_,ndep_),
   name(new char[strlen(name_)+1])
   {strcpy(name,name_);}
-  ~known_ode() {delete [] name;}
+  ~named_ode() {delete [] name;}
 
   char * const name;
+
+  virtual double nse_scl() {return 1.0;}
 };
 
-class Riccati_ode: public known_ode
+class Riccati_ode: public named_ode
 {
   public:
     Riccati_ode(double coeff1_=2.0, double coeff2_=-1.0):
-      known_ode(1,1,"Riccati"),
+      named_ode(1,1,"Riccati"),
       coeff1(coeff1_), coeff2(coeff2_) {}
     ~Riccati_ode() {}
 
@@ -37,6 +39,8 @@ class Riccati_ode: public known_ode
 
     inline const double * get_default_IC_indep_range(int xrange_=0) {return Riccati_x_range_def[xrange_];}
     inline const double * get_default_IC_range(int icrange_=0) {return Riccati_IC_range_def[icrange_];}
+
+    virtual double nse_scl() {return 0.4;}
 
   private:
 
@@ -56,11 +60,11 @@ class Riccati_ode: public known_ode
     };
 };
 
-class Pendulum_ode: public known_ode
+class Pendulum_ode: public named_ode
 {
   public:
     Pendulum_ode(double r_=2.0, double mass_=1.0, double gamma_=1.0, double Aforce_=0.0, double Fforce_=1.0, double gravity_=-9.81):
-      known_ode(2,1,"Pendulum"),
+      named_ode(2,1,"Pendulum"),
       radius(r_), mass(mass_), gamma(gamma_), Aforce(Aforce_), Fforce(Fforce_), gravity(gravity_) {}
     ~Pendulum_ode() {}
 
@@ -111,11 +115,11 @@ class Pendulum_ode: public known_ode
     };
 };
 
-class Brusselator_ode: public known_ode
+class Brusselator_ode: public named_ode
 {
   public:
     Brusselator_ode(double c1_a_=1.0, double c1_b_=-4.0, double c1_c_=1.0, double c2_a_=0.0, double c2_b_=3.0, double c2_c_=-1.0):
-      known_ode(1,2,"Brusselator"),
+      named_ode(1,2,"Brusselator"),
       c1_a(c1_a_), c1_b(c1_b_), c1_c(c1_c_),
       c2_a(c2_a_), c2_b(c2_b_), c2_c(c2_c_) {}
     ~Brusselator_ode() {}
@@ -184,11 +188,11 @@ class Brusselator_ode: public known_ode
     };
 };
 
-class Bessel_ode: public known_ode
+class Bessel_ode: public named_ode
 {
   public:
     Bessel_ode(double alpha_=1.0):
-      known_ode(2,1,"Bessel"),
+      named_ode(2,1,"Bessel"),
       alpha(alpha_) {}
     ~Bessel_ode() {}
 
@@ -232,11 +236,11 @@ class Bessel_ode: public known_ode
     };
 };
 
-class VanDerPol_ode: public known_ode
+class VanDerPol_ode: public named_ode
 {
   public:
     VanDerPol_ode(double mu_=1.0):
-      known_ode(2,1,"VanDerPol"),
+      named_ode(2,1,"VanDerPol"),
       mu(mu_) {}
     ~VanDerPol_ode() {}
 
@@ -277,12 +281,12 @@ class VanDerPol_ode: public known_ode
     };
 };
 
-class Duffing_ode: public known_ode
+class Duffing_ode: public named_ode
 {
   public:
     // default parameters inducing chaotic trajectories
     Duffing_ode(double alpha_=-1.0, double beta_=1.0, double gamma_=0.5, double delta_=0.3, double omega_=1.2):
-      known_ode(2,1,"Duffing"),
+      named_ode(2,1,"Duffing"),
       alpha(alpha_), beta(beta_), gamma(gamma_), delta(delta_), omega(omega_) {}
     ~Duffing_ode() {}
 

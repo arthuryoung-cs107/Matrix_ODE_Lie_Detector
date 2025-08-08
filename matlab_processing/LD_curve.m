@@ -71,7 +71,7 @@ classdef LD_curve
                 pts_mat = pts_mat(1:(1+ndep*(kor+1)),:);
             end
 
-            jets_out = LD_jets(pts_mat,ndep);
+            jets_out = LD_jets(eor,pts_mat,ndep);
         end
         function u_hat_out = u_hat(obj)
             [eor,ndep,ndim] = obj.get_meta_dims;

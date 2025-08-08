@@ -3,7 +3,6 @@
 
 #include "LD_framework.hh"
 
-
 class LD_noise_aux
 {
 
@@ -12,19 +11,22 @@ class LD_noise_aux
   public:
 
     LD_noise_aux(ode_solspc_meta &meta_): meta(meta_),
-      sigma_s(new double[meta_.ndim]),
-      sigma_dnp1xu(new double[meta_.ndep]),
-      sigma_JFs(new double[meta_.ndim*meta_.ndep])
+      sigma_pts(new double[meta_.ndim + meta_.ndep]),
+      sigma_JFs(new double[meta_.ndim*meta_.ndep]),
+      sigma_s(sigma_pts),
+      sigma_dnp1xu(sigma_pts+meta_.ndim)
       {}
     ~LD_noise_aux()
     {
-      delete [] sigma_s;
-      delete [] sigma_dnp1xu;
+      delete [] sigma_pts;
       delete [] sigma_JFs;
     }
-    double  * const sigma_s,
-            * const sigma_dnp1xu,
-            * const sigma_JFs;
+
+    double  * const sigma_pts,
+            * const sigma_JFs,
+            * const sigma_s,
+            * const sigma_dnp1xu;
+
     void write_sigmas(const char name_[])
     {
       int hlen = 2,
@@ -37,9 +39,6 @@ class LD_noise_aux
       LD_io::fclose_SAFE(file_out);
       printf("(LD_noise_aux::write_sigmas) wrote %s\n",name_);
     }
-
-
-    static const char * dir_name;
 
     static void perturb_JFs(ode_curve_observations &obs_,double *sigma_noise_JFs_,int noise_level_,int seed_=1234, double nse_scl_=1.0)
     {

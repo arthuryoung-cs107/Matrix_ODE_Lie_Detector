@@ -226,6 +226,10 @@ classdef LD_plots
                 axis(obj.axs(i),lims_{i});
             end
         end
+        function axs_mat_out = axs_mat(obj)
+            [tdim1,tdim2] = deal(obj.tile.GridSize(1),obj.tile.GridSize(2));
+            axs_mat_out = (reshape(obj.axs,tdim2,tdim1))';
+        end
     end
     methods (Static)
         function plt = plot_global_component(S_,svd_cmp_,svd_cmp2_,svd_Lmat_,icrv_in_,fspc_,solspc_plot_,plt_)

@@ -413,7 +413,7 @@ void LD_vspace_record::compare_subspaces(LD_vspace_record &rec1_,const char name
 }
 void LD_svd_bundle::print_details(const char name_[])
 {
-  printf("\n(LD_matrix_svd_result::print_details) %s ", name_);
+  printf("(LD_svd_bundle::print_details) %s ", name_);
   LD_linalg::print_xT("rank_vec",rank_vec,nspc);
   for (size_t i = 0; i < nspc; i++) printf("%d ", nV_spcvec[i]); printf("\n  ^-- (out of n columns)\n");
   int ncol_acc = 0, max_ncol = 0, min_ncol = vlen_full,

@@ -1,5 +1,4 @@
 #include "LD_ode.hh"
-#include <cstdio>
 
 ode_solspc_subset::ode_solspc_subset(ode_solspc_meta &meta_,int nobs_,bool palloc_,bool Jalloc_):
   ode_solspc_element(meta_),
@@ -57,9 +56,3 @@ ode_solcurve::ode_solcurve(int icrv_,ode_solspc_meta &meta_,int nobs_,double **p
 solspc_data_chunk(meta_,nobs_,pts_mat_,sols_,dnp1xu_mat_,JFs_tns_),
 icrv(icrv),eps_vec(new double[nobs]) {}
 ode_solcurve::~ode_solcurve() {delete [] eps_vec;}
-
-void ode_solution::print_sol()
-{
-  for (size_t idim = 0; idim < ndim; idim++) printf("%.2e ", pts[idim]);
-  printf("\n");
-}

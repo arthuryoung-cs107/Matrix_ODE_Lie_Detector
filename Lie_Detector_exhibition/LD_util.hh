@@ -2,10 +2,24 @@
 #define LD_UTIL_HH
 
 #include <cstddef>
+#include <cstdio>
 
 #ifdef _OPENMP
   #include "omp.h"
 #endif
+
+struct LD_program_meta
+{
+  LD_program_meta() {}
+  ~LD_program_meta() {}
+
+  static const char * dir_name;
+  static const char * dat_suff;
+
+  static const int eor_meta0;
+  static const int ndep_meta0;
+  static const int bor_fspace0;
+};
 
 struct LD_threads
 {

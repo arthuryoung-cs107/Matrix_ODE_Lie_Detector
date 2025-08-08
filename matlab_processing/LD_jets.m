@@ -1,5 +1,6 @@
 classdef LD_jets
     properties
+        eor;
         pts_mat;
         ndep;
 
@@ -27,7 +28,7 @@ classdef LD_jets
 
     end
     methods
-        function obj = LD_jets(pts_,ndep_)
+        function obj = LD_jets(eor_,pts_,ndep_)
             % pts = pts_(:,1:2);
             pts = [pts_(:,1), pts_(:,end)];
 
@@ -62,7 +63,6 @@ classdef LD_jets
             for iord = 1:kor
                 cVmnd(iord+1,(iord+1):end) = jrange(2:(end-iord+1)).*cVmnd(iord,(iord+1):end);
             end
-            % cVmnd
 
             a_tns = nan(ndep,jorp1,nptsm1);
             for ipts = 1:nptsm1 % solve linear system for each curve point solution and dim
@@ -80,6 +80,7 @@ classdef LD_jets
                 end
             end
 
+            obj.eor = eor_;
             obj.pts_mat = pts_mat;
             obj.ndep = ndep;
             obj.xh_vec = xh_vec;
@@ -177,6 +178,153 @@ classdef LD_jets
         end
     end
     methods (Static)
+
+        function jet_out = minavg_curvature_jet(jet_,sigma_,lam_,jor_)
+            switch nargin
+                case 1
+                %{
+                    default behavior :
+                    minimize scaled squared error over 0 ... kor, (via input jet)
+                    as well as curvature from 2 , ... , eor+2 (via input jet).
+                    jor = 2*(kor+1), one more than determined case.
+                %}
+                    eor = jet_.eor;
+                    kor = jet_.kor;
+                    jor = jet_.jor+1;
+                    rrange = 2:min([ jor, jet_.eor+2 ]);
+                    romax = rrange(end);
+                    nro = length(rrange); % should be eor+1
+
+                    sigma = ones(kor+1,jet_.ndep);
+                    lam = ones(nro,jet_.ndep);
+                case 2
+                    eor = jet_.eor;
+                    kor = min([ ((size( jet_.pts_mat,1 )-1)/jet_.ndep)-1 , size(sigma_,1)]);
+                    jor = 2*(kor+1);
+                    rrange = 2:min([ jor, jet_.eor+2 ]);
+                    romax = rrange(end);
+                    nro = length(rrange); % should be eor+1
+
+                    sigma = sigma_(1:(kor+1), :);
+                    lam = ones(nro,jet_.ndep);
+                case 3
+                    eor = jet_.eor;
+                    kor = min([ ((size( jet_.pts_mat,1 )-1)/jet_.ndep)-1 , size(sigma_,1)]);
+                    jor = 2*(kor+1);
+                    nro = size(lam_,1);
+                    rrange = (0:(nro-1))+2;
+                    romax = rrange(end); % nro + 1
+
+                    sigma = sigma_(1:(kor+1), :);
+                    lam = lam_;
+                case 4
+                    eor = jet_.eor;
+                    kor = min([ ((size( jet_.pts_mat,1 )-1)/jet_.ndep)-1 , size(sigma_,1)]);
+                    jor = jor_;
+                    rrange = (0:(size(lam_,1)-1))+2;
+                    if (rrange(end) > jor)
+                        rrange = rrange(1):jor;
+                    end
+                    nro = length(rrange);
+                    romax = rrange(end); % nro + 1
+
+                    sigma = sigma_(1:(kor+1), :);
+                    lam = lam_;
+            end
+            romin = rrange(1);
+
+            jet_out = jet_;
+            jet_out.kor = kor;
+            jet_out.jor = jor;
+
+            ndep = jet_.ndep;
+            k_range = double(0:kor);
+            kp1 = kor+1;
+
+            j_range = double(0:jor);
+            jp1 = jor+1;
+
+            F_mat = [ ones(1,jp1) ; zeros(jor,jp1) ];
+            for i = 1:jor % for evaluation of derivatives
+                F_mat(i+1,(i+1):end) = F_mat(i,(i+1):end) .* j_range(2:(end-i+1));
+            end
+
+            [xh_vec,hx_vec] = deal(jet_.xh_vec,jet_.hx_vec);
+            hx_P_mat = hx_vec.^( (j_range)' );
+            sgn_hx_mat_x0 =  ((-1).^( (j_range)' ));
+            [hx_P_mat_x0,hx_P_mat_x1] = deal(sgn_hx_mat_x0.*hx_P_mat,hx_P_mat);
+            nh = length(xh_vec);
+
+            % compute extended powers for regularization term
+            if (((2*jor)+1-2*romin) > jor)
+                j_range_ext = double((jor+1):((2*jor)+1-2*romin))';
+                hx_P_mat_x0_ext = [hx_P_mat_x0 ; (-hx_vec).^( j_range_ext ) ];
+                hx_P_mat_x1_ext = [hx_P_mat_x1 ; hx_vec.^( j_range_ext ) ];
+            else
+                [hx_P_mat_x0_ext,hx_P_mat_x1_ext] = deal(hx_P_mat_x0,hx_P_mat_x1);
+            end
+
+            U_0 = reshape(jet_.pts_mat(2:(1+(ndep*kp1)),1:(end-1)),ndep,kp1,nh);
+            U_1 = reshape(jet_.pts_mat(2:(1+(ndep*kp1)),2:end),ndep,kp1,nh);
+
+            iSmat = sigma.^(-2);
+            iStns = reshape(iSmat,kp1,1,ndep);
+            lamtns = reshape(lam,[],1,ndep);
+
+            a_tns = zeros(ndep,jp1,nh);
+            for ipts = 1:nh
+                [U0i,U1i] = deal(U_0(:,:,ipts)',U_1(:,:,ipts)');
+                [hxP0_i,hxP1_i] = deal((hx_P_mat_x0(:,ipts)'),(hx_P_mat_x1(:,ipts)'));
+                hxP0_i_ext = hx_P_mat_x0_ext(:,ipts)';
+                hxP1_i_ext = hx_P_mat_x1_ext(:,ipts)';
+
+                % compute derivative Vandermonde matrix
+                [dVmnd_i0,dVmnd_i1] = deal(F_mat);
+                [dVmnd_i0(1,:),dVmnd_i1(1,:)] =  deal(hxP0_i,hxP1_i);
+                for iord = 2:jp1
+                    dVmnd_i0(iord,iord:end) = dVmnd_i0(iord,iord:end).*(hxP0_i(1:(end-iord+1)));
+                    dVmnd_i1(iord,iord:end) = dVmnd_i1(iord,iord:end).*(hxP1_i(1:(end-iord+1)));
+                end
+
+                % compute gradient/constraint contributions due to Hermite knots
+                [Gtns0_i,Gtns1_i,Itns_i] = deal(zeros(jp1,jp1,ndep));
+                [bmat0_i,bmat1_i] = deal(zeros(jp1,ndep));
+                for ia = 0:jor
+                    lmx_G = min([ia,kor]);
+                    for l = 0:lmx_G
+                        Gtns0_i(ia+1,:,:) = Gtns0_i(ia+1,:,:) + ...
+                            iStns(l+1,1,:).*(dVmnd_i0(l+1,ia+1)*dVmnd_i0(l+1,:));
+                        Gtns1_i(ia+1,:,:) = Gtns1_i(ia+1,:,:) + ...
+                            iStns(l+1,1,:).*(dVmnd_i1(l+1,ia+1)*dVmnd_i1(l+1,:));
+                        bmat0_i(ia+1,:) = bmat0_i(ia+1,:) + ...
+                            iSmat(l+1,:).*(dVmnd_i0(l+1,ia+1)*U0i(l+1,:));
+                        bmat1_i(ia+1,:) = bmat1_i(ia+1,:) + ...
+                            iSmat(l+1,:).*(dVmnd_i1(l+1,ia+1)*U1i(l+1,:));
+                    end
+                    % regularization term via integral of squared curvature
+                    lmx_I = min([ia,romax]);
+                    for l = 2:lmx_I
+                        lIr = double(ia)+j_range((l+1):end)-(2*double(l))+1;
+
+                        Itns_i(ia+1,(l+1):end,:) = Itns_i(ia+1,(l+1):end,:) + ...
+                            lamtns(l-1,1,:).* ...
+                            (F_mat(l+1,ia+1)*F_mat(l+1,(l+1):end)).* ...
+                            (hxP1_i_ext(lIr+1) - hxP0_i_ext(lIr+1))./ ...
+                            lIr;
+
+                    end
+                end
+
+                Gtns_i = Gtns0_i + Gtns1_i + Itns_i;
+                bmat_i = bmat0_i + bmat1_i;
+                for idep = 1:ndep
+                    a_tns(idep,:,ipts) = Gtns_i(:,:,idep) \ bmat_i(:,idep);
+                end
+            end
+
+            jet_out.a_tns = a_tns;
+        end
+
         function jet_out = regularize_jet(jet_,sigma_,lam_)
             if (nargin==1)
                 sigma = ones(jet_.kor+1,jet_.ndep);
@@ -186,14 +334,20 @@ classdef LD_jets
                     sigma = sigma_;
                     lam = ones(jet_.ndep,1);
                 else
-                    [sigma,lam] = deal(sigma_,lam_);
+                    if ( size(sigma_,1) > (jet_.kor+1) )
+                        [sigma,lam] = deal(sigma_(1:(jet_.kor+1),:),lam_);
+                    else
+                        [sigma,lam] = deal(sigma_,lam_);
+                    end
                 end
             end
+            kor = size(sigma,1)-1; % order of observed derivatives
             ndep = jet_.ndep;
-            kor = jet_.kor; % order of observed derivatives
+            % kor = jet_.kor; % order of observed derivatives
             kp1 = kor+1; % order of applied regularization
             kp1_range = double(0:kp1);
-            M = jet_.jor+1; % order of regularized jet, one greater than exact jet
+            M = 2*(kor+1); % order of regularized jet, one greater than exact jet
+            % M = 2*(kor+1)+1; % order of regularized jet, 2 greater than exact jet
             Mp1 = M+1; % coefficient count of regularized jet, one greater than order (due to k = 0)
 
             M_range = double(0:M);
@@ -211,14 +365,14 @@ classdef LD_jets
             [hx_mat0,hx_mat1] = deal(hx_mat0_Mp1(1:(end-1),:),hx_mat1_Mp1(1:(end-1),:));
             nh = length(xh_vec);
 
-            U_0 = reshape(jet_.pts_mat(2:end,1:(end-1)),ndep,kp1,nh);
-            U_1 = reshape(jet_.pts_mat(2:end,2:end),ndep,kp1,nh);
+            U_0 = reshape(jet_.pts_mat(2:(1+(ndep*kp1)),1:(end-1)),ndep,kp1,nh);
+            U_1 = reshape(jet_.pts_mat(2:(1+(ndep*kp1)),2:end),ndep,kp1,nh);
             ismat = sigma.^(-2);
             istns = reshape(ismat,kp1,1,ndep);
 
             a_tns = zeros(ndep,Mp1,nh);
             for ipts = 1:nh
-                [U0_i,U1_i] = deal(U_0(:,:,ipts)',U_1(:,:,ipts)');
+                [U0i,U1i] = deal(U_0(:,:,ipts)',U_1(:,:,ipts)');
                 [dVmnd_i0,dVmnd_i1] = deal(Fkp1_mat_k);
                 [dVmnd_i0(1,:),dVmnd_i1(1,:)] =  deal((hx_mat0(:,ipts)'),(hx_mat1(:,ipts)'));
                 [Dtns0_i,Dtns1_i] = deal(zeros(Mp1,Mp1,ndep));
@@ -260,17 +414,16 @@ classdef LD_jets
                 Dtns_i = Dtns0_i+Dtns1_i;
                 bmat_i = bmat0_i+bmat1_i;
 
-                % Dtns_i
-                % pause
-
                 for idep = 1:ndep
+                    % Dtns_i(:,:,idep)+lam(idep)*Imat_i
+                    % pause
                     a_tns(idep,:,ipts) = [Dtns_i(:,:,idep)+lam(idep)*Imat_i] \ bmat_i(:,idep);
                 end
             end
             jet_out = jet_;
+            jet_out.kor = kor;
             jet_out.jor = M;
             jet_out.a_tns = a_tns;
-
         end
     end
 end

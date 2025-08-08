@@ -46,8 +46,11 @@ Snse.crvs = Snse.make_curve_array
 %% inspecting one curve
 i_crv = 1;
 
+tdim_S_mesh = 5;
+tdim_S_hght = 3;
 spc.color = [0 0 0 0.2];
-nse_plot1 = LD_denoise_plots.plot_observed_trajectories(LD_plots('Snse',[4 4],[4 4],[4 1],1), ...
+nse_plot1 = LD_denoise_plots.plot_observed_trajectories(LD_plots('Snse', ...
+                                                        [tdim_S_mesh tdim_S_mesh],[tdim_S_hght tdim_S_mesh],[tdim_S_hght 1],1), ...
                                                         spc, ...
                                                         Sref,Snse,i_crv);
 % spc.color = [0 1 0 0.2];
@@ -90,12 +93,15 @@ A_name = 'Rnp1';
 
 kor_u_hat = meta0.eor;
 
+tdim_E_mesh = 7;
+tdim_E_hght = 4;
 spc.mspec = 'none';
 spc.ms = 3;
 spc.lspec = '-';
 spc.lw = 1;
 est_plot1 = LD_denoise_plots.plot_curve_estimates(nse_plot1, ...
-    LD_plots('error_estimation',[6 6],[3 6],[6 1],1), ...
+    LD_plots('error_estimation', ...
+    [tdim_E_mesh tdim_E_mesh],[tdim_E_hght tdim_E_mesh],[tdim_E_mesh 1],1), ...
     spc,Sref,Snse,i_crv);
 
 % nse_plot1.show_menubar();

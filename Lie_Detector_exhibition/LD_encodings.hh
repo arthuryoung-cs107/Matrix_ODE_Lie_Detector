@@ -144,7 +144,14 @@ struct LD_G_encoder: public LD_encoder
 
 struct LD_R_encoder: public LD_encoder
 {
-  LD_R_encoder(ode_solspc_meta &meta_,int nor_=0): LD_encoder(meta_.ndep*((nor_)?(nor_):(meta_.eor)),meta_) {}
+  LD_R_encoder(ode_solspc_meta &meta_,int nor_=0) :
+    LD_encoder(meta_.ndep*((nor_)?(nor_):(meta_.eor)),meta_) {}
+  // LD_R_encoder(LD_encoded_matrix &Amat_,function_space_basis &bse_,ode_solution **sols_,bool normalization_=false) :
+  //   LD_encoder(Amat_.ncod,bse_.meta)
+  //   {
+  //     for (int i = 0; i < Amat_.nobs; i++)
+  //       encode_normalize_rows(Amat_.get_submat_i(i),bse_,*(sols_[i]),normalization_);
+  //   }
   ~LD_R_encoder() {}
 
   virtual void encode_normalize_rows(double **rows_i_,function_space_basis &fbse_,ode_solution &sol_i_,bool normalize_)

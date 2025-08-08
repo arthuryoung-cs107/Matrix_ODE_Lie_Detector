@@ -532,6 +532,7 @@ struct LD_encoder
         nobs_max*(enc_.ncod), nobs_max, enc_.ncod, work_time, LD_threads::numthreads());
   }
 
+  inline double ** submat_i(double **Amat_,int i_) {return Amat_+(i_*ncod);}
   static void normalize_rows(double **rows_, int ncod_, int ndof_)
     {for (size_t i = 0; i < ncod_; i++) LD_linalg::normalize_vec_l2(rows_[i],ndof_);}
 };

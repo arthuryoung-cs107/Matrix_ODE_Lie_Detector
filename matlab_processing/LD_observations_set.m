@@ -110,6 +110,35 @@ classdef LD_observations_set
 
             obj.crvs = [];
         end
+        function rowimg_out = read_rowspace_image(obj,name_,fam_,bor_)
+            name_tc = [obj.dir_name '/' obj.dat_name '_' fam_ '.' num2str(bor_) '.' name_ '_theta_chunk.' obj.dat_suff];
+            theta_mat = read_Tmatrix_file(name_tc, 'double');
+
+            name_vc = [obj.dir_name '/' obj.dat_name '_' fam_ '.' num2str(bor_) '.' name_ '_vnu_chunk.' obj.dat_suff];
+            vnu_mat = read_Tmatrix_file(name_vc, 'double');
+
+            name_vsc = [obj.dir_name '/' obj.dat_name '_' fam_ '.' num2str(bor_) '.' name_ '_vnu_syn_chunk.' obj.dat_suff];
+            vnu_syn_mat = read_Tmatrix_file(name_vsc, 'double');
+
+            rowimg_out = struct('thlmat', theta_mat', ...
+                                'vnumat', vnu_mat', ...
+                                'vnusmat', vnu_syn_mat');
+        end
+        function svd_out = read_LD_svd(obj,name_,fam_,bor_)
+            switch nargin
+                case 2
+                    name = [obj.dir_name '/' obj.dat_name '.' name_ '.' obj.dat_suff];
+                case 4
+                    name = [obj.dir_name '/' obj.dat_name '_' fam_ '.' num2str(bor_) '.' name_ '.' obj.dat_suff];
+            end
+            svd_cell = read_Tmatrix_file(name,'double');
+            if (length(svd_cell) == 3)
+                [U,s,V] = deal(svd_cell{1},svd_cell{2},svd_cell{3});
+            else
+                [U,s,V] = deal([],svd_cell{1},svd_cell{2});
+            end
+            svd_out = struct('U',U,'s',s,'V',V);
+        end
         function obj_out = load_sigmas(obj,suffix_)
             if (nargin==1)
                 suffix = 'sigmas';
@@ -360,6 +389,9 @@ classdef LD_observations_set
             inds = LD_observations_set.pts_crv_inds(ndim,obj.npts_per_crv);
             pts_mat_out = reshape(pts_in(inds(1,i_):inds(2,i_)),ndim,[]);
         end
+        function dnp1xu_out = dnp1xu_mat(obj)
+            dnp1xu_out = reshape(obj.dnp1xu_in,obj.ndep,[]);
+        end
     end
     methods (Static)
         function crvs_out = regularize_curve_jets(crvs_,sigma_,lam_)
@@ -463,7 +495,35 @@ classdef LD_observations_set
         end
     end
 end
-
+function mat_data_out = read_Tmatrix_file(name_,Tstr_)
+    if (nargin == 1)
+        Tstr = 'double';
+    else
+        Tstr = Tstr_;
+    end
+    T2T = [Tstr '=>' Tstr];
+    file = fopen(name_);
+    if (file == -1)
+        fprintf('(read_Tmatrix_file) : ERROR - failed to read %s \n',name_);
+        cell_out = 0;
+    else
+        hlen = fread(file,1,'int=>int');
+        header = fread(file,hlen,'int=>int');
+        switch hlen
+            case 1 % implies multiple matrices
+                nmat = header(1);
+                mat_data_out = cell([nmat,1]);
+                for i = 1:nmat
+                    head_i = fread(file,2,'int=>int');
+                    mat_data_out{i} = (fread(file,[head_i(2) head_i(1)],T2T))';
+                end
+            case 2 % implies just one matrix
+                mat_data_out = (fread(file,[header(2) header(1)],T2T))';
+        end
+        fprintf('(read_Tmatrix_file) : read %s \n',name_);
+        fclose(file);
+    end
+end
 function str_out = asmbl_gen_name(eqn_,nse_,gen_)
     str_out = [eqn_ '_' nse_ '_' gen_ 'gen'];
 end
@@ -545,7 +605,6 @@ function pts_struct = read_pts_struct(name_)
         [ncrv,nobs] = deal(obs_meta(1),obs_meta(2));
         npts_per_crv = fread(file,ncrv,'int=>int');
         pts_in = fread(file,(1 + ndep*(eor+1))*nobs,'double=>double');
-        fclose(file);
 
         pts_struct = struct(    'eor', eor, ...
                                 'ndep', ndep, ...
@@ -553,5 +612,6 @@ function pts_struct = read_pts_struct(name_)
                                 'nobs', nobs, ...
                                 'npts_per_crv', npts_per_crv, ...
                                 'pts_in', pts_in);
+        fclose(file);
     end
 end

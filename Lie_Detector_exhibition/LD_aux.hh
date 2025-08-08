@@ -2,8 +2,9 @@
 #define LD_AUX_HH
 
 #include "LD_util.hh"
+#include "LD_io.hh"
 
-#include <cstdio>
+// #include <cstdio>
 #include <cmath>
 
 #include <cfloat>
@@ -599,13 +600,16 @@ struct LD_svd : public LD_rectangular_decomp
                     w_gsl = gsl_vector_view_array(wvec,Nuse);
     int status_decomp = gsl_linalg_SV_decomp(&(U_gsl.matrix),&(V_gsl.matrix),&(s_gsl.vector),&(w_gsl.vector));
   }
-
-  inline void unpack_svec_VTmat(double *svec_, double **VTmat_)
+  inline void unpack_VTmat(double **VTmat_)
   {
-    for (size_t i = 0; i < Nuse; i++) svec_[i] = svec[i];
     for (size_t i = 0; i < Nuse; i++)
       for (size_t j = 0; j < Nuse; j++)
         VTmat_[i][j] = Vmat[j][i];
+  }
+  inline void unpack_svec_VTmat(double *svec_, double **VTmat_)
+  {
+    for (size_t i = 0; i < Nuse; i++) svec_[i] = svec[i];
+    unpack_VTmat(VTmat_);
   }
   inline int unpack_rank_svec_VTmat(double *svec_, double **VTmat_)
   {
@@ -630,6 +634,86 @@ struct LD_svd : public LD_rectangular_decomp
       if (s_[i]>tol_eps) rank_out++;
       else break;
     return rank_out;
+  }
+
+  void write_LD_svd(const char name_[], bool write_U_=true)
+  {
+    FILE * file = fopen(name_,"wb");
+    if (file != NULL)
+    {
+      int hlen = 1,
+          header[] = {hlen,(write_U_)?(3):(2)};
+      fwrite(header, sizeof(int), hlen+1, file);
+      if (write_U_)
+      {
+        header[0] = Muse; header[1] = Nuse;
+          fwrite(header, sizeof(int), 2, file);
+        for (int i = 0; i < Muse; i++)
+          fwrite(Umat[i], sizeof(double), Nuse, file);
+      }
+        header[0] = 1; header[1] = Nuse;
+          fwrite(header, sizeof(int), 2, file);
+          fwrite(svec, sizeof(double), Nuse, file);
+
+        header[0] = Nuse; header[1] = Nuse;
+          fwrite(header, sizeof(int), 2, file);
+        for (int i = 0; i < Nuse; i++)
+          fwrite(Vmat[i], sizeof(double), Nuse, file);
+      fclose(file);
+      printf("(LD_svd::write_LD_svd) wrote %s\n",name_);
+    }
+    else
+    {
+      printf("(LD_svd::write_LD_svd) fopen error with %s (wb attempted). Exiting\n", name_);
+      exit(1);
+    }
+  }
+  void read_LD_svd(const char name_[])
+  {
+    FILE * file = LD_io::fopen_SAFE(name_,"r");
+    int hlen_in;
+    LD_io::fread_SAFE(&hlen_in,sizeof(int),1,file);
+    if (hlen_in==1)
+    {
+      const int nmat = hlen_in;
+      int mat_dims[2],
+          &dim1 = mat_dims[0],
+          &dim2 = mat_dims[1];
+      LD_io::fread_SAFE(mat_dims,sizeof(int),2,file);
+      if (nmat==3) // read Umat, set matrix dimensions, read svec
+      {
+        Muse = dim1;
+        Nuse = dim2;
+        for (int i = 0; i < Muse; i++)
+          LD_io::fread_SAFE(Umat[i],sizeof(double),Nuse,file);
+
+        LD_io::fread_SAFE(mat_dims,sizeof(int),2,file);
+        LD_io::fread_SAFE(svec,sizeof(double),Nuse,file);
+      }
+      else // set U to be identity matrix, set dimensions as square, read svec
+      {
+        Muse = Nuse = dim2;
+        for (int i = 0; i < Nuse; i++)
+        {
+          for (int j = 0; j < i; j++) Umat[i][j] = 0.0;
+          Umat[i][i] = 1.0;
+          for (int j = i+1; j < Nuse; j++) Umat[i][j] = 0.0;
+        }
+        LD_io::fread_SAFE(svec,sizeof(double),Nuse,file);
+      }
+
+      LD_io::fread_SAFE(mat_dims,sizeof(int),2,file);
+      for (int i = 0; i < Nuse; i++)
+        LD_io::fread_SAFE(Vmat[i],sizeof(double),Nuse,file);
+
+      LD_io::fclose_SAFE(file);
+      printf("(LD_svd::read_LD_svd) read %s\n",name_);
+    }
+    else
+    {
+      printf("(LD_svd::read_LD_svd) error reading %s: unexpected value for hlen_in. Equal to %d, should be 1 (matrix count) \n", name_,hlen_in);
+      exit(1);
+    }
   }
 
   protected:

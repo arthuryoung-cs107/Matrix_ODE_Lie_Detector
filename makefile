@@ -1,9 +1,10 @@
 # file names
 
-EXHIB:= LD_ode LD_function_space LD_parameter_space LD_framework
+EXHIB:= LD_ode LD_function_space LD_parameter_space ode_curve_observations LD_framework
 EXHIBDEC:= matrix_Lie_detector
 EXHIBGEN:= LD_integrators
 EXHIBCOK:= LD_cokernals
+EXHIBTRV:= LD_trivial_flows
 
 include config/includes.mak
 
@@ -12,6 +13,7 @@ EXHIBOBJS:= $(addprefix $(LD_EXHIB_DIR), $(addsuffix .o, $(EXHIB)))
 EXHIBDECOBJS:= $(addprefix $(LD_EXHIB_DIR), $(addsuffix .o, $(EXHIBDEC)))
 EXHIBGENOBJS:= $(addprefix $(LD_EXHIB_DIR), $(addsuffix .o, $(EXHIBGEN)))
 EXHIBCOKOBJS:= $(addprefix $(LD_EXHIB_DIR), $(addsuffix .o, $(EXHIBCOK)))
+# EXHIBTRVOBJS:= $(addprefix $(LD_EXHIB_DIR), $(addsuffix .o, $(EXHIBTRV)))
 
 # final executable object files
 LDEXHIBOBJS:= $(EXHIBOBJS)
@@ -19,6 +21,7 @@ LDEXHIBDECOBJS:= $(EXHIBOBJS) $(EXHIBDECOBJS)
 LDEXHIBGENOBJS:= $(EXHIBOBJS) $(EXHIBGENOBJS)
 LDEXHIBRECOBJS:= $(EXHIBOBJS) $(EXHIBGENOBJS) $(EXHIBDECOBJS)
 LDEXHIBCOKOBJS:= $(EXHIBOBJS) $(EXHIBGENOBJS) $(EXHIBDECOBJS) $(EXHIBCOKOBJS)
+# LDEXHIBCOKOBJS:= $(EXHIBOBJS) $(EXHIBGENOBJS) $(EXHIBDECOBJS) $(EXHIBCOKOBJS) $(EXHIBTRVOBJS)
 
 # Lie detector exhibition rules
 $(LD_EXHIB_DIR)%.o: $(LD_EXHIB_SRC)%.cc | $(LD_EXHIB_DIR)
@@ -46,6 +49,9 @@ cokernal_demo: $(TEST_SRC)cokernal_demo.cc $(LDEXHIBCOKOBJS)
 	$(CXX) $(IDIR_EXHIB) $(CFLAGS_EXHIB) $(LINK) $^ $(LIBS_EXHIB) -o $@
 
 denoise_demo: $(TEST_SRC)denoise_demo.cc $(LDEXHIBCOKOBJS)
+	$(CXX) $(IDIR_EXHIB) $(CFLAGS_EXHIB) $(LINK) $^ $(LIBS_EXHIB) -o $@
+
+riccati_demo: $(TEST_SRC)Riccati_denoising_demo.cc $(LDEXHIBCOKOBJS)
 	$(CXX) $(IDIR_EXHIB) $(CFLAGS_EXHIB) $(LINK) $^ $(LIBS_EXHIB) -o $@
 
 $(LD_EXHIB_DIR):
