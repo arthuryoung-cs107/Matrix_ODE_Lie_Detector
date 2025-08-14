@@ -10,21 +10,25 @@ classdef LD_aux
     methods (Static)
         function mat_out = read_Tmat(name_)
             file = fopen(name_);
-            hlen = fread(file,1,'int=>int');
-            header = fread(file,hlen,'int=>int');
-            switch header(3)
-                case 8
-                    mat_flat = fread(file,header(1)*header(2),'double=>double');
-                case 4
-                    mat_flat = fread(file,header(1)*header(2),'int=>int');
-                otherwise
-                    fprintf('(LD_aux::read_Tmat) WARNING - non-standard byte size(%d) in %s \n',header(3), name_);
-                    mat_flat = fread(file,header(1)*header(2)*header(3),'char*1=>char*1');
+            if (file==-1)
+                fprintf('(LD_aux::read_Tmat) : WARNING - failed to read %s. Defaulting to empty output \n',name_);
+                mat_out = [];
+            else
+                hlen = fread(file,1,'int=>int');
+                header = fread(file,hlen,'int=>int');
+                switch header(3)
+                    case 8
+                        mat_flat = fread(file,header(1)*header(2),'double=>double');
+                    case 4
+                        mat_flat = fread(file,header(1)*header(2),'int=>int');
+                    otherwise
+                        fprintf('(LD_aux::read_Tmat) WARNING - non-standard byte size(%d) in %s \n',header(3), name_);
+                        mat_flat = fread(file,header(1)*header(2)*header(3),'char*1=>char*1');
+                end
+                fclose(file);
+                mat_out = reshape(mat_flat,header(2),header(1))';
+                fprintf('(LD_aux::read_Tmat) read %s \n', name_);
             end
-            fclose(file);
-
-            mat_out = reshape(mat_flat,header(2),header(1))';
-            fprintf('(LD_aux::read_Tmat) read %s \n', name_);
         end
         function AYLglbsvd_glb_out = make_global_restricted_svd_package(Amat_,Lglbsvd_,kappa_L_)
             [ncol,ncrv] = deal(Amat_.ncol,length(Lglbsvd_.rvec));

@@ -230,7 +230,23 @@ classdef LD_plots
             [tdim1,tdim2] = deal(obj.tile.GridSize(1),obj.tile.GridSize(2));
             axs_mat_out = (reshape(obj.axs,tdim2,tdim1))';
         end
+        function filename = write_figure(obj,type_,dir_,name_)
+            if (nargin == 4)
+                name = name_;
+            else
+                name = obj.name;
+            end
+
+            filename = [dir_ name '.' type_];
+
+            if (strcmp(type_,'pdf'))
+                exportgraphics(obj.fig,filename,'ContentType','vector');
+            else
+                exportgraphics(obj.fig,filename);
+            end
+        end
     end
+
     methods (Static)
         function plt = plot_global_component(S_,svd_cmp_,svd_cmp2_,svd_Lmat_,icrv_in_,fspc_,solspc_plot_,plt_)
             plt = plt_.init_tiles_safe(1,3);

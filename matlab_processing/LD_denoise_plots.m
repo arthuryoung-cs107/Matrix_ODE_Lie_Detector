@@ -426,7 +426,6 @@ classdef LD_denoise_plots < LD_plots
             [spc.mspec,spc.ms] = deal('.',spc.lw);
             % plt_out = LD_plots.plot_solspc(Sref_,plt_out,spc);
 
-
             [spc.lspec,spc.lw] = deal('none',1);
             [spc.mspec,spc.ms] = deal('o',4);
             % spc.color = [0 0 1 1];
@@ -435,7 +434,8 @@ classdef LD_denoise_plots < LD_plots
 
             [spc.mspec,spc.ms] = deal('s',4);
             [spc.lspec,spc.lw] = deal('none',1);
-            spc.color = [1 0 0 1];
+            % spc.color = [1 0 0 1];
+            spc.color = LD_plots.orange1;
             plt_out = LD_plots.plot_solspc(Snse_,plt_out,spc,icrv_plot);
         end
     end

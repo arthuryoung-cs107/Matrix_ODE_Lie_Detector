@@ -616,6 +616,7 @@ struct LD_svd : public LD_rectangular_decomp
     unpack_svec_VTmat(svec_,VTmat_);
     return comp_rank(((double) Muse)*(LD_linalg::eps(svec_[0])));
   }
+  inline int nulldim(int iscl_=0) {return Nuse - rank(iscl_);}
   inline int rank(int iscl_=0) {return comp_rank( ((double) ((iscl_)?(iscl_):(Muse)))*(LD_linalg::eps(svec[0])) );}
   inline int comp_rank(double tol_eps_)
   {

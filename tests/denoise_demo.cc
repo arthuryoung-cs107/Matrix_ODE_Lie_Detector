@@ -53,8 +53,8 @@ const bool  write_dnp1xu = true,
 // level of noise applied to observational data. If <0, then unnoised
 // const int noise_level = -1; // unnoised case
 // const int noise_level = 0; // coordinates perturbed by standard deviation propotional to coordinate scale
-// const int noise_level = 1; // ^-1
-const int noise_level = 2; // ^-2
+const int noise_level = 1; // ^-1
+// const int noise_level = 2; // ^-2
 
 LD_observations_set Sobs(meta0,nc,np,write_dnp1xu,write_JFs);
 

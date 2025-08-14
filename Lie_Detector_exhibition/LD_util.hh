@@ -39,6 +39,27 @@ struct LD_threads
 #endif
 };
 
+template <typename T> T sum_Tvec(T *in_, size_t len_)
+{
+  T Tacc = 0;
+  for (size_t i = 0; i < len_; i++) Tacc += in_[i];
+  return Tacc;
+}
+template <typename T> T * Tvec_copy(T *in_, size_t len_)
+{
+  T * Tout = new T[len_];
+  for (size_t i = 0; i < len_; i++) Tout[i] = in_[i];
+  return Tout;
+}
+template <typename T> void copy_Tvec(T *out_, T *in_, size_t len_)
+  {for (size_t i = 0; i < len_; i++) out_[i] = in_[i];}
+
+template <typename T> T ** Tmatrix_ptrs(T *in_, size_t nptrs_, size_t nskip_)
+{
+  T ** out_ = new T*[nptrs_];
+  for (size_t i = 0; i < nptrs_; i++) out_[i] = in_+(i*nskip_);
+  return out_;
+}
 template <typename T> T ** Tmatrix(int M_, int N_)
 {
   T * chunk = new T[M_*N_],

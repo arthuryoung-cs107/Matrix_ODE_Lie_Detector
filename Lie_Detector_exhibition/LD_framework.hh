@@ -92,7 +92,7 @@ struct generated_ode_observations: public ode_curve_observations
   void write_dnp1xu(const char name_[]);
 };
 
-struct LD_observations_set: public solspc_data_chunk
+struct LD_observations_set : public solspc_data_chunk
 {
   LD_observations_set(ode_solspc_meta &meta_, ode_curve_observations input_);
   LD_observations_set(ode_solspc_meta &meta_, int ncrv_, int npts_, bool palloc_=false, bool Jalloc_=false);

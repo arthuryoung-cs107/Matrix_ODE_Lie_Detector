@@ -81,19 +81,21 @@ struct ode_trivial_sjet : public ode_sjet
              * const Avec0 = Amat0[0];
   }
   inline void set_trivial_Amat(double **Amat_)
+    {set_trivial_Amat(Amat_, hx() );}
+  inline void set_trivial_Amat(double **Amat_,ode_solution &sol0_,ode_solution &sol1_)
+    {set_trivial_Amat(Amat_, 0.5*(sol1_.x-sol0_.x) );}
+  inline void set_trivial_Amat(double **Amat_,double hx_)
   {
     const int kor = comp_kor();
-    const double hx_local = hx();
     double  ** const Amat0 = Amat_,
              * const Avec0 = Amat0[0],
             ** const Amat1 = Amat0+(kor+1),
              * const Avec1 = Amat1[0];
-
     Amat0[0][0] = Amat1[0][0] = 1.0;
     for (int k = 1; k <= jor; k++)
     {
-      Amat0[0][k] = -hx_local*Amat0[0][k-1];
-      Amat1[0][k] =  hx_local*Amat1[0][k-1];
+      Amat0[0][k] = -hx_*Amat0[0][k-1];
+      Amat1[0][k] =  hx_*Amat1[0][k-1];
     }
     for (int l = 1; l <= kor; l++)
     {
@@ -108,6 +110,8 @@ struct ode_trivial_sjet : public ode_sjet
     }
   }
   inline double * set_trivial_bvec(int i_)
+    {return set_trivial_bvec(i_,sol0,sol1);}
+  inline double * set_trivial_bvec(int i_,ode_solution &sol0_,ode_solution &sol1_)
   {
     const int kor = comp_kor();
     double * const avec_i = a_i(i_);
@@ -117,15 +121,24 @@ struct ode_trivial_sjet : public ode_sjet
       Return address of assigned coefficients for solve in place
     */
     for (int k = 0; k <= kor; k++)
-      avec_i[k] = sol0.dkui(k,i_);
+      avec_i[k] = sol0_.dkui(k,i_);
     for (int k = 0, ik = kor+1; k <= kor; k++, ik++)
-      avec_i[ik] = sol1.dkui(k,i_);
+      avec_i[ik] = sol1_.dkui(k,i_);
     return avec_i;
+  }
+
+  inline void set_sol_h(ode_solution &sol_h_)
+  {
+    // for (int i = 0; i < sol_h_.ndim; i++) sol_h_.pts[i] = s_hat_idim(i);
+    sol_h_.x = xh;
+    for (int k = 0, iu = 0; k <= sol_h_.eor; k++)
+      for (int i = 0; i < ndep; i++, iu++)
+        sol_h_.u[iu] = dkxui_hat(k,i);
   }
 
   inline double ui_hat(int i_) {return a_ij(i_,0);}
   inline double dkxui_hat(int k_, int i_) {return (k_<=jor)?( a_ij(i_,k_)*F_lk(k_,k_) ):(0.0);}
-  inline double s_hat_idim(int i_) {return (i_>0)?( dkxui_hat((i_-1)/ndep,(i_-1)%ndep) ):(xh);}
+  inline double s_hat_idim(int i_) {return (i_==0)?(xh):( dkxui_hat((i_-1)/ndep,(i_-1)%ndep) );}
   // inline double hx() {return 0.5*(sol1.x-sol0.x);}
   inline double hx() {return t1jet.hx;}
 
@@ -190,7 +203,7 @@ struct ode_trivial_curvejet : public ode_solspc_element // assumes input points 
   inline void print_details()
   {
     Lsvd_f1jet.print_result("Lsvd_f1jet");
-      R1svd_f1jet.print_result("R1svd_f1jet");
+    R1svd_f1jet.print_result("R1svd_f1jet");
   }
 
   inline void stage_regularized_trivial_jet(double **bm_,double ***At_,int j_,double *sv_,double *lv_)
@@ -199,6 +212,7 @@ struct ode_trivial_curvejet : public ode_solspc_element // assumes input points 
   inline double * set_trivial_bvec(int j_,int i_) {return tjets[j_]->set_trivial_bvec(i_);}
 
   inline void print_jet_j_details(int j_) {tjets[j_]->print_jet_details();}
+
 };
 
 struct LD_trivial_jet_experiment : public LD_experiment
@@ -375,7 +389,6 @@ struct LD_global_tjet_experiment : public LD_trivial_jet_experiment
       Lsvd_global_f1jet_h.decompose_U();
       R1svd_global_f1jet_h.decompose_U();
 
-
     }
   ~LD_global_tjet_experiment() {}
 
@@ -413,6 +426,7 @@ struct LD_svd_vector_field : public ode_system
   inline void set_rank(int iscl_=0)
     {rank = LD_svd::rank(sv,fspc.ndof_full,(iscl_)?(iscl_):(fspc.ndof_full));}
   inline double condition_number() { return sigmaN/sigma0; }
+
   protected:
 
     double *  const sv,
@@ -471,6 +485,31 @@ struct LD_trivial_vector_field : public LD_svd_vector_field
     }
     for (int i = 0; i < len_theta; i++) theta_[i] /= Wnet; // normalize local parameters
   }
+  inline void eval_pr1_theta_image(double *dudx_) {eval_pr1_theta_image(dudx_,theta_local);}
+  inline void eval_pr1_theta_image(double *dudx_, double *theta_)
+  {
+    for (int i = 0, ideltheta = fspc.perm_len; i < ndep; i++, ideltheta+=fspc.perm_len)
+    {
+      double * const theta_ui = theta_ + ideltheta;
+      dudx_[i] = 0.0;
+      for (int j = 0; j < fspc.perm_len; j++)
+        dudx_[i] += lamvec_local[j]*theta_ui[j];
+    }
+  }
+  inline void eval_theta_image(double *u_,double *dudx_)
+  {
+     // load and set first thru n-1 derivative terms
+     for (int i = ndep; i < ndof_ODE; i++) pts_local[i+1] = dudx_[i-ndep] = u_[i];
+
+     // pad n'th order terms with zeroes (probably unnecessary with eorcap)
+     for (int i = ndof_ODE+1; i < ndim; i++) pts_local[i] = 0.0;
+
+     // evaluate n'th prolongation of vector field parameterized by theta_local
+     fbse.v_eval(pts_local,vn_local,theta_local,eor-1);
+
+     // unpack n+1 derivative terms via prolongation
+     for (int i = ndof_ODE-ndep; i < ndof_ODE; i++) dudx_[i] = vn_local[i+1];
+  }
 
   protected:
 
@@ -480,20 +519,6 @@ struct LD_trivial_vector_field : public LD_svd_vector_field
            * const lamvec_local,
            * const theta_local;
 
-    inline void eval_theta_image(double *u_,double *dudx_)
-    {
-       // load and set first thru n-1 derivative terms
-       for (int i = ndep; i < ndof_ODE; i++) pts_local[i+1] = dudx_[i-ndep] = u_[i];
-
-       // pad n'th order terms with zeroes (probably unnecessary with eorcap)
-       for (int i = ndof_ODE+1; i < ndim; i++) pts_local[i] = 0.0;
-
-       // evaluate n'th prolongation of vector field parameterized by theta_local
-       fbse.v_eval(pts_local,vn_local,theta_local,eor-1);
-
-       // unpack n+1 derivative terms via prolongation
-       for (int i = ndof_ODE-ndep; i < ndof_ODE; i++) dudx_[i] = vn_local[i+1];
-    }
 };
 
 struct LD_spectral_tvfield : public LD_trivial_vector_field
@@ -509,7 +534,8 @@ struct LD_spectral_tvfield : public LD_trivial_vector_field
     comp_spectral_theta_local(theta_local,x_,u_);
     eval_theta_image(u_,dudx_);
   }
-
+  inline void comp_spectral_theta_local(double x_,double *u_)
+    {comp_spectral_theta_local(theta_local,x_,u_);}
   inline void comp_spectral_theta_local(double *theta_,double x_,double *u_)
   {
     pts_local[0] = x_;
@@ -525,12 +551,13 @@ struct LD_spectral_tvfield : public LD_trivial_vector_field
       double  vx_ith = 0.0;
       for (int i = 0; i < len_lam; i++) vx_ith += VTm[ith][i]*lamvec_local[i];
 
-      // const double  w_i = sigmaN/sv[ith]; // scaled Moore-Penrose pseudoinverse
       const double  ww_i = sigmaN/sv[ith], // scaled Moore-Penrose pseudoinverse
-                    w_i = ww_i*ww_i;
-
-      for (int i = 0; i < len_theta; i++) theta_[i] += w_i*vx_ith*VTm[ith][i];
-      Wnet += w_i*vx_ith*vx_ith;
+                    w_i = ww_i*ww_i; // squared to reflect squared scaling of vx_ith
+      // if (ww_i>1e-14)
+      // {
+        for (int i = 0; i < len_theta; i++) theta_[i] += w_i*vx_ith*VTm[ith][i];
+        Wnet += w_i*vx_ith*vx_ith;
+      // }
     }
     for (int i = 0; i < len_theta; i++) theta_[i] /= Wnet; // normalize local parameters
   }
@@ -555,6 +582,41 @@ struct LD_spectral_tvfield : public LD_trivial_vector_field
     for (int i = 0; i < fspc.ndof_full; i++) theta_[i] = theta_local[i];
     for (int i = 1; i < fspc.ndim; i++) vnu_syn_[i-1] = vn_local[i];
   }
+};
+
+class LD_trivial_generator : public ode_system
+{
+  LD_spectral_tvfield &vf;
+
+  public:
+
+    LD_trivial_generator(LD_spectral_tvfield &vf_) :
+      ode_system(1,vf_.nvar),
+      vf(vf_), flow_forward(1)
+      {}
+    ~LD_trivial_generator() {}
+
+    bool flow_forward;
+
+    inline void dudx_eval(double *pts_)
+    {
+      vf.comp_spectral_theta_local(pts_[0],pts_+1);
+      vf.eval_pr1_theta_image(pts_+vf.nvar);
+    }
+    void dudx_eval(double eps_, double *s_, double *v_)
+    {
+      vf.comp_spectral_theta_local(s_[0],s_+1);
+      vf.eval_pr1_theta_image(v_+1);
+      if (flow_forward) v_[0] = 1.0;
+      else // flip orientation of trivial vector field
+      {
+        v_[0] = -1.0;
+        for (int i = 1; i < vf.nvar; i++) v_[i] = -v_[i];
+      }
+    }
+
+    virtual void JacF_eval(double x_, double *u_, double **dls_out_) {} // do later
+    virtual void dnp1xu_eval(double x_, double *u_, double *dnp1xu_) {} // do later
 };
 
 struct LD_gtjet_Rmat_experiment : public LD_global_tjet_experiment

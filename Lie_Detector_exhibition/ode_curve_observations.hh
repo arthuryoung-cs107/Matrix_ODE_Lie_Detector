@@ -15,7 +15,8 @@
   order n = eor ordinary differential equation with q = ndep degrees of freedom
   (i.e. dependent variables).
 
-  This data structure essentially comprises the memory footprint of most program.
+  This data structure essentially comprises the memory footprint of most programs,
+  and Lie detector experiments on an instance scale linearly with nobs.
 */
 class ode_curve_observations
 {

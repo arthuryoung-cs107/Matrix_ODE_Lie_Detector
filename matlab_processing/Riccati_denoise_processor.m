@@ -71,6 +71,9 @@ rwimg_Rn_st_g_n2 = Snse2.read_rowspace_image('Rnsvd_strue_global',fam_name,bor);
 %% inspecting one curve
 i_crv = 1;
 % i_crv = 2;
+% i_crv = 3;
+
+Snse_dns1 = LD_observations_set(dir_name,eqn_name,['noise' num2str(noise_level)],'DoP853','.jsol_R1', dat_suff);
 
 tdim_S_mesh = 5;
 tdim_S_wdth = 4;
@@ -80,9 +83,47 @@ nse_plot1 = LD_denoise_plots.plot_observed_trajectories(LD_plots('Snse', ...
                                                         [tdim_S_mesh tdim_S_mesh],[tdim_S_hght tdim_S_wdth],[tdim_S_hght 1],scrn_id), ...
                                                         spc, ...
                                                         Sref,Snse,i_crv);
+jet_sol_names = { '.jsol_h'; ...
+'.jsol_h_R1'; ...
+'.jsol_0_R1'; ...
+'.jsol_1_R1'; ...
+'.jsol_R1' ; ...
+};
+[theta_jsh,pSjh,pSjhR1,pSj0R1,pSj1R1,pSjR1] = Snse.read_jet_sol_h_data('.theta_mat', jet_sol_names);
+[theta_jsh_1,pSjh_1,pSjhR1_1,pSj0R1_1,pSj1R1_1,pSjR1_1] = Snse_dns1.read_jet_sol_h_data('.theta_mat', jet_sol_names);
+
+get_pts_mat = @(pS_) reshape(pS_.pts_in,meta0.ndim,[]);
+pts_mat_crvi = @(pS_,i_) reshape(pS_.pts_in( (pS_.pts_crv_inds(1,i_)):(pS_.pts_crv_inds(2,i_)) ) , meta0.ndim,[]);
+
+[spc.mspec,spc.ms] = deal('.',5);
+[spc.lspec,spc.lw] = deal('none',1);
+
+% spc.color = LD_plots.blue5;
+% LD_plots.plot_pts(pts_mat_crvi(pSjh,i_crv),meta0,nse_plot1,spc);
+% spc.color = LD_plots.green5;
+% LD_plots.plot_pts(pts_mat_crvi(pSjhR1,i_crv),meta0,nse_plot1,spc);
+% [spc.lspec,spc.lw] = deal('-',0.5);
+spc.color = LD_plots.purple1;
+% LD_plots.plot_pts(pts_mat_crvi(pSj0R1,i_crv),meta0,nse_plot1,spc);
+% LD_plots.plot_pts(get_pts_mat(pSj0R1),meta0,nse_plot1,spc);
+spc.color = LD_plots.purple5;
+% LD_plots.plot_pts(pts_mat_crvi(pSj1R1,i_crv),meta0,nse_plot1,spc);
+% LD_plots.plot_pts(get_pts_mat(pSj1R1),meta0,nse_plot1,spc);
+spc.color = LD_plots.green4;
+LD_plots.plot_pts(pts_mat_crvi(pSjR1,i_crv),meta0,nse_plot1,spc);
+% LD_plots.plot_pts(get_pts_mat(pSjR1),meta0,nse_plot1,spc);
+
+spc.color = LD_plots.green5;
+LD_plots.plot_pts(pts_mat_crvi(pSjR1_1,i_crv),meta0,nse_plot1,spc);
+
+
+% nse_plot1.write_figure('png',[getenv('HOME') '/Desktop/MATLAB_OUTPUT/'])
+
 % pause
 % nse_plot1.show_menubar();
 nse_plot1.show_toolbar();
+
+return
 
 tdim_E_mesh = 6;
 tdim_E_wdth = 3;

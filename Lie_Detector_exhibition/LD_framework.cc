@@ -96,11 +96,11 @@ ncrvs_tot(input_.ncrv), npts_per_crv(new int[ncrvs_tot]), pts_tns(new double**[n
 dnp1xu_tns((input_.palloc())?( new double**[ncrvs_tot] ):NULL),
 JFs_crv((input_.Jalloc())?( new double***[ncrvs_tot] ):NULL)
 {
-  if (input_.npts_per_crv != NULL) LD_linalg::copy_vec<int>(npts_per_crv,input_.npts_per_crv,ncrvs_tot);
-  if (input_.pts_in != NULL) LD_linalg::copy_vec<double>(pts_chunk,input_.pts_in,nobs*ndim);
-  if (input_.dnp1xu_in != NULL) LD_linalg::copy_vec<double>(dnp1xu_chunk,input_.dnp1xu_in,nobs*ndep);
-  if (input_.JFs_in != NULL) LD_linalg::copy_vec<double>(JFs_chunk,input_.JFs_in,nobs*ndep*ndim);
-  for (size_t icrv = 0, ipts=0; icrv < ncrvs_tot; ipts+=npts_per_crv[icrv++])
+  if (input_.npts_per_crv != NULL) copy_Tvec<int>(npts_per_crv,input_.npts_per_crv,ncrvs_tot);
+  if (input_.pts_in != NULL) copy_Tvec<double>(pts_chunk,input_.pts_in,nobs*ndim);
+  if (input_.dnp1xu_in != NULL) copy_Tvec<double>(dnp1xu_chunk,input_.dnp1xu_in,nobs*ndep);
+  if (input_.JFs_in != NULL) copy_Tvec<double>(JFs_chunk,input_.JFs_in,nobs*ndep*ndim);
+  for (int icrv = 0, ipts=0; icrv < ncrvs_tot; ipts+=npts_per_crv[icrv++])
     curves[icrv] = new ode_solcurve(icrv,meta,npts_per_crv[icrv], pts_tns[icrv] = pts_mat+ipts,
                                                                   sols+ipts,
                                                                   (dnp1xu_tns!=NULL)?(dnp1xu_tns[icrv] = dnp1xu_mat+ipts):NULL,

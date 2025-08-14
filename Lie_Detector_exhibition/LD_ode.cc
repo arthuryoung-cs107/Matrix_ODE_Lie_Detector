@@ -1,13 +1,13 @@
 #include "LD_ode.hh"
 
-ode_solspc_subset::ode_solspc_subset(ode_solspc_meta &meta_,int nobs_,bool palloc_,bool Jalloc_):
+ode_solspc_subset::ode_solspc_subset(ode_solspc_meta &meta_,int nobs_,bool palloc_,bool Jalloc_) :
   ode_solspc_element(meta_),
   local_data(true), nobs(nobs_),
   pts_mat(new double*[nobs]),
   sols(new ode_solution*[nobs]),
   dnp1xu_mat(palloc_?(new double*[nobs]):NULL),
   JFs_tns(Jalloc_?(new double**[nobs]):NULL)
-  {for (size_t i = 0; i < nobs; i++) sols[i] = NULL;}
+  {for (int i = 0; i < nobs; i++) sols[i] = NULL;}
 ode_solspc_subset::ode_solspc_subset(ode_solspc_meta &meta_,int nobs_,double **pts_mat_,ode_solution **sols_,double **dnp1xu_mat_,double ***JFs_tns_):
   ode_solspc_element(meta_),
   local_data(false), nobs(nobs_),

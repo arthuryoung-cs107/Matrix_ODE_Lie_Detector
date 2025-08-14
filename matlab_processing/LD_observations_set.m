@@ -59,6 +59,15 @@ classdef LD_observations_set
                 obj.gen_name = gen_;
                 dat_name = asmbl_gen_name(eqn_,nse_,gen_);
                 dat_suff = fam_;
+            elseif (nargin == 6)
+                obj.eqn_name = eqn_;
+                obj.nse_name = nse_;
+                obj.gen_name = gen_;
+                % dat_name = asmbl_gen_name(eqn_,nse_,gen_);
+                % dat_suff = fam_;
+                dat_name_adtl = fam_;
+                dat_name = [asmbl_gen_name(eqn_,nse_,gen_) dat_name_adtl];
+                dat_suff = bor_;
             else
                 obj.reconstructed_set = true;
                 obj.eqn_name = eqn_;
@@ -109,6 +118,21 @@ classdef LD_observations_set
             obj = obj.load_sigmas;
 
             obj.crvs = [];
+        end
+        function [theta_mat,pSjh,pSjhR1,pSj0R1,pSj1R1,pSjR1] = read_jet_sol_h_data(obj,nt_,nSmat_)
+            theta_mat = LD_aux.read_Tmat([obj.dir_name '/' obj.dat_name nt_ '.' obj.dat_suff]);
+
+            pSjh = read_pts_struct([obj.dir_name '/' obj.dat_name nSmat_{1} '.' obj.dat_suff]);
+            pSjhR1 = read_pts_struct([obj.dir_name '/' obj.dat_name nSmat_{2} '.' obj.dat_suff]);
+            pSj0R1 = read_pts_struct([obj.dir_name '/' obj.dat_name nSmat_{3} '.' obj.dat_suff]);
+            pSj1R1 = read_pts_struct([obj.dir_name '/' obj.dat_name nSmat_{4} '.' obj.dat_suff]);
+            pSjR1 = read_pts_struct([obj.dir_name '/' obj.dat_name nSmat_{5} '.' obj.dat_suff]);
+
+            pSjh.pts_crv_inds = LD_observations_set.pts_crv_inds(obj.ndim,pSjh.npts_per_crv);
+            pSjhR1.pts_crv_inds = LD_observations_set.pts_crv_inds(obj.ndim,pSjhR1.npts_per_crv);
+            pSj0R1.pts_crv_inds = LD_observations_set.pts_crv_inds(obj.ndim,pSj0R1.npts_per_crv);
+            pSj1R1.pts_crv_inds = LD_observations_set.pts_crv_inds(obj.ndim,pSj1R1.npts_per_crv);
+            pSjR1.pts_crv_inds = LD_observations_set.pts_crv_inds(obj.ndim,pSjR1.npts_per_crv);
         end
         function rowimg_out = read_rowspace_image(obj,name_,fam_,bor_)
             name_tc = [obj.dir_name '/' obj.dat_name '_' fam_ '.' num2str(bor_) '.' name_ '_theta_chunk.' obj.dat_suff];
@@ -193,8 +217,8 @@ classdef LD_observations_set
                 header = fread(file,hlen,'int=>int');
                 adtl_in = fread(file,header(1),'double=>double');
                 adtl_out = adtl_in;
+                fclose(file);
             end
-            fclose(file);
         end
         function [mats_out,svd_cell] = read_encoded_matrices(obj,mname_)
             mname = mname_;
@@ -613,5 +637,6 @@ function pts_struct = read_pts_struct(name_)
                                 'npts_per_crv', npts_per_crv, ...
                                 'pts_in', pts_in);
         fclose(file);
+        fprintf('(read_pts_struct) : read %s \n',name_);
     end
 end
