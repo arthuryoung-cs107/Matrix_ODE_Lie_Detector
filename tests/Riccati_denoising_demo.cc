@@ -40,7 +40,7 @@ Lie_detector detector(observations);
   ode_solcurve_chunk observations_twin(detector.meta0,detector.ncrv,detector.npts_per_crv);
 orthopolynomial_space function_space(detector.meta0,3); // initializes as unmapped multinomials
 
-const int ndns_max = 10;
+const int ndns_max = 3;
 
 // basic experiment, suitable for any first order system
 struct global_R1mat_experiment : public ode_solspc_meta
@@ -98,7 +98,7 @@ struct global_R1mat_experiment : public ode_solspc_meta
 
      write_curve_observations(Sobs_alt_,++nsmooth);
 
-     if (nsmooth >= 3) break;
+     if (nsmooth >= ndns_max) break;
 
     } while (true);
     double work_time = LD_threads::toc(t0);
@@ -342,12 +342,12 @@ struct global_R1mat_experiment : public ode_solspc_meta
       for (int iobs = 0; iobs < nobs_meta; iobs++)
         fwrite((Sobs_.sols[iobs])->pts, sizeof(double),Sobs_.ndim,file_jsol_R1);
       LD_io::fclose_SAFE(file_jsol_R1);
-      printf("(global_R1mat_experiment::write_sol_h_data) wrote %s\n",fname_jsol_R1);
+      printf("(global_R1mat_experiment::write_curve_observations) wrote %s\n",fname_jsol_R1);
   }
 
 };
 
-global_R1mat_experiment R1_experiment(detector,function_space,ndns_max);
+global_R1mat_experiment R1_experiment(detector,function_space);
 
 int main()
 {
