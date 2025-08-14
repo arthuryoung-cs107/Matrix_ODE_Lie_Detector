@@ -20,7 +20,8 @@
   Assuming that the observations of the dependent variables, u, and their derivatives are corrupted by noise,
     we proceed with "denoising" the input data by searching for the underlying smooth vector field.
 */
-const char dir_name[] = "./denoise_data_directory/Gaussian_IC_perturbation/"; // data directory
+// const char dir_name[] = "./denoise_data_directory/Gaussian_IC_perturbation/"; // data directory
+const char dir_name[] = "./denoise_data_directory/Gaussian_IC_perturbation/rendering_data/"; // data directory
 const char obs_name[] = "Riccati_xrange0_noise1_DoP853gen"; // name of observations file
 // const char obs_name[] = "Riccati_xrange0_noise1_DoP853gen.jsol_R1"; // name of observations file
 const char dat_suff[] = ".lddat"; // data file suffix (*.lddat)
@@ -39,6 +40,8 @@ Lie_detector detector(observations);
   ode_solcurve_chunk observations_twin(detector.meta0,detector.ncrv,detector.npts_per_crv);
 orthopolynomial_space function_space(detector.meta0,3); // initializes as unmapped multinomials
 
+const int ndns_max = 10;
+
 // basic experiment, suitable for any first order system
 struct global_R1mat_experiment : public ode_solspc_meta
 {
@@ -53,12 +56,17 @@ struct global_R1mat_experiment : public ode_solspc_meta
   LD_R_encoder R1enc;
   LD_svd  R1svd_global;
 
+  // theta (parameter) space variables
   double * const svec_global,
          ** const VTmat_global,
          ** const theta_mat;
+
+  // S (solution space) variables
   ode_solution ** const sols;
   ode_solcurve ** const curves,
                ** const curves_h;
+
+  // Lie detectors on a single trivial flow
   curve_Lie_detector ** const cdets;
 
   // thread local workspaces
@@ -339,7 +347,7 @@ struct global_R1mat_experiment : public ode_solspc_meta
 
 };
 
-global_R1mat_experiment R1_experiment(detector,function_space);
+global_R1mat_experiment R1_experiment(detector,function_space,ndns_max);
 
 int main()
 {

@@ -8,6 +8,58 @@ classdef LD_denoise_plots < LD_plots
         end
     end
     methods (Static)
+        function plt_out = plot_denoised_trajectories(plt_,spc_,Sref_,Snse_,icrv_)
+            if (nargin==4)
+                icrv_plot = 1:Sref_.ncrv;
+            else
+                icrv_plot = icrv_;
+            end
+            plt_out = plt_;
+            spc = spc_;
+
+            % icrv_plot = 1:Sref_.ncrv;
+
+            % [spc.lspec,spc.lw] = deal('-',0.5);
+            % [spc.mspec,spc.ms] = deal('none',5);
+            % spc.color = [0 0 0 0.5];
+            % plt_out = LD_plots.plot_solspc(Sref_,plt_out,spc);
+
+            [spc.lspec,spc.lw] = deal('none',0.5);
+            [spc.mspec,spc.ms] = deal('.',5);
+            spc.color = [0 0 0 1];
+            plt_out = LD_plots.plot_solspc(Sref_,plt_out,spc,icrv_plot);
+
+            [spc.lspec,spc.lw] = deal('none',0.5);
+            [spc.mspec,spc.ms] = deal('s',3);
+            spc.color = [1 0 0 1];
+            plt_out = LD_plots.plot_solspc(Snse_,plt_out,spc,icrv_plot);
+
+            axlim = plt_out.get_axis_lims();
+                [spc.lspec,spc.lw] = deal('-',0.5);
+                [spc.mspec,spc.ms] = deal('none',5);
+                spc.color = [0 0 0 0.5];
+                plt_out = LD_plots.plot_solspc(Sref_,plt_out,spc);
+            plt_out.set_axis_lims(axlim);
+
+            ndns = 3;
+
+            color_mat = cool(ndns);
+            [spc.lspec,spc.lw] = deal('none',0.5);
+            [spc.mspec,spc.ms] = deal('o',3);
+            for idns = 1:ndns
+
+                spc.color = [color_mat(idns,:) 0.5];
+                Sobs_i = Snse_.read_Sobs_slice(['.jsol_R1_' num2str(idns)]);
+                plt_out = LD_plots.plot_solspc(Sobs_i,plt_out,spc,icrv_plot);
+
+            end
+
+            % [spc.mspec,spc.ms] = deal('s',4);
+            % [spc.lspec,spc.lw] = deal('none',1);
+            % % spc.color = [1 0 0 1];
+            % spc.color = LD_plots.orange1;
+            % plt_out = LD_plots.plot_solspc(Snse_,plt_out,spc,icrv_plot);
+        end
         function plt = plot_rowspace_image(plt_,spc_,Sref_,Snse_,svd_,rmg_,svd_n_,rmg_n_,rmg_st_n_)
             plt = plt_;
             [tdim1,tdim2] = deal(3,2);

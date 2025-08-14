@@ -119,20 +119,44 @@ classdef LD_observations_set
 
             obj.crvs = [];
         end
-        function [theta_mat,pSjh,pSjhR1,pSj0R1,pSj1R1,pSjR1] = read_jet_sol_h_data(obj,nt_,nSmat_)
+        function obj_out = read_Sobs_slice(obj,xtra_)
+            obj_out = obj
+            obj_out.reconstructed_set = true;
+            dat_name = [obj.dat_name, xtra_];
+            name_ = [obj.dir_name '/' dat_name '.' obj.dat_suff];
+
+            pts_struct = read_pts_struct(name_);
+
+            obj_out.dat_name = dat_name;
+
+            obj_out.name = name_;
+
+            % obj_out.eor = pts_struct.eor;
+            % obj_out.ndep = pts_struct.ndep;
+            % obj_out.ncrv = pts_struct.ncrv;
+            % obj_out.nobs = pts_struct.nobs;
+            obj_out.npts_per_crv = pts_struct.npts_per_crv;
+            obj_out.pts_in = pts_struct.pts_in;
+            % obj_out.ndim = 1 + obj.ndep*(obj.eor+1);
+            obj_out.npts_uniform = prod(double(obj_out.npts_per_crv==obj_out.npts_per_crv(1)));
+
+            obj_out.pts_mat = reshape(obj_out.pts_in,obj_out.ndim,[]);
+        end
+        % function [theta_mat,pSjh,pSjhR1,pSj0R1,pSj1R1,pSjR1] = read_jet_sol_h_data(obj,nt_,nSmat_)
+        function [theta_mat,pSjh,pSjhR1,pSj0R1,pSj1R1] = read_jet_sol_h_data(obj,nt_,nSmat_)
             theta_mat = LD_aux.read_Tmat([obj.dir_name '/' obj.dat_name nt_ '.' obj.dat_suff]);
 
             pSjh = read_pts_struct([obj.dir_name '/' obj.dat_name nSmat_{1} '.' obj.dat_suff]);
             pSjhR1 = read_pts_struct([obj.dir_name '/' obj.dat_name nSmat_{2} '.' obj.dat_suff]);
             pSj0R1 = read_pts_struct([obj.dir_name '/' obj.dat_name nSmat_{3} '.' obj.dat_suff]);
             pSj1R1 = read_pts_struct([obj.dir_name '/' obj.dat_name nSmat_{4} '.' obj.dat_suff]);
-            pSjR1 = read_pts_struct([obj.dir_name '/' obj.dat_name nSmat_{5} '.' obj.dat_suff]);
+            % pSjR1 = read_pts_struct([obj.dir_name '/' obj.dat_name nSmat_{5} '.' obj.dat_suff]);
 
             pSjh.pts_crv_inds = LD_observations_set.pts_crv_inds(obj.ndim,pSjh.npts_per_crv);
             pSjhR1.pts_crv_inds = LD_observations_set.pts_crv_inds(obj.ndim,pSjhR1.npts_per_crv);
             pSj0R1.pts_crv_inds = LD_observations_set.pts_crv_inds(obj.ndim,pSj0R1.npts_per_crv);
             pSj1R1.pts_crv_inds = LD_observations_set.pts_crv_inds(obj.ndim,pSj1R1.npts_per_crv);
-            pSjR1.pts_crv_inds = LD_observations_set.pts_crv_inds(obj.ndim,pSjR1.npts_per_crv);
+            % pSjR1.pts_crv_inds = LD_observations_set.pts_crv_inds(obj.ndim,pSjR1.npts_per_crv);
         end
         function rowimg_out = read_rowspace_image(obj,name_,fam_,bor_)
             name_tc = [obj.dir_name '/' obj.dat_name '_' fam_ '.' num2str(bor_) '.' name_ '_theta_chunk.' obj.dat_suff];

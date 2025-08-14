@@ -5,7 +5,8 @@ scrn_id = 1;
 
 % dir_name = '../data_directory';
 % dir_name = '../denoise_data_directory';
-dir_name = '../denoise_data_directory/Gaussian_IC_perturbation';
+% dir_name = '../denoise_data_directory/Gaussian_IC_perturbation';
+dir_name = '../denoise_data_directory/Gaussian_IC_perturbation/rendering_data';
 % dense_dir_name = '../dense_data_directory/Gaussian_IC_perturbation';
 dat_suff = 'lddat';
 
@@ -43,7 +44,7 @@ Sref.crvs = Sref.make_curve_array;
 Snse.crvs = Snse.make_curve_array;
 
 Snse1 = LD_observations_set(dir_name,eqn_name,['noise' num2str(1)],'DoP853', dat_suff);
-Snse2 = LD_observations_set(dir_name,eqn_name,['noise' num2str(2)],'DoP853', dat_suff);
+% Snse2 = LD_observations_set(dir_name,eqn_name,['noise' num2str(2)],'DoP853', dat_suff);
 
 Lsvd_gf1jet = Sref.read_LD_svd('Lsvd_global_f1jet');
 R1svd_gf1jet = Sref.read_LD_svd('R1svd_global_f1jet');
@@ -59,38 +60,41 @@ R1svd_gf1jet_n1 = Snse1.read_LD_svd('R1svd_global_f1jet');
 Rnsvd_g_n1 = Snse1.read_LD_svd('Rnsvd_global',fam_name,bor);
 rwimg_Rn_g_n1 = Snse1.read_rowspace_image('Rnsvd_global',fam_name,bor);
 rwimg_Rn_st_g_n1 = Snse1.read_rowspace_image('Rnsvd_strue_global',fam_name,bor);
-
-Lsvd_gf1jet_n2 = Snse2.read_LD_svd('Lsvd_global_f1jet');
-R1svd_gf1jet_n2 = Snse2.read_LD_svd('R1svd_global_f1jet');
-    Lsvd_gf1jet_n2h = Snse2.read_LD_svd('Lsvd_global_f1jet_h');
-    R1svd_gf1jet_n2h = Snse2.read_LD_svd('R1svd_global_f1jet_h');
-Rnsvd_g_n2 = Snse2.read_LD_svd('Rnsvd_global',fam_name,bor);
-rwimg_Rn_g_n2 = Snse2.read_rowspace_image('Rnsvd_global',fam_name,bor);
-rwimg_Rn_st_g_n2 = Snse2.read_rowspace_image('Rnsvd_strue_global',fam_name,bor);
+%
+% Lsvd_gf1jet_n2 = Snse2.read_LD_svd('Lsvd_global_f1jet');
+% R1svd_gf1jet_n2 = Snse2.read_LD_svd('R1svd_global_f1jet');
+%     Lsvd_gf1jet_n2h = Snse2.read_LD_svd('Lsvd_global_f1jet_h');
+%     R1svd_gf1jet_n2h = Snse2.read_LD_svd('R1svd_global_f1jet_h');
+% Rnsvd_g_n2 = Snse2.read_LD_svd('Rnsvd_global',fam_name,bor);
+% rwimg_Rn_g_n2 = Snse2.read_rowspace_image('Rnsvd_global',fam_name,bor);
+% rwimg_Rn_st_g_n2 = Snse2.read_rowspace_image('Rnsvd_strue_global',fam_name,bor);
 
 %% inspecting one curve
 i_crv = 1;
 % i_crv = 2;
 % i_crv = 3;
 
-Snse_dns1 = LD_observations_set(dir_name,eqn_name,['noise' num2str(noise_level)],'DoP853','.jsol_R1', dat_suff);
+% Snse_dns1 = LD_observations_set(dir_name,eqn_name,['noise' num2str(noise_level)],'DoP853','.jsol_R1_1', dat_suff);
 
 tdim_S_mesh = 5;
-tdim_S_wdth = 4;
-tdim_S_hght = 1;
+tdim_S_wdth = 5;
+tdim_S_hght = 2;
 spc.color = [0 0 0 0.2];
-nse_plot1 = LD_denoise_plots.plot_observed_trajectories(LD_plots('Snse', ...
+% nse_plot1 = LD_denoise_plots.plot_observed_trajectories(LD_plots('Snse', ...
+nse_plot1 = LD_denoise_plots.plot_denoised_trajectories(LD_plots('Sdns', ...
                                                         [tdim_S_mesh tdim_S_mesh],[tdim_S_hght tdim_S_wdth],[tdim_S_hght 1],scrn_id), ...
                                                         spc, ...
                                                         Sref,Snse,i_crv);
+return
 jet_sol_names = { '.jsol_h'; ...
 '.jsol_h_R1'; ...
 '.jsol_0_R1'; ...
 '.jsol_1_R1'; ...
-'.jsol_R1' ; ...
 };
-[theta_jsh,pSjh,pSjhR1,pSj0R1,pSj1R1,pSjR1] = Snse.read_jet_sol_h_data('.theta_mat', jet_sol_names);
-[theta_jsh_1,pSjh_1,pSjhR1_1,pSj0R1_1,pSj1R1_1,pSjR1_1] = Snse_dns1.read_jet_sol_h_data('.theta_mat', jet_sol_names);
+% '.jsol_R1' ; ...
+[theta_jsh,pSjh,pSjhR1,pSj0R1,pSj1R1] = Snse.read_jet_sol_h_data('.theta_mat', jet_sol_names);
+% [theta_jsh,pSjh,pSjhR1,pSj0R1,pSj1R1,pSjR1] = Snse.read_jet_sol_h_data('.theta_mat', jet_sol_names);
+% [theta_jsh_1,pSjh_1,pSjhR1_1,pSj0R1_1,pSj1R1_1,pSjR1_1] = Snse_dns1.read_jet_sol_h_data('.theta_mat', jet_sol_names);
 
 get_pts_mat = @(pS_) reshape(pS_.pts_in,meta0.ndim,[]);
 pts_mat_crvi = @(pS_,i_) reshape(pS_.pts_in( (pS_.pts_crv_inds(1,i_)):(pS_.pts_crv_inds(2,i_)) ) , meta0.ndim,[]);

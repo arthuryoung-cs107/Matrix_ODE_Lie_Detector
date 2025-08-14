@@ -15,7 +15,7 @@
 
 // specify data directory for writing binary files
 // const char dir_name[] = "./denoise_data_directory";
-const char dir_name[] = "./denoise_data_directory/Gaussian_IC_perturbation";
+const char dir_name[] = "./denoise_data_directory/Gaussian_IC_perturbation/rendering_data";
 // const char dir_name[] = "./dense_data_directory/Gaussian_IC_perturbation";
 const char dat_suff[] = "lddat";
 const char addtl_prefix[] = "";
@@ -38,7 +38,7 @@ ode_solspc_meta meta0(ode.eor,ode.ndep);
 LD_noise_aux nse(meta0); // helper class for setting up and running noise experiments
 
 const int nc = 50, // 50, number of curves
-          np_min = 300, // 300, min number of points for extrapolation experiment
+          np_min = 200, // 300, min number of points for extrapolation experiment
           np = np_min; // points per curve
 
 // identifier for independent variable range of data
@@ -110,9 +110,10 @@ int generate_trajectories()
 
   strcpy(intgen_name,ode_integrator.name);
 
+  // shay's number : 9365
   generated_ode_observations inputs_gen(ode,nc,np);
   // inputs_gen.set_random_ICs(LD_rng(9365),ode.get_default_IC_range(),ode.get_default_IC_indep_range(xrange));
-  inputs_gen.set_Gaussian_random_ICs(LD_rng(9365),ode.get_default_IC_range(),ode.get_default_IC_indep_range(xrange));
+  inputs_gen.set_Gaussian_random_ICs(LD_rng(123),ode.get_default_IC_range(),ode.get_default_IC_indep_range(xrange));
   inputs_gen.generate_solution_curves(ode_integrator);
   if (write_dnp1xu) inputs_gen.generate_dnp1xu();
   if (write_JFs) inputs_gen.generate_JFs();
