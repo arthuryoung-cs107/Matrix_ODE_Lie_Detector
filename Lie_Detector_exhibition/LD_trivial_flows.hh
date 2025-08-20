@@ -409,7 +409,7 @@ struct LD_svd_vector_field : public ode_system
     fspc(fspc_),
     ndof_ODE(eor_*ndep_), rank(0),
     sv(sv_), VTm(VTm_),
-    sigma0(sv_[0]), sigmaN(sv_[fspc_.ndof_full-1]),
+    // sigma0(sv_[0]), sigmaN(sv_[fspc_.ndof_full-1]),
     ispc(0)
     {}
   ~LD_svd_vector_field()  {}
@@ -425,14 +425,23 @@ struct LD_svd_vector_field : public ode_system
 
   inline void set_rank(int iscl_=0)
     {rank = LD_svd::rank(sv,fspc.ndof_full,(iscl_)?(iscl_):(fspc.ndof_full));}
-  inline double condition_number() { return sigmaN/sigma0; }
+  inline double sigma_min() { return sv[fspc.ndof_full-1]; }
+  inline double condition_number() { return sigma_min()/sv[0]; }
+
+  // inline double condition_number() { return sigmaN/sigma0; }
+
+  inline void set_SVD_space(double *sv_,double **VTm_)
+    { sv = sv_; VTm = VTm_; }
 
   protected:
 
-    double *  const sv,
-           ** const VTm,
-           &sigma0,
-           &sigmaN;
+    // double *  const sv,
+    //        ** const VTm,
+    //        &sigma0,
+    //        &sigmaN;
+    double *  sv,
+           ** VTm;
+
     int ispc;
 
 };
@@ -548,13 +557,16 @@ struct LD_spectral_tvfield : public LD_trivial_vector_field
     for (int i = 0; i < len_theta; i++) theta_[i] = 0.0;
     for (int ith = 0; ith < nvec_use; ith++) // compute local parameter values via spectral weighting scheme
     {
-      double  vx_ith = 0.0;
-      for (int i = 0; i < len_lam; i++) vx_ith += VTm[ith][i]*lamvec_local[i];
-
-      const double  ww_i = sigmaN/sv[ith], // scaled Moore-Penrose pseudoinverse
+      const double  ww_i = sigma_min()/sv[ith], // scaled Moore-Penrose pseudoinverse
                     w_i = ww_i*ww_i; // squared to reflect squared scaling of vx_ith
-      // if (ww_i>1e-14)
+      // if (ww_i>1e-10)
+      // if (ww_i>1e-6)
+      // if (ww_i>1e-4)
+      // if (ww_i>=1e-2)
       // {
+        double  vx_ith = 0.0;
+        for (int i = 0; i < len_lam; i++) vx_ith += VTm[ith][i]*lamvec_local[i];
+
         for (int i = 0; i < len_theta; i++) theta_[i] += w_i*vx_ith*VTm[ith][i];
         Wnet += w_i*vx_ith*vx_ith;
       // }

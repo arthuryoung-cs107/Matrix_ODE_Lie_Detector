@@ -173,6 +173,19 @@ struct orthopolynomial_space: public power_space
     }
   }
 
+  inline int set_compact_domain(double *sve_, double h_min_, double h_max_)
+  {
+    for (int ivar = 0, ive = 0; ivar <= ndep; ivar++, ive+=2)
+    {
+      double  v_min = sve_[ive],
+              v_max = sve_[ive+1],
+              fvmap_m = fmap_m[ivar] = (h_max_-h_min_)/(v_max-v_min),
+              fvmap_b = fmap_b[ivar] = 0.5*(h_min_+h_max_+((h_min_-h_max_)*(v_max+v_min)/(v_max-v_min))),
+              bvmap_m = bmap_m[ivar] = 1.0/fvmap_m,
+              bvmap_b = bmap_b[ivar] = (-1.0*fvmap_b)/(fvmap_m);
+    }
+    return 0;
+  }
   inline void set_centered_domain(double **sve_, double h_min_, double h_max_)
   {
     for (int ivar = 0; ivar <= ndep; ivar++)
@@ -238,6 +251,12 @@ struct orthopolynomial_space: public power_space
       poly_coeffs[k][k] = 1.0;
     }
   }
+  inline int set_Legendre_coeffs(double *axlims_,double h_min_=-0.95,double h_max_=0.95)
+  {
+    set_Legendre_coeffs();
+    set_compact_domain(axlims_,h_min_,h_max_);
+    return 0;
+  }
   inline void set_Legendre_coeffs()
   {
     poly_coeffs[0][0] = 1.0;
@@ -251,6 +270,12 @@ struct orthopolynomial_space: public power_space
       }
     }
   }
+  inline int set_Chebyshev1_coeffs(double *axlims_,double h_min_=-0.95,double h_max_=0.95)
+  {
+    set_Chebyshev1_coeffs();
+    set_compact_domain(axlims_,h_min_,h_max_);
+    return 0;
+  }
   inline void set_Chebyshev1_coeffs()
   {
     poly_coeffs[0][0] = 1.0;
@@ -263,6 +288,12 @@ struct orthopolynomial_space: public power_space
         for (int j = 1; j <= k; j++) poly_coeffs[k][j] = 2.0*get_coeff(k-1,j-1) - get_coeff(k-2,j);
       }
     }
+  }
+  inline int set_Chebyshev2_coeffs(double *axlims_,double h_min_=-0.95,double h_max_=0.95)
+  {
+    set_Chebyshev2_coeffs();
+    set_compact_domain(axlims_,h_min_,h_max_);
+    return 0;
   }
   inline void set_Chebyshev2_coeffs()
   {

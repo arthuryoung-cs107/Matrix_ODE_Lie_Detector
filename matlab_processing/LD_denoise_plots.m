@@ -17,42 +17,90 @@ classdef LD_denoise_plots < LD_plots
             plt_out = plt_;
             spc = spc_;
 
+            meta0 = Sref_.meta_data();
+
             % icrv_plot = 1:Sref_.ncrv;
 
-            % [spc.lspec,spc.lw] = deal('-',0.5);
-            % [spc.mspec,spc.ms] = deal('none',5);
-            % spc.color = [0 0 0 0.5];
+            [spc.lspec,spc.lw] = deal('-',1);
+            [spc.mspec,spc.ms] = deal('.',1);
+            spc.color = [0 0 0 0.25];
             % plt_out = LD_plots.plot_solspc(Sref_,plt_out,spc);
 
-            [spc.lspec,spc.lw] = deal('none',0.5);
+                [spc.lspec,spc.lw] = deal('none',0.5);
+                [spc.mspec,spc.ms] = deal('s',3);
+                spc.color = [1 0 0 0.25];
+                % plt_out = LD_plots.plot_solspc(Snse_,plt_out,spc);
+
+            [spc.lspec,spc.lw] = deal('-',0.5);
             [spc.mspec,spc.ms] = deal('.',5);
             spc.color = [0 0 0 1];
             plt_out = LD_plots.plot_solspc(Sref_,plt_out,spc,icrv_plot);
 
-            [spc.lspec,spc.lw] = deal('none',0.5);
+            [spc.lspec,spc.lw] = deal('-',0.5);
             [spc.mspec,spc.ms] = deal('s',3);
             spc.color = [1 0 0 1];
             plt_out = LD_plots.plot_solspc(Snse_,plt_out,spc,icrv_plot);
 
-            axlim = plt_out.get_axis_lims();
-                [spc.lspec,spc.lw] = deal('-',0.5);
-                [spc.mspec,spc.ms] = deal('none',5);
-                spc.color = [0 0 0 0.5];
-                plt_out = LD_plots.plot_solspc(Sref_,plt_out,spc);
-            plt_out.set_axis_lims(axlim);
+        % axlim = plt_out.get_axis_lims();
+                % [spc.lspec,spc.lw] = deal('-',0.5);
+                % [spc.mspec,spc.ms] = deal('none',5);
+                % spc.color = [0 0 0 0.5];
+                % plt_out = LD_plots.plot_solspc(Sref_,plt_out,spc);
+        % plt_out.set_axis_lims(axlim);
 
-            ndns = 3;
+        % pause
 
-            color_mat = cool(ndns);
-            [spc.lspec,spc.lw] = deal('none',0.5);
+            % ndns_range = 1:3;
+            % ndns_range = 1:5;
+            % ndns_range = 1:10;
+            % ndns_range = 1:20;
+            % ndns_range = [ 1:5 , 6:2:10 ];
+            % ndns_range = [ 1:5 , 6:2:20 ];
+            % ndns_range = [ 1:5 , 6:2:40 ];
+            % ndns_range = [ 1:5 , 6:2:50 ];
+
+            % ndns_range = [ 1:5 , 10:10:100 ];
+            % ndns_range = [ 1:5 , 10:10:200 ];
+            % ndns_range = [ 1:5 , 10:10:300 ];
+
+            ndns_range = [ 1:5 , 20:20:400 ];
+
+            % ndns_range = [ 1:5 ];
+
+            len_ndns_range = length(ndns_range);
+
+            pts_cell = cell([Sref_.ncrv,len_ndns_range]);
+
+            color_mat = cool(len_ndns_range);
+                color_mat = flip(color_mat,1);
+            [spc.lspec,spc.lw] = deal('-',0.5);
             [spc.mspec,spc.ms] = deal('o',3);
-            for idns = 1:ndns
+            for i = 1:len_ndns_range
+                idns = ndns_range(i);
+                pts_cell(:,i) = Snse_.read_Sobs_cell(['.jsol_R1_' num2str(idns)]);
 
-                spc.color = [color_mat(idns,:) 0.5];
-                Sobs_i = Snse_.read_Sobs_slice(['.jsol_R1_' num2str(idns)]);
-                plt_out = LD_plots.plot_solspc(Sobs_i,plt_out,spc,icrv_plot);
+            % spc.color = [color_mat(i,:) 0.5];
+            % plt_out = LD_plots.plot_pts(Snse_.read_Sobs_cell(['.jsol_R1_' num2str(idns)]), ...
+            %                                 meta0,plt_out,spc);
 
             end
+            % icrv_plot = 1:10
+
+        % plt_out.set_axis_lims(axlim);
+            for i = 1:len_ndns_range
+                spc.color = [color_mat(i,:) 1];
+                % plt_out = LD_plots.plot_pts(pts_cell(:,i), ...
+                plt_out = LD_plots.plot_pts(pts_cell(icrv_plot,i), ...
+                                        meta0,plt_out,spc);
+
+            end
+
+            [spc.lspec,spc.lw] = deal('none',0.5);
+            [spc.mspec,spc.ms] = deal('*',3);
+            spc.color = [color_mat(end,:) 1];
+            plt_out = LD_plots.plot_pts(pts_cell(icrv_plot,i), ...
+                                    meta0,plt_out,spc);
+
 
             % [spc.mspec,spc.ms] = deal('s',4);
             % [spc.lspec,spc.lw] = deal('none',1);

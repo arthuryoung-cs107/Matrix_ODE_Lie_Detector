@@ -14,9 +14,9 @@ class curve_Lie_detector
     const int nobs_f,
               nobs_h;
 
-    ode_solcurve &crv,
-                  crv_h;
-    ode_trivial_curvejet tcrvjets;
+    ode_solcurve &crv, // observed trajectory
+                  crv_h; // induced trajectory of colocation points
+    ode_trivial_curvejet tcrvjets; // deterministic M'th order Hermite jet approximation
 
     tjet_chart ** const tjcharts;
 
@@ -37,26 +37,50 @@ class curve_Lie_detector
       delete [] tjcharts;
     }
 
-    inline void recombine_flows(ode_solcurve &crv_alt_,ode_solcurve &crv_)
+    inline double recombine_flows(ode_solcurve &crv_alt_,ode_solcurve &crv_)
     {
-      combine_two_sols( *(crv_alt_.sol_0()), *(crv_.sol_0()), (tjchart_0())->sol0_alt );
+      double res_out = 0.0;
+      res_out += combine_two_sols( *(crv_alt_.sol_0()), *(crv_.sol_0()), (tjchart_0())->sol0_alt );
       for (int isol = 1; isol < nobs_h; isol++)
-        combine_three_sols( *(crv_alt_.sols[isol]),
+        res_out += combine_three_sols( *(crv_alt_.sols[isol]),
                               *(crv_.sols[isol]),
                               tjcharts[isol-1]->sol1_alt,
                               tjcharts[isol]->sol0_alt );
-      combine_two_sols( *(crv_alt_.sol_f()), *(crv_.sol_f()), (tjchart_f())->sol1_alt );
+      res_out += combine_two_sols( *(crv_alt_.sol_f()), *(crv_.sol_f()), (tjchart_f())->sol1_alt );
+      return res_out;
     }
 
-    inline void combine_two_sols(ode_solution &s0_,ode_solution &s1_,ode_solution &s2_)
+    inline double combine_three_sols(ode_solution &s0_,ode_solution &s1_,ode_solution &s2_,ode_solution &s3_)
     {
+      double res_out = 0.0;
       for (int i = 0; i < s0_.ndim; i++)
-        s0_.pts[i] = ( s1_.pts[i] + s2_.pts[i] )/2.0;
+      {
+        double si_old = s0_.pts[i];
+
+                  // aggressive update. Reinforces dominant components.
+        si_old -= (s0_.pts[i] = ( s2_.pts[i] + s3_.pts[i] )/2.0);
+                  // lazy update, perturbs old solution.
+        // si_old -= (s0_.pts[i] = ( s1_.pts[i] + s2_.pts[i] + s3_.pts[i] )/3.0);
+
+        res_out += si_old*si_old;
+      }
+      return res_out;
     }
-    inline void combine_three_sols(ode_solution &s0_,ode_solution &s1_,ode_solution &s2_,ode_solution &s3_)
+    inline double combine_two_sols(ode_solution &s0_,ode_solution &s1_,ode_solution &s2_)
     {
+      double res_out = 0.0;
       for (int i = 0; i < s0_.ndim; i++)
-        s0_.pts[i] = ( s1_.pts[i] + s2_.pts[i] + s3_.pts[i] )/3.0;
+      {
+        double si_old = s0_.pts[i];
+
+                  // aggressive update. Reinforces dominant components, still one sided.
+        si_old -= (s0_.pts[i] = s2_.pts[i]);
+                  // lazy update, perturbs old solution.
+        // si_old -= (s0_.pts[i] = ( s1_.pts[i] + s2_.pts[i] )/2.0);
+
+        res_out += si_old*si_old;
+      }
+      return res_out;
     }
     inline tjet_chart * tjchart_0() {return tjcharts[0];}
     inline tjet_chart * tjchart_f() {return tjcharts[nobs_h-1];}
@@ -87,7 +111,8 @@ class Lie_detector
     ode_solspc_subset Sobs; // raw data set via obs, indexed data structure from file data
     curve_Lie_detector ** const cdets;
 
-    ode_solution ** const sols;
+    ode_solution ** const sols,
+                 ** const sols_h;
     ode_solcurve ** const curves,
                  ** const curves_h;
 
@@ -106,6 +131,7 @@ class Lie_detector
       JFs_mat((Jalloc)?(Tmatrix_ptrs<double>(obs_.JFs_in,obs_.ndep*obs_.nobs,meta0.ndim)):(NULL)),
       Sobs(meta0,obs_.nobs,pts,dnp1xu,JFs_mat),
         sols(Sobs.sols),
+        sols_h(new ode_solution*[nobs-ncrv]),
         curves(new ode_solcurve*[ncrv]),
         curves_h(new ode_solcurve*[ncrv]),
       cdets(new curve_Lie_detector*[ncrv]),
@@ -134,8 +160,10 @@ class Lie_detector
               curves_h[icrv] = &(cdets[icrv]->crv_h);
               tcrvjets[icrv] = &(cdets[icrv]->tcrvjets);
 
-            for (int isol = 0; isol < cdets[icrv]->nobs_h; isol++)
+            for (int isol = 0, ipts_h=ipts-icrv; isol < cdets[icrv]->nobs_h; isol++)
             {
+              sols_h[ipts_h+isol] = curves_h[icrv]->sols[isol];
+
               tcrvjets[icrv]->set_trivial_Amat(LUmat_t,isol);
               lu_t.decompose_A();
 
@@ -145,6 +173,7 @@ class Lie_detector
               tcrvjets[icrv]->tjets[isol]->set_sol_h( *(curves_h[icrv]->sols[isol]) );
                 cdets[icrv]->tjcharts[isol]->reload_sol_h(); // sync sol_h and sol_h_alt
             }
+
             net_clcp += tcrvjets[icrv]->nxh;
             net_Lmat_rows += tcrvjets[icrv]->Lsvd_f1jet.Muse;
             net_Rmat_rows += tcrvjets[icrv]->R1svd_f1jet.Muse;
@@ -177,6 +206,7 @@ class Lie_detector
         delete curves[i];
       }
       delete [] cdets;
+      delete [] sols_h;
       delete [] curves;
         delete [] curves_h;
         delete [] tcrvjets;
@@ -255,6 +285,8 @@ class Lie_detector
       return curves_h[icrv_]->sols[isol_];
     }
     inline int comp_nobs_h() {return nobs-ncrv;}
+
+
 };
 
 

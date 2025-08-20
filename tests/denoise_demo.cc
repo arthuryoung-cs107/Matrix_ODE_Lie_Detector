@@ -38,23 +38,25 @@ ode_solspc_meta meta0(ode.eor,ode.ndep);
 LD_noise_aux nse(meta0); // helper class for setting up and running noise experiments
 
 const int nc = 50, // 50, number of curves
-          np_min = 200, // 300, min number of points for extrapolation experiment
+          // np_min = 200, // 300, min number of points for extrapolation experiment
+          // np_min = 150, // 300, min number of points for extrapolation experiment
+          np_min = 100 , // 300, min number of points for extrapolation experiment
           np = np_min; // points per curve
 
 // identifier for independent variable range of data
-const int xrange = 0;
-
-const bool  write_dnp1xu = true,
-            write_JFs = true;
+const int xrange = 0; // 0 default
 
 /*
   we test 3 orders of magnitude of noise
 */
 // level of noise applied to observational data. If <0, then unnoised
 // const int noise_level = -1; // unnoised case
-// const int noise_level = 0; // coordinates perturbed by standard deviation propotional to coordinate scale
-const int noise_level = 1; // ^-1
+const int noise_level = 0; // coordinates perturbed by standard deviation proportional to coordinate scale
+// const int noise_level = 1; // ^-1
 // const int noise_level = 2; // ^-2
+
+const bool  write_dnp1xu = true,
+            write_JFs = true;
 
 LD_observations_set Sobs(meta0,nc,np,write_dnp1xu,write_JFs);
 

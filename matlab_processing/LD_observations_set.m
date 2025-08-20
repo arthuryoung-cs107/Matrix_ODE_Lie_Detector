@@ -119,8 +119,15 @@ classdef LD_observations_set
 
             obj.crvs = [];
         end
+        function cell_out = read_Sobs_cell(obj,xtra_)
+            pts_struct = read_pts_struct([obj.dir_name '/' obj.dat_name xtra_ '.' obj.dat_suff]);
+            cell_out = LD_observations_set.dat_cell(obj.ndim, ...
+                                                        pts_struct.pts_in, ...
+                                                        1:(pts_struct.ncrv), ...
+                                                        pts_struct.npts_per_crv);
+        end
         function obj_out = read_Sobs_slice(obj,xtra_)
-            obj_out = obj
+            obj_out = obj;
             obj_out.reconstructed_set = true;
             dat_name = [obj.dat_name, xtra_];
             name_ = [obj.dir_name '/' dat_name '.' obj.dat_suff];

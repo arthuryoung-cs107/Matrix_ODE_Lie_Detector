@@ -40,7 +40,9 @@ class Riccati_ode: public named_ode
     inline const double * get_default_IC_indep_range(int xrange_=0) {return Riccati_x_range_def[xrange_];}
     inline const double * get_default_IC_range(int icrange_=0) {return Riccati_IC_range_def[icrange_];}
 
-    virtual double nse_scl() {return 0.4;}
+    // virtual double nse_scl() {return 0.1;}
+    // virtual double nse_scl() {return 0.075;}
+    virtual double nse_scl() {return 0.05;}
 
   private:
 
