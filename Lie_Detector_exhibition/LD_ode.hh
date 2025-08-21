@@ -50,10 +50,10 @@ struct ode_solchunk
 
 struct ode_solution: public ode_solspc_element
 {
-  ode_solution(ode_solspc_meta &meta_, double *pts_): ode_solspc_element(meta_), pts(pts_) {}
-  ode_solution(ode_solspc_meta &meta_,ode_solchunk &sc_): ode_solspc_element(meta_),
-    pts(sc_.pts), dnp1xu(sc_.pts+ndim), JFs(sc_.JFs)
-    {}
+  ode_solution(ode_solspc_meta &meta_, double *pts_) :
+    ode_solspc_element(meta_), pts(pts_) {}
+  ode_solution(ode_solspc_meta &meta_,ode_solchunk &sc_) :
+    ode_solspc_element(meta_), pts(sc_.pts), dnp1xu(sc_.pts+meta_.ndim), JFs(sc_.JFs) {}
   ~ode_solution() {}
 
   double  * const pts,
@@ -78,41 +78,59 @@ struct ode_solution: public ode_solspc_element
   inline void copy_pts(ode_solution &sol_, int len_=0)
   {
     const int len = (len_)?(len_):(ndim);
-    x = sol_.x;
-    for (int i = 1; i <= len; i++) pts[i] = sol_.pts[i];
+    for (int i = 0; i < len; i++) pts[i] = sol_.pts[i];
   }
-
+  inline void copy_xu(ode_solution &sol_) {copy_pts(sol_,nvar);}
+  inline void copy_sol(ode_solution &sol_)
+  {
+    copy_pts(sol_);
+    if ((dnp1xu!=NULL)&&(sol_.dnp1xu!=NULL))
+      for (int i = 0; i < ndep; i++) dnp1xu[i] = sol_.dnp1xu[i];
+    if ((JFs!=NULL)&&(sol_.JFs!=NULL))
+      for (int i = 0; i < ndep; i++)
+        for (int j = 0; j < ndim; j++)
+          JFs[i][j] = sol_.JFs[i][j];
+  }
 };
 
 class tjet_chart
 {
+  const bool dnp1xu_h_alloc,
+             dnp1xu_0_alloc,
+             dnp1xu_1_alloc;
   double * const pts_h_alt,
          * const pts_0_alt,
          * const pts_1_alt;
 
   public:
 
-    ode_solution &solh,
-                 &sol0,
-                 &sol1,
-                 solh_alt,
-                 sol0_alt,
-                 sol1_alt;
+  ode_solution &solh,
+               &sol0,
+               &sol1,
+               solh_alt,
+               sol0_alt,
+               sol1_alt;
 
   tjet_chart(ode_solution &solh_,ode_solution &sol0_,ode_solution &sol1_,bool init_=false) :
-    pts_h_alt(new double[solh_.ndim]),
-    pts_0_alt(new double[solh_.ndim]),
-    pts_1_alt(new double[solh_.ndim]),
+    dnp1xu_h_alloc(solh_.dnp1xu!=NULL),
+    dnp1xu_0_alloc(sol0_.dnp1xu!=NULL),
+    dnp1xu_1_alloc(sol1_.dnp1xu!=NULL),
+    pts_h_alt(new double[ (dnp1xu_h_alloc)?(solh_.ndim+solh_.ndep):(solh_.ndim) ]),
+    pts_0_alt(new double[ (dnp1xu_0_alloc)?(sol0_.ndim+sol0_.ndep):(sol0_.ndim) ]),
+    pts_1_alt(new double[ (dnp1xu_1_alloc)?(sol1_.ndim+sol1_.ndep):(sol1_.ndim) ]),
     solh(solh_), sol0(sol0_), sol1(sol1_),
     solh_alt(solh_.meta,pts_h_alt),
-    sol0_alt(solh_.meta,pts_0_alt),
-    sol1_alt(solh_.meta,pts_1_alt)
+    sol0_alt(sol0_.meta,pts_0_alt),
+    sol1_alt(sol1_.meta,pts_1_alt)
     {
+      if (dnp1xu_h_alloc) solh_alt.dnp1xu =  pts_h_alt + solh_.ndim;
+      if (dnp1xu_0_alloc) sol0_alt.dnp1xu =  pts_0_alt + sol0_.ndim;
+      if (dnp1xu_1_alloc) sol1_alt.dnp1xu =  pts_1_alt + sol1_.ndim;
       if (init_)
       {
-        solh_alt.copy_pts(solh);
-        sol0_alt.copy_pts(sol0);
-        sol1_alt.copy_pts(sol1);
+        solh_alt.copy_sol(solh);
+        sol0_alt.copy_sol(sol0);
+        sol1_alt.copy_sol(sol1);
       }
     }
   ~tjet_chart()
@@ -120,7 +138,7 @@ class tjet_chart
       delete [] pts_0_alt;
       delete [] pts_1_alt; }
 
-  inline void reload_sol_h() {solh_alt.copy_pts(solh);}
+  inline void reload_sol_h() {solh_alt.copy_sol(solh);}
 
 };
 

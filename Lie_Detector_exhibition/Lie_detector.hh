@@ -6,8 +6,20 @@
 
 class curve_Lie_detector
 {
+  const int kor;
   bool palloc,
        Jalloc;
+
+  inline double combine_2coords(double c1_,double c2_)
+  {
+   // return (c1_+c2_)/2.0; // lazy update, perturbs old solution.
+   return c2_; // aggressive update. Reinforces dominant components, still one sided.
+  }
+  inline double combine_3coords(double c1_,double c2_,double c3_)
+  {
+   // return (c1_+c2_+c3_)/3.0; // lazy update, perturbs old solution.
+   return (c2_+c3_)/2.0; // aggressive update. Reinforces dominant components.
+  }
 
   public:
 
@@ -21,6 +33,7 @@ class curve_Lie_detector
     tjet_chart ** const tjcharts;
 
     curve_Lie_detector(ode_solcurve &crv_,ode_jetspc_meta &jmeta_trivial_,bool palloc_,bool Jalloc_) :
+      kor(ode_jetspc_meta::comp_kor(jmeta_trivial_.jor)),
       palloc(palloc_), Jalloc(Jalloc_),
       nobs_f(crv_.nobs), nobs_h(crv_.nobs-1),
       crv(crv_),
@@ -56,14 +69,16 @@ class curve_Lie_detector
       for (int i = 0; i < s0_.ndim; i++)
       {
         double si_old = s0_.pts[i];
-
-                  // aggressive update. Reinforces dominant components.
-        si_old -= (s0_.pts[i] = ( s2_.pts[i] + s3_.pts[i] )/2.0);
-                  // lazy update, perturbs old solution.
-        // si_old -= (s0_.pts[i] = ( s1_.pts[i] + s2_.pts[i] + s3_.pts[i] )/3.0);
-
+        si_old -= (s0_.pts[i] = combine_3coords(s1_.pts[i],s2_.pts[i],s3_.pts[i]));
         res_out += si_old*si_old;
       }
+      if (kor>s0_.eor)
+        for (int i = 0; i < s0_.ndep; i++)
+        {
+          double si_old = s0_.dnp1xu[i];
+          si_old -= (s0_.dnp1xu[i] = combine_3coords(s1_.dnp1xu[i],s2_.dnp1xu[i],s3_.dnp1xu[i]));
+          res_out += si_old*si_old;
+        }
       return res_out;
     }
     inline double combine_two_sols(ode_solution &s0_,ode_solution &s1_,ode_solution &s2_)
@@ -72,14 +87,16 @@ class curve_Lie_detector
       for (int i = 0; i < s0_.ndim; i++)
       {
         double si_old = s0_.pts[i];
-
-                  // aggressive update. Reinforces dominant components, still one sided.
-        si_old -= (s0_.pts[i] = s2_.pts[i]);
-                  // lazy update, perturbs old solution.
-        // si_old -= (s0_.pts[i] = ( s1_.pts[i] + s2_.pts[i] )/2.0);
-
+        si_old -= (s0_.pts[i] = combine_2coords(s1_.pts[i],s2_.pts[i]));
         res_out += si_old*si_old;
       }
+      if (kor>s0_.eor)
+        for (int i = 0; i < s0_.ndep; i++)
+        {
+          double si_old = s0_.dnp1xu[i];
+          si_old -= (s0_.dnp1xu[i] = combine_2coords(s1_.dnp1xu[i],s2_.dnp1xu[i]));
+          res_out += si_old*si_old;
+        }
       return res_out;
     }
     inline tjet_chart * tjchart_0() {return tjcharts[0];}
@@ -112,7 +129,9 @@ class Lie_detector
     curve_Lie_detector ** const cdets;
 
     ode_solution ** const sols,
-                 ** const sols_h;
+                 ** const sols_h,
+                 ** const sols_h_alt;
+    tjet_chart ** const tjcharts;
     ode_solcurve ** const curves,
                  ** const curves_h;
 
@@ -132,6 +151,8 @@ class Lie_detector
       Sobs(meta0,obs_.nobs,pts,dnp1xu,JFs_mat),
         sols(Sobs.sols),
         sols_h(new ode_solution*[nobs-ncrv]),
+        sols_h_alt(new ode_solution*[nobs-ncrv]),
+          tjcharts(new tjet_chart*[nobs-ncrv]),
         curves(new ode_solcurve*[ncrv]),
         curves_h(new ode_solcurve*[ncrv]),
       cdets(new curve_Lie_detector*[ncrv]),
@@ -159,11 +180,13 @@ class Lie_detector
             cdets[icrv] = new curve_Lie_detector(*(curves[icrv]),jmeta_trivial,palloc,Jalloc);
               curves_h[icrv] = &(cdets[icrv]->crv_h);
               tcrvjets[icrv] = &(cdets[icrv]->tcrvjets);
-
-            for (int isol = 0, ipts_h=ipts-icrv; isol < cdets[icrv]->nobs_h; isol++)
+            for (int isol = 0, ipts_h=ipts-icrv; isol < cdets[icrv]->nobs_h; isol++,ipts_h++)
             {
-              sols_h[ipts_h+isol] = curves_h[icrv]->sols[isol];
+              sols_h[ipts_h] = curves_h[icrv]->sols[isol];
+              tjcharts[ipts_h] = cdets[icrv]->tjcharts[isol];
+                sols_h_alt[ipts_h] = &(tjcharts[ipts_h]->solh_alt);
 
+              // solving Hermite jet via LU decomposition, solved in place
               tcrvjets[icrv]->set_trivial_Amat(LUmat_t,isol);
               lu_t.decompose_A();
 
@@ -206,7 +229,9 @@ class Lie_detector
         delete curves[i];
       }
       delete [] cdets;
-      delete [] sols_h;
+        delete [] sols_h;
+        delete [] sols_h_alt;
+          delete [] tjcharts;
       delete [] curves;
         delete [] curves_h;
         delete [] tcrvjets;
@@ -235,7 +260,44 @@ class Lie_detector
           tcrvjets[i]->R1svd_f1jet.nulldim()
           );
     }
+    double combine_trivial_flows(ode_solcurve **crvs_alt_,ode_solcurve **crvs_)
+    {
+      double res_out = 0.0;
+      #pragma omp parallel for reduction(+:res_out)
+      for (int icrv = 0; icrv < ncrv; icrv++)
+      {
+        res_out += cdets[icrv]->recombine_flows(*(crvs_alt_[icrv]),*(crvs_[icrv]));
+      }
+      return res_out;
+    }
+    inline void set_trivial_jets(ode_solution ** sols_h_,ode_solcurve ** crvs_)
+    {
+      const int nobs_h = nobs-ncrv;
+      #pragma omp parallel
+      {
+        LD_lu lu_t(jmeta_trivial.jor+1,jmeta_trivial.jor+1);
+        double  ** const LUmat_t = lu_t.LUmat;
+        int icrv_t,
+            isol_t;
+        #pragma omp for
+        for (int iobs = 0; iobs < nobs_h; iobs++)
+        {
+          get_icrvisol_h_given_iobs_h(icrv_t,isol_t,iobs);
+          ode_solution &obs0_i = *(crvs_[icrv_t]->sols[isol_t]),
+                       &obs1_i = *(crvs_[icrv_t]->sols[isol_t+1]);
+          ode_trivial_sjet &tjet_i = *(tcrvjets[icrv_t]->tjets[isol_t]);
 
+          tjet_i.set_trivial_Amat(LUmat_t,obs0_i,obs1_i);
+          lu_t.decompose_A();
+
+          for (int i = 0; i < ndep; i++)
+            lu_t.solve_system(tjet_i.set_trivial_bvec(i,obs0_i,obs1_i));
+
+          tjet_i.set_sol_h( *( sols_h_[iobs]) );
+            // cdets[icrv_t]->tjcharts[isol_t]->reload_sol_h(); // sync sol_h and sol_h_alt
+        }
+      }
+    }
     inline void set_trivial_jets(ode_solcurve ** crvs_)
     {
       #pragma omp parallel

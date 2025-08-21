@@ -24,30 +24,35 @@
 const char dir_name[] = "./denoise_data_directory/Gaussian_IC_perturbation/rendering_data/"; // data directory
 const char obs_name[] = "Riccati_xrange0_noise0_DoP853gen"; // name of observations file
 // const char obs_name[] = "Riccati_xrange0_noise1_DoP853gen.jsol_R1"; // name of observations file
+
 const char dat_suff[] = ".lddat"; // data file suffix (*.lddat)
 char data_name[strlen(dir_name) + strlen(obs_name) + strlen(dat_suff) + 1];
 const int data_name_len = sprintf(data_name,"%s%s%s", dir_name,obs_name,dat_suff);
-
-const char dnp1xu_suffix[] = "_dnp1xu";
-char data_dnp1xu_name[strlen(dir_name) + strlen(obs_name) + strlen(dnp1xu_suffix) + strlen(dat_suff) + 1];
-const int data_dnp1xu_name_len = sprintf(data_dnp1xu_name,"%s%s%s%s", dir_name,obs_name,dnp1xu_suffix,dat_suff);
 // name of data file
 // const char data_name[] =
 // "./denoise_data_directory/Gaussian_IC_perturbation/"
 // "Riccati_xrange0_noise1_DoP853gen" // Riccati_xrange0_noise0_DoP853gen Riccati_xrange0_true_DoP853gen
 // ".lddat";
 
+const char dnp1xu_suffix[] = "_dnp1xu";
+char data_dnp1xu_name[strlen(dir_name) + strlen(obs_name) + strlen(dnp1xu_suffix) + strlen(dat_suff) + 1];
+const int data_dnp1xu_name_len = sprintf(data_dnp1xu_name,"%s%s%s%s", dir_name,obs_name,dnp1xu_suffix,dat_suff);
+
 // ode_solspc_meta meta0(1,1); // Riccati equation : n = 1, q = 1
 
 // const int ndns_max = 3; // max permitted denoising steps
 // const int ndns_max = 5; // max permitted denoising steps
-// const int ndns_max = 10;
+const int ndns_max = 10;
 // const int ndns_max = 20;
 // const int ndns_max = 30;
 // const int ndns_max = 40;
 // const int ndns_max = 50;
 // const int ndns_max = 100;
-// const int write_sched = 2;
+const int write_sched = 2;
+
+const int write_sched_early = 5;
+
+const double res_ratio_tol = 1e-15;
 
 const bool v_verbose = false;
 
@@ -56,8 +61,8 @@ const bool v_verbose = false;
 // const int ndns_max = 300;
 // const int write_sched = 10;
 
-const int ndns_max = 400;
-const int write_sched = 20;
+// const int ndns_max = 400;
+// const int write_sched = 20;
 
 // ode_curve_observations observations(data_name);
   ode_curve_observations observations(data_name,data_dnp1xu_name);
@@ -81,9 +86,9 @@ struct global_R1mat_experiment : public ode_solspc_meta
             nthread_wkspc,
             nsnap;
 
-  LD_R_encoder R1enc;
-  LD_svd  R1svd_global,
-          R1svd_h_global;
+  LD_R_encoder Renc;
+  LD_svd  Rsvd_global,
+          Rsvd_h_global;
 
   // theta (parameter) space variables
   double * const svec_global, // singular values of primary R1 matrix
@@ -94,7 +99,9 @@ struct global_R1mat_experiment : public ode_solspc_meta
 
   // S (solution space) variables
   ode_solution ** const sols,
-               ** const sols_h;
+               ** const sols_h,
+               ** const sols_h_alt;
+  tjet_chart ** const tjcharts;
   ode_solcurve ** const curves,
                ** const curves_h;
 
@@ -120,16 +127,18 @@ struct global_R1mat_experiment : public ode_solspc_meta
       nobs(det_.nobs), nobs_h(det_.comp_nobs_h()),
         nthread_wkspc(LD_threads::numthreads()),
         nsnap(nsnap_),
-    R1enc(det_.meta0,1),
-    R1svd_global((det.ndep)*(det.nobs),fspace0.ndof_full),
-    R1svd_h_global((det.ndep)*(det.nobs-det.ncrv),fspace0.ndof_full),
-      svec_global(R1svd_global.svec),
-      svec_h_global(R1svd_h_global.svec),
+    Renc(det_.meta0,det.kor), // Renc(det_.meta0,1),
+    Rsvd_global((det.ndep*det.kor)*(det.nobs),fspace0.ndof_full),
+    Rsvd_h_global((det.ndep*det.kor)*(det.nobs-det.ncrv),fspace0.ndof_full),
+      svec_global(Rsvd_global.svec),
+      svec_h_global(Rsvd_h_global.svec),
       VTmat_global(Tmatrix<double>(fspace0.ndof_full,fspace0.ndof_full)),
       VTmat_h_global(Tmatrix<double>(fspace0.ndof_full,fspace0.ndof_full)),
     theta_mat(Tmatrix<double>(det.nobs,fspace0.ndof_full)),
     sols(det.sols),
     sols_h(det.sols_h),
+    sols_h_alt(det.sols_h_alt),
+    tjcharts(det.tjcharts),
       curves(det.curves),
       curves_h(det.curves_h),
       cdets(det.cdets),
@@ -143,24 +152,34 @@ struct global_R1mat_experiment : public ode_solspc_meta
         tvfields0[i] = new LD_spectral_tvfield(*(fbases0[i]),svec_global,VTmat_global);
       }
       double t0 = LD_threads::tic();
-      encode_decompose_R_matrix_global(VTmat_global,R1svd_global,R1enc,sols,nobs);
-        R1svd_global.print_result("R1svd_global");
-      encode_decompose_R_matrix_global(VTmat_h_global,R1svd_h_global,R1enc,sols_h,nobs_h);
-        R1svd_h_global.print_result("R1svd_h_global");
+
+      encode_decompose_R_matrix_global(VTmat_global,Rsvd_global,Renc,sols,nobs);
+        Rsvd_global.print_result("Rsvd_global");
+
+      // encode_decompose_R_matrix_global(VTmat_h_global,Rsvd_h_global,Renc,sols_h,nobs_h);
+      smooth_enc_decomp_trivial_flows(VTmat_h_global,Rsvd_h_global,sols_h_alt, // output args
+                                        nobs_h,Renc,sols_h,svec_global,VTmat_global); // input args
+        Rsvd_h_global.print_result("Rsvd_h_global");
+
       double twork1 = LD_threads::toc(t0);
-      smooth_and_exp_trivial_flows(curves,curves_h,svec_global,VTmat_global);
+
+      // smooth_and_exp_trivial_flows(curves,curves_h,svec_global,VTmat_global);
+      // exp_trivial_flows(tjcharts,nobs,svec_global,VTmat_global);
+      exp_trivial_flows(tjcharts,nobs_h,svec_h_global,VTmat_h_global);
+
       double work_time = LD_threads::toc(t0);
       printf(
         "(global_R1mat_experiment::global_R1mat_experiment) "
-        "encoded and SV-decomposed %d by %d (global) R1 matrix. "
+        "encoded and SV-decomposed %d by %d (global) R%d matrix. "
         "Applied R1 pseudoinverse to Hermite jets, "
         "then exponentiated 2*(%d)=%d flowouts over %d dimensions "
         "in %.3f seconds (%d threads)\n",
-        R1svd_global.Muse, R1svd_global.Nuse,
+        Rsvd_global.Muse, Rsvd_global.Nuse, det.kor,
         nobs_h, 2*nobs_h, ndep+1,
         work_time, LD_threads::numthreads()
       );
-      write_sol_h_data();
+      // write_sol_h_data();
+      write_startup_data();
     }
     ~global_R1mat_experiment()
     {
@@ -176,28 +195,45 @@ struct global_R1mat_experiment : public ode_solspc_meta
     ode_solution ** const sols_alt = Sobs_alt_.sols;
     ode_solcurve ** const curves_alt = Sobs_alt_.curves;
 
+    /*
+     From the top : given solutions from det, we build Hermite jets over the colocation points.
+     We smooth the derivatives of the colocation points using Rmat_obs pseudo inverse, then recompute
+     an R matrix, this time over the colocation points.
+    */
+    det.set_trivial_jets(sols_h,curves); // this sets curves_h using curves as input
+    encode_decompose_R_matrix_global(VTmat_global,Rsvd_global,Renc,sols,nobs);
+      Rsvd_global.print_result("  Rsvd_global (0)");
+    smooth_enc_decomp_trivial_flows(VTmat_h_global,Rsvd_h_global,sols_h_alt, // output args
+                                      nobs_h,Renc,sols_h,svec_global,VTmat_global); // input args
+      Rsvd_h_global.print_result("  Rsvd_h_global (0)");
+    // exp_trivial_flows(tjcharts,nobs_h,svec_global,VTmat_global);
+    exp_trivial_flows(tjcharts,nobs_h,svec_h_global,VTmat_h_global);
+    double res_1 = det.combine_trivial_flows(curves_alt,curves);
     int nsmooth=1;
-
-    double res_1 = combine_trivial_flows(curves_alt,curves);
       write_curve_observations(Sobs_alt_,nsmooth);
 
     printf("   (global_R1mat_experiment::denoise_data)"
            " i=%d, res_i = %.8f "
            "\n", nsmooth, res_1);
 
-    double t0 = LD_threads::tic();
+    double  res_old = res_1,
+            t0 = LD_threads::tic();
     do
     {
-     det.set_trivial_jets(curves_alt);
+     det.set_trivial_jets(sols_h,curves_alt);
+     encode_decompose_R_matrix_global(VTmat_global,Rsvd_global,Renc,sols_alt,nobs);
+       if (v_verbose) Rsvd_global.print_result("    Rsvd_global");
+     smooth_enc_decomp_trivial_flows(VTmat_h_global,Rsvd_h_global,sols_h_alt, // output args
+                                       nobs_h,Renc,sols_h,svec_global,VTmat_global); // input args
+       if (v_verbose) Rsvd_h_global.print_result("    Rsvd_h_global");
 
-     encode_decompose_R_matrix_global(VTmat_global,R1svd_global,R1enc,sols_alt,nobs);
-       if (v_verbose) R1svd_global.print_result("R1svd_global");
+     // smooth_and_exp_trivial_flows(curves_alt,curves_h,svec_global,VTmat_global);
+     // exp_trivial_flows(tjcharts,nobs_h,svec_global,VTmat_global);
+     exp_trivial_flows(tjcharts,nobs_h,svec_h_global,VTmat_h_global);
 
-     smooth_and_exp_trivial_flows(curves_alt,curves_h,svec_global,VTmat_global);
+     double res_i = det.combine_trivial_flows(curves_alt,curves_alt);
 
-     double res_i = combine_trivial_flows(curves_alt,curves_alt);
-
-     if ( ((++nsmooth)<=5) || ((nsmooth%write_sched) == 0) )
+     if ( ((++nsmooth)<=write_sched_early) || ((nsmooth%write_sched) == 0) )
       write_curve_observations(Sobs_alt_,nsmooth,v_verbose);
 
      printf("   (global_R1mat_experiment::denoise_data)"
@@ -205,33 +241,26 @@ struct global_R1mat_experiment : public ode_solspc_meta
             "\n", nsmooth, res_i, res_i/res_1);
 
      if (nsmooth >= ndns_max) break;
-
+     if (res_i > res_old) break;
+     if ((res_i/res_1) < res_ratio_tol ) break;
+     res_old = res_i;
     } while (true);
     double work_time = LD_threads::toc(t0);
     printf(
       "(global_R1mat_experiment::global_R1mat_experiment) "
-      "encoded and SV-decomposed %d by %d (global) R1 matrix. "
+      "encoded and SV-decomposed TWO %d by %d (global) R1 matrices. "
       "Applied R1 pseudoinverse to Hermite jets, "
       "then exponentiated 2*(%d)=%d flowouts over %d dimensions "
       "\n%d TIMES\n "
       "in %.3f seconds (%d threads)\n",
-      R1svd_global.Muse, R1svd_global.Nuse,
+      Rsvd_global.Muse, Rsvd_global.Nuse,
       nobs_h, 2*nobs_h, ndep+1,
       nsmooth,
       work_time, LD_threads::numthreads()
     );
+    write_curve_observations(Sobs_alt_,nsmooth,true);
   }
 
-  inline double combine_trivial_flows(ode_solcurve **crvs_alt_,ode_solcurve **crvs_)
-  {
-    double res_out = 0.0;
-    #pragma omp parallel for reduction(+:res_out)
-    for (int icrv = 0; icrv < det.ncrv; icrv++)
-    {
-      res_out += cdets[icrv]->recombine_flows(*(crvs_alt_[icrv]),*(crvs_[icrv]));
-    }
-    return res_out;
-  }
   void encode_decompose_R_matrix_global(double **VTmg_,LD_svd &Rsvdg_,LD_R_encoder &Renc_,ode_solution **sols_,int nobs_)
   {
     // #pragma omp parallel num_threads(1)
@@ -252,30 +281,91 @@ struct global_R1mat_experiment : public ode_solspc_meta
     Rsvdg_.decompose_U();
     Rsvdg_.unpack_VTmat(VTmg_);
   }
-  void smooth_trivial_flows(ode_solcurve **crvs_, ode_solcurve **crvs_h_, double *sv_, double **VTm_)
+  void smooth_trivial_flows(ode_solution **sols_out_,int nobs_,int kor_,ode_solution **sols_in_,double *sv_,double **VTm_)
+  {
+    #pragma omp parallel
+    {
+      LD_spectral_tvfield &tvf_t = *(tvfields0[LD_threads::thread_id()]);
+      tvf_t.set_SVD_space(sv_,VTm_);
+      #pragma omp for
+      for (int iobs = 0; iobs < nobs_; iobs++)
+      {
+        if ( sols_out_[iobs] != sols_in_[iobs] ) sols_out_[iobs]->copy_xu(*(sols_in_[iobs]));
+
+        // use 0'th order Hermite jet info to compute local theta via pseudoinverse of R1 matrix
+        tvf_t.comp_spectral_theta_local(sols_out_[iobs]->x,sols_out_[iobs]->u);
+        // the result is an improved estimate of the derivatives at interior colocation point
+        tvf_t.eval_prn_theta_image(*(sols_out_[iobs]),kor_);
+      }
+    }
+  }
+  void smooth_enc_decomp_trivial_flows(double **VTm_out_,LD_svd &Rsvdg_,ode_solution **sout_,
+    int nobs_,LD_R_encoder &Renc_,ode_solution **sin_,double *sv_,double **VTm_)
+  {
+    const int kor = (Renc_.ncod)/det.ndep;
+    #pragma omp parallel
+    {
+      const int t_id = LD_threads::thread_id();
+      orthopolynomial_basis &fbse_t = *(fbases0[t_id]);
+      LD_spectral_tvfield &tvf_t = *(tvfields0[t_id]);
+      tvf_t.set_SVD_space(sv_,VTm_);
+      #pragma omp for
+      for (int iobs = 0; iobs < nobs_; iobs++)
+      {
+        if ( sout_[iobs] != sin_[iobs] ) sout_[iobs]->copy_xu(*(sin_[iobs])); // make sure synced
+
+        // use 0'th order Hermite jet info to compute local theta via pseudoinverse of R1 matrix
+        tvf_t.comp_spectral_theta_local(sout_[iobs]->x,sout_[iobs]->u);
+        // the result is an improved estimate of the derivatives at interior colocation point
+        tvf_t.eval_prn_theta_image(*(sout_[iobs]),kor);
+
+        Renc_.encode_normalize_rows(
+            Renc_.submat_i(Rsvdg_.Umat,iobs), // submatrix of R associated with observation i
+            fbse_t, // thread local prolongation workspace
+            *(sout_[iobs]), // jet space data associated with observation i
+            false // normalization flag (off by default)
+          );
+      }
+    }
+    Rsvdg_.decompose_U();
+    Rsvdg_.unpack_VTmat(VTm_out_);
+  }
+  void exp_trivial_flows(tjet_chart **tjc_, int nobs_, double *sv_, double **VTm_)
   {
     #pragma omp parallel
     {
       const int t_id = LD_threads::thread_id();
       LD_spectral_tvfield &tvf_t = *(tvfields0[t_id]);
-      tvf_t.set_SVD_space(sv_,VTm_);
+        tvf_t.set_SVD_space(sv_,VTm_);
       LD_trivial_generator tgen_t(tvf_t);
-
-      int icrv_t,
-          isol_t;
+      DoP853_settings set_t; DoP853 intgr_t(tgen_t,set_t);
+      double ** const integr_wkspc_t = xu_snap_wkspc[t_id],
+             * const s_state_t_f = integr_wkspc_t[nsnap-1],
+             * const s_state_t = intgr_t.get_u_state();
       #pragma omp for
-      for (int iobs = 0; iobs < nobs_h; iobs++)
+      for (int iobs = 0; iobs < nobs_; iobs++)
       {
-        det.get_icrvisol_h_given_iobs_h(icrv_t,isol_t,iobs);
-        ode_solution &sol_h_i = *(crvs_h_[icrv_t]->sols[isol_t]),
-                     &sol_0_i = *(crvs_[icrv_t]->sols[isol_t]),
-                     &sol_1_i = *(crvs_[icrv_t]->sols[isol_t+1]);
-        tjet_chart &tjchart_i = *(cdets[icrv_t]->tjcharts[isol_t]);
+        tjet_chart &tjchart_i = *(tjc_[iobs]);
 
-        // use 0'th order Hermite jet info to compute local theta via pseudoinverse of R1 matrix
-        tvf_t.comp_spectral_theta_local(theta_mat[iobs],sol_h_i.x,sol_h_i.u);
-        // the result is an improved estimate of the derivatives at interior colocation point
-        tvf_t.eval_pr1_theta_image(tjchart_i.solh_alt.dxu,theta_mat[iobs]);
+        // reevaluate forward flow
+        tgen_t.flow_forward = true; // flow varies directly with x
+        for (int i = 0; i <= ndep; i++) s_state_t[i] = tjchart_i.solh.pts[i];
+        // specify del_x for dense output. Note that curve id irrelevant here
+        intgr_t.init_curve_integration((tjchart_i.sol1.x-tjchart_i.solh.x)/((double) (nsnap-1)),0);
+        intgr_t.set_and_solve_time(0.0,tjchart_i.sol1.x-tjchart_i.solh.x,nsnap,integr_wkspc_t);
+        for (int i = 0; i <= ndep; i++) tjchart_i.sol1_alt.pts[i] = s_state_t_f[i];
+        tvf_t.comp_spectral_theta_local(tjchart_i.sol1_alt.x,tjchart_i.sol1_alt.u);
+        tvf_t.eval_prn_theta_image(tjchart_i.sol1_alt,det.kor);
+
+        // reevaluate backward flow
+        tgen_t.flow_forward = false; // flow varies oppositely with x
+        for (int i = 0; i <= ndep; i++) s_state_t[i] = tjchart_i.solh.pts[i];
+        // specify del_x for dense output. Note that curve id irrelevant here
+        intgr_t.init_curve_integration((tjchart_i.solh.x-tjchart_i.sol0.x)/((double) (nsnap-1)),0);
+        intgr_t.set_and_solve_time(0.0,tjchart_i.solh.x-tjchart_i.sol0.x,nsnap,integr_wkspc_t);
+        for (int i = 0; i <= ndep; i++) tjchart_i.sol0_alt.pts[i] = s_state_t_f[i];
+        tvf_t.comp_spectral_theta_local(tjchart_i.sol0_alt.x,tjchart_i.sol0_alt.u);
+        tvf_t.eval_prn_theta_image(tjchart_i.sol0_alt,det.kor);
 
       }
     }
@@ -313,21 +403,35 @@ struct global_R1mat_experiment : public ode_solspc_meta
         // reevaluate forward flow
         tgen_t.flow_forward = true; // flow varies directly with x
         for (int i = 0; i <= ndep; i++) s_state_t[i] = sol_h_i.pts[i];
-        intgr_t.init_curve_integration(0.5*(sol_1_i.x-sol_h_i.x),0); // curve id irrelevant here
+        // specify del_x for dense output. Note that curve id irrelevant here
+        intgr_t.init_curve_integration((sol_1_i.x-sol_h_i.x)/((double) (nsnap-1)),0); // curve id irrelevant here
         intgr_t.set_and_solve_time(0.0,sol_1_i.x-sol_h_i.x,nsnap,integr_wkspc_t);
         for (int i = 0; i <= ndep; i++) tjchart_i.sol1_alt.pts[i] = s_state_t_f[i];
-        tgen_t.dudx_eval(tjchart_i.sol1_alt.pts);
+        // tgen_t.dudx_eval(tjchart_i.sol1_alt.pts);
+        tvf_t.comp_spectral_theta_local(tjchart_i.sol1_alt.x,tjchart_i.sol1_alt.u);
+        tvf_t.eval_prn_theta_image(tjchart_i.sol1_alt,det.kor);
 
         // reevaluate backward flow
         tgen_t.flow_forward = false; // flow varies oppositely with x
         for (int i = 0; i <= ndep; i++) s_state_t[i] = sol_h_i.pts[i];
-        intgr_t.init_curve_integration(0.5*(sol_h_i.x-sol_0_i.x),0); // curve id irrelevant here
-        intgr_t.set_and_solve_time(0.0,sol_h_i.x-sol_0_i.x,3,integr_wkspc_t);
+        // specify del_x for dense output. Note that curve id irrelevant here
+        intgr_t.init_curve_integration((sol_h_i.x-sol_0_i.x)/((double) (nsnap-1)),0); // curve id irrelevant here
+        intgr_t.set_and_solve_time(0.0,sol_h_i.x-sol_0_i.x,nsnap,integr_wkspc_t);
         for (int i = 0; i <= ndep; i++) tjchart_i.sol0_alt.pts[i] = s_state_t_f[i];
-        tgen_t.dudx_eval(tjchart_i.sol0_alt.pts);
+        // tgen_t.dudx_eval(tjchart_i.sol0_alt.pts);
+        tvf_t.comp_spectral_theta_local(tjchart_i.sol0_alt.x,tjchart_i.sol0_alt.u);
+        tvf_t.eval_prn_theta_image(tjchart_i.sol0_alt,det.kor);
 
       }
     }
+  }
+  void write_startup_data()
+  {
+    const int len_dir_name = strlen(dir_name),
+              len_obs_name = strlen(obs_name),
+              len_dat_suff = strlen(dat_suff),
+              len_base = len_dir_name+len_obs_name+len_dat_suff;
+
   }
   // void write_sol_h_data(const char dir_name_[], const char obs_name_[], const char dat_suff_[])
   void write_sol_h_data()

@@ -497,12 +497,43 @@ struct LD_trivial_vector_field : public LD_svd_vector_field
   inline void eval_pr1_theta_image(double *dudx_) {eval_pr1_theta_image(dudx_,theta_local);}
   inline void eval_pr1_theta_image(double *dudx_, double *theta_)
   {
-    for (int i = 0, ideltheta = fspc.perm_len; i < ndep; i++, ideltheta+=fspc.perm_len)
+    for (int i = 0, ideltheta = fspc.perm_len; i < fspc.ndep; i++, ideltheta+=fspc.perm_len)
     {
       double * const theta_ui = theta_ + ideltheta;
       dudx_[i] = 0.0;
       for (int j = 0; j < fspc.perm_len; j++)
         dudx_[i] += lamvec_local[j]*theta_ui[j];
+    }
+  }
+  inline void eval_prn_theta_image(ode_solution &sol_, int kor_)
+    {eval_prn_theta_image(sol_,kor_,theta_local);}
+  inline void eval_prn_theta_image(ode_solution &sol_, int kor_, double *theta_)
+  {
+    eval_pr1_theta_image(sol_.dxu,theta_);
+
+    // we now have an estimate for the first derivatives. Compute higher derivatives if necessary
+    if (kor_ > 1)
+    {
+      for (int i = 0; i < sol_.nvar; i++) pts_local[i] = sol_.pts[i];
+      for (int i = 0; i < sol_.ndep; i++) vn_local[i+1] = sol_.dxu[i];
+      for (int k = 1, ipts_dkm1xu = sol_.nvar; k < kor_; k++)
+      {
+        /*
+          Compute k'th prolongation, using k'th order derivatives already computed in k-1'th coordinates.
+          Yields estimate for k+1 order derivative.
+        */
+        for (int i = 0; i < sol_.ndep; i++, ipts_dkm1xu++)
+          pts_local[ipts_dkm1xu] = vn_local[ipts_dkm1xu-fspc.ndep];
+
+        fbse.v_eval(pts_local,vn_local,theta_local,k); // yields an estimate for k+1 derivatives
+
+        if (k <= sol_.eor)
+          for (int i = 0; i < sol_.ndep; i++)
+            sol_.pts[ipts_dkm1xu+i] = vn_local[(ipts_dkm1xu+i)-fspc.ndep];
+        else
+          for (int i = 0; i < sol_.ndep; i++)
+            sol_.dnp1xu[i] = vn_local[(ipts_dkm1xu+i)-fspc.ndep];
+      }
     }
   }
   inline void eval_theta_image(double *u_,double *dudx_)
