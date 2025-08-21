@@ -49,7 +49,8 @@ classdef LD_denoise_plots < LD_plots
         % plt_out.set_axis_lims(axlim);
 
         % pause
-            ndns_range = 1:4;
+            % ndns_range = 1:4;
+            ndns_range = [ 1:5 , 6:2:10 ];
 
             % ndns_range = 1:3;
             % ndns_range = 1:5;
@@ -87,7 +88,7 @@ classdef LD_denoise_plots < LD_plots
             %                                 meta0,plt_out,spc);
 
             end
-            % icrv_plot = 1:10
+            % icrv_plot = 1:5
 
         % plt_out.set_axis_lims(axlim);
             for i = 1:(len_ndns_range-1)
