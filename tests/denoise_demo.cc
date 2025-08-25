@@ -82,7 +82,7 @@ const char fam_name[] = "Legendre";
 
 const bool  write_gen_obs_data = true,
             write_fspace_config = true,
-            write_data_matrices = true;
+            write_data_matrices = false;
 const bool load_true_fspace_config = true; // override default noisy domain configuration file
 
 char  eqn_name[50],
@@ -206,46 +206,48 @@ int configure_function_space(bool check_fspaces_=false)
 
 int compute_data_matrices()
 {
-  LD_L_encoder Lenc(meta0); printf("\nLmat\n");
-  Jet_function_vector_space jfvs_L(Sobs,fspace0,Lenc,fbases0,false);
-  jfvs_L.compute_svds(true);
-  sprintf(name_buffer, "%s/%s_%s.L.%s",dir_name,data_name,bse_name,dat_suff);
-    jfvs_L.Acode.write_LD_encoding_bundle(name_buffer);
-  sprintf(name_buffer, "%s/%s_%s.Lsvd.%s",dir_name,data_name,bse_name,dat_suff);
-    jfvs_L.svd0.write_LD_svd_bundle(name_buffer);
+  if (write_data_matrices)
+  {
+    LD_L_encoder Lenc(meta0); printf("\nLmat\n");
+    Jet_function_vector_space jfvs_L(Sobs,fspace0,Lenc,fbases0,false);
+    jfvs_L.compute_svds(true);
+    sprintf(name_buffer, "%s/%s_%s.L.%s",dir_name,data_name,bse_name,dat_suff);
+      jfvs_L.Acode.write_LD_encoding_bundle(name_buffer);
+    sprintf(name_buffer, "%s/%s_%s.Lsvd.%s",dir_name,data_name,bse_name,dat_suff);
+      jfvs_L.svd0.write_LD_svd_bundle(name_buffer);
 
-  LD_G_encoder Genc(meta0); printf("\nGmat\n");
-  Jet_function_vector_space jfvs_G(Sobs,fspace0,Genc,fbases0,false);
-  jfvs_G.compute_svds(true);
-  sprintf(name_buffer, "%s/%s_%s.G.%s",dir_name,data_name,bse_name,dat_suff);
-    jfvs_G.Acode.write_LD_encoding_bundle(name_buffer);
-  sprintf(name_buffer, "%s/%s_%s.Gsvd.%s",dir_name,data_name,bse_name,dat_suff);
-    jfvs_G.svd0.write_LD_svd_bundle(name_buffer);
+    LD_G_encoder Genc(meta0); printf("\nGmat\n");
+    Jet_function_vector_space jfvs_G(Sobs,fspace0,Genc,fbases0,false);
+    jfvs_G.compute_svds(true);
+    sprintf(name_buffer, "%s/%s_%s.G.%s",dir_name,data_name,bse_name,dat_suff);
+      jfvs_G.Acode.write_LD_encoding_bundle(name_buffer);
+    sprintf(name_buffer, "%s/%s_%s.Gsvd.%s",dir_name,data_name,bse_name,dat_suff);
+      jfvs_G.svd0.write_LD_svd_bundle(name_buffer);
 
-  LD_R_encoder Rnenc(meta0,meta0.eor); printf("\nRnmat\n");
-  Jet_function_vector_space jfvs_Rn(Sobs,fspace0,Rnenc,fbases0,false);
-  jfvs_Rn.compute_svds(true);
-  sprintf(name_buffer, "%s/%s_%s.Rn.%s",dir_name,data_name,bse_name,dat_suff);
-    jfvs_Rn.Acode.write_LD_encoding_bundle(name_buffer);
-  sprintf(name_buffer, "%s/%s_%s.Rnsvd.%s",dir_name,data_name,bse_name,dat_suff);
-    jfvs_Rn.svd0.write_LD_svd_bundle(name_buffer);
+    LD_R_encoder Rnenc(meta0,meta0.eor); printf("\nRnmat\n");
+    Jet_function_vector_space jfvs_Rn(Sobs,fspace0,Rnenc,fbases0,false);
+    jfvs_Rn.compute_svds(true);
+    sprintf(name_buffer, "%s/%s_%s.Rn.%s",dir_name,data_name,bse_name,dat_suff);
+      jfvs_Rn.Acode.write_LD_encoding_bundle(name_buffer);
+    sprintf(name_buffer, "%s/%s_%s.Rnsvd.%s",dir_name,data_name,bse_name,dat_suff);
+      jfvs_Rn.svd0.write_LD_svd_bundle(name_buffer);
 
-  LD_R_encoder Rnp1enc(meta0,meta0.eor+1); printf("\nRnp1mat\n");
-  Jet_function_vector_space jfvs_Rnp1(Sobs,fspace0,Rnp1enc,fbases0,false);
-  jfvs_Rnp1.compute_svds(true);
-  sprintf(name_buffer, "%s/%s_%s.Rnp1.%s",dir_name,data_name,bse_name,dat_suff);
-    jfvs_Rnp1.Acode.write_LD_encoding_bundle(name_buffer);
-  sprintf(name_buffer, "%s/%s_%s.Rnp1svd.%s",dir_name,data_name,bse_name,dat_suff);
-    jfvs_Rnp1.svd0.write_LD_svd_bundle(name_buffer);
+    LD_R_encoder Rnp1enc(meta0,meta0.eor+1); printf("\nRnp1mat\n");
+    Jet_function_vector_space jfvs_Rnp1(Sobs,fspace0,Rnp1enc,fbases0,false);
+    jfvs_Rnp1.compute_svds(true);
+    sprintf(name_buffer, "%s/%s_%s.Rnp1.%s",dir_name,data_name,bse_name,dat_suff);
+      jfvs_Rnp1.Acode.write_LD_encoding_bundle(name_buffer);
+    sprintf(name_buffer, "%s/%s_%s.Rnp1svd.%s",dir_name,data_name,bse_name,dat_suff);
+      jfvs_Rnp1.svd0.write_LD_svd_bundle(name_buffer);
 
-  LD_OG_encoder OGenc(meta0); printf("\nOGmat\n");
-  Jet_function_vector_space jfvs_OG(Sobs,fspace0,OGenc,fbases0,false);
-  jfvs_OG.compute_svds(true);
-  sprintf(name_buffer, "%s/%s_%s.OG.%s",dir_name,data_name,bse_name,dat_suff);
-    jfvs_OG.Acode.write_LD_encoding_bundle(name_buffer);
-  sprintf(name_buffer, "%s/%s_%s.OGsvd.%s",dir_name,data_name,bse_name,dat_suff);
-    jfvs_OG.svd0.write_LD_svd_bundle(name_buffer);
-
+    LD_OG_encoder OGenc(meta0); printf("\nOGmat\n");
+    Jet_function_vector_space jfvs_OG(Sobs,fspace0,OGenc,fbases0,false);
+    jfvs_OG.compute_svds(true);
+    sprintf(name_buffer, "%s/%s_%s.OG.%s",dir_name,data_name,bse_name,dat_suff);
+      jfvs_OG.Acode.write_LD_encoding_bundle(name_buffer);
+    sprintf(name_buffer, "%s/%s_%s.OGsvd.%s",dir_name,data_name,bse_name,dat_suff);
+      jfvs_OG.svd0.write_LD_svd_bundle(name_buffer);
+  }
   return 0;
 }
 

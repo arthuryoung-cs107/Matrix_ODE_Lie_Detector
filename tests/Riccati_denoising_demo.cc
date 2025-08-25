@@ -545,7 +545,7 @@ struct global_R1mat_experiment : public ode_solspc_meta
         &nobs_meta = obs_meta[1] = Sobs_.nobs;
 
     const char name_jsol_R1[] = ".jsol_R1";
-      char fname_jsol_R1[len_base+strlen(name_jsol_R1)+1];
+      char fname_jsol_R1[len_base+strlen(name_jsol_R1)+5];
       sprintf(fname_jsol_R1,"%s%s%s_%d%s",dir_name,obs_name, name_jsol_R1,nsmooth_, dat_suff);
       FILE * file_jsol_R1 = LD_io::fopen_SAFE(fname_jsol_R1,"wb");
       fwrite(ode_meta,sizeof(int),2,file_jsol_R1);
