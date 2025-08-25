@@ -51,8 +51,8 @@ const int xrange = 0; // 0 default
   we test 3 orders of magnitude of noise
 */
 // level of noise applied to observational data. If <0, then unnoised
-// const int noise_level = -1; // unnoised case
-const int noise_level = 0; // coordinates perturbed by standard deviation proportional to coordinate scale
+const int noise_level = -1; // unnoised case
+// const int noise_level = 0; // coordinates perturbed by standard deviation proportional to coordinate scale
 // const int noise_level = 1; // ^-1
 // const int noise_level = 2; // ^-2
 
@@ -193,7 +193,7 @@ int configure_function_space(bool check_fspaces_=false)
   sprintf(bse_name, "%s.%d",fam_name,bor);
   if (load_true_fspace_config)
   {
-    char true_data_name[100];
+    char true_data_name[125];
     sprintf(true_data_name,"%s%s_true_%sgen",addtl_prefix,eqn_name,intgen_name);
     sprintf(name_buffer, "%s/%s_%s.domain_config.%s",dir_name,true_data_name,bse_name,dat_suff);
   }
