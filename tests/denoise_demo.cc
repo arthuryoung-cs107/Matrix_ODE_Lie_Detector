@@ -51,8 +51,8 @@ const int xrange = 0; // 0 default
   we test 3 orders of magnitude of noise
 */
 // level of noise applied to observational data. If <0, then unnoised
-const int noise_level = -1; // unnoised case
-// const int noise_level = 0; // coordinates perturbed by standard deviation proportional to coordinate scale
+// const int noise_level = -1; // unnoised case
+const int noise_level = 0; // coordinates perturbed by standard deviation proportional to coordinate scale
 // const int noise_level = 1; // ^-1
 // const int noise_level = 2; // ^-2
 
@@ -298,7 +298,7 @@ int compute_jets()
     LD_observations_set Sref(meta0,nc,np,write_dnp1xu,write_JFs);
 
     // set data name of reference observations
-    char data_name_ref[100];
+    char data_name_ref[125];
     sprintf(data_name_ref,"%s%s_true_%sgen",addtl_prefix,eqn_name,intgen_name);
     // read unnoised points
     sprintf(name_buffer,"%s/%s.%s",dir_name,data_name_ref,dat_suff);
