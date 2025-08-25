@@ -150,7 +150,10 @@ classdef LD_observations_set
             obj_out.pts_mat = reshape(obj_out.pts_in,obj_out.ndim,[]);
         end
         % function [theta_mat,pSjh,pSjhR1,pSj0R1,pSj1R1,pSjR1] = read_jet_sol_h_data(obj,nt_,nSmat_)
-        function [theta_mat,pSjh,pSjhR1,pSj0R1,pSj1R1] = read_jet_sol_h_data(obj,nt_,nSmat_)
+        function [R_svd,R_h_svd,theta_mat,pSjh,pSjhR1,pSj0R1,pSj1R1] = read_jet_sol_h_data(obj,nSVD_,nt_,nSmat_)
+            R_svd = obj.read_LD_svd(nSVD_{1});
+            R_h_svd = obj.read_LD_svd(nSVD_{2});
+
             theta_mat = LD_aux.read_Tmat([obj.dir_name '/' obj.dat_name nt_ '.' obj.dat_suff]);
 
             pSjh = read_pts_struct([obj.dir_name '/' obj.dat_name nSmat_{1} '.' obj.dat_suff]);

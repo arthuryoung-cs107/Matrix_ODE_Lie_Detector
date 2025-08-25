@@ -21,7 +21,8 @@
     we proceed with "denoising" the input data by searching for the underlying smooth vector field.
 */
 // const char dir_name[] = "./denoise_data_directory/Gaussian_IC_perturbation/"; // data directory
-const char dir_name[] = "./denoise_data_directory/Gaussian_IC_perturbation/rendering_data/"; // data directory
+// const char dir_name[] = "./denoise_data_directory/Gaussian_IC_perturbation/rendering_data/"; // data directory
+const char dir_name[] = "./denoise_data_directory/Uniform_IC_perturbation/rendering_data/"; // data directory
 const char obs_name[] = "Riccati_xrange0_noise0_DoP853gen"; // name of observations file
 // const char obs_name[] = "Riccati_xrange0_noise1_DoP853gen.jsol_R1"; // name of observations file
 
@@ -40,33 +41,34 @@ const int data_dnp1xu_name_len = sprintf(data_dnp1xu_name,"%s%s%s%s", dir_name,o
 
 // ode_solspc_meta meta0(1,1); // Riccati equation : n = 1, q = 1
 
+const bool v_verbose = false;
+const bool Rmat_h_exp = false;
+const bool stop_blowup = true;
+
+const double res_ratio_tol = 1e-10;
+const int write_sched_early = 5;
+
 // const int ndns_max = 3; // max permitted denoising steps
 // const int ndns_max = 5; // max permitted denoising steps
-const int ndns_max = 10;
+// const int ndns_max = 10;
 // const int ndns_max = 20;
 // const int ndns_max = 30;
 // const int ndns_max = 40;
 // const int ndns_max = 50;
 // const int ndns_max = 100;
-const int write_sched = 2;
-
-const int write_sched_early = 5;
-
-const double res_ratio_tol = 1e-15;
-
-const bool v_verbose = false;
-const bool Rmat_h_exp = false;
+// const int write_sched = 2;
 
 // const int ndns_max = 100;
-// const int ndns_max = 200;
+const int ndns_max = 200;
 // const int ndns_max = 300;
-// const int write_sched = 10;
+// const int ndns_max = 400;
+const int write_sched = 10;
 
 // const int ndns_max = 400;
 // const int write_sched = 20;
 
-ode_curve_observations observations(data_name);
-  // ode_curve_observations observations(data_name,data_dnp1xu_name);
+// ode_curve_observations observations(data_name);
+  ode_curve_observations observations(data_name,data_dnp1xu_name);
 
 Lie_detector detector(observations);
   ode_solcurve_chunk observations_twin(detector.meta0,detector.ncrv,detector.npts_per_crv);
@@ -252,9 +254,10 @@ struct global_R1mat_experiment : public ode_solspc_meta
             " i=%d, res_i = %.8f ( res_i/res_0 = %.1e )"
             "\n", nsmooth, res_i, res_i/res_1);
 
-     if (nsmooth >= ndns_max) break;
-     if (res_i > res_old) break;
-     if ((res_i/res_1) < res_ratio_tol ) break;
+     if ( nsmooth >= ndns_max ) break;
+     if ( (stop_blowup)&&(res_i > res_old) ) break;
+     if ( (res_i/res_1) < res_ratio_tol ) break;
+
      res_old = res_i;
     } while (true);
     double work_time = LD_threads::toc(t0);

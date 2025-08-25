@@ -6,7 +6,8 @@ scrn_id = 1;
 % dir_name = '../data_directory';
 % dir_name = '../denoise_data_directory';
 % dir_name = '../denoise_data_directory/Gaussian_IC_perturbation';
-dir_name = '../denoise_data_directory/Gaussian_IC_perturbation/rendering_data';
+% dir_name = '../denoise_data_directory/Gaussian_IC_perturbation/rendering_data';
+dir_name = '../denoise_data_directory/Uniform_IC_perturbation/rendering_data';
 % dense_dir_name = '../dense_data_directory/Gaussian_IC_perturbation';
 dat_suff = 'lddat';
 
@@ -89,13 +90,14 @@ nse_plot1 = LD_denoise_plots.plot_denoised_trajectories(LD_plots('Sdns', ...
 nse_plot1.show_toolbar();
 % return
 
+Rsvd_g_names = { 'Rsvd_g' ; 'Rsvd_h_g' };
 jet_sol_names = { '.jsol_h'; ...
 '.jsol_h_R1'; ...
 '.jsol_0_R1'; ...
 '.jsol_1_R1'; ...
 };
 % '.jsol_R1' ; ...
-[theta_jsh,pSjh,pSjhR1,pSj0R1,pSj1R1] = Snse.read_jet_sol_h_data('.theta_mat', jet_sol_names);
+[Rsvd_g_0,Rsvd_h_g_0,theta_jsh,pSjh,pSjhR1,pSj0R1,pSj1R1] = Snse.read_jet_sol_h_data(Rsvd_g_names,'.theta_mat', jet_sol_names);
 % [theta_jsh,pSjh,pSjhR1,pSj0R1,pSj1R1,pSjR1] = Snse.read_jet_sol_h_data('.theta_mat', jet_sol_names);
 % [theta_jsh_1,pSjh_1,pSjhR1_1,pSj0R1_1,pSj1R1_1,pSjR1_1] = Snse_dns1.read_jet_sol_h_data('.theta_mat', jet_sol_names);
 

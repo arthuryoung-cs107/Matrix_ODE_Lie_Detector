@@ -590,17 +590,23 @@ struct LD_spectral_tvfield : public LD_trivial_vector_field
     {
       const double  ww_i = sigma_min()/sv[ith], // scaled Moore-Penrose pseudoinverse
                     w_i = ww_i*ww_i; // squared to reflect squared scaling of vx_ith
+
       // if (ww_i>1e-10)
       // if (ww_i>1e-6)
       // if (ww_i>1e-4)
       // if (ww_i>=1e-2)
-      // {
+
+      // if (ww_i>1e-10)
+      // if (ww_i>1e-5)
+      // if (ww_i>1e-4)
+      if (ww_i>1e-6)
+      {
         double  vx_ith = 0.0;
         for (int i = 0; i < len_lam; i++) vx_ith += VTm[ith][i]*lamvec_local[i];
 
         for (int i = 0; i < len_theta; i++) theta_[i] += w_i*vx_ith*VTm[ith][i];
         Wnet += w_i*vx_ith*vx_ith;
-      // }
+      }
     }
     for (int i = 0; i < len_theta; i++) theta_[i] /= Wnet; // normalize local parameters
   }
