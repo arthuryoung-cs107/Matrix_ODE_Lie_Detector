@@ -346,6 +346,45 @@ struct global_R1mat_experiment : public ode_solspc_meta
     Rsvdg_.decompose_U();
     Rsvdg_.unpack_VTmat(VTm_out_);
   }
+  void exp_trivial_Rmat_Hermites(tjet_chart **tjc_, ode_trivial_soljet **tsj_, int nobs_, double *sv_, double **VTm_)
+  {
+    #pragma omp parallel
+    {
+      const int t_id = LD_threads::thread_id();
+      LD_spectral_tvfield &tvf_t = *(tvfields0[t_id]);
+        tvf_t.set_SVD_space(sv_,VTm_);
+
+     #pragma omp for
+     for (int iobs = 0; iobs < nobs_; iobs++)
+     {
+       // reevaluate flows by R pseudoinverse corrected Hermite jets.
+       tjet_chart &tjchart_i = *(tjc_[iobs]);
+       ode_trivial_soljet &tsjet_i = *(tsj_[iobs]);
+
+       // use 0'th order Hermite jet info to compute local theta via pseudoinverse of R1 matrix
+       tvf_t.comp_spectral_theta_local(tjchart_i.solh.x,tjchart_i.solh.u);
+       // the result is an improved estimate of the derivatives at interior colocation point
+       tvf_t.eval_prn_theta_image(tjchart_i.solh_alt,det.kor);
+
+
+     }
+    }
+    //
+    // if ( sout_[iobs] != sin_[iobs] ) sout_[iobs]->copy_xu(*(sin_[iobs])); // make sure synced
+    //
+    // // use 0'th order Hermite jet info to compute local theta via pseudoinverse of R1 matrix
+    // tvf_t.comp_spectral_theta_local(sout_[iobs]->x,sout_[iobs]->u);
+    // // the result is an improved estimate of the derivatives at interior colocation point
+    // tvf_t.eval_prn_theta_image(*(sout_[iobs]),kor);
+    //
+    // Renc_.encode_normalize_rows(
+    //     Renc_.submat_i(Rsvdg_.Umat,iobs), // submatrix of R associated with observation i
+    //     fbse_t, // thread local prolongation workspace
+    //     *(sout_[iobs]), // jet space data associated with observation i
+    //     false // normalization flag (off by default)
+    //   );
+
+  }
   void exp_trivial_flows(tjet_chart **tjc_, int nobs_, double *sv_, double **VTm_)
   {
     #pragma omp parallel
@@ -362,10 +401,6 @@ struct global_R1mat_experiment : public ode_solspc_meta
       for (int iobs = 0; iobs < nobs_; iobs++)
       {
         tjet_chart &tjchart_i = *(tjc_[iobs]);
-
-        // reevaluate flows by corrected Hermite
-        ode_trivial_sjet &tsjet_i = *();
-
 
         // reevaluate forward flow by numerical quadrature
           tgen_t.flow_forward = true; // flow varies directly with x

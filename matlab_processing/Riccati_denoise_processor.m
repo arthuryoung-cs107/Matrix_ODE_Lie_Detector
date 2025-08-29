@@ -41,8 +41,21 @@ noise_level = 0;
 Snse = LD_observations_set(dir_name,eqn_name,['noise' num2str(noise_level)],'DoP853', dat_suff);
 % solspc_nse_plot = LD_plots.plot_solspc(Snse,LD_plots('Snse',[4 4],[1 4],[2 1],1),spc);
 
+Rsvd_g_names = { 'Rsvd_g' ; 'Rsvd_h_g' };
+jet_sol_names = { '.jsol_h'; ...
+'.jsol_h_R1'; ...
+'.jsol_0_R1'; ...
+'.jsol_1_R1'; ...
+};
+% '.jsol_R1' ; ...
+[Rsvd_g_0,Rsvd_h_g_0,theta_jsh,pSj] = Snse.read_jet_sol_h_data(Rsvd_g_names,'.theta_mat', jet_sol_names);
+pSj_cells = LD_observations_set.pts_struct_2_cell(pSj);
+
 Sref.crvs = Sref.make_curve_array;
 Snse.crvs = Snse.make_curve_array;
+
+pts_ref_cell = Sref.pts_cell();
+pts_nse_cell = Snse.pts_cell();
 
 % Snse1 = LD_observations_set(dir_name,eqn_name,['noise' num2str(1)],'DoP853', dat_suff);
 % Snse2 = LD_observations_set(dir_name,eqn_name,['noise' num2str(2)],'DoP853', dat_suff);
@@ -70,33 +83,78 @@ Snse.crvs = Snse.make_curve_array;
 % rwimg_Rn_g_n2 = Snse2.read_rowspace_image('Rnsvd_global',fam_name,bor);
 % rwimg_Rn_st_g_n2 = Snse2.read_rowspace_image('Rnsvd_strue_global',fam_name,bor);
 
-%% inspecting one curve
+%% inspecting curves
+ncrv_ref = Sref.ncrv;
+
 i_crv = 1;
 % i_crv = 2;
 % i_crv = 3;
 
 % Snse_dns1 = LD_observations_set(dir_name,eqn_name,['noise' num2str(noise_level)],'DoP853','.jsol_R1_1', dat_suff);
 
-tdim_S_mesh = 5;
-tdim_S_wdth = 5;
-tdim_S_hght = 2;
+tdim_S_mesh = 13;
+tdim_S_wdth = tdim_S_mesh;
+tdim_S_hght = 3;
+
+nplt = 2;
+slnspc_plts = LD_plots.empty(nplt,0);
+for i = 1:nplt
+    slnspc_plts(i) = LD_plots(['Sdns_plt', num2str(i)], ...
+                    [tdim_S_mesh tdim_S_mesh],...
+                    [tdim_S_hght tdim_S_wdth],[(tdim_S_hght+1)*(i+1) 1], ...
+                scrn_id);
+end
+
+spc.color = [0 0 0 0.25];
+[spc.lspec,spc.lw,spc.mspec,spc.ms] = deal('none',1,'.',5);
+slnspc_ref_plt = LD_plots.plot_pts(pts_ref_cell(1:ncrv_ref), ...
+                            meta0,slnspc_plts(1),spc);
+spc.color = [1 0 0 1];
+[spc.lspec,spc.lw,spc.mspec,spc.ms] = deal('none',1,'s',1);
+slnspc_ref_plt = LD_plots.plot_pts(pts_nse_cell(1), ...
+                        meta0,slnspc_ref_plt,spc);
+
+spc.color = [1 0 0 0.25];
+[spc.lspec,spc.lw,spc.mspec,spc.ms] = deal('none',1,'.',5);
+slnspc_nse_plt = LD_plots.plot_pts(pts_nse_cell(1:ncrv_ref), ...
+                            meta0,slnspc_plts(2),spc);
+spc.color = [0 0 0 1];
+[spc.lspec,spc.lw,spc.mspec,spc.ms] = deal('none',1,'.',5);
+slnspc_nse_plt = LD_plots.plot_pts(pts_ref_cell(1), ...
+                        meta0,slnspc_nse_plt,spc);
+
+
+
+
+
+i_crv = 1;
 spc.color = [0 0 0 0.2];
-% nse_plot1 = LD_denoise_plots.plot_observed_trajectories(LD_plots('Snse', ...
-nse_plot1 = LD_denoise_plots.plot_denoised_trajectories(LD_plots('Sdns', ...
-                                                        [tdim_S_mesh tdim_S_mesh],[tdim_S_hght tdim_S_wdth],[tdim_S_hght 1],scrn_id), ...
+plt0 = LD_plots('Sdns', ...
+                [tdim_S_mesh tdim_S_mesh],...
+                    [tdim_S_hght tdim_S_wdth],[tdim_S_hght 1], ...
+                scrn_id);
+nse_plot1 = LD_denoise_plots.plot_denoised_trajectories(plt0, ...
                                                         spc, ...
                                                         Sref,Snse,i_crv);
 % nse_plot1.show_menubar();
 nse_plot1.show_toolbar();
 % return
 
-Rsvd_g_names = { 'Rsvd_g' ; 'Rsvd_h_g' };
-jet_sol_names = { '.jsol_h'; ...
-'.jsol_h_R1'; ...
-'.jsol_0_R1'; ...
-'.jsol_1_R1'; ...
-};
-% '.jsol_R1' ; ...
+
+return
+
+
+
+
+
+
+
+
+
+
+
+
+
 [Rsvd_g_0,Rsvd_h_g_0,theta_jsh,pSjh,pSjhR1,pSj0R1,pSj1R1] = Snse.read_jet_sol_h_data(Rsvd_g_names,'.theta_mat', jet_sol_names);
 % [theta_jsh,pSjh,pSjhR1,pSj0R1,pSj1R1,pSjR1] = Snse.read_jet_sol_h_data('.theta_mat', jet_sol_names);
 % [theta_jsh_1,pSjh_1,pSjhR1_1,pSj0R1_1,pSj1R1_1,pSjR1_1] = Snse_dns1.read_jet_sol_h_data('.theta_mat', jet_sol_names);

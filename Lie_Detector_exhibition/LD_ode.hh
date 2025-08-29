@@ -329,11 +329,11 @@ struct ode_jetspc_element : public ode_solspc_element
   inline int F_lk(int l_,int k_) {return jmeta.get_F_lder_kcol(l_,k_);}
 };
 
-struct ode_sjet : public ode_jetspc_element
+struct ode_soljet : public ode_jetspc_element
 {
-  ode_sjet(ode_jetspc_meta &jmeta_, double *avec_, double e0_=0.0) : ode_jetspc_element(jmeta_),
+  ode_soljet(ode_jetspc_meta &jmeta_, double *avec_, double e0_=0.0) : ode_jetspc_element(jmeta_),
     avec(avec_), e0(e0_) {}
-  ~ode_sjet() {}
+  ~ode_soljet() {}
   double  * const avec,
                   e0;
 

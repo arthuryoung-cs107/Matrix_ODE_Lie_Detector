@@ -149,24 +149,27 @@ classdef LD_observations_set
 
             obj_out.pts_mat = reshape(obj_out.pts_in,obj_out.ndim,[]);
         end
-        % function [theta_mat,pSjh,pSjhR1,pSj0R1,pSj1R1,pSjR1] = read_jet_sol_h_data(obj,nt_,nSmat_)
-        function [R_svd,R_h_svd,theta_mat,pSjh,pSjhR1,pSj0R1,pSj1R1] = read_jet_sol_h_data(obj,nSVD_,nt_,nSmat_)
+        % function [theta_mat,pSj] = read_jet_sol_h_data(obj,nt_,nSmat_)
+        function [R_svd,R_h_svd,theta_mat,pSj] = read_jet_sol_h_data(obj,nSVD_,nt_,nSmat_)
             R_svd = obj.read_LD_svd(nSVD_{1});
             R_h_svd = obj.read_LD_svd(nSVD_{2});
 
             theta_mat = LD_aux.read_Tmat([obj.dir_name '/' obj.dat_name nt_ '.' obj.dat_suff]);
 
-            pSjh = read_pts_struct([obj.dir_name '/' obj.dat_name nSmat_{1} '.' obj.dat_suff]);
-            pSjhR1 = read_pts_struct([obj.dir_name '/' obj.dat_name nSmat_{2} '.' obj.dat_suff]);
-            pSj0R1 = read_pts_struct([obj.dir_name '/' obj.dat_name nSmat_{3} '.' obj.dat_suff]);
-            pSj1R1 = read_pts_struct([obj.dir_name '/' obj.dat_name nSmat_{4} '.' obj.dat_suff]);
-            % pSjR1 = read_pts_struct([obj.dir_name '/' obj.dat_name nSmat_{5} '.' obj.dat_suff]);
+            % pSjh = read_pts_struct([obj.dir_name '/' obj.dat_name nSmat_{1} '.' obj.dat_suff]);
+            % pSjhR1 = read_pts_struct([obj.dir_name '/' obj.dat_name nSmat_{2} '.' obj.dat_suff]);
+            % pSj0R1 = read_pts_struct([obj.dir_name '/' obj.dat_name nSmat_{3} '.' obj.dat_suff]);
+            % pSj1R1 = read_pts_struct([obj.dir_name '/' obj.dat_name nSmat_{4} '.' obj.dat_suff]);
+            % pSj = [pSjh; pSjhR1; pSj0R1; pSj1R1];
 
-            pSjh.pts_crv_inds = LD_observations_set.pts_crv_inds(obj.ndim,pSjh.npts_per_crv);
-            pSjhR1.pts_crv_inds = LD_observations_set.pts_crv_inds(obj.ndim,pSjhR1.npts_per_crv);
-            pSj0R1.pts_crv_inds = LD_observations_set.pts_crv_inds(obj.ndim,pSj0R1.npts_per_crv);
-            pSj1R1.pts_crv_inds = LD_observations_set.pts_crv_inds(obj.ndim,pSj1R1.npts_per_crv);
-            % pSjR1.pts_crv_inds = LD_observations_set.pts_crv_inds(obj.ndim,pSjR1.npts_per_crv);
+            pSj = [ read_pts_struct([obj.dir_name '/' obj.dat_name nSmat_{1} '.' obj.dat_suff]); ...
+                    read_pts_struct([obj.dir_name '/' obj.dat_name nSmat_{2} '.' obj.dat_suff]); ...
+                    read_pts_struct([obj.dir_name '/' obj.dat_name nSmat_{3} '.' obj.dat_suff]); ...
+                    read_pts_struct([obj.dir_name '/' obj.dat_name nSmat_{4} '.' obj.dat_suff])];
+
+            for i = 1:length(pSj)
+                pSj(i).pts_crv_inds = LD_observations_set.pts_crv_inds(obj.ndim,pSj(i).npts_per_crv);
+            end
         end
         function rowimg_out = read_rowspace_image(obj,name_,fam_,bor_)
             name_tc = [obj.dir_name '/' obj.dat_name '_' fam_ '.' num2str(bor_) '.' name_ '_theta_chunk.' obj.dat_suff];
@@ -452,6 +455,33 @@ classdef LD_observations_set
         end
     end
     methods (Static)
+        function pts_cell_out = pts_struct_2_cell(pS_,icrvs_)
+            if (nargin == 2)
+                icrvs = icrvs_;
+            else
+                icrvs = 1:(pS_(1).ncrv);
+            end
+            pS1 = pS_(1);
+
+            ncell = prod(size(pS_));
+            pts_cell_1 = LD_observations_set.dat_cell( 1+((pS1.ndep)*(pS1.eor+1)), ...
+                                                    pS1.pts_in, ...
+                                                    icrvs, ...
+                                                    pS1.npts_per_crv  );
+            if (ncell==1)
+                pts_cell_out = pts_cell_1;
+            else
+                pts_cell_out = cell([pS_(1).ncrv,ncell]);
+                pts_cell_out(:,1) = pts_cell_1;
+                for i = 2:ncell
+                    pts_cell_out(:,i) = LD_observations_set.dat_cell( 1+((pS_(i).ndep)*(pS_(i).eor+1)), ...
+                                                            pS_(i).pts_in, ...
+                                                            icrvs, ...
+                                                            pS_(i).npts_per_crv  );
+                end
+            end
+
+        end
         function crvs_out = regularize_curve_jets(crvs_,sigma_,lam_)
             if (nargin==1)
                 sigma = ones(crvs_(1).jets.kor+1,crvs_(1).jets.ndep);

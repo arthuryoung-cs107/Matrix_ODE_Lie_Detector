@@ -28,18 +28,24 @@ class curve_Lie_detector
 
     ode_solcurve &crv, // observed trajectory
                   crv_h; // induced trajectory of colocation points
-    ode_trivial_curvejet tcrvjets; // deterministic M'th order Hermite jet approximation
+      ode_solution ** const sols,
+                   ** const sols_h;
+    ode_trivial_curvejet tcrvjets; // deterministic M'th order Hermite jet approximation, organized over whole curve.
+      ode_trivial_soljet ** const tsoljets; // array of pointers to individual jets
 
-    tjet_chart ** const tjcharts;
+    tjet_chart ** const tjcharts; // charts over which we compute trivial Hermite jets
 
     curve_Lie_detector(ode_solcurve &crv_,ode_jetspc_meta &jmeta_trivial_,bool palloc_,bool Jalloc_) :
       kor(ode_jetspc_meta::comp_kor(jmeta_trivial_.jor)),
       palloc(palloc_), Jalloc(Jalloc_),
       nobs_f(crv_.nobs), nobs_h(crv_.nobs-1),
       crv(crv_),
+        sols(crv_.sols),
         crv_h(crv_.icrv,crv_.meta,nobs_h,palloc,Jalloc),
+          sols_h(crv_h.sols),
         tcrvjets(crv_,jmeta_trivial_),
-      tjcharts(new tjet_chart*[nobs_h])
+          tsoljets(tcrvjets.tjets),
+        tjcharts(new tjet_chart*[nobs_h])
       {
         for (int i = 0; i < nobs_h; i++)
           tjcharts[i] = new tjet_chart(*(crv_h.sols[i]),*(crv.sols[i]),*(crv.sols[i+1]));
@@ -137,6 +143,7 @@ class Lie_detector
 
     ode_jetspc_meta jmeta_trivial;
     ode_trivial_curvejet ** const tcrvjets;
+    ode_trivial_soljet ** const tsoljets;
 
     Lie_detector(ode_curve_observations &obs_,bool verbose_=true) :
       palloc(obs_.dnp1xu_in!=NULL), Jalloc(obs_.JFs_in!=NULL),
@@ -157,7 +164,8 @@ class Lie_detector
         curves_h(new ode_solcurve*[ncrv]),
       cdets(new curve_Lie_detector*[ncrv]),
       jmeta_trivial(meta0, 2*(kor+1)-1 ),
-        tcrvjets(new ode_trivial_curvejet*[ncrv])
+        tcrvjets(new ode_trivial_curvejet*[ncrv]),
+          tsoljets(new ode_trivial_soljet*[nobs-ncrv])
       {
         int net_clcp = 0,
             net_Lmat_rows = 0,
@@ -180,20 +188,21 @@ class Lie_detector
             cdets[icrv] = new curve_Lie_detector(*(curves[icrv]),jmeta_trivial,palloc,Jalloc);
               curves_h[icrv] = &(cdets[icrv]->crv_h);
               tcrvjets[icrv] = &(cdets[icrv]->tcrvjets);
+
             for (int isol = 0, ipts_h=ipts-icrv; isol < cdets[icrv]->nobs_h; isol++,ipts_h++)
             {
-              sols_h[ipts_h] = curves_h[icrv]->sols[isol];
+              // initializing global point cloud colocation point data
+              sols_h[ipts_h] = cdets[icrv]->sols_h[isol];
               tjcharts[ipts_h] = cdets[icrv]->tjcharts[isol];
                 sols_h_alt[ipts_h] = &(tjcharts[ipts_h]->solh_alt);
+              tsoljets[ipts_h] = cdets[icrv]->tsoljets[isol];
 
               // solving Hermite jet via LU decomposition, solved in place
-              tcrvjets[icrv]->set_trivial_Amat(LUmat_t,isol);
+              tsoljets[ipts_h]->set_trivial_Amat(LUmat_t);
               lu_t.decompose_A();
-
               for (int i = 0; i < ndep; i++)
-                lu_t.solve_system(tcrvjets[icrv]->set_trivial_bvec(isol,i));
-
-              tcrvjets[icrv]->tjets[isol]->set_sol_h( *(curves_h[icrv]->sols[isol]) );
+                lu_t.solve_system(tsoljets[ipts_h]->set_trivial_bvec(i));
+              tsoljets[ipts_h]->set_sol_h( *(sols_h[ipts_h]) );
                 cdets[icrv]->tjcharts[isol]->reload_sol_h(); // sync sol_h and sol_h_alt
             }
 
@@ -235,6 +244,7 @@ class Lie_detector
       delete [] curves;
         delete [] curves_h;
         delete [] tcrvjets;
+          delete [] tsoljets;
     }
 
     void print_details(bool detailed_=false, const char preamble_[]="", const char postscript_[]="\n")
@@ -285,7 +295,7 @@ class Lie_detector
           get_icrvisol_h_given_iobs_h(icrv_t,isol_t,iobs);
           ode_solution &obs0_i = *(crvs_[icrv_t]->sols[isol_t]),
                        &obs1_i = *(crvs_[icrv_t]->sols[isol_t+1]);
-          ode_trivial_sjet &tjet_i = *(tcrvjets[icrv_t]->tjets[isol_t]);
+          ode_trivial_soljet &tjet_i = *(tcrvjets[icrv_t]->tjets[isol_t]);
 
           tjet_i.set_trivial_Amat(LUmat_t,obs0_i,obs1_i);
           lu_t.decompose_A();

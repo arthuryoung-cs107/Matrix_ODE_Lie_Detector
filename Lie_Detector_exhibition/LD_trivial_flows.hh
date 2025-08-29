@@ -46,14 +46,14 @@ struct ode_trivial_1jet : public ode_jetspc_element
   inline double dkxui_hat(int k_, int i_) {return (k_<=jor)?( acube_coeffs[i_][k_]*F_lk(k_,k_) ):(0.0);}
 };
 
-struct ode_trivial_sjet : public ode_sjet
+struct ode_trivial_soljet : public ode_soljet
 {
-  ode_trivial_sjet(ode_jetspc_meta &jmeta_,double *avec_,ode_solution &sol0_,ode_solution &sol1_) :
-    ode_sjet(jmeta_,avec_,0.5*(sol0_.x + sol1_.x)),
+  ode_trivial_soljet(ode_jetspc_meta &jmeta_,double *avec_,ode_solution &sol0_,ode_solution &sol1_) :
+    ode_soljet(jmeta_,avec_,0.5*(sol0_.x + sol1_.x)),
     t1jet(jmeta_,sol0_,sol1_),
     sol0(sol0_), sol1(sol1_)
     {}
-  ~ode_trivial_sjet() {}
+  ~ode_trivial_soljet() {}
 
   ode_trivial_1jet t1jet;
 
@@ -63,7 +63,7 @@ struct ode_trivial_sjet : public ode_sjet
 
   void print_jet_details()
   {
-    printf("(ode_trivial_sjet::print_jet_details) jor = %d, alpha coefficients: \n  ", jor);
+    printf("(ode_trivial_soljet::print_jet_details) jor = %d, alpha coefficients: \n  ", jor);
     for (int i = 0; i < ndep; i++)
     {
       double *avec_i = a_i(i);
@@ -156,7 +156,7 @@ struct ode_trivial_curvejet : public ode_solspc_element // assumes input points 
     jmeta_trivial(jmeta_trivial_),
     nxh(crv_.nobs-1),
     achunk_tjets(new double[nxh*ndep*(jmeta_trivial.jor+1)]),
-    tjets(new ode_trivial_sjet*[nxh]),
+    tjets(new ode_trivial_soljet*[nxh]),
     meta_1jet(1,ndep),
     fspc_1jet(meta_1jet,3),
       fbse_1jet(fspc_1jet),
@@ -164,7 +164,7 @@ struct ode_trivial_curvejet : public ode_solspc_element // assumes input points 
       R1svd_f1jet(ndep*(crv_.nobs),fspc_1jet.ndof_full)
     {
       for (int i = 0, ia = 0, alen = ndep*(jmeta_trivial.jor+1); i < nxh; i++, ia+=alen)
-        tjets[i] = new ode_trivial_sjet(jmeta_trivial,
+        tjets[i] = new ode_trivial_soljet(jmeta_trivial,
                                         achunk_tjets+ia,
                                         *(crv_.sols[i]),
                                         *(crv_.sols[i+1]));
@@ -192,7 +192,7 @@ struct ode_trivial_curvejet : public ode_solspc_element // assumes input points 
   const int nxh;
   double * const achunk_tjets;
 
-  ode_trivial_sjet ** const tjets;
+  ode_trivial_soljet ** const tjets;
 
   ode_solspc_meta meta_1jet;
   orthopolynomial_space fspc_1jet; // unmapped multinomials by default
