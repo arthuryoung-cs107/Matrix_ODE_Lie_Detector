@@ -43,7 +43,8 @@ const int data_dnp1xu_name_len = sprintf(data_dnp1xu_name,"%s%s%s%s", dir_name,o
 
 const bool v_verbose = false;
 const bool Rmat_h_exp = false;
-const bool stop_blowup = true;
+// const bool stop_blowup = true;
+const bool stop_blowup = false;
 
 const double res_ratio_tol = 1e-10;
 const int write_sched_early = 5;
@@ -362,25 +363,31 @@ struct global_R1mat_experiment : public ode_solspc_meta
       {
         tjet_chart &tjchart_i = *(tjc_[iobs]);
 
-        // reevaluate forward flow
-        tgen_t.flow_forward = true; // flow varies directly with x
-        for (int i = 0; i <= ndep; i++) s_state_t[i] = tjchart_i.solh.pts[i];
-        // specify del_x for dense output. Note that curve id irrelevant here
-        intgr_t.init_curve_integration((tjchart_i.sol1.x-tjchart_i.solh.x)/((double) (nsnap-1)),0);
-        intgr_t.set_and_solve_time(0.0,tjchart_i.sol1.x-tjchart_i.solh.x,nsnap,integr_wkspc_t);
-        for (int i = 0; i <= ndep; i++) tjchart_i.sol1_alt.pts[i] = s_state_t_f[i];
-        tvf_t.comp_spectral_theta_local(tjchart_i.sol1_alt.x,tjchart_i.sol1_alt.u);
-        tvf_t.eval_prn_theta_image(tjchart_i.sol1_alt,det.kor);
+        // reevaluate flows by corrected Hermite
+        ode_trivial_sjet &tsjet_i = *();
 
-        // reevaluate backward flow
-        tgen_t.flow_forward = false; // flow varies oppositely with x
-        for (int i = 0; i <= ndep; i++) s_state_t[i] = tjchart_i.solh.pts[i];
-        // specify del_x for dense output. Note that curve id irrelevant here
-        intgr_t.init_curve_integration((tjchart_i.solh.x-tjchart_i.sol0.x)/((double) (nsnap-1)),0);
-        intgr_t.set_and_solve_time(0.0,tjchart_i.solh.x-tjchart_i.sol0.x,nsnap,integr_wkspc_t);
-        for (int i = 0; i <= ndep; i++) tjchart_i.sol0_alt.pts[i] = s_state_t_f[i];
-        tvf_t.comp_spectral_theta_local(tjchart_i.sol0_alt.x,tjchart_i.sol0_alt.u);
-        tvf_t.eval_prn_theta_image(tjchart_i.sol0_alt,det.kor);
+
+        // reevaluate forward flow by numerical quadrature
+          tgen_t.flow_forward = true; // flow varies directly with x
+          for (int i = 0; i <= ndep; i++) s_state_t[i] = tjchart_i.solh.pts[i];
+          // specify del_x for dense output. Note that curve id irrelevant here
+          intgr_t.init_curve_integration((tjchart_i.sol1.x-tjchart_i.solh.x)/((double) (nsnap-1)),0);
+          intgr_t.set_and_solve_time(0.0,tjchart_i.sol1.x-tjchart_i.solh.x,nsnap,integr_wkspc_t);
+          for (int i = 0; i <= ndep; i++) tjchart_i.sol1_alt.pts[i] = s_state_t_f[i];
+          tvf_t.comp_spectral_theta_local(tjchart_i.sol1_alt.x,tjchart_i.sol1_alt.u);
+          tvf_t.eval_prn_theta_image(tjchart_i.sol1_alt,det.kor);
+
+        ////////////////
+
+        // reevaluate backward flow by numerical quadrature
+          tgen_t.flow_forward = false; // flow varies oppositely with x
+          for (int i = 0; i <= ndep; i++) s_state_t[i] = tjchart_i.solh.pts[i];
+          // specify del_x for dense output. Note that curve id irrelevant here
+          intgr_t.init_curve_integration((tjchart_i.solh.x-tjchart_i.sol0.x)/((double) (nsnap-1)),0);
+          intgr_t.set_and_solve_time(0.0,tjchart_i.solh.x-tjchart_i.sol0.x,nsnap,integr_wkspc_t);
+          for (int i = 0; i <= ndep; i++) tjchart_i.sol0_alt.pts[i] = s_state_t_f[i];
+          tvf_t.comp_spectral_theta_local(tjchart_i.sol0_alt.x,tjchart_i.sol0_alt.u);
+          tvf_t.eval_prn_theta_image(tjchart_i.sol0_alt,det.kor);
 
       }
     }
