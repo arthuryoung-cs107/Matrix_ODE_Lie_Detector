@@ -73,6 +73,13 @@ struct ode_trivial_soljet : public ode_soljet
     printf("s0, sh, s1:\n");
     for (int i = 0; i < ndim; i++) printf("   %.3e, %.3e, %.3e \n", sol0.s_idim(i),s_hat_idim(i),sol1.s_idim(i));
   }
+  inline void set_solh_coeffs(ode_solution &solh_)
+  {
+    const int kor = comp_kor();
+    for (int k = 0; k <= kor; k++)
+      for (int i = 0; i < ndep; i++)
+        set_aki_dkxui_hat(k,i,solh_.dkui(k,i));
+  }
   inline void stage_regularized_trivial_jet(double **bm_,double ***At_,double *sv_,double *lv_)
   {
     const int kor = comp_kor();
@@ -135,6 +142,9 @@ struct ode_trivial_soljet : public ode_soljet
       for (int i = 0; i < ndep; i++, iu++)
         sol_h_.u[iu] = dkxui_hat(k,i);
   }
+
+  inline void set_aki_dkxui_hat(int k_, int i_, double dkxui_)
+  { if (k_<=jor) avec[k_ + i_*(jor+1)] = dkxui_/F_lk(k_,k_); }
 
   inline double ui_hat(int i_) {return a_ij(i_,0);}
   inline double dkxui_hat(int k_, int i_) {return (k_<=jor)?( a_ij(i_,k_)*F_lk(k_,k_) ):(0.0);}

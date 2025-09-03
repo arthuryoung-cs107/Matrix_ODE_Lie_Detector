@@ -211,13 +211,11 @@ struct global_R1mat_experiment : public ode_solspc_meta
     encode_decompose_R_matrix_global(VTmat_global,Rsvd_global,Renc,sols,nobs);
       Rsvd_global.print_result("  Rsvd_global (0)");
 
-    if (Rmat_h_exp)
-    {
-      smooth_enc_decomp_trivial_flows(VTmat_h_global,Rsvd_h_global,sols_h_alt, // output args
-                                        nobs_h,Renc,sols_h,svec_global,VTmat_global); // input args
-        Rsvd_h_global.print_result("  Rsvd_h_global (0)");
-      exp_trivial_flows(tjcharts,nobs_h,svec_h_global,VTmat_h_global);
-    }
+    smooth_enc_decomp_trivial_flows(VTmat_h_global,Rsvd_h_global,sols_h_alt, // output args
+                                      nobs_h,Renc,sols_h,svec_global,VTmat_global); // input args
+      Rsvd_h_global.print_result("  Rsvd_h_global (0)");
+
+    if (Rmat_h_exp) exp_trivial_flows(tjcharts,nobs_h,svec_h_global,VTmat_h_global);
     else exp_trivial_flows(tjcharts,nobs_h,svec_global,VTmat_global);
 
     double res_1 = det.combine_trivial_flows(curves_alt,curves);
@@ -318,7 +316,6 @@ struct global_R1mat_experiment : public ode_solspc_meta
   void smooth_enc_decomp_trivial_flows(double **VTm_out_,LD_svd &Rsvdg_,ode_solution **sout_,
     int nobs_,LD_R_encoder &Renc_,ode_solution **sin_,double *sv_,double **VTm_)
   {
-    const int kor = (Renc_.ncod)/det.ndep;
     #pragma omp parallel
     {
       const int t_id = LD_threads::thread_id();
@@ -333,7 +330,7 @@ struct global_R1mat_experiment : public ode_solspc_meta
         // use 0'th order Hermite jet info to compute local theta via pseudoinverse of R1 matrix
         tvf_t.comp_spectral_theta_local(sout_[iobs]->x,sout_[iobs]->u);
         // the result is an improved estimate of the derivatives at interior colocation point
-        tvf_t.eval_prn_theta_image(*(sout_[iobs]),kor);
+        tvf_t.eval_prn_theta_image(*(sout_[iobs]),det.kor);
 
         Renc_.encode_normalize_rows(
             Renc_.submat_i(Rsvdg_.Umat,iobs), // submatrix of R associated with observation i
@@ -360,29 +357,20 @@ struct global_R1mat_experiment : public ode_solspc_meta
        // reevaluate flows by R pseudoinverse corrected Hermite jets.
        tjet_chart &tjchart_i = *(tjc_[iobs]);
        ode_trivial_soljet &tsjet_i = *(tsj_[iobs]);
+       tvf_t.set_SVD_space(sv_,VTm_);
+
+       tjchart_i.solh_alt.copy_xu(tjchart_i.solh); // make sure synced
 
        // use 0'th order Hermite jet info to compute local theta via pseudoinverse of R1 matrix
        tvf_t.comp_spectral_theta_local(tjchart_i.solh.x,tjchart_i.solh.u);
        // the result is an improved estimate of the derivatives at interior colocation point
        tvf_t.eval_prn_theta_image(tjchart_i.solh_alt,det.kor);
 
+       // now modify the Hermite jet coefficients to reflect R pseudoinverse estimates
+       tsjet_i.set_solh_coeffs(tjchart_i.solh_alt);
 
      }
     }
-    //
-    // if ( sout_[iobs] != sin_[iobs] ) sout_[iobs]->copy_xu(*(sin_[iobs])); // make sure synced
-    //
-    // // use 0'th order Hermite jet info to compute local theta via pseudoinverse of R1 matrix
-    // tvf_t.comp_spectral_theta_local(sout_[iobs]->x,sout_[iobs]->u);
-    // // the result is an improved estimate of the derivatives at interior colocation point
-    // tvf_t.eval_prn_theta_image(*(sout_[iobs]),kor);
-    //
-    // Renc_.encode_normalize_rows(
-    //     Renc_.submat_i(Rsvdg_.Umat,iobs), // submatrix of R associated with observation i
-    //     fbse_t, // thread local prolongation workspace
-    //     *(sout_[iobs]), // jet space data associated with observation i
-    //     false // normalization flag (off by default)
-    //   );
 
   }
   void exp_trivial_flows(tjet_chart **tjc_, int nobs_, double *sv_, double **VTm_)

@@ -50,6 +50,8 @@ jet_sol_names = { '.jsol_h'; ...
 % '.jsol_R1' ; ...
 [Rsvd_g_0,Rsvd_h_g_0,theta_jsh,pSj] = Snse.read_jet_sol_h_data(Rsvd_g_names,'.theta_mat', jet_sol_names);
 pSj_cells = LD_observations_set.pts_struct_2_cell(pSj);
+pSj_h_cell = pSj_cells(1);
+pSj_h_R1_cell = pSj_cells(2);
 
 Sref.crvs = Sref.make_curve_array;
 Snse.crvs = Snse.make_curve_array;
@@ -104,22 +106,31 @@ for i = 1:nplt
                     [tdim_S_hght tdim_S_wdth],[(tdim_S_hght+1)*(i+1) 1], ...
                 scrn_id);
 end
-
+slnspc_ref_plt = slnspc_plts(1);
 spc.color = [0 0 0 0.25];
 [spc.lspec,spc.lw,spc.mspec,spc.ms] = deal('none',1,'.',5);
 slnspc_ref_plt = LD_plots.plot_pts(pts_ref_cell(1:ncrv_ref), ...
-                            meta0,slnspc_plts(1),spc);
+                            meta0,slnspc_ref_plt,spc);
 spc.color = [1 0 0 1];
-[spc.lspec,spc.lw,spc.mspec,spc.ms] = deal('none',1,'s',1);
+[spc.lspec,spc.lw,spc.mspec,spc.ms] = deal('none',1,'s',2);
 slnspc_ref_plt = LD_plots.plot_pts(pts_nse_cell(1), ...
                         meta0,slnspc_ref_plt,spc);
+spc.color = [LD_plots.green1 1];
+[spc.lspec,spc.lw,spc.mspec,spc.ms] = deal('none',1,'d',2);
+slnspc_ref_plt = LD_plots.plot_pts(pSj_h_cell(1), ...
+                        meta0,slnspc_ref_plt,spc);
+spc.color = [LD_plots.green4 1];
+[spc.lspec,spc.lw,spc.mspec,spc.ms] = deal('none',1,'d',2);
+slnspc_ref_plt = LD_plots.plot_pts(pSj_h_R1_cell(1), ...
+                        meta0,slnspc_ref_plt,spc);
 
+slnspc_nse_plt = slnspc_plts(2);
 spc.color = [1 0 0 0.25];
 [spc.lspec,spc.lw,spc.mspec,spc.ms] = deal('none',1,'.',5);
 slnspc_nse_plt = LD_plots.plot_pts(pts_nse_cell(1:ncrv_ref), ...
-                            meta0,slnspc_plts(2),spc);
+                            meta0,slnspc_nse_plt,spc);
 spc.color = [0 0 0 1];
-[spc.lspec,spc.lw,spc.mspec,spc.ms] = deal('none',1,'.',5);
+[spc.lspec,spc.lw,spc.mspec,spc.ms] = deal('none',1,'o',2);
 slnspc_nse_plt = LD_plots.plot_pts(pts_ref_cell(1), ...
                         meta0,slnspc_nse_plt,spc);
 
