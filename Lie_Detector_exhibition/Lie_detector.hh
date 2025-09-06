@@ -410,8 +410,71 @@ class Lie_detector
     }
     inline int comp_nobs_h() {return nobs-ncrv;}
 
+};
+
+struct Lie_detector_experiment
+{
+
+  Lie_detector &det;
+
+  const int nobs,
+            nobs_h;
+
+  // S (solution space) members, points and sets (curves)
+  ode_solcurve ** const curves,
+               ** const curves_h;
+  ode_solution ** const sols,
+               ** const sols_h,
+               ** const sols_h_alt;
+
+  // trivial jet space jets, curves, and charts
+  jet_chart ** const tjcharts;
+  ode_trivial_curvejet ** const tcjets;
+  ode_trivial_soljet ** const tsjets;
+
+  // Lie detectors on a single trivial flow
+  curve_Lie_detector ** const cdets;
+
+  Lie_detector_experiment(Lie_detector &det_) :
+    det(det_),
+    nobs(det_.nobs), nobs_h(det_.nobs - det_.ncrv),
+    curves(det.curves),
+    curves_h(det.curves_h),
+      sols(det.sols),
+      sols_h(det.sols_h),
+      sols_h_alt(det.sols_h_alt),
+    tjcharts(det.tjcharts),
+      tcjets(det.tcrvjets),
+      tsjets(det.tsoljets),
+    cdets(det.cdets)
+    {}
+  ~Lie_detector_experiment() {}
 
 };
 
+struct multinomial_experiment : public Lie_detector_experiment, public function_space_element
+{
+
+  orthopolynomial_space &fspace0;
+
+  multinomial_experiment(Lie_detector &det_, orthopolynomial_space &fspace0_) :
+    Lie_detector_experiment(det_), function_space_element(fspace0_),
+    fspace0(fspace0_),
+    svec_wkspc(new double[fspace0_.ndof_full]),
+    VTmat_wkspc(Tmatrix<double>(fspace0_.ndof_full, fspace0_.ndof_full))
+    {}
+
+  ~multinomial_experiment()
+  {
+    delete [] svec_wkspc;
+    free_Tmatrix<double>(VTmat_wkspc);
+  }
+
+  protected:
+
+    double * const svec_wkspc,
+           ** const VTmat_wkspc;
+
+};
 
 #endif

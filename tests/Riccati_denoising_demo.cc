@@ -55,6 +55,9 @@ const int write_sched_early = 5;
 
 // const int ndns_max = 3; // max permitted denoising steps
 // const int ndns_max = 5; // max permitted denoising steps
+const int ndns_max = 10;
+const int write_sched = 1;
+
 // const int ndns_max = 10;
 // const int ndns_max = 20;
 // const int ndns_max = 30;
@@ -66,8 +69,8 @@ const int write_sched_early = 5;
 // const int ndns_max = 100;
 // const int ndns_max = 200;
 // const int ndns_max = 300;
-const int ndns_max = 400;
-const int write_sched = 10;
+// const int ndns_max = 400;
+// const int write_sched = 10;
 
 // const int ndns_max = 400;
 // const int ndns_max = 500;
@@ -76,6 +79,7 @@ const int write_sched = 10;
 // const int ndns_max = 600;
 // const int write_sched = 50;
 
+// const int ndns_max = 1000;
 // const int ndns_max = 999;
 // const int write_sched = 100;
 
@@ -83,7 +87,7 @@ const int write_sched = 10;
   ode_curve_observations observations(data_name,data_dnp1xu_name);
 
 Lie_detector detector(observations);
-  ode_solcurve_chunk observations_twin(detector.meta0,detector.ncrv,detector.npts_per_crv);
+  ode_solcurve_chunk observations_twin(detector.meta0,detector.ncrv,detector.npts_per_crv); // equal size data set for workspace
 orthopolynomial_space function_space(detector.meta0,3); // initializes as unmapped multinomials
   // double axlims[] = {0.0, 2.0, 0.0, 6.0}; // eyeballed the data set
   // const int set_fspace_flag = function_space.set_Legendre_coeffs(axlims,-0.95,0.95);
@@ -178,21 +182,22 @@ struct global_Rmat_experiment : public ode_solspc_meta
       encode_decompose_R_matrix_global(VTmat_global,Rsvd_global,Renc,sols,nobs);
         Rsvd_global.print_result("Rsvd_global");
 
-      // encode_decompose_R_matrix_global(VTmat_h_global,Rsvd_h_global,Renc,sols_h,nobs_h);
       smooth_enc_decomp_trivial_flows(VTmat_h_global,Rsvd_h_global,sols_h_alt, // output args
                                         nobs_h,Renc,sols_h,svec_global,VTmat_global); // input args
         Rsvd_h_global.print_result("Rsvd_h_global");
 
-      // smooth_and_exp_trivial_flows(curves,curves_h,svec_global,VTmat_global);
-
-      // if (Rmat_h_exp) exp_trivial_flows(tjcharts,nobs_h,svec_h_global,VTmat_h_global);
-      // else exp_trivial_flows(tjcharts,nobs_h,svec_global,VTmat_global);
-
-      exp_trivial_Rmat_Hermites(tjcharts,tsjets,nobs_h,svec_global,VTmat_global);
-
       double twork1 = LD_threads::toc(t0);
 
-      // double res_1 = det.combine_trivial_flows(curves_alt,curves);
+      if (Hermite_exp)
+      {
+        if (Rmat_h_exp) exp_trivial_Rmat_Hermites(tjcharts,tsjets,nobs_h,svec_h_global,VTmat_h_global);
+        else exp_trivial_Rmat_Hermites(tjcharts,tsjets,nobs_h,svec_global,VTmat_global);
+      }
+      else
+      {
+        if (Rmat_h_exp) exp_trivial_flows(tjcharts,nobs_h,svec_h_global,VTmat_h_global);
+        else exp_trivial_flows(tjcharts,nobs_h,svec_global,VTmat_global);
+      }
 
       double work_time = LD_threads::toc(t0);
       printf(
@@ -219,6 +224,7 @@ struct global_Rmat_experiment : public ode_solspc_meta
 
   void denoise_data(ode_solcurve_chunk &Sobs_alt_)
   {
+    double res_vec[ndns_max];
     ode_solution ** const sols_alt = Sobs_alt_.sols;
     ode_solcurve ** const curves_alt = Sobs_alt_.curves;
 
@@ -247,7 +253,7 @@ struct global_Rmat_experiment : public ode_solspc_meta
       else exp_trivial_flows(tjcharts,nobs_h,svec_global,VTmat_global);
     }
 
-    double res_1 = det.combine_trivial_flows(curves_alt,curves);
+    double res_1 = res_vec[0] = det.combine_trivial_flows(curves_alt,curves);
     int nsmooth=1;
       write_curve_observations(Sobs_alt_,nsmooth);
 
@@ -259,42 +265,42 @@ struct global_Rmat_experiment : public ode_solspc_meta
             t0 = LD_threads::tic();
     do
     {
-     det.set_trivial_jets(sols_h,curves_alt);
-     encode_decompose_R_matrix_global(VTmat_global,Rsvd_global,Renc,sols_alt,nobs);
+      det.set_trivial_jets(sols_h,curves_alt);
+      encode_decompose_R_matrix_global(VTmat_global,Rsvd_global,Renc,sols_alt,nobs);
        if (v_verbose) Rsvd_global.print_result("    Rsvd_global");
 
-     if (Rmat_h_exp)
-     {
+      if (Rmat_h_exp)
+      {
        smooth_enc_decomp_trivial_flows(VTmat_h_global,Rsvd_h_global,sols_h_alt, // output args
                                          nobs_h,Renc,sols_h,svec_global,VTmat_global); // input args
          if (v_verbose) Rsvd_h_global.print_result("    Rsvd_h_global");
-     }
+      }
 
-     if (Hermite_exp)
-     {
+      if (Hermite_exp)
+      {
        if (Rmat_h_exp) exp_trivial_Rmat_Hermites(tjcharts,tsjets,nobs_h,svec_h_global,VTmat_h_global);
        else exp_trivial_Rmat_Hermites(tjcharts,tsjets,nobs_h,svec_global,VTmat_global);
-     }
-     else
-     {
+      }
+      else
+      {
        if (Rmat_h_exp) exp_trivial_flows(tjcharts,nobs_h,svec_h_global,VTmat_h_global);
        else exp_trivial_flows(tjcharts,nobs_h,svec_global,VTmat_global);
-     }
+      }
 
-     double res_i = det.combine_trivial_flows(curves_alt,curves_alt);
+      double res_i = res_vec[nsmooth] = det.combine_trivial_flows(curves_alt,curves_alt);
 
-     if ( ((++nsmooth)<=write_sched_early) || ((nsmooth%write_sched) == 0) )
+      if ( ((++nsmooth)<=write_sched_early) || ((nsmooth%write_sched) == 0) )
       write_curve_observations(Sobs_alt_,nsmooth,v_verbose);
 
-     printf("   (global_Rmat_experiment::denoise_data)"
+      printf("   (global_Rmat_experiment::denoise_data)"
             " i=%d, res_i = %.8f ( res_i/res_0 = %.1e )"
             "\n", nsmooth, res_i, res_i/res_1);
 
-     if ( nsmooth >= ndns_max ) break;
-     if ( (stop_blowup)&&(res_i > res_old) ) break;
-     if ( (res_i/res_1) < res_ratio_tol ) break;
+      if ( nsmooth >= ndns_max ) break;
+      if ( (stop_blowup)&&(res_i > res_old) ) break;
+      if ( (res_i/res_1) < res_ratio_tol ) break;
 
-     res_old = res_i;
+      res_old = res_i;
     } while (true);
     double work_time = LD_threads::toc(t0);
     printf(
@@ -309,12 +315,12 @@ struct global_Rmat_experiment : public ode_solspc_meta
       nsmooth,
       work_time, LD_threads::numthreads()
     );
-    write_curve_observations(Sobs_alt_,nsmooth,true);
+    // write_curve_observations(Sobs_alt_,nsmooth,true);
+    write_denoise_diagnostics(Sobs_alt_,nsmooth,res_vec);
   }
 
   void encode_decompose_R_matrix_global(double **VTmg_,LD_svd &Rsvdg_,LD_R_encoder &Renc_,ode_solution **sols_,int nobs_)
   {
-    // #pragma omp parallel num_threads(1)
     #pragma omp parallel
     {
       orthopolynomial_basis &fbse_t = *( fbases0[LD_threads::thread_id()] );
@@ -620,8 +626,9 @@ struct global_Rmat_experiment : public ode_solspc_meta
         &ncrv_meta = obs_meta[0] = Sobs_.ncrv,
         &nobs_meta = obs_meta[1] = Sobs_.nobs;
 
+    const size_t buf_pad = 6;
     const char name_jsol_R1[] = ".jsol_R1";
-      char fname_jsol_R1[len_base+strlen(name_jsol_R1)+5];
+      char fname_jsol_R1[len_base+strlen(name_jsol_R1)+buf_pad];
       sprintf(fname_jsol_R1,"%s%s%s_%d%s",dir_name,obs_name, name_jsol_R1,nsmooth_, dat_suff);
       FILE * file_jsol_R1 = LD_io::fopen_SAFE(fname_jsol_R1,"wb");
       fwrite(ode_meta,sizeof(int),2,file_jsol_R1);
@@ -631,6 +638,17 @@ struct global_Rmat_experiment : public ode_solspc_meta
         fwrite((Sobs_.sols[iobs])->pts, sizeof(double),Sobs_.ndim,file_jsol_R1);
       LD_io::fclose_SAFE(file_jsol_R1);
       if (verbose_) printf("(global_Rmat_experiment::write_curve_observations) wrote %s\n",fname_jsol_R1);
+  }
+
+  void write_denoise_diagnostics(ode_solcurve_chunk &Sobs_, int nsmooth_, double *res_vec_)
+  {
+    write_curve_observations(Sobs_,nsmooth_,true);
+
+    // const int len_dir_name = strlen(dir_name),
+    //           len_obs_name = strlen(obs_name),
+    //           len_dat_suff = strlen(dat_suff),
+    //           len_base = len_dir_name+len_obs_name+len_dat_suff;
+
   }
 
 };

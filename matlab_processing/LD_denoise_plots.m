@@ -21,7 +21,9 @@ classdef LD_denoise_plots < LD_plots
 
             % icrv_plot = 1:Sref_.ncrv;
 
-            ndns_range = 1:3;
+            ndns_short_range = 1:5;
+
+            % ndns_range = 1:3;
             % ndns_range = [ 1:5 ];
             % ndns_range = [ 1:5 , 6:2:8 ];
             % ndns_range = [ 1:5 , 6:2:10 ];
@@ -39,6 +41,12 @@ classdef LD_denoise_plots < LD_plots
             % ndns_range = [ 1:5 , 50:50:600 ];
             % ndns_range = [ 1:5 , 100:100:900 , 999];
             % ndns_range = [ 1:5 , 100:100:200 , 210];
+            % ndns_range = [ 1:5 , 100:100:200 , 210];
+
+            % ndns_long_range = [ 100:100:1000 ];
+            ndns_long_range = [ ];
+
+            ndns_range = [ndns_short_range ndns_long_range];
 
             % "stop_blowup" range
             % ndns_range = [ 1:5 , 10:10:150 ];
@@ -93,8 +101,8 @@ classdef LD_denoise_plots < LD_plots
                 % plt_out = LD_plots.plot_solspc(Sref_,plt_out,spc);
         % plt_out.set_axis_lims(axlim);
 
-            % icrv_plot = 1:6;
-            icrv_plot = 1:10;
+            icrv_plot = 1:6;
+            % icrv_plot = 1:10;
             % icrv_plot = 1:50;
 
             [spc.lspec,spc.lw] = deal('-',1);

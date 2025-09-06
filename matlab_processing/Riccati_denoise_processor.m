@@ -63,7 +63,8 @@ pSj_1_R1_cell = pSj_cells(:,4);
 pSj_R1_cell = LD_observations_set.combine_pts_cells( pSj_cells(:,3:4),pts_nse_cell );
 
 % Snse1 = LD_observations_set(dir_name,eqn_name,['noise' num2str(1)],'DoP853', dat_suff);
-% Snse2 = LD_observations_set(dir_name,eqn_name,['noise' num2str(2)],'DoP853', dat_suff);
+
+% Snse_dns1 = LD_observations_set(dir_name,eqn_name,['noise' num2str(noise_level)],'DoP853','.jsol_R1_1', dat_suff);
 
 % Lsvd_gf1jet = Sref.read_LD_svd('Lsvd_global_f1jet');
 % R1svd_gf1jet = Sref.read_LD_svd('R1svd_global_f1jet');
@@ -79,14 +80,6 @@ pSj_R1_cell = LD_observations_set.combine_pts_cells( pSj_cells(:,3:4),pts_nse_ce
 % Rnsvd_g_n1 = Snse1.read_LD_svd('Rnsvd_global',fam_name,bor);
 % rwimg_Rn_g_n1 = Snse1.read_rowspace_image('Rnsvd_global',fam_name,bor);
 % rwimg_Rn_st_g_n1 = Snse1.read_rowspace_image('Rnsvd_strue_global',fam_name,bor);
-%
-% Lsvd_gf1jet_n2 = Snse2.read_LD_svd('Lsvd_global_f1jet');
-% R1svd_gf1jet_n2 = Snse2.read_LD_svd('R1svd_global_f1jet');
-%     Lsvd_gf1jet_n2h = Snse2.read_LD_svd('Lsvd_global_f1jet_h');
-%     R1svd_gf1jet_n2h = Snse2.read_LD_svd('R1svd_global_f1jet_h');
-% Rnsvd_g_n2 = Snse2.read_LD_svd('Rnsvd_global',fam_name,bor);
-% rwimg_Rn_g_n2 = Snse2.read_rowspace_image('Rnsvd_global',fam_name,bor);
-% rwimg_Rn_st_g_n2 = Snse2.read_rowspace_image('Rnsvd_strue_global',fam_name,bor);
 
 %% inspecting curves
 ncrv_ref = Sref.ncrv;
@@ -94,8 +87,6 @@ ncrv_ref = Sref.ncrv;
 i_crv = 1;
 % i_crv = 2;
 % i_crv = 3;
-
-% Snse_dns1 = LD_observations_set(dir_name,eqn_name,['noise' num2str(noise_level)],'DoP853','.jsol_R1_1', dat_suff);
 
 tdim_S_mesh = 13;
 tdim_S_wdth = tdim_S_mesh;
