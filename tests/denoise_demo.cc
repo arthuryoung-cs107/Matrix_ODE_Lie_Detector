@@ -51,8 +51,8 @@ const int xrange = 0; // 0 default
   we test 3 orders of magnitude of noise
 */
 // level of noise applied to observational data. If <0, then unnoised
-// const int noise_level = -1; // unnoised case
-const int noise_level = 0; // coordinates perturbed by standard deviation proportional to coordinate scale
+const int noise_level = -1; // unnoised case
+// const int noise_level = 0; // coordinates perturbed by standard deviation proportional to coordinate scale
 // const int noise_level = 1; // ^-1
 // const int noise_level = 2; // ^-2
 

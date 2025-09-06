@@ -93,7 +93,7 @@ struct ode_solution: public ode_solspc_element
   }
 };
 
-class tjet_chart
+class jet_chart
 {
   const bool dnp1xu_h_alloc,
              dnp1xu_0_alloc,
@@ -111,7 +111,7 @@ class tjet_chart
                sol0_alt,
                sol1_alt;
 
-  tjet_chart(ode_solution &solh_,ode_solution &sol0_,ode_solution &sol1_,bool init_=false) :
+  jet_chart(ode_solution &solh_,ode_solution &sol0_,ode_solution &sol1_,bool init_=false) :
     dnp1xu_h_alloc(solh_.dnp1xu!=NULL),
     dnp1xu_0_alloc(sol0_.dnp1xu!=NULL),
     dnp1xu_1_alloc(sol1_.dnp1xu!=NULL),
@@ -133,7 +133,7 @@ class tjet_chart
         sol1_alt.copy_sol(sol1);
       }
     }
-  ~tjet_chart()
+  ~jet_chart()
     { delete [] pts_h_alt;
       delete [] pts_0_alt;
       delete [] pts_1_alt; }
@@ -334,8 +334,8 @@ struct ode_soljet : public ode_jetspc_element
   ode_soljet(ode_jetspc_meta &jmeta_, double *avec_, double e0_=0.0) : ode_jetspc_element(jmeta_),
     avec(avec_), e0(e0_) {}
   ~ode_soljet() {}
-  double  * const avec,
-                  e0;
+  double * const avec,
+                 e0;
 
   inline double * a_i(int i_) {return avec + i_*(jor+1);}
   inline double a_ij(int i_,int j_) {return avec[j_ + i_*(jor+1)];}

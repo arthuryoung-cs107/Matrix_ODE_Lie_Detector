@@ -10,15 +10,19 @@ class curve_Lie_detector
   bool palloc,
        Jalloc;
 
+  const static int combine_flag;
+
   inline double combine_2coords(double c1_,double c2_)
   {
    // return (c1_+c2_)/2.0; // lazy update, perturbs old solution.
-   return c2_; // aggressive update. Reinforces dominant components, still one sided.
+   // return c2_; // aggressive update. Reinforces dominant components, still one sided.
+   return (combine_flag)?(c2_):((c1_+c2_)/2.0);
   }
   inline double combine_3coords(double c1_,double c2_,double c3_)
   {
    // return (c1_+c2_+c3_)/3.0; // lazy update, perturbs old solution.
-   return (c2_+c3_)/2.0; // aggressive update. Reinforces dominant components.
+   // return (c2_+c3_)/2.0; // aggressive update. Reinforces dominant components.
+   return (combine_flag)?((c2_+c3_)/2.0):((c1_+c2_+c3_)/3.0);
   }
 
   public:
@@ -30,25 +34,43 @@ class curve_Lie_detector
                   crv_h; // induced trajectory of colocation points
       ode_solution ** const sols,
                    ** const sols_h;
-    ode_trivial_curvejet tcrvjets; // deterministic M'th order Hermite jet approximation, organized over whole curve.
+
+    ode_trivial_curvejet tcrvjet; // deterministic Hermite jet approximation, organized over whole curve.
       ode_trivial_soljet ** const tsoljets; // array of pointers to individual jets
 
-    tjet_chart ** const tjcharts; // charts over which we compute trivial Hermite jets
+    jet_chart ** const tjcharts; // charts over which we compute trivial Hermite jets
 
+    /*
+      [CONSTRUCTOR] on instantiation, this structure receives an ode_solcurve (defined in LD_ode.hh)
+      and proceeds by allocating space for a trivial flow model of the input data, which consists of
+      observed point solutions to an ordinary differential equation belonging to a common integral
+      curve paramaterized by the independent variable x. This involves the curve_Lie_detector
+      instantiating corresponding structures crv_h (ode_solcurve, defined in LD_ode.hh) and tcrvjet
+      (ode_trivial_curvejet, defined in LD_trivial_flows.hh); the former consisting of intermediate
+      point solutions, sols_h (ode_solution, defined in LD_ode.hh), lying between sequential point
+      solutions sols on the given integral curve; the latter comprised by a system of Hermite
+      interpolants, tsoljets (ode_trivial_curvejet, defined in LD_trivial_flows.hh), each centered
+      at one of the intermediate points, sols_h.
+
+      Together, the points, sols and sols_h, and the interpolants, tsoljets, induce tjcharts
+      (jet_chart, defined in LD_ode.hh), a workspace to be interpreted as a neighborhood centered
+      at a given sol_h such that the observations sol_0,sol_1 \in sols lie on the closure of the
+      neighborhood
+    */
     curve_Lie_detector(ode_solcurve &crv_,ode_jetspc_meta &jmeta_trivial_,bool palloc_,bool Jalloc_) :
       kor(ode_jetspc_meta::comp_kor(jmeta_trivial_.jor)),
       palloc(palloc_), Jalloc(Jalloc_),
       nobs_f(crv_.nobs), nobs_h(crv_.nobs-1),
       crv(crv_),
         sols(crv_.sols),
-        crv_h(crv_.icrv,crv_.meta,nobs_h,palloc,Jalloc),
-          sols_h(crv_h.sols),
-        tcrvjets(crv_,jmeta_trivial_),
-          tsoljets(tcrvjets.tjets),
-        tjcharts(new tjet_chart*[nobs_h])
+      crv_h(crv_.icrv,crv_.meta,nobs_h,palloc,Jalloc),
+        sols_h(crv_h.sols),
+      tcrvjet(crv_,jmeta_trivial_),
+        tsoljets(tcrvjet.tjets),
+      tjcharts(new jet_chart*[nobs_h])
       {
         for (int i = 0; i < nobs_h; i++)
-          tjcharts[i] = new tjet_chart(*(crv_h.sols[i]),*(crv.sols[i]),*(crv.sols[i+1]));
+          tjcharts[i] = new jet_chart(*(crv_h.sols[i]),*(crv.sols[i]),*(crv.sols[i+1]));
       }
     ~curve_Lie_detector()
     {
@@ -105,8 +127,8 @@ class curve_Lie_detector
         }
       return res_out;
     }
-    inline tjet_chart * tjchart_0() {return tjcharts[0];}
-    inline tjet_chart * tjchart_f() {return tjcharts[nobs_h-1];}
+    inline jet_chart * tjchart_0() {return tjcharts[0];}
+    inline jet_chart * tjchart_f() {return tjcharts[nobs_h-1];}
 };
 
 class Lie_detector
@@ -132,12 +154,12 @@ class Lie_detector
            ** const JFs_mat;
 
     ode_solspc_subset Sobs; // raw data set via obs, indexed data structure from file data
-    curve_Lie_detector ** const cdets;
+    curve_Lie_detector ** const cdets; // curve Lie detectors
 
     ode_solution ** const sols,
                  ** const sols_h,
                  ** const sols_h_alt;
-    tjet_chart ** const tjcharts;
+    jet_chart ** const tjcharts;
     ode_solcurve ** const curves,
                  ** const curves_h;
 
@@ -145,9 +167,37 @@ class Lie_detector
     ode_trivial_curvejet ** const tcrvjets;
     ode_trivial_soljet ** const tsoljets;
 
+    /*
+      [CONSTRUCTOR] on instantiation, this structure receives obs a set of ode_curve_observations
+      (defined in ode_curve_observations.hh), containing raw data in the form of observed point solutions
+      to an ordinary differential equation, each of which belong to curves over the independent variable,
+      x, on the ODE's solution space.
+
+      The Lie_detector proceeds by building Sobs, an ode_solspc_subset (defined in LD_ode.hh)
+      indexing the observational data into a collection of sols, which are ode_solution (defined in
+      LD_ode.hh) data structures storing point solution data. Each curve's set of ode_solutions
+      are organized into an ode_solcurve (defined in LD_ode.hh), corresponding to a single flow over the
+      ODE's solution space, passing through each of assigned point solutions and generated by the trivial
+      vector field, dx s = [ 1 ; dx u^(n) ] = [ 1 ; dx u ; ... ].
+
+      For each curve, the Lie_detector builds a curve_Lie_detector, a data structure receiving the
+      corresponding ode_solcurve as input. Each curve_Lie_detector allocates space for a system of trivial
+      flow models comprised of deterministic Hermite interpolants.
+
+      The Lie_detector gets the data structures and workspaces produced by each curve_Lie_detector and
+      solves the associated linear system determining each Hermite interpolant, centered at the midpoint
+      x_hat between sequential point solutions
+        s_0 = [ x_0 ; u^(n)_0 ] , s_1 = [ x_1 ; u^(n)_1 ] : x_1 > x_0
+      so that the resultant Hermite interpolant induces an estimate of the intermediate point solution
+        s_hat = [ x_hat ; u^(n)_hat ],
+      where x_hat = 0.5*(x_0 + x_1), and u^(n)_hat = [ u_hat ; dx u_hat ; ... ]. The resultant trivial flow
+      model is n--smooth, and consists of smoothly compatible (up to order n) local parameterizations of
+      the observed integral curves.
+    */
+
     Lie_detector(ode_curve_observations &obs_,bool verbose_=true) :
       palloc(obs_.dnp1xu_in!=NULL), Jalloc(obs_.JFs_in!=NULL),
-      obs(obs_), // assume that obs is initialized.
+      obs(obs_),
       meta0(obs_.eor,obs_.ndep),
       eor(obs_.eor), ndep(obs_.ndep), ndim(meta0.ndim),
       ncrv(obs_.ncrv), nobs(obs_.nobs),
@@ -159,7 +209,7 @@ class Lie_detector
         sols(Sobs.sols),
         sols_h(new ode_solution*[nobs-ncrv]),
         sols_h_alt(new ode_solution*[nobs-ncrv]),
-          tjcharts(new tjet_chart*[nobs-ncrv]),
+          tjcharts(new jet_chart*[nobs-ncrv]),
         curves(new ode_solcurve*[ncrv]),
         curves_h(new ode_solcurve*[ncrv]),
       cdets(new curve_Lie_detector*[ncrv]),
@@ -187,7 +237,7 @@ class Lie_detector
                                             );
             cdets[icrv] = new curve_Lie_detector(*(curves[icrv]),jmeta_trivial,palloc,Jalloc);
               curves_h[icrv] = &(cdets[icrv]->crv_h);
-              tcrvjets[icrv] = &(cdets[icrv]->tcrvjets);
+              tcrvjets[icrv] = &(cdets[icrv]->tcrvjet);
 
             for (int isol = 0, ipts_h=ipts-icrv; isol < cdets[icrv]->nobs_h; isol++,ipts_h++)
             {
@@ -202,6 +252,8 @@ class Lie_detector
               lu_t.decompose_A();
               for (int i = 0; i < ndep; i++)
                 lu_t.solve_system(tsoljets[ipts_h]->set_trivial_bvec(i));
+
+              // record coordinate values of estimated intermediate solution induced by Hermite jet
               tsoljets[ipts_h]->set_sol_h( *(sols_h[ipts_h]) );
                 cdets[icrv]->tjcharts[isol]->reload_sol_h(); // sync sol_h and sol_h_alt
             }

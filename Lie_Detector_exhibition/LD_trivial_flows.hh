@@ -57,9 +57,10 @@ struct ode_trivial_soljet : public ode_soljet
 
   ode_trivial_1jet t1jet;
 
-  double &xh = e0;
   ode_solution  &sol0,
                 &sol1;
+
+  double &xh = e0;
 
   void print_jet_details()
   {
@@ -73,7 +74,53 @@ struct ode_trivial_soljet : public ode_soljet
     printf("s0, sh, s1:\n");
     for (int i = 0; i < ndim; i++) printf("   %.3e, %.3e, %.3e \n", sol0.s_idim(i),s_hat_idim(i),sol1.s_idim(i));
   }
-  inline void set_solh_coeffs(ode_solution &solh_)
+
+  inline void exp_u_trivial(double *u_,double xh_)
+  {
+    for (int i = 0; i < ndep; i++)
+    {
+      double xhP = 1.0,
+             &ui_local = u_[i] = 0.0,
+             * const ai_vec = avec + (i*(jor+1));
+      for (int l = 0; l <= jor; l++, xhP*=xh_)
+        ui_local += ( ai_vec[l] )*xhP;
+    }
+  }
+  inline void compute_u_01(double *u0_,double *u1_)
+  {
+    const double  hx = sol1.x - sol0.x;
+    exp_u_trivial(u0_,-0.5*hx);
+    exp_u_trivial(u1_,0.5*hx);
+  }
+  inline void exp_sol_trivial(ode_solution &sol_, double xh_)
+  {
+    for (int k = 0; k <= sol_.eor; k++)
+    {
+      for (int i = 0; i < ndep; i++)
+      {
+        double xhP = 1.0,
+               &dkxui_local = sol_.u[i + (k*ndep)] = 0.0;
+        for (int l = k; l <= jor; l++, xhP*=xh_)
+          dkxui_local += ( a_ij(i,l) )*( (double) F_lk(k,l) )*xhP;
+      }
+    }
+    if (comp_kor() > sol_.eor)
+      for (int i = 0; i < ndep; i++)
+      {
+        double xhP = 1.0,
+               &dkxui_local = sol_.dnp1xu[i] = 0.0;
+
+        for (int l = sol_.eor+1; l <= jor; l++, xhP*=xh_)
+          dkxui_local += ( a_ij(i,l) )*( (double) F_lk(sol_.eor+1,l) )*xhP;
+      }
+  }
+  inline void compute_sols_01(ode_solution &sol0_out_, ode_solution &sol1_out_)
+  {
+    const double  hx = (sol1_out_.x = sol1.x) - (sol0_out_.x = sol0.x);
+    exp_sol_trivial(sol0_out_,-0.5*hx);
+    exp_sol_trivial(sol1_out_,0.5*hx);
+  }
+  inline void set_jet_given_solh(ode_solution &solh_)
   {
     const int kor = comp_kor();
     for (int k = 0; k <= kor; k++)

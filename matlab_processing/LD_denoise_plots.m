@@ -21,15 +21,24 @@ classdef LD_denoise_plots < LD_plots
 
             % icrv_plot = 1:Sref_.ncrv;
 
-            % ndns_range = 1:4;
+            ndns_range = 1:3;
+            % ndns_range = [ 1:5 ];
             % ndns_range = [ 1:5 , 6:2:8 ];
             % ndns_range = [ 1:5 , 6:2:10 ];
             % ndns_range = [ 1:5 , 6:2:40 ];
             % ndns_range = [ 1:5 , 6:2:50 ];
             % ndns_range = [ 1:5 , 6:2:100 ];
             % ndns_range = [ 1:5 , 10:10:100 ];
-            ndns_range = [ 1:5 , 10:10:200 ];
-            % ndns_range = [ 1:5 , 10:20:400 ];
+            % ndns_range = [ 1:5 , 10:10:200 ];
+            % ndns_range = [ 1:5 , 10:10:300 ];
+            % ndns_range = [ 1:5 , 10:10:400 ];
+            % ndns_range = [ 1:5 , 10:10:90, 94 ];
+            % ndns_range = [ 1:5 , 10:10:90, 99 ];
+
+            % ndns_range = [ 1:5 , 20:20:500 ];
+            % ndns_range = [ 1:5 , 50:50:600 ];
+            % ndns_range = [ 1:5 , 100:100:900 , 999];
+            % ndns_range = [ 1:5 , 100:100:200 , 210];
 
             % "stop_blowup" range
             % ndns_range = [ 1:5 , 10:10:150 ];

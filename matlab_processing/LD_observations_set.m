@@ -162,12 +162,19 @@ classdef LD_observations_set
             % pSj1R1 = read_pts_struct([obj.dir_name '/' obj.dat_name nSmat_{4} '.' obj.dat_suff]);
             % pSj = [pSjh; pSjhR1; pSj0R1; pSj1R1];
 
-            pSj = [ read_pts_struct([obj.dir_name '/' obj.dat_name nSmat_{1} '.' obj.dat_suff]); ...
-                    read_pts_struct([obj.dir_name '/' obj.dat_name nSmat_{2} '.' obj.dat_suff]); ...
-                    read_pts_struct([obj.dir_name '/' obj.dat_name nSmat_{3} '.' obj.dat_suff]); ...
-                    read_pts_struct([obj.dir_name '/' obj.dat_name nSmat_{4} '.' obj.dat_suff])];
+            % pSj = [ read_pts_struct([obj.dir_name '/' obj.dat_name nSmat_{1} '.' obj.dat_suff]); ...
+            %         read_pts_struct([obj.dir_name '/' obj.dat_name nSmat_{2} '.' obj.dat_suff]); ...
+            %         read_pts_struct([obj.dir_name '/' obj.dat_name nSmat_{3} '.' obj.dat_suff]); ...
+            %         read_pts_struct([obj.dir_name '/' obj.dat_name nSmat_{4} '.' obj.dat_suff])];
+            % for i = 1:length(pSj)
+            %     pSj(i).pts_crv_inds = LD_observations_set.pts_crv_inds(obj.ndim,pSj(i).npts_per_crv);
+            % end
 
-            for i = 1:length(pSj)
+            pSj = read_pts_struct([obj.dir_name '/' obj.dat_name nSmat_{1} '.' obj.dat_suff]);
+            for i = 2:length(nSmat_)
+                pSj(i) = read_pts_struct([obj.dir_name '/' obj.dat_name nSmat_{i} '.' obj.dat_suff]);;
+            end
+            for i = 1:length(nSmat_)
                 pSj(i).pts_crv_inds = LD_observations_set.pts_crv_inds(obj.ndim,pSj(i).npts_per_crv);
             end
         end
@@ -455,6 +462,20 @@ classdef LD_observations_set
         end
     end
     methods (Static)
+        function pts_cell_out = combine_pts_cells(pSs01_,pSref_)
+            if (nargin == 2) % lazy update
+                pts_cell_out = pSref_;
+                for i = 1:length(pSref_)
+                    pts_cell_out{i}(:,1) = 0.5*(pSref_{i}(:,1) + pSs01_{i,1}(:,1));
+
+                    pts_cell_out{i}(:,2:(end-1)) = (pSref_{i}(:,2:(end-1)) + ...
+                                                    pSs01_{i,1}(:,2:end ) + ...
+                                                    pSs01_{i,2}(:,1:(end-1) ) )/3.0;
+                                                    
+                    pts_cell_out{i}(:,end) = 0.5*(pSref_{i}(:,end) + pSs01_{i,2}(:,end));
+                end
+            end
+        end
         function pts_cell_out = pts_struct_2_cell(pS_,icrvs_)
             if (nargin == 2)
                 icrvs = icrvs_;
