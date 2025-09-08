@@ -149,6 +149,11 @@ classdef LD_observations_set
 
             obj_out.pts_mat = reshape(obj_out.pts_in,obj_out.ndim,[]);
         end
+        function dxuk_out = read_dxuk_data(obj,name_)
+
+            dxuk_out = read_dxuk_struct([obj.dir_name '/' obj.dat_name name_ '.' obj.dat_suff]);
+
+        end
         % function [theta_mat,pSj] = read_jet_sol_h_data(obj,nt_,nSmat_)
         function [R_svd,R_h_svd,theta_mat,pSj] = read_jet_sol_h_data(obj,nSVD_,nt_,nSmat_)
             R_svd = obj.read_LD_svd(nSVD_{1});
@@ -471,7 +476,7 @@ classdef LD_observations_set
                     pts_cell_out{i}(:,2:(end-1)) = (pSref_{i}(:,2:(end-1)) + ...
                                                     pSs01_{i,1}(:,2:end ) + ...
                                                     pSs01_{i,2}(:,1:(end-1) ) )/3.0;
-                                                    
+
                     pts_cell_out{i}(:,end) = 0.5*(pSref_{i}(:,end) + pSs01_{i,2}(:,end));
                 end
             end
@@ -700,6 +705,29 @@ function mat_svd_struct = read_mat_svd_struct(name_,suf_)
             mat_struct = 0;
         end
         fclose(file);
+    end
+end
+function dxuk_struct = read_dxuk_struct(name_)
+    file = fopen(name_);
+    if (file == -1)
+        fprintf('(read_dxuk_struct) : ERROR - failed to read %s \n',name_);
+        dxuk_struct = 0;
+    else
+        ode_meta = fread(file,LD_observations_set.ode_meta_len,'int=>int');
+        [kor,ndep] = deal(ode_meta(1),ode_meta(2));
+        obs_meta = fread(file,LD_observations_set.obs_meta_len,'int=>int');
+        [ncrv,nobs] = deal(obs_meta(1),obs_meta(2));
+        npts_per_crv = fread(file,ncrv,'int=>int');
+        dxuk_in = fread(file,kor*nobs,'double=>double');
+
+        dxuk_struct = struct(    'kor', kor, ...
+                                'ndep', ndep, ...
+                                'ncrv', ncrv, ...
+                                'nobs', nobs, ...
+                                'npts_per_crv', npts_per_crv, ...
+                                'dxuk_in', dxuk_in);
+        fclose(file);
+        fprintf('(read_dxuk_struct) : read %s \n',name_);
     end
 end
 function pts_struct = read_pts_struct(name_)

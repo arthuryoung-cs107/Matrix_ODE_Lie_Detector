@@ -459,22 +459,38 @@ struct multinomial_experiment : public Lie_detector_experiment, public function_
 
   multinomial_experiment(Lie_detector &det_, orthopolynomial_space &fspace0_) :
     Lie_detector_experiment(det_), function_space_element(fspace0_),
-    fspace0(fspace0_),
-    svec_wkspc(new double[fspace0_.ndof_full]),
-    VTmat_wkspc(Tmatrix<double>(fspace0_.ndof_full, fspace0_.ndof_full))
+    fspace0(fspace0_)
     {}
 
   ~multinomial_experiment()
-  {
-    delete [] svec_wkspc;
-    free_Tmatrix<double>(VTmat_wkspc);
-  }
+    {}
 
+};
+
+struct global_multinomial_experiment : public multinomial_experiment
+{
   protected:
 
-    double * const svec_wkspc,
-           ** const VTmat_wkspc;
+    const int ncod; // number of linear constraints per point solution in nullspace problem
+    LD_svd Asvd_global; // SVD of globally encoded matrix
 
+  public:
+
+    // theta (parameter) space variables
+    double * const svec_global,
+           ** const VTmat_global;
+
+    global_multinomial_experiment(Lie_detector &det_, orthopolynomial_space &fspace0_, int ncod_) :
+      multinomial_experiment(det_,fspace0_),
+      ncod(ncod_), Asvd_global(ncod_*nobs,ndof_full),
+      svec_global(Asvd_global.svec),
+      VTmat_global(Tmatrix<double>(ndof_full,ndof_full))
+      {}
+
+    ~global_multinomial_experiment()
+    {
+      free_Tmatrix<double>(VTmat_global);
+    }
 };
 
 #endif

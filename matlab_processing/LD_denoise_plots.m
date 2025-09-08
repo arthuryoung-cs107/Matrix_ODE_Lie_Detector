@@ -43,29 +43,25 @@ classdef LD_denoise_plots < LD_plots
             % ndns_range = [ 1:5 , 100:100:200 , 210];
             % ndns_range = [ 1:5 , 100:100:200 , 210];
 
-            % ndns_long_range = [ 100:100:1000 ];
-            ndns_long_range = [ ];
+            ndns_long_range = (ndns_short_range(end)+1):1:10;
 
             ndns_range = [ndns_short_range ndns_long_range];
-
-            % "stop_blowup" range
-            % ndns_range = [ 1:5 , 10:10:150 ];
-            % % ndns_range = [ndns_range, 153];
-            % ndns_range = [ndns_range, 154];
 
             len_ndns_range = length(ndns_range);
 
             pts_cell = cell([Sref_.ncrv,len_ndns_range]);
 
-            color_mat = cool(len_ndns_range);
-            % color_mat = cool(100);
+            color_mat = flip(cool(len_ndns_range),1);
 
-                color_mat = flip(color_mat,1);
+            color_mat_short = flip(spring( length(ndns_short_range) ),1);
+            color_mat_long = flip(cool( length(ndns_long_range) ),1);
+            color_mat = [color_mat_short ; color_mat_long];
+
             [spc.lspec,spc.lw] = deal('-',0.5);
             [spc.mspec,spc.ms] = deal('o',3);
             for i = 1:len_ndns_range
                 idns = ndns_range(i);
-                pts_cell(:,i) = Snse_.read_Sobs_cell(['.jsol_R1_' num2str(idns)]);
+                pts_cell(:,i) = Snse_.read_Sobs_cell(['.jsol_Rk_' num2str(idns)]);
 
             % spc.color = [color_mat(i,:) 0.5];
             % plt_out = LD_plots.plot_pts(Snse_.read_Sobs_cell(['.jsol_R1_' num2str(idns)]), ...
