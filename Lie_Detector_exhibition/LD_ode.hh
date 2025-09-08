@@ -66,9 +66,14 @@ struct ode_solution: public ode_solspc_element
 
   inline void print_sol(int ndim_print_=0)
   {
-    const int ndim_print = (ndim_print_)?(ndim_print_):(ndim);
+    const int ndim_print = (ndim_print_)?( (ndim_print_<=ndim)?(ndim_print_):(ndim) ):(ndim);
     for (int idim = 0; idim < ndim_print; idim++)
       printf("%.2e ", pts[idim]);
+    if ((ndim_print_)&&(ndim_print_>ndim))
+    {
+      const int ndim_extra = ((ndim_print_-ndim) <= ndep )?(ndim_print_-ndim):(ndep);
+      for (int idim = 0; idim < ndim_extra; idim++) printf("%.2e ", dnp1xu[idim]);
+    }
     printf("\n");
   }
   inline double s_idim(int i_)
@@ -79,6 +84,18 @@ struct ode_solution: public ode_solspc_element
   {
     const int len = (len_)?(len_):(ndim);
     for (int i = 0; i < len; i++) pts[i] = sol_.pts[i];
+  }
+  inline void copy_data(ode_solution &sol_)
+  {
+    for (int i = 0; i < ndim; i++) pts[i] = sol_.pts[i];
+
+    if ((dnp1xu != NULL)&&(sol_.dnp1xu != NULL))
+      for (int i = 0; i < ndep; i++) dnp1xu[i] = sol_.dnp1xu[i];
+
+    if ((JFs != NULL)&&(sol_.JFs != NULL))
+      for (int i = 0; i < ndep; i++)
+        for (int j = 0; j < ndim; j++)
+          JFs[i][j] = sol_.JFs[i][j];
   }
   inline void copy_xu(ode_solution &sol_) {copy_pts(sol_,nvar);}
   inline void copy_sol(ode_solution &sol_)

@@ -428,6 +428,7 @@ struct Lie_detector_experiment
                ** const sols_h_alt;
 
   // trivial jet space jets, curves, and charts
+  ode_jetspc_meta &tjmeta;
   jet_chart ** const tjcharts;
   ode_trivial_curvejet ** const tcjets;
   ode_trivial_soljet ** const tsjets;
@@ -443,6 +444,7 @@ struct Lie_detector_experiment
       sols(det.sols),
       sols_h(det.sols_h),
       sols_h_alt(det.sols_h_alt),
+    tjmeta(det.jmeta_trivial),
     tjcharts(det.tjcharts),
       tcjets(det.tcrvjets),
       tsjets(det.tsoljets),
