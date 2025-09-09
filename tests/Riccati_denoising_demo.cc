@@ -44,10 +44,12 @@ const int data_dnp1xu_name_len = sprintf(data_dnp1xu_name,"%s%s%s%s", dir_name,o
 
 const int curve_Lie_detector::combine_flag = 0; // 0, flag for updating smoothened coordinates, (0 lazy, 1 aggressive)
 const int Hermite_exp = 1; // 0, flag for Hermite exponentiation technique (0 uses num. quadrature instead)
+const bool trunc_smooth_Hermite = true;
 
 const bool v_verbose = false;
 const bool Rmat_h_exp = false;
-const bool Rmat_Hermite_jets = false;
+const bool Rmat_Hermite_jets = true;
+const bool Rmat_telescoping = false;
 const bool stop_blowup = true;
 // const bool stop_blowup = false;
 
@@ -301,7 +303,10 @@ struct global_Rmat_experiment : public global_multinomial_experiment
     // write_curve_observations(Sobs_alt_,nsmooth,true);
     write_denoise_diagnostics(Sobs_alt_,nsmooth,res_vec);
   }
+  void encode_decompose_Rk_telscope_global(double **VTmg_,LD_svd &Rsvdg_,LD_R_encoder &Rkenc_,ode_solution **sols_,int nobs_)
+  {
 
+  }
   void encode_decompose_R_matrix_global(double **VTmg_,LD_svd &Rsvdg_,LD_R_encoder &Rkenc_,ode_solution **sols_,int nobs_)
   {
     #pragma omp parallel
@@ -318,8 +323,27 @@ struct global_Rmat_experiment : public global_multinomial_experiment
           );
       }
     }
-    Rsvdg_.decompose_U();
-    Rsvdg_.unpack_VTmat(VTmg_);
+    if (Rmat_telescoping)
+    {
+
+      // reorder R matrix for telescoping SVDs in each constraint dimension
+      #pragma omp parallel
+      {
+        double theta_t[ndep*ndof_full];
+        orthopolynomial_basis &fbse_t = *( fbases0[LD_threads::thread_id()] );
+        #pragma omp for
+        for (int i = 0; i < nobs_; i++)
+        {
+
+        }
+      }
+
+    }
+    else
+    {
+      Rsvdg_.decompose_U();
+      Rsvdg_.unpack_VTmat(VTmg_);
+    }
   }
   void set_trivial_Rmat_Hermite_jets(ode_solution ** sols_h_,ode_solcurve ** crvs_,double *sv_,double **VTm_)
   {
@@ -441,8 +465,8 @@ struct global_Rmat_experiment : public global_multinomial_experiment
 
        // use corrected Hermite jet to predict new values for u0, u1
        tjchart_i.sol0_alt.x = tjchart_i.sol0.x; tjchart_i.sol1_alt.x = tjchart_i.sol1.x;
-       tsjet_i.compute_u_01(tjchart_i.sol0_alt.u,tjchart_i.sol1_alt.u);
-       // tsjet_i.compute_u_01(tjchart_i.sol0_alt.u,tjchart_i.sol1_alt.u,det.kor);
+       if (trunc_smooth_Hermite) tsjet_i.compute_u_01(tjchart_i.sol0_alt.u,tjchart_i.sol1_alt.u,det.kor);
+       else tsjet_i.compute_u_01(tjchart_i.sol0_alt.u,tjchart_i.sol1_alt.u);
 
        // correct derivative estimates again
          tvf_t.comp_spectral_theta_local(tjchart_i.sol0_alt.x,tjchart_i.sol0_alt.u);
@@ -492,60 +516,6 @@ struct global_Rmat_experiment : public global_multinomial_experiment
           tvf_t.comp_spectral_theta_local(tjchart_i.sol0_alt.x,tjchart_i.sol0_alt.u);
           tvf_t.eval_prn_theta_image(tjchart_i.sol0_alt,det.kor);
 
-      }
-    }
-  }
-  void smooth_and_exp_trivial_flows(ode_solcurve **crvs_, ode_solcurve **crvs_h_, double *sv_, double **VTm_)
-  {
-    #pragma omp parallel
-    {
-      const int t_id = LD_threads::thread_id();
-      LD_spectral_tvfield &tvf_t = *(tvfields0[t_id]);
-      tvf_t.set_SVD_space(sv_,VTm_);
-      LD_trivial_generator tgen_t(tvf_t);
-      DoP853_settings set_t; DoP853 intgr_t(tgen_t,set_t);
-
-      double ** const integr_wkspc_t = xu_snap_wkspc[t_id],
-             * const s_state_t_f = integr_wkspc_t[nsnap-1],
-             * const s_state_t = intgr_t.get_u_state();
-
-      int icrv_t,
-          isol_t;
-      #pragma omp for
-      for (int iobs = 0; iobs < nobs_h; iobs++)
-      {
-        det.get_icrvisol_h_given_iobs_h(icrv_t,isol_t,iobs);
-        ode_solution &sol_h_i = *(crvs_h_[icrv_t]->sols[isol_t]),
-                     &sol_0_i = *(crvs_[icrv_t]->sols[isol_t]),
-                     &sol_1_i = *(crvs_[icrv_t]->sols[isol_t+1]);
-        jet_chart &tjchart_i = *(cdets[icrv_t]->tjcharts[isol_t]);
-
-        // use 0'th order Hermite jet info to compute local theta via pseudoinverse of Rk matrix
-        tvf_t.comp_spectral_theta_local(theta_mat[iobs],sol_h_i.x,sol_h_i.u);
-        // the result is an improved estimate of the derivatives at interior colocation point
-        tvf_t.eval_pr1_theta_image(tjchart_i.solh_alt.dxu,theta_mat[iobs]);
-
-        // reevaluate forward flow
-        tgen_t.flow_forward = true; // flow varies directly with x
-        for (int i = 0; i <= ndep; i++) s_state_t[i] = sol_h_i.pts[i];
-        // specify del_x for dense output. Note that curve id irrelevant here
-        intgr_t.init_curve_integration((sol_1_i.x-sol_h_i.x)/((double) (nsnap-1)),0); // curve id irrelevant here
-        intgr_t.set_and_solve_time(0.0,sol_1_i.x-sol_h_i.x,nsnap,integr_wkspc_t);
-        for (int i = 0; i <= ndep; i++) tjchart_i.sol1_alt.pts[i] = s_state_t_f[i];
-        // tgen_t.dudx_eval(tjchart_i.sol1_alt.pts);
-        tvf_t.comp_spectral_theta_local(tjchart_i.sol1_alt.x,tjchart_i.sol1_alt.u);
-        tvf_t.eval_prn_theta_image(tjchart_i.sol1_alt,det.kor);
-
-        // reevaluate backward flow
-        tgen_t.flow_forward = false; // flow varies oppositely with x
-        for (int i = 0; i <= ndep; i++) s_state_t[i] = sol_h_i.pts[i];
-        // specify del_x for dense output. Note that curve id irrelevant here
-        intgr_t.init_curve_integration((sol_h_i.x-sol_0_i.x)/((double) (nsnap-1)),0); // curve id irrelevant here
-        intgr_t.set_and_solve_time(0.0,sol_h_i.x-sol_0_i.x,nsnap,integr_wkspc_t);
-        for (int i = 0; i <= ndep; i++) tjchart_i.sol0_alt.pts[i] = s_state_t_f[i];
-        // tgen_t.dudx_eval(tjchart_i.sol0_alt.pts);
-        tvf_t.comp_spectral_theta_local(tjchart_i.sol0_alt.x,tjchart_i.sol0_alt.u);
-        tvf_t.eval_prn_theta_image(tjchart_i.sol0_alt,det.kor);
       }
     }
   }

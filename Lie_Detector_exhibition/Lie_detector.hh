@@ -476,6 +476,8 @@ struct global_multinomial_experiment : public multinomial_experiment
     const int ncod; // number of linear constraints per point solution in nullspace problem
     LD_svd Asvd_global; // SVD of globally encoded matrix
 
+    inline double * Umat_jsol(int jsol_) {return Asvd_global.Umat[jsol_*ncod];}
+
   public:
 
     // theta (parameter) space variables
@@ -493,6 +495,7 @@ struct global_multinomial_experiment : public multinomial_experiment
     {
       free_Tmatrix<double>(VTmat_global);
     }
+
 };
 
 #endif

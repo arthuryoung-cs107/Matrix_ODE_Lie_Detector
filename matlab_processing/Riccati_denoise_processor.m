@@ -1,7 +1,8 @@
 clear;
 close all;
 
-scrn_id = 1;
+% scrn_id = 1;
+scrn_id = 4;
 
 % dir_name = '../data_directory';
 % dir_name = '../denoise_data_directory';
@@ -64,16 +65,6 @@ pSj_Rk_1_cell = LD_observations_set.combine_pts_cells( pSj_cells(:,3:4),pts_nse_
 dxuk_Rk = Snse.read_dxuk_data('.dxuk_Rk');
 % pSj_Rk_cell = Snse.
 
-[Rsvd_g_0_tru,Rsvd_h_g_0_tru,theta_jsh_tru,pSj_tru] = Sref.read_jet_sol_h_data(Rsvd_g_names,'.theta_mat', jet_sol_names);
-pSj_cells_tru = LD_observations_set.pts_struct_2_cell(pSj_tru);
-pSj_h_cell_tru = pSj_cells_tru(:,1);
-pSj_h_Rk_cell_tru = pSj_cells_tru(:,2);
-pSj_0_Rk_cell_tru = pSj_cells_tru(:,3);
-pSj_1_Rk_cell_tru = pSj_cells_tru(:,4);
-pSj_Rk_1_cell_tru = LD_observations_set.combine_pts_cells( pSj_cells_tru(:,3:4),pts_ref_cell );
-dxuk_Rk_tru = Sref.read_dxuk_data('.dxuk_Rk');
-
-
 % Snse1 = LD_observations_set(dir_name,eqn_name,['noise' num2str(1)],'DoP853', dat_suff);
 
 % Snse_dns1 = LD_observations_set(dir_name,eqn_name,['noise' num2str(noise_level)],'DoP853','.jsol_Rk_1', dat_suff);
@@ -96,9 +87,10 @@ dxuk_Rk_tru = Sref.read_dxuk_data('.dxuk_Rk');
 %% inspecting curves
 ncrv_ref = Sref.ncrv;
 
-i_crv = 1;
+% i_crv = 1;
 % i_crv = 2;
 % i_crv = 3;
+i_crv = 6;
 
 tdim_S_mesh = 13;
 tdim_S_wdth = tdim_S_mesh;
@@ -199,7 +191,19 @@ nse_plot1 = LD_denoise_plots.plot_denoised_trajectories(plt0, ...
                                                         Sref,Snse,i_crv);
 % nse_plot1.show_menubar();
 nse_plot1.show_toolbar();
-% return
+
+
+return
+
+
+[Rsvd_g_0_tru,Rsvd_h_g_0_tru,theta_jsh_tru,pSj_tru] = Sref.read_jet_sol_h_data(Rsvd_g_names,'.theta_mat', jet_sol_names);
+pSj_cells_tru = LD_observations_set.pts_struct_2_cell(pSj_tru);
+pSj_h_cell_tru = pSj_cells_tru(:,1);
+pSj_h_Rk_cell_tru = pSj_cells_tru(:,2);
+pSj_0_Rk_cell_tru = pSj_cells_tru(:,3);
+pSj_1_Rk_cell_tru = pSj_cells_tru(:,4);
+pSj_Rk_1_cell_tru = LD_observations_set.combine_pts_cells( pSj_cells_tru(:,3:4),pts_ref_cell );
+dxuk_Rk_tru = Sref.read_dxuk_data('.dxuk_Rk');
 
 
 return

@@ -403,7 +403,7 @@ class function_space_basis: public function_space_element
     double  ** const Jac_mat = partials.Jac_mat,
             *** const C_x = partials.C_x,
             ** const C_u = partials.C_u;
-
+  
   inline double * v_eval(double *theta_,int eorcap_=0) // partial chunk already filled
   {
     function_space_basis::v_eval(partials,v_j,theta_,fspc,eorcap_);
