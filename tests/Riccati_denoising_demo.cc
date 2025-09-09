@@ -303,9 +303,19 @@ struct global_Rmat_experiment : public global_multinomial_experiment
     // write_curve_observations(Sobs_alt_,nsmooth,true);
     write_denoise_diagnostics(Sobs_alt_,nsmooth,res_vec);
   }
-  void encode_decompose_Rk_telscope_global(double **VTmg_,LD_svd &Rsvdg_,LD_R_encoder &Rkenc_,ode_solution **sols_,int nobs_)
+  void encode_decompose_Rk_telescope_global(double **VTmg_,LD_svd &Rsvdg_,LD_R_encoder &Rkenc_,ode_solution **sols_,int nobs_)
   {
+    // reorder R matrix for telescoping SVDs in each constraint dimension
+    #pragma omp parallel
+    {
+      double theta_t[ndep*ndof_full];
+      orthopolynomial_basis &fbse_t = *( fbases0[LD_threads::thread_id()] );
+      #pragma omp for
+      for (int i = 0; i < nobs_; i++)
+      {
 
+      }
+    }
   }
   void encode_decompose_R_matrix_global(double **VTmg_,LD_svd &Rsvdg_,LD_R_encoder &Rkenc_,ode_solution **sols_,int nobs_)
   {
@@ -323,27 +333,8 @@ struct global_Rmat_experiment : public global_multinomial_experiment
           );
       }
     }
-    if (Rmat_telescoping)
-    {
-
-      // reorder R matrix for telescoping SVDs in each constraint dimension
-      #pragma omp parallel
-      {
-        double theta_t[ndep*ndof_full];
-        orthopolynomial_basis &fbse_t = *( fbases0[LD_threads::thread_id()] );
-        #pragma omp for
-        for (int i = 0; i < nobs_; i++)
-        {
-
-        }
-      }
-
-    }
-    else
-    {
-      Rsvdg_.decompose_U();
-      Rsvdg_.unpack_VTmat(VTmg_);
-    }
+    Rsvdg_.decompose_U();
+    Rsvdg_.unpack_VTmat(VTmg_);
   }
   void set_trivial_Rmat_Hermite_jets(ode_solution ** sols_h_,ode_solcurve ** crvs_,double *sv_,double **VTm_)
   {
