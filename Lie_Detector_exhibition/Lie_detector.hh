@@ -498,4 +498,21 @@ struct global_multinomial_experiment : public multinomial_experiment
 
 };
 
+struct Lie_detector_digital_twin
+{
+  Lie_detector &det;
+  ode_solcurve_chunk &Stwn;
+
+  Lie_detector_digital_twin(Lie_detector &det_, ode_solcurve_chunk &Stwn_) :
+    det(det_), Stwn(Stwn)
+    {}
+
+  ~Lie_detector_digital_twin()
+    {}
+
+  
+
+};
+
+
 #endif

@@ -644,8 +644,11 @@ struct LD_spectral_tvfield : public LD_trivial_vector_field
               len_theta = fspc.ndof_full,
               nvec_use = fspc.ndof_full;
     double Wnet = 0.0;
+
     for (int i = 0; i < len_theta; i++) theta_[i] = 0.0;
+
     for (int ith = 0; ith < nvec_use; ith++) // compute local parameter values via spectral weighting scheme
+    // for (int ith = 1; ith < nvec_use; ith++) // compute local parameter values via spectral weighting scheme
     {
       const double  ww_i = sigma_min()/sv[ith], // scaled Moore-Penrose pseudoinverse
                     w_i = ww_i*ww_i; // squared to reflect squared scaling of vx_ith

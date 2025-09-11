@@ -154,26 +154,11 @@ classdef LD_observations_set
             dxuk_out = read_dxuk_struct([obj.dir_name '/' obj.dat_name name_ '.' obj.dat_suff]);
 
         end
-        % function [theta_mat,pSj] = read_jet_sol_h_data(obj,nt_,nSmat_)
         function [R_svd,R_h_svd,theta_mat,pSj] = read_jet_sol_h_data(obj,nSVD_,nt_,nSmat_)
             R_svd = obj.read_LD_svd(nSVD_{1});
             R_h_svd = obj.read_LD_svd(nSVD_{2});
 
             theta_mat = LD_aux.read_Tmat([obj.dir_name '/' obj.dat_name nt_ '.' obj.dat_suff]);
-
-            % pSjh = read_pts_struct([obj.dir_name '/' obj.dat_name nSmat_{1} '.' obj.dat_suff]);
-            % pSjhR1 = read_pts_struct([obj.dir_name '/' obj.dat_name nSmat_{2} '.' obj.dat_suff]);
-            % pSj0R1 = read_pts_struct([obj.dir_name '/' obj.dat_name nSmat_{3} '.' obj.dat_suff]);
-            % pSj1R1 = read_pts_struct([obj.dir_name '/' obj.dat_name nSmat_{4} '.' obj.dat_suff]);
-            % pSj = [pSjh; pSjhR1; pSj0R1; pSj1R1];
-
-            % pSj = [ read_pts_struct([obj.dir_name '/' obj.dat_name nSmat_{1} '.' obj.dat_suff]); ...
-            %         read_pts_struct([obj.dir_name '/' obj.dat_name nSmat_{2} '.' obj.dat_suff]); ...
-            %         read_pts_struct([obj.dir_name '/' obj.dat_name nSmat_{3} '.' obj.dat_suff]); ...
-            %         read_pts_struct([obj.dir_name '/' obj.dat_name nSmat_{4} '.' obj.dat_suff])];
-            % for i = 1:length(pSj)
-            %     pSj(i).pts_crv_inds = LD_observations_set.pts_crv_inds(obj.ndim,pSj(i).npts_per_crv);
-            % end
 
             pSj = read_pts_struct([obj.dir_name '/' obj.dat_name nSmat_{1} '.' obj.dat_suff]);
             for i = 2:length(nSmat_)

@@ -23,10 +23,13 @@ classdef LD_denoise_plots < LD_plots
 
             % ndns_range = [ 1:5 , 100:100:900 , 999];
 
+            % ndns_short_range = 1:2;
             ndns_short_range = 1:5;
 
-            ndns_long_range = (ndns_short_range(end)+1):1:10;
-            % ndns_long_range = [];
+            ndns_long_range = [];
+            % ndns_long_range = (ndns_short_range(end)+1):1:10;
+            % ndns_long_range = (6):2:50;
+            ndns_long_range = (200):200:1000;
 
             ndns_range = [ndns_short_range ndns_long_range];
 
@@ -97,16 +100,17 @@ classdef LD_denoise_plots < LD_plots
             [spc.lspec,spc.lw] = deal('-',0.5);
             [spc.mspec,spc.ms] = deal('o',3);
 
-            for i = 1:(len_ndns_range-1)
-                spc.color = [color_mat(i,:) 1];
-                plt_out = LD_plots.plot_pts(pts_cell(icrv_plot,i), ...
-                                        meta0,plt_out,spc);
-
-            end
+            % for i = 1:(len_ndns_range-1)
+            %     spc.color = [color_mat(i,:) 1];
+            %     plt_out = LD_plots.plot_pts(pts_cell(icrv_plot,i), ...
+            %                             meta0,plt_out,spc);
+            %
+            % end
 
             [spc.lspec,spc.lw] = deal('-',0.5);
             [spc.mspec,spc.ms] = deal('*',3);
-            spc.color = [color_mat(len_ndns_range,:) 1];
+            % spc.color = [color_mat(len_ndns_range,:) 1];
+            spc.color = [LD_plots.green5 1];
             plt_out = LD_plots.plot_pts(pts_cell(icrv_plot,len_ndns_range), ...
                                     meta0,plt_out,spc);
 

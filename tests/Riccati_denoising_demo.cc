@@ -43,30 +43,28 @@ const int data_dnp1xu_name_len = sprintf(data_dnp1xu_name,"%s%s%s%s", dir_name,o
 // ode_solspc_meta meta0(1,1); // Riccati equation : n = 1, q = 1
 
 const int curve_Lie_detector::combine_flag = 0; // 0, flag for updating smoothened coordinates, (0 lazy, 1 aggressive)
-const int Hermite_exp = 1; // 0, flag for Hermite exponentiation technique (0 uses num. quadrature instead)
-const bool trunc_smooth_Hermite = true;
+const int Hermite_exp = 1; // 1, flag for Hermite exponentiation technique (0 uses num. quadrature instead)
+const bool trunc_smooth_Hermite = true; // flag for truncating Rmatrix corrected Hermite jet
 
 const bool v_verbose = false;
 const bool Rmat_h_exp = false;
-const bool Rmat_Hermite_jets = true;
-const bool Rmat_telescoping = false;
-const bool stop_blowup = true;
-// const bool stop_blowup = false;
+const bool Rmat_Hermite_jets = false;
+// const bool Rmat_telescoping = false; // not implemented
+const bool stop_blowup = false;
 
 const double res_ratio_tol = 1e-12;
 const int write_sched_early = 5;
 
 // const int ndns_max = 3; // max permitted denoising steps
 // const int ndns_max = 5; // max permitted denoising steps
-const int ndns_max = 10;
-const int write_sched = 1;
+// const int ndns_max = 10;
+// const int write_sched = 1;
 
 // const int ndns_max = 10;
 // const int ndns_max = 20;
 // const int ndns_max = 30;
 // const int ndns_max = 40;
 // const int ndns_max = 50;
-// const int ndns_max = 100;
 // const int write_sched = 2;
 
 // const int ndns_max = 100;
@@ -82,9 +80,9 @@ const int write_sched = 1;
 // const int ndns_max = 600;
 // const int write_sched = 50;
 
-// const int ndns_max = 1000;
+const int ndns_max = 1000;
 // const int ndns_max = 999;
-// const int write_sched = 100;
+const int write_sched = 100;
 
 // ode_curve_observations observations(data_name);
   ode_curve_observations observations(data_name,data_dnp1xu_name);
@@ -99,8 +97,6 @@ orthopolynomial_space function_space(detector.meta0,3); // initializes as unmapp
                                             // set_Chebyshev2_coeffs(axlims,-0.95,0.95);
 
 // basic experiment, suitable for any first order system
-// struct global_Rmat_experiment : public ode_solspc_meta
-// struct global_Rmat_experiment : public multinomial_experiment
 struct global_Rmat_experiment : public global_multinomial_experiment
 {
   const int nthread_wkspc,
@@ -153,7 +149,7 @@ struct global_Rmat_experiment : public global_multinomial_experiment
       }
       double t0 = LD_threads::tic();
 
-      encode_decompose_R_matrix_global(VTmat_Rk_global,Rsvd_global,Rkenc,sols,nobs);
+      int rank0 = encode_decompose_R_matrix_global(VTmat_Rk_global,Rsvd_global,Rkenc,sols,nobs);
         Rsvd_global.print_result("Rsvd_global");
 
       if (Rmat_Hermite_jets) // use R matrix pseudo inverse for Hermite knots
@@ -201,6 +197,7 @@ struct global_Rmat_experiment : public global_multinomial_experiment
 
   void denoise_data(ode_solcurve_chunk &Sobs_alt_)
   {
+    int rnk_vec[ndns_max];
     double res_vec[ndns_max];
     ode_solution ** const sols_alt = Sobs_alt_.sols;
     ode_solcurve ** const curves_alt = Sobs_alt_.curves;
@@ -211,7 +208,7 @@ struct global_Rmat_experiment : public global_multinomial_experiment
      an R matrix, this time over the colocation points.
     */
 
-    encode_decompose_R_matrix_global(VTmat_Rk_global,Rsvd_global,Rkenc,sols,nobs);
+    int rank0 = encode_decompose_R_matrix_global(VTmat_Rk_global,Rsvd_global,Rkenc,sols,nobs);
       Rsvd_global.print_result("  Rsvd_global (0)");
 
     if (Rmat_Hermite_jets) // use R matrix pseudo inverse for Hermite knots
@@ -245,8 +242,7 @@ struct global_Rmat_experiment : public global_multinomial_experiment
             t0 = LD_threads::tic();
     do
     {
-      // det.set_trivial_jets(sols_h,curves_alt);
-      encode_decompose_R_matrix_global(VTmat_Rk_global,Rsvd_global,Rkenc,sols_alt,nobs);
+      int &rank_i = rnk_vec[nsmooth] = encode_decompose_R_matrix_global(VTmat_Rk_global,Rsvd_global,Rkenc,sols_alt,nobs);
        if (v_verbose) Rsvd_global.print_result("    Rsvd_global");
 
        if (Rmat_Hermite_jets) // use R matrix pseudo inverse for Hermite knots
@@ -272,14 +268,19 @@ struct global_Rmat_experiment : public global_multinomial_experiment
        else exp_trivial_flows(tjcharts,nobs_h,svec_Rk_global,VTmat_Rk_global);
       }
 
-      double res_i = res_vec[nsmooth] = det.combine_trivial_flows(curves_alt,curves_alt);
+      double &res_i = res_vec[nsmooth] = det.combine_trivial_flows(curves_alt,curves_alt);
 
       if ( ((++nsmooth)<=write_sched_early) || ((nsmooth%write_sched) == 0) )
       write_curve_observations(Sobs_alt_,nsmooth,v_verbose);
 
-      printf("   (global_Rmat_experiment::denoise_data)"
-            " i=%d, res_i = %.8f ( res_i/res_0 = %.1e )"
-            "\n", nsmooth, res_i, res_i/res_1);
+      printf("    (::denoise_data)" // "   (global_Rmat_experiment::denoise_data)"
+            " i=%d, res_i = %.5e ( res_i/res_0 = %.1e )."
+            " rank(Rk) = %d ( nulldim = %d, s_N = %.1e, cond = %.1e)"
+            "\n",
+              nsmooth, res_i, res_i/res_1,
+              rank_i, Rsvd_global.Nuse-rank_i,
+              Rsvd_global.sigma_min(), Rsvd_global.cond()
+            );
 
       if ( nsmooth >= ndns_max ) break;
       if ( (stop_blowup)&&(res_i > res_old) ) break;
@@ -301,7 +302,7 @@ struct global_Rmat_experiment : public global_multinomial_experiment
       work_time, LD_threads::numthreads()
     );
     // write_curve_observations(Sobs_alt_,nsmooth,true);
-    write_denoise_diagnostics(Sobs_alt_,nsmooth,res_vec);
+    write_denoising_summary(Sobs_alt_,nsmooth,res_vec);
   }
   void encode_decompose_Rk_telescope_global(double **VTmg_,LD_svd &Rsvdg_,LD_R_encoder &Rkenc_,ode_solution **sols_,int nobs_)
   {
@@ -317,7 +318,7 @@ struct global_Rmat_experiment : public global_multinomial_experiment
       }
     }
   }
-  void encode_decompose_R_matrix_global(double **VTmg_,LD_svd &Rsvdg_,LD_R_encoder &Rkenc_,ode_solution **sols_,int nobs_)
+  int encode_decompose_R_matrix_global(double **VTmg_,LD_svd &Rsvdg_,LD_R_encoder &Rkenc_,ode_solution **sols_,int nobs_)
   {
     #pragma omp parallel
     {
@@ -335,6 +336,7 @@ struct global_Rmat_experiment : public global_multinomial_experiment
     }
     Rsvdg_.decompose_U();
     Rsvdg_.unpack_VTmat(VTmg_);
+    return Rsvdg_.rank();
   }
   void set_trivial_Rmat_Hermite_jets(ode_solution ** sols_h_,ode_solcurve ** crvs_,double *sv_,double **VTm_)
   {
@@ -512,26 +514,27 @@ struct global_Rmat_experiment : public global_multinomial_experiment
   }
 
   // void write_sol_h_data(const char dir_name_[], const char obs_name_[], const char dat_suff_[])
-  void write_sol_h_data()
+  void write_sol_h_data(const char ps_[] = "")
   {
     const int len_dir_name = strlen(dir_name),
               len_obs_name = strlen(obs_name),
               len_dat_suff = strlen(dat_suff),
-              len_base = len_dir_name+len_obs_name+len_dat_suff;
+              len_ps = strlen(ps_),
+              len_base = len_dir_name+len_obs_name+len_dat_suff+len_ps;
 
     const char name_Rsvd[] = ".Rsvd_g";
       char fname_Rsvd[len_base+strlen(name_Rsvd)+1];
-      sprintf(fname_Rsvd,"%s%s%s%s",dir_name,obs_name, name_Rsvd ,dat_suff);
+      sprintf(fname_Rsvd,"%s%s%s%s%s",dir_name,obs_name, name_Rsvd, ps_ ,dat_suff);
       Rsvd_global.write_LD_svd(fname_Rsvd);
 
     const char name_Rsvd_h[] = ".Rsvd_h_g";
       char fname_Rsvd_h[len_base+strlen(name_Rsvd_h)+1];
-      sprintf(fname_Rsvd_h,"%s%s%s%s",dir_name,obs_name, name_Rsvd_h ,dat_suff);
+      sprintf(fname_Rsvd_h,"%s%s%s%s%s",dir_name,obs_name, name_Rsvd_h, ps_ ,dat_suff);
       Rsvd_h_global.write_LD_svd(fname_Rsvd_h);
 
     const char name_theta_mat[] = ".theta_mat";
       char fname_theta_mat[len_base+strlen(name_theta_mat)+1];
-      sprintf(fname_theta_mat,"%s%s%s%s",dir_name,obs_name, name_theta_mat ,dat_suff);
+      sprintf(fname_theta_mat,"%s%s%s%s%s",dir_name,obs_name, name_theta_mat, ps_ ,dat_suff);
       LD_io::write_Tmat<double>(fname_theta_mat,theta_mat,nobs_h,fspace0.ndof_full);
 
     int ode_meta[2],
@@ -546,7 +549,7 @@ struct global_Rmat_experiment : public global_multinomial_experiment
     // write raw colocation point resulting from deterministic Hermite jet
     const char name_jsol_h[] = ".jsol_h";
       char fname_jsol_h[len_base+strlen(name_jsol_h)+1];
-      sprintf(fname_jsol_h,"%s%s%s%s",dir_name,obs_name, name_jsol_h ,dat_suff);
+      sprintf(fname_jsol_h,"%s%s%s%s%s",dir_name,obs_name, name_jsol_h, ps_ ,dat_suff);
       FILE * file_jsol_h = LD_io::fopen_SAFE(fname_jsol_h,"wb");
       fwrite(ode_meta,sizeof(int),2,file_jsol_h);
       fwrite(obs_meta,sizeof(int),2,file_jsol_h);
@@ -560,7 +563,7 @@ struct global_Rmat_experiment : public global_multinomial_experiment
     // write smooth colocation point resulting from deterministic Hermite jet and Rk matrix pseudoinverse
     const char name_jsol_h_Rk[] = ".jsol_h_Rk";
       char fname_jsol_h_Rk[len_base+strlen(name_jsol_h_Rk)+1];
-      sprintf(fname_jsol_h_Rk,"%s%s%s%s",dir_name,obs_name, name_jsol_h_Rk ,dat_suff);
+      sprintf(fname_jsol_h_Rk,"%s%s%s%s%s",dir_name,obs_name, name_jsol_h_Rk, ps_ ,dat_suff);
       FILE * file_jsol_h_Rk = LD_io::fopen_SAFE(fname_jsol_h_Rk,"wb");
       fwrite(ode_meta,sizeof(int),2,file_jsol_h_Rk);
       fwrite(obs_meta,sizeof(int),2,file_jsol_h_Rk);
@@ -574,7 +577,7 @@ struct global_Rmat_experiment : public global_multinomial_experiment
     // write new forward observations generated by exponentiating from sol_h
     const char name_jsol_1_Rk[] = ".jsol_1_Rk";
       char fname_jsol_1_Rk[len_base+strlen(name_jsol_1_Rk)+1];
-      sprintf(fname_jsol_1_Rk,"%s%s%s%s",dir_name,obs_name, name_jsol_1_Rk ,dat_suff);
+      sprintf(fname_jsol_1_Rk,"%s%s%s%s%s",dir_name,obs_name, name_jsol_1_Rk, ps_,dat_suff);
       FILE * file_jsol_1_Rk = LD_io::fopen_SAFE(fname_jsol_1_Rk,"wb");
       fwrite(ode_meta,sizeof(int),2,file_jsol_1_Rk);
       fwrite(obs_meta,sizeof(int),2,file_jsol_1_Rk);
@@ -588,7 +591,7 @@ struct global_Rmat_experiment : public global_multinomial_experiment
     // write new backwards observations generated by exponentiating from sol_h
     const char name_jsol_0_Rk[] = ".jsol_0_Rk";
       char fname_jsol_0_Rk[len_base+strlen(name_jsol_0_Rk)+1];
-      sprintf(fname_jsol_0_Rk,"%s%s%s%s",dir_name,obs_name, name_jsol_0_Rk ,dat_suff);
+      sprintf(fname_jsol_0_Rk,"%s%s%s%s%s",dir_name,obs_name, name_jsol_0_Rk, ps_ ,dat_suff);
       FILE * file_jsol_0_Rk = LD_io::fopen_SAFE(fname_jsol_0_Rk,"wb");
       fwrite(ode_meta,sizeof(int),2,file_jsol_0_Rk);
       fwrite(obs_meta,sizeof(int),2,file_jsol_0_Rk);
@@ -664,18 +667,19 @@ struct global_Rmat_experiment : public global_multinomial_experiment
       for (int iobs = 0; iobs < nobs_meta; iobs++)
       {
         sol_work.copy_xu(*(sols[iobs]));
-        tvf.comp_spectral_theta_local(sol_work.x,sol_work.u);
-        tvf.eval_prn_theta_image(sol_work,det.kor);
 
+        tvf.comp_spectral_theta_local(sol_work.x,sol_work.u);
+          tvf.eval_prn_theta_image(sol_work,det.kor);
+        // writing out the Rk matrix pseudoinverse prediction of dx u^(k) at noisy u
         fwrite(sol_work.dxu,sizeof(double),n_dxuk,file_dxuk_Rk);
       }
       LD_io::fclose_SAFE(file_dxuk_Rk);
       printf("(global_Rmat_experiment::write_initial_diagnostics) wrote %s\n",fname_dxuk_Rk);
   }
-  void write_denoise_diagnostics(ode_solcurve_chunk &Sobs_, int nsmooth_, double *res_vec_)
+  void write_denoising_summary(ode_solcurve_chunk &Sobs_, int nsmooth_, double *res_vec_)
   {
     write_curve_observations(Sobs_,nsmooth_,true);
-
+    write_sol_h_data("_f");
     // const int len_dir_name = strlen(dir_name),
     //           len_obs_name = strlen(obs_name),
     //           len_dat_suff = strlen(dat_suff),

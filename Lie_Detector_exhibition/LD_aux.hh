@@ -566,6 +566,8 @@ struct LD_svd : public LD_rectangular_decomp
           * const wvec;
   double &s0 = svec[0];
 
+  inline double cond() {return svec[Nuse-1]/svec[0];}
+  inline double sigma_min() {return svec[Nuse-1];}
   inline double norm_oprt() {return svec[0];}
   inline double norm_nuke()
   {
