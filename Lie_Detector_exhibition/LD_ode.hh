@@ -76,31 +76,61 @@ struct ode_solution: public ode_solspc_element
     }
     printf("\n");
   }
+  inline double comp_sol_residual(ode_solution &sol_, int kor_=0)
+  {
+    const int kor = (kor_)?(kor_):(eor),
+              ndim_acc = (kor<=eor)?(1+ndep*(kor+1)):(ndim);
+    double res_out = 0.0;
+    for (int i = 0; i < ndim_acc; i++)
+    {
+      double err_i = pts[i]-sol_.pts[i];
+      res_out += err_i*err_i;
+    }
+    if ( ( kor>eor )&&( (dnp1xu != NULL)&&(sol_.dnp1xu != NULL) ) )
+      for (int i = 0; i < ndep; i++)
+      {
+        double err_i = dnp1xu[i]-sol_.dnp1xu[i];
+        res_out += err_i*err_i;
+      }
+    return res_out;
+  }
   inline double s_idim(int i_)
     {return (i_>=0)?( (i_<ndim)?(pts[i_]):( dnp1xu[ i_-ndim ] ) ):(0.0);}
-  inline double dkui(int k_,int i_)
+  inline void set_dkxui(int k_,int i_, double dkxui_)
+  {
+    if (k_<=eor) u[i_ + ndep*k_] = dkxui_;
+    else dnp1xu[i_+ndep*(k_-(eor+1))] = dkxui_;
+  }
+  inline double dkxui(int k_,int i_)
     {return ( k_<=eor )?( u[i_ + ndep*k_] ):( dnp1xu[i_+ndep*(k_-(eor+1))] );}
   inline void copy_pts(ode_solution &sol_, int len_=0)
   {
     const int len = (len_)?(len_):(ndim);
     for (int i = 0; i < len; i++) pts[i] = sol_.pts[i];
   }
-  inline void copy_data(ode_solution &sol_)
+  inline void copy_dnp1xu(ode_solution &sol_)
   {
-    for (int i = 0; i < ndim; i++) pts[i] = sol_.pts[i];
-
     if ((dnp1xu != NULL)&&(sol_.dnp1xu != NULL))
       for (int i = 0; i < ndep; i++) dnp1xu[i] = sol_.dnp1xu[i];
-
+  }
+  inline void copy_xu_dxun(ode_solution &sol_)
+  {
+    for (int i = 0; i < ndim; i++) pts[i] = sol_.pts[i];
+    copy_dnp1xu(sol_);
+  }
+  inline void copy_data(ode_solution &sol_)
+  {
+    copy_xu_dxun(sol_);
     if ((JFs != NULL)&&(sol_.JFs != NULL))
       for (int i = 0; i < ndep; i++)
         for (int j = 0; j < ndim; j++)
           JFs[i][j] = sol_.JFs[i][j];
   }
-  inline void copy_xu(ode_solution &sol_) {copy_pts(sol_,nvar);}
+  inline void copy_xu(ode_solution &sol_)
+    { for (int i = 0; i <= ndep; i++) pts[i] = sol_.pts[i]; }
   inline void copy_sol(ode_solution &sol_)
   {
-    copy_pts(sol_);
+    for (int i = 0; i < ndim; i++) pts[i] = sol_.pts[i];
     if ((dnp1xu!=NULL)&&(sol_.dnp1xu!=NULL))
       for (int i = 0; i < ndep; i++) dnp1xu[i] = sol_.dnp1xu[i];
     if ((JFs!=NULL)&&(sol_.JFs!=NULL))
@@ -353,6 +383,9 @@ struct ode_soljet : public ode_jetspc_element
   ~ode_soljet() {}
   double * const avec,
                  e0;
+
+  static int alen_trivial_jet(int jor_,int ndep_) { return ndep_*(jor_+1); }
+  static int alen_trivial_jet(ode_soljet &sjet_) { return ode_soljet::alen_trivial_jet(sjet_.jor,sjet_.ndep); }
 
   inline double * a_i(int i_) {return avec + i_*(jor+1);}
   inline double a_ij(int i_,int j_) {return avec[j_ + i_*(jor+1)];}

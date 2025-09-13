@@ -42,9 +42,10 @@ const int data_dnp1xu_name_len = sprintf(data_dnp1xu_name,"%s%s%s%s", dir_name,o
 
 // ode_solspc_meta meta0(1,1); // Riccati equation : n = 1, q = 1
 
-const int curve_Lie_detector::combine_flag = 0; // 0, flag for updating smoothened coordinates, (0 lazy, 1 aggressive)
+const int curve_Lie_detector::combine_flag = 1; // 0, flag for updating smoothened coordinates, (0 lazy, 1 aggressive)
 const int Hermite_exp = 1; // 1, flag for Hermite exponentiation technique (0 uses num. quadrature instead)
 const bool trunc_smooth_Hermite = true; // flag for truncating Rmatrix corrected Hermite jet
+const bool exp_staggered_Hermites = true;
 
 const bool v_verbose = false;
 const bool Rmat_h_exp = false;
@@ -57,8 +58,8 @@ const int write_sched_early = 5;
 
 // const int ndns_max = 3; // max permitted denoising steps
 // const int ndns_max = 5; // max permitted denoising steps
-// const int ndns_max = 10;
-// const int write_sched = 1;
+const int ndns_max = 10;
+const int write_sched = 1;
 
 // const int ndns_max = 10;
 // const int ndns_max = 20;
@@ -80,9 +81,8 @@ const int write_sched_early = 5;
 // const int ndns_max = 600;
 // const int write_sched = 50;
 
-const int ndns_max = 1000;
-// const int ndns_max = 999;
-const int write_sched = 100;
+// const int ndns_max = 1000;
+// const int write_sched = 100;
 
 // ode_curve_observations observations(data_name);
   ode_curve_observations observations(data_name,data_dnp1xu_name);
@@ -219,20 +219,26 @@ struct global_Rmat_experiment : public global_multinomial_experiment
                                       nobs_h,Rkenc,sols_h,svec_Rk_global,VTmat_Rk_global); // input args
       Rsvd_h_global.print_result("  Rsvd_h_global (0)");
 
-    if (Hermite_exp)
-    {
-      if (Rmat_h_exp) exp_trivial_Rmat_Hermites(tjcharts,tsjets,nobs_h,svec_Rk_h_global,VTmat_Rk_h_global);
-      else exp_trivial_Rmat_Hermites(tjcharts,tsjets,nobs_h,svec_Rk_global,VTmat_Rk_global);
-    }
+    double res_1 = res_vec[0];
+
+    if (exp_staggered_Hermites) res_1 = exp_staggered_trivial_Rmat_Hermites(curves_alt,svec_Rk_global,VTmat_Rk_global,curves);
     else
     {
-      if (Rmat_h_exp) exp_trivial_flows(tjcharts,nobs_h,svec_Rk_h_global,VTmat_Rk_h_global);
-      else exp_trivial_flows(tjcharts,nobs_h,svec_Rk_global,VTmat_Rk_global);
+      if (Hermite_exp)
+      {
+       if (Rmat_h_exp) exp_trivial_Rmat_Hermites(tjcharts,tsjets,nobs_h,svec_Rk_h_global,VTmat_Rk_h_global);
+       else exp_trivial_Rmat_Hermites(tjcharts,tsjets,nobs_h,svec_Rk_global,VTmat_Rk_global);
+      }
+      else
+      {
+       if (Rmat_h_exp) exp_trivial_flows(tjcharts,nobs_h,svec_Rk_h_global,VTmat_Rk_h_global);
+       else exp_trivial_flows(tjcharts,nobs_h,svec_Rk_global,VTmat_Rk_global);
+      }
+      res_1 = det.combine_trivial_flows(curves_alt,curves_alt);
     }
 
-    double res_1 = res_vec[0] = det.combine_trivial_flows(curves_alt,curves);
     int nsmooth=1;
-      write_curve_observations(Sobs_alt_,nsmooth);
+      write_curve_observations(Sobs_alt_,nsmooth,true);
 
     printf("   (global_Rmat_experiment::denoise_data)"
            " i=%d, res_i = %.8f "
@@ -248,27 +254,29 @@ struct global_Rmat_experiment : public global_multinomial_experiment
        if (Rmat_Hermite_jets) // use R matrix pseudo inverse for Hermite knots
          set_trivial_Rmat_Hermite_jets(sols_h,curves_alt,svec_Rk_global,VTmat_Rk_global);
        else det.set_trivial_jets(sols_h,curves_alt); // this sets curves_h using curves as input
-       // det.set_trivial_jets(sols_h,curves_alt);
 
-      if (Rmat_h_exp)
-      {
-       smooth_enc_decomp_trivial_flows(VTmat_Rk_h_global,Rsvd_h_global,sols_h_alt, // output args
-                                         nobs_h,Rkenc,sols_h,svec_Rk_global,VTmat_Rk_global); // input args
-         if (v_verbose) Rsvd_h_global.print_result("    Rsvd_h_global");
-      }
-
-      if (Hermite_exp)
-      {
-       if (Rmat_h_exp) exp_trivial_Rmat_Hermites(tjcharts,tsjets,nobs_h,svec_Rk_h_global,VTmat_Rk_h_global);
-       else exp_trivial_Rmat_Hermites(tjcharts,tsjets,nobs_h,svec_Rk_global,VTmat_Rk_global);
-      }
+      double &res_i = res_vec[nsmooth];
+      if (exp_staggered_Hermites) res_i = exp_staggered_trivial_Rmat_Hermites(curves_alt,svec_Rk_global,VTmat_Rk_global,curves_alt);
       else
       {
-       if (Rmat_h_exp) exp_trivial_flows(tjcharts,nobs_h,svec_Rk_h_global,VTmat_Rk_h_global);
-       else exp_trivial_flows(tjcharts,nobs_h,svec_Rk_global,VTmat_Rk_global);
+        if (Rmat_h_exp)
+        {
+         smooth_enc_decomp_trivial_flows(VTmat_Rk_h_global,Rsvd_h_global,sols_h_alt, // output args
+                                           nobs_h,Rkenc,sols_h,svec_Rk_global,VTmat_Rk_global); // input args
+           if (v_verbose) Rsvd_h_global.print_result("    Rsvd_h_global");
+        }
+        if (Hermite_exp)
+        {
+         if (Rmat_h_exp) exp_trivial_Rmat_Hermites(tjcharts,tsjets,nobs_h,svec_Rk_h_global,VTmat_Rk_h_global);
+         else exp_trivial_Rmat_Hermites(tjcharts,tsjets,nobs_h,svec_Rk_global,VTmat_Rk_global);
+        }
+        else
+        {
+         if (Rmat_h_exp) exp_trivial_flows(tjcharts,nobs_h,svec_Rk_h_global,VTmat_Rk_h_global);
+         else exp_trivial_flows(tjcharts,nobs_h,svec_Rk_global,VTmat_Rk_global);
+        }
+        res_i = det.combine_trivial_flows(curves_alt,curves_alt);
       }
-
-      double &res_i = res_vec[nsmooth] = det.combine_trivial_flows(curves_alt,curves_alt);
 
       if ( ((++nsmooth)<=write_sched_early) || ((nsmooth%write_sched) == 0) )
       write_curve_observations(Sobs_alt_,nsmooth,v_verbose);
@@ -364,21 +372,14 @@ struct global_Rmat_experiment : public global_multinomial_experiment
                      &obs1_i = *(crvs_[icrv_t]->sols[isol_t+1]);
         ode_trivial_soljet &tjet_i = *(tcjets[icrv_t]->tjets[isol_t]);
 
-        sw0.copy_data(obs0_i);
-        tvf_t.comp_spectral_theta_local(sw0.x,sw0.u);
-         tvf_t.eval_prn_theta_image(sw0,det.kor);
+        // build Hermites consistent with R matrix model
+        sw0.copy_xu_dxun(obs0_i);
+          tvf_t.set_sol_dkxu(sw0,det.kor);
+        sw1.copy_xu_dxun(obs1_i);
+          tvf_t.set_sol_dkxu(sw1,det.kor);
 
-        sw1.copy_data(obs1_i);
-        tvf_t.comp_spectral_theta_local(sw1.x,sw1.u);
-         tvf_t.eval_prn_theta_image(sw1,det.kor);
+        tjet_i.set_and_solve_Hermite_jets( *(sols_h_[iobs]), lu_t, sw0,sw1 );
 
-        tjet_i.set_trivial_Amat(LUmat_t,sw0,sw1);
-        lu_t.decompose_A();
-
-        for (int i = 0; i < ndep; i++)
-          lu_t.solve_system(tjet_i.set_trivial_bvec(i,sw0,sw1));
-
-        tjet_i.set_sol_h( *( sols_h_[iobs]) );
       }
     }
   }
@@ -415,9 +416,13 @@ struct global_Rmat_experiment : public global_multinomial_experiment
         if ( sout_[iobs] != sin_[iobs] ) sout_[iobs]->copy_xu(*(sin_[iobs])); // make sure synced
 
         // use 0'th order Hermite jet info to compute local theta via pseudoinverse of Rk matrix
-        tvf_t.comp_spectral_theta_local(sout_[iobs]->x,sout_[iobs]->u);
+        tvf_t.set_sol_dkxu( *(sout_[iobs]), det.kor );
         // the result is an improved estimate of the derivatives at interior colocation point
-        tvf_t.eval_prn_theta_image(*(sout_[iobs]),det.kor);
+
+        // // use 0'th order Hermite jet info to compute local theta via pseudoinverse of Rk matrix
+        // tvf_t.comp_spectral_theta_local(sout_[iobs]->x,sout_[iobs]->u);
+        // // the result is an improved estimate of the derivatives at interior colocation point
+        // tvf_t.eval_prn_theta_image(*(sout_[iobs]),det.kor);
 
         Rkenc_.encode_normalize_rows(
             Rkenc_.submat_i(Rsvdg_.Umat,iobs), // submatrix of R associated with observation i
@@ -429,6 +434,25 @@ struct global_Rmat_experiment : public global_multinomial_experiment
     }
     Rsvdg_.decompose_U();
     Rsvdg_.unpack_VTmat(VTm_out_);
+  }
+  double exp_staggered_trivial_Rmat_Hermites(ode_solcurve **crvs_alt_,double *sv_, double **VTm_,ode_solcurve **crvs_)
+  {
+    double res_out = 0.0;
+    #pragma omp parallel reduction(+:res_out)
+    {
+
+      LD_spectral_tvfield &tvf_t = *(tvfields0[LD_threads::thread_id()]);
+        tvf_t.set_SVD_space(sv_,VTm_);
+
+      LD_lu lu_t(tjmeta.jor+1,tjmeta.jor+1);
+
+      #pragma omp for
+      for (int icrv = 0; icrv < det.ncrv; icrv++)
+      {
+        res_out += cdets[icrv]->compute_staggered_Hermite_flowout(*(crvs_alt_[icrv]), lu_t,tvf_t ,*(crvs_[icrv]));
+      }
+    }
+    return res_out;
   }
   void exp_trivial_Rmat_Hermites(jet_chart **tjc_, ode_trivial_soljet **tsj_, int nobs_, double *sv_, double **VTm_)
   {

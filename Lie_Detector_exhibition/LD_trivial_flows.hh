@@ -12,28 +12,33 @@ struct ode_trivial_1jet : public ode_jetspc_element
     acube_coeffs(Tmatrix<double>(ndep,4)),
     schnk(eor,ndep), solh(meta,schnk)
     {
-      const double  h_sqrd = hx*hx,
-                    h_cubd = h_sqrd*hx;
-      solh.x = 0.5*(sol1_.x + sol0_.x);
-      for (int i = 0; i < ndep; i++)
-      {
-        const double  u00 = sol0_.u[i],
-                      u10 = sol0_.dxu[i],
-                      u01 = sol1_.u[i],
-                      u11 = sol1_.dxu[i];
-        acube_coeffs[i][0] = (0.5)*u00 + (0.25*hx)*u10 + (0.5)*u01 + (-0.25*hx)*u11;
-        acube_coeffs[i][1] = (-0.75/hx)*u00 + (-0.25)*u10 + (0.75/hx)*u01 + (-0.25)*u11;
-        acube_coeffs[i][2] = (-0.25/hx)*u10 + (0.25/hx)*u11; // + (0.0)*u00 + (0.0)*u01
-        acube_coeffs[i][3] = (0.25/h_cubd)*u00 + (0.25/h_sqrd)*u10 + (-0.25/h_cubd)*u01 + (0.25/h_sqrd)*u11;
-
-        solh.u[i] = acube_coeffs[i][0]; solh.dxu[i] = acube_coeffs[i][1];
-        for (int k = 2; k <= eor+1; k++)
-          solh.u[i+(k*ndep)] = dkxui_hat(k,i);
-      }
+      load_trivial_1jet(sol0_,sol1_);
     }
   ~ode_trivial_1jet()
   {
     free_Tmatrix<double>(acube_coeffs);
+  }
+
+  inline void load_trivial_1jet(ode_solution &sol0_,ode_solution &sol1_)
+  {
+    const double  hx_ = 0.5*(sol1_.x - sol0_.x),
+                  h_sqrd = hx_*hx_,
+                  h_cubd = h_sqrd*hx_;
+    for (int i = 0; i < ndep; i++)
+    {
+      const double  u00 = sol0_.u[i],
+                    u10 = sol0_.dxu[i],
+                    u01 = sol1_.u[i],
+                    u11 = sol1_.dxu[i];
+      acube_coeffs[i][0] = (0.5)*u00 + (0.25*hx_)*u10 + (0.5)*u01 + (-0.25*hx_)*u11;
+      acube_coeffs[i][1] = (-0.75/hx_)*u00 + (-0.25)*u10 + (0.75/hx_)*u01 + (-0.25)*u11;
+      acube_coeffs[i][2] = (-0.25/hx_)*u10 + (0.25/hx_)*u11; // + (0.0)*u00 + (0.0)*u01
+      acube_coeffs[i][3] = (0.25/h_cubd)*u00 + (0.25/h_sqrd)*u10 + (-0.25/h_cubd)*u01 + (0.25/h_sqrd)*u11;
+
+      solh.u[i] = acube_coeffs[i][0]; solh.dxu[i] = acube_coeffs[i][1];
+      for (int k = 2; k <= eor+1; k++)
+        solh.u[i+(k*ndep)] = dkxui_hat(k,i);
+    }
   }
 
   ode_solution  &sol0,
@@ -44,6 +49,8 @@ struct ode_trivial_1jet : public ode_jetspc_element
   double ** const acube_coeffs;
 
   inline double dkxui_hat(int k_, int i_) {return (k_<=jor)?( acube_coeffs[i_][k_]*F_lk(k_,k_) ):(0.0);}
+  // inline double dkxui_hat(int k_, int i_) {return (k_<=jor)?( a_ij(i_,k_)*F_lk(k_,k_) ):(0.0);}
+
 };
 
 struct ode_trivial_soljet : public ode_soljet
@@ -51,13 +58,14 @@ struct ode_trivial_soljet : public ode_soljet
   ode_trivial_soljet(ode_jetspc_meta &jmeta_,double *avec_,ode_solution &sol0_,ode_solution &sol1_) :
     ode_soljet(jmeta_,avec_,0.5*(sol0_.x + sol1_.x)),
     t1jet(jmeta_,sol0_,sol1_),
-    sol0(sol0_), sol1(sol1_)
+    sol0(sol0_), solh(t1jet.solh), sol1(sol1_)
     {}
   ~ode_trivial_soljet() {}
 
   ode_trivial_1jet t1jet;
 
   ode_solution  &sol0,
+                &solh,
                 &sol1;
 
   double &xh = e0;
@@ -75,6 +83,18 @@ struct ode_trivial_soljet : public ode_soljet
     for (int i = 0; i < ndim; i++) printf("   %.3e, %.3e, %.3e \n", sol0.s_idim(i),s_hat_idim(i),sol1.s_idim(i));
   }
 
+  inline void set_and_solve_Hermite_jets(LD_lu &lu_, ode_solution &sol0_, ode_solution &sol1_)
+  {
+    set_trivial_Amat(lu_.LUmat,sol0_,sol1_);
+    lu_.decompose_A();
+    for (int i = 0; i < ndep; i++)
+      lu_.solve_system(set_trivial_bvec(i,sol0_,sol1_)) ;
+  }
+  inline void set_and_solve_Hermite_jets(ode_solution &solh_, LD_lu &lu_, ode_solution &sol0_, ode_solution &sol1_)
+  {
+    set_and_solve_Hermite_jets(lu_,sol0_,sol1_);
+    set_sol_h(solh_,0.5*(sol0_.x + sol1_.x));
+  }
   inline void exp_u_trivial(double *u_,double xh_,int jor_use_=0)
   {
     const int jor_use = (jor_use_)?(jor_use_):(jor);
@@ -127,7 +147,7 @@ struct ode_trivial_soljet : public ode_soljet
     const int kor = comp_kor();
     for (int k = 0; k <= kor; k++)
       for (int i = 0; i < ndep; i++)
-        set_aki_dkxui_hat(k,i,solh_.dkui(k,i));
+        set_aki_dkxui_hat(k,i,solh_.dkxui(k,i));
   }
   inline void stage_regularized_trivial_jet(double **bm_,double ***At_,double *sv_,double *lv_)
   {
@@ -167,9 +187,9 @@ struct ode_trivial_soljet : public ode_soljet
   }
   inline double * set_trivial_bvec(int i_)
     {return set_trivial_bvec(i_,sol0,sol1);}
-  inline double * set_trivial_bvec(int i_,ode_solution &sol0_,ode_solution &sol1_)
+  inline double * set_trivial_bvec(int i_,ode_solution &sol0_,ode_solution &sol1_,int kor_=0)
   {
-    const int kor = comp_kor();
+    const int kor = (kor_)?(kor_):(comp_kor());
     double * const avec_i = a_i(i_);
 
     /*
@@ -177,19 +197,33 @@ struct ode_trivial_soljet : public ode_soljet
       Return address of assigned coefficients for solve in place
     */
     for (int k = 0; k <= kor; k++)
-      avec_i[k] = sol0_.dkui(k,i_);
+      avec_i[k] = sol0_.dkxui(k,i_);
     for (int k = 0, ik = kor+1; k <= kor; k++, ik++)
-      avec_i[ik] = sol1_.dkui(k,i_);
+      avec_i[ik] = sol1_.dkxui(k,i_);
     return avec_i;
   }
 
-  inline void set_sol_h(ode_solution &sol_h_)
+  inline void set_sol_h_u(ode_solution &sol_h_)
   {
-    // for (int i = 0; i < sol_h_.ndim; i++) sol_h_.pts[i] = s_hat_idim(i);
-    sol_h_.x = xh;
+    for (int i = 0; i < ndep; i++)
+      sol_h_.u[i] = dkxui_hat(0,i);
+  }
+  inline void set_sol_h_un(ode_solution &sol_h_)
+  {
     for (int k = 0, iu = 0; k <= sol_h_.eor; k++)
       for (int i = 0; i < ndep; i++, iu++)
         sol_h_.u[iu] = dkxui_hat(k,i);
+  }
+  inline void set_sol_h_uk(ode_solution &sol_h_,int kor_)
+  {
+    for (int k = 0, iu = 0; k <= kor_; k++)
+      for (int i = 0; i < ndep; i++, iu++)
+        sol_h_.set_dkxui(k,i,dkxui_hat(k,i));
+  }
+  inline void set_sol_h(ode_solution &sol_h_, double xh_)
+  {
+    sol_h_.x = xh_;
+    set_sol_h_uk(sol_h_,comp_kor());
   }
 
   inline void set_aki_dkxui_hat(int k_, int i_, double dkxui_)
@@ -633,6 +667,13 @@ struct LD_spectral_tvfield : public LD_trivial_vector_field
     comp_spectral_theta_local(theta_local,x_,u_);
     eval_theta_image(u_,dudx_);
   }
+  inline void set_sol_dkxu(ode_solution &sol_,int kor_)
+  {
+    comp_spectral_theta_local(theta_local,sol_.x,sol_.u);
+    eval_prn_theta_image(sol_,kor_,theta_local);
+  }
+  inline void set_sol_dkxu(ode_solution &sol_o_,int kor_,ode_solution &sol_i_)
+    {sol_o_.copy_xu(sol_i_); set_sol_dkxu(sol_o_,kor_); }
   inline void comp_spectral_theta_local(double x_,double *u_)
     {comp_spectral_theta_local(theta_local,x_,u_);}
   inline void comp_spectral_theta_local(double *theta_,double x_,double *u_)

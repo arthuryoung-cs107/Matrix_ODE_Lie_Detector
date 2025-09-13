@@ -4,11 +4,25 @@
 #include "ode_curve_observations.hh"
 #include "LD_trivial_flows.hh"
 
+// struct LD_observation_meta
+// {
+//   const int &kor_obs; // highest order derivative observation available for analysis
+//
+//   LD_observation_meta(int &kor_obs_) : kor_obs(kor_obs_) {}
+//   ~LD_observation_meta() {}
+//
+// };
+
 class curve_Lie_detector
 {
-  const int kor;
+  const int kor,
+            alen;
   bool palloc,
        Jalloc;
+  double * const avec_crv;
+
+  ode_trivial_soljet tsj_crv;
+  jet_chart tjc_crv;
 
   const static int combine_flag;
 
@@ -58,8 +72,11 @@ class curve_Lie_detector
       neighborhood
     */
     curve_Lie_detector(ode_solcurve &crv_,ode_jetspc_meta &jmeta_trivial_,bool palloc_,bool Jalloc_) :
-      kor(ode_jetspc_meta::comp_kor(jmeta_trivial_.jor)),
+      kor(ode_jetspc_meta::comp_kor(jmeta_trivial_.jor)), alen( ode_soljet::alen_trivial_jet(jmeta_trivial_.jor,crv_.ndep) ),
       palloc(palloc_), Jalloc(Jalloc_),
+        avec_crv( new double[alen] ),
+        tsj_crv( jmeta_trivial_,avec_crv,*(crv_.sol_0()),*(crv_.sol_f()) ),
+        tjc_crv( tsj_crv.solh,tsj_crv.sol0,tsj_crv.sol1, false ),
       nobs_f(crv_.nobs), nobs_h(crv_.nobs-1),
       crv(crv_),
         sols(crv_.sols),
@@ -76,6 +93,92 @@ class curve_Lie_detector
     {
       for (int i = 0; i < nobs_h; i++) delete tjcharts[i];
       delete [] tjcharts;
+      delete [] avec_crv;
+    }
+
+    inline void compute_staggered_Hermite_flow(ode_solution &sol_out_, // output. Assume that x is set
+      LD_lu &lu_,LD_spectral_tvfield &tvf_,
+      ode_trivial_soljet &tsj_,
+      ode_solution &sol0_,
+      ode_solution &solh_,
+      ode_solution &sol1_)
+    {
+      // construct Hermite interpolant between given knots
+      tsj_.set_and_solve_Hermite_jets(lu_,sol0_,sol1_);
+
+      // record u coordinate values of estimated intermediate solution induced by Hermite jet over knots.
+      solh_.x = 0.5*( sol0_.x + sol1_.x ); // set x value of new colocation point
+      tsj_.set_sol_h_u(solh_); // set u values of new colocation point using raw Hermite jet
+        tvf_.set_sol_dkxu(solh_, kor); // improved estimate of derivatives at new collocation point
+      tsj_.set_jet_given_solh(solh_); // use improved derivative estimates to update corresponding jet coeffficients
+
+      // exponentiate resultant Hermite jet
+      // if (trunc_smooth_Hermite) tsj_.exp_u_trivial( sol_out_.u, sol_out_.x - solh_.x, kor);
+      // else tsj_.exp_u_trivial( sol_out_.u, sol_out_.x - solh_.x );
+
+      tsj_.exp_u_trivial( sol_out_.u, sol_out_.x - solh_.x, kor);
+
+      tvf_.set_sol_dkxu(sol_out_, kor); // apply vfield to resultant solution for improved derivatives
+    }
+
+    inline double compute_staggered_Hermite_flowout(ode_solcurve &crvo_, LD_lu &lu_,LD_spectral_tvfield &tvf_ ,ode_solcurve &crvi_)
+    {
+      double res_out = 0.0;
+
+      // correct 0'th collocation point using trivial vector field
+      tvf_.set_sol_dkxu(tjcharts[0]->solh_alt,kor,tjcharts[0]->solh);
+
+      for (int iobs = 1; iobs < nobs_h; iobs++) // loop over interior points
+      {
+
+        // correct i'th collocation point using trivial vector field
+        tvf_.set_sol_dkxu(tjcharts[iobs]->solh_alt, kor, tjcharts[iobs]->solh);
+
+        tjcharts[iobs]->sol1_alt.copy_xu_dxun( *(crvi_.sols[iobs]) ); // save old point for computing residual later
+
+        crvo_.sols[iobs]->x = crvi_.sols[iobs]->x;
+        compute_staggered_Hermite_flow(  *(crvo_.sols[iobs]),
+          lu_, tvf_,
+          *(tsoljets[iobs]),
+          tjcharts[iobs-1]->solh_alt, // left hand knot, already corrected
+          tjcharts[iobs]->sol0_alt, // induced collocation point
+          tjcharts[iobs]->solh_alt ); // right hand knot, freshly corrected
+
+        res_out += crvo_.sols[iobs]->comp_sol_residual(tjcharts[iobs]->sol1_alt, kor);
+
+      }
+      // We now have updated values for the interior points. Use these to generate updates at edges
+
+      // crvo_.sols[0]->copy_sol( *(crvi_.sols[0]) );
+      // generate LEFT edge update, uses smoothened solh_0 and UPDATED sol_1
+      tjchart_start()->sol1_alt.copy_xu_dxun( *(crvi_.sols[0]) ); // save old point for computing residual later
+
+      crvo_.sols[0]->x = crvi_.sols[0]->x;
+      compute_staggered_Hermite_flow(  *(crvo_.sols[0]),
+       lu_, tvf_,
+       *(tsjet_start()),
+       tjchart_start()->solh_alt, // left hand knot, already corrected
+       tjchart_start()->sol0_alt, // induced collocation point
+       *(crvo_.sols[1]) ); // right hand knot, already corrected (and updated)
+
+      res_out += crvo_.sols[0]->comp_sol_residual(tjchart_start()->sol1_alt, kor);
+
+
+      // crvo_.sols[nobs_h]->copy_sol( *(crvi_.sols[nobs_h]) );
+      // generate RIGHT edge update, uses smoothened solh_f and UPDATED sol_f-1
+      tjchart_final()->sol1_alt.copy_xu_dxun( *(crvi_.sols[nobs_h]) ); // save old point for computing residual later
+
+      crvo_.sols[nobs_h]->x = crvi_.sols[nobs_h]->x;
+      compute_staggered_Hermite_flow(  *(crvo_.sols[nobs_h]),
+       lu_, tvf_,
+       *(tsjet_final()),
+       *(crvo_.sols[nobs_h-1]), // left hand knot, already corrected (and updated)
+       tjchart_final()->sol0_alt, // induced collocation point
+       tjchart_final()->solh_alt ); // right hand knot, already corrected
+
+      res_out += crvo_.sols[nobs_h]->comp_sol_residual(tjchart_final()->sol1_alt, kor);
+
+      return res_out;
     }
 
     inline double recombine_flows(ode_solcurve &crv_alt_,ode_solcurve &crv_)
@@ -127,8 +230,17 @@ class curve_Lie_detector
         }
       return res_out;
     }
+
+    inline jet_chart * tjchart_start() {return tjcharts[0];}
+    inline jet_chart * tjchart_final() {return &(tjc_crv);}
+    inline ode_trivial_soljet * tsjet_start() {return tsoljets[0];}
+    inline ode_trivial_soljet * tsjet_final() {return &(tsj_crv);}
+
     inline jet_chart * tjchart_0() {return tjcharts[0];}
     inline jet_chart * tjchart_f() {return tjcharts[nobs_h-1];}
+    inline ode_trivial_soljet * tsjet_0() {return tsoljets[0];}
+    inline ode_trivial_soljet * tsjet_f() {return tsoljets[nobs_h-1];}
+
 };
 
 class Lie_detector
@@ -247,15 +359,9 @@ class Lie_detector
                 sols_h_alt[ipts_h] = &(tjcharts[ipts_h]->solh_alt);
               tsoljets[ipts_h] = cdets[icrv]->tsoljets[isol];
 
-              // solving Hermite jet via LU decomposition, solved in place
-              tsoljets[ipts_h]->set_trivial_Amat(LUmat_t);
-              lu_t.decompose_A();
-              for (int i = 0; i < ndep; i++)
-                lu_t.solve_system(tsoljets[ipts_h]->set_trivial_bvec(i));
-
-              // record coordinate values of estimated intermediate solution induced by Hermite jet
-              tsoljets[ipts_h]->set_sol_h( *(sols_h[ipts_h]) );
-                cdets[icrv]->tjcharts[isol]->reload_sol_h(); // sync sol_h and sol_h_alt
+              // solving Hermite jet via LU decomposition, then sets solh accordingly
+              tsoljets[ipts_h]->set_and_solve_Hermite_jets( tjcharts[ipts_h]->solh , lu_t, tjcharts[ipts_h]->sol0, tjcharts[ipts_h]->sol1 );
+              tjcharts[ipts_h]->reload_sol_h(); // sync sol_h and sol_h_alt
             }
 
             net_clcp += tcrvjets[icrv]->nxh;
@@ -349,14 +455,8 @@ class Lie_detector
                        &obs1_i = *(crvs_[icrv_t]->sols[isol_t+1]);
           ode_trivial_soljet &tjet_i = *(tcrvjets[icrv_t]->tjets[isol_t]);
 
-          tjet_i.set_trivial_Amat(LUmat_t,obs0_i,obs1_i);
-          lu_t.decompose_A();
+          tjet_i.set_and_solve_Hermite_jets(*( sols_h_[iobs]), lu_t, obs0_i,obs1_i );
 
-          for (int i = 0; i < ndep; i++)
-            lu_t.solve_system(tjet_i.set_trivial_bvec(i,obs0_i,obs1_i));
-
-          tjet_i.set_sol_h( *( sols_h_[iobs]) );
-            // cdets[icrv_t]->tjcharts[isol_t]->reload_sol_h(); // sync sol_h and sol_h_alt
         }
       }
     }
@@ -375,14 +475,10 @@ class Lie_detector
           {
             ode_solution &obs0_i = *(crv_i.sols[isol]),
                          &obs1_i = *(crv_i.sols[isol+1]);
-            tcjet_i.tjets[isol]->set_trivial_Amat(LUmat_t,obs0_i,obs1_i);
-            lu_t.decompose_A();
 
-            for (int i = 0; i < ndep; i++)
-              lu_t.solve_system(tcjet_i.tjets[isol]->set_trivial_bvec(i,obs0_i,obs1_i));
+            tcjet_i.tjets[isol]->set_and_solve_Hermite_jets(*(curves_h[icrv]->sols[isol]), lu_t, obs0_i,obs1_i );
+            cdets[icrv]->tjcharts[isol]->reload_sol_h();
 
-            tcrvjets[icrv]->tjets[isol]->set_sol_h( *(curves_h[icrv]->sols[isol]) );
-              cdets[icrv]->tjcharts[isol]->reload_sol_h(); // sync sol_h and sol_h_alt
           }
         }
       }
@@ -452,6 +548,24 @@ struct Lie_detector_experiment
     {}
   ~Lie_detector_experiment() {}
 
+  inline void set_sol_trivial_vfield(ode_solution &sol_,LD_spectral_tvfield &tvf_)
+  {
+    // use 0'th order Hermite jet info to compute local theta via pseudoinverse of Rk matrix
+    tvf_.comp_spectral_theta_local(sol_.x,sol_.u);
+      tvf_.eval_prn_theta_image(sol_,det.kor); // the result is an improved estimate of the derivatives at interior colocation point
+  }
+  inline void smooth_trivial_soljet(ode_trivial_soljet &tsjet_, ode_solution &sol_out_, LD_spectral_tvfield  &tvf_)
+  {
+    set_sol_trivial_vfield(sol_out_,tvf_);
+    // now modify the Hermite jet coefficients to reflect R pseudoinverse estimates
+    tsjet_.set_jet_given_solh(sol_out_);
+  }
+  inline void smooth_trivial_soljet(ode_trivial_soljet &tsjet_, ode_solution &sol_out_, LD_spectral_tvfield  &tvf_, ode_solution &sol_in_)
+  {
+    sol_out_.copy_xu(sol_in_);
+    smooth_trivial_soljet(tsjet_,sol_out_,tvf_);
+  }
+
 };
 
 struct multinomial_experiment : public Lie_detector_experiment, public function_space_element
@@ -510,7 +624,7 @@ struct Lie_detector_digital_twin
   ~Lie_detector_digital_twin()
     {}
 
-  
+
 
 };
 
