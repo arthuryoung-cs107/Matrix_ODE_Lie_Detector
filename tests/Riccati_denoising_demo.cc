@@ -42,15 +42,16 @@ const int data_dnp1xu_name_len = sprintf(data_dnp1xu_name,"%s%s%s%s", dir_name,o
 
 // ode_solspc_meta meta0(1,1); // Riccati equation : n = 1, q = 1
 
-const int curve_Lie_detector::combine_flag = 1; // 0, flag for updating smoothened coordinates, (0 lazy, 1 aggressive)
 const int Hermite_exp = 1; // 1, flag for Hermite exponentiation technique (0 uses num. quadrature instead)
-const bool trunc_smooth_Hermite = true; // flag for truncating Rmatrix corrected Hermite jet
-const bool exp_staggered_Hermites = false;
+const bool exp_staggered_Hermites = true;
+const bool trunc_Hermite_exp = true; // flag for truncating Rmatrix corrected Hermite jet
+
+const int curve_Lie_detector::combine_flag = 1; // 0, flag for updating smoothened coordinates, (0 lazy, 1 aggressive)
+const bool curve_Lie_detector::truncate_Hermite_exp = trunc_Hermite_exp;
 
 const bool v_verbose = false;
 const bool Rmat_h_exp = false;
 const bool Rmat_Hermite_jets = false;
-// const bool Rmat_telescoping = false; // not implemented
 const bool stop_blowup = false;
 
 const double res_ratio_tol = 1e-12;
@@ -58,8 +59,8 @@ const int write_sched_early = 5;
 
 // const int ndns_max = 3; // max permitted denoising steps
 // const int ndns_max = 5; // max permitted denoising steps
-const int ndns_max = 10;
-const int write_sched = 1;
+// const int ndns_max = 10;
+// const int write_sched = 1;
 
 // const int ndns_max = 10;
 // const int ndns_max = 20;
@@ -72,6 +73,7 @@ const int write_sched = 1;
 // const int ndns_max = 200;
 // const int ndns_max = 300;
 // const int ndns_max = 400;
+// const int ndns_max = 500;
 // const int write_sched = 10;
 
 // const int ndns_max = 400;
@@ -81,8 +83,8 @@ const int write_sched = 1;
 // const int ndns_max = 600;
 // const int write_sched = 50;
 
-// const int ndns_max = 1000;
-// const int write_sched = 100;
+const int ndns_max = 1000;
+const int write_sched = 100;
 
 // ode_curve_observations observations(data_name);
   ode_curve_observations observations(data_name,data_dnp1xu_name);
@@ -312,20 +314,6 @@ struct global_Rmat_experiment : public global_multinomial_experiment
     // write_curve_observations(Sobs_alt_,nsmooth,true);
     write_denoising_summary(Sobs_alt_,nsmooth,res_vec);
   }
-  void encode_decompose_Rk_telescope_global(double **VTmg_,LD_svd &Rsvdg_,LD_R_encoder &Rkenc_,ode_solution **sols_,int nobs_)
-  {
-    // reorder R matrix for telescoping SVDs in each constraint dimension
-    #pragma omp parallel
-    {
-      double theta_t[ndep*ndof_full];
-      orthopolynomial_basis &fbse_t = *( fbases0[LD_threads::thread_id()] );
-      #pragma omp for
-      for (int i = 0; i < nobs_; i++)
-      {
-
-      }
-    }
-  }
   int encode_decompose_R_matrix_global(double **VTmg_,LD_svd &Rsvdg_,LD_R_encoder &Rkenc_,ode_solution **sols_,int nobs_)
   {
     #pragma omp parallel
@@ -435,7 +423,7 @@ struct global_Rmat_experiment : public global_multinomial_experiment
     Rsvdg_.decompose_U();
     Rsvdg_.unpack_VTmat(VTm_out_);
   }
-  double exp_staggered_trivial_Rmat_Hermites(ode_solcurve **crvs_i_,double *sv_, double **VTm_,ode_solcurve **crvs_o_)
+  double exp_staggered_trivial_Rmat_Hermites(ode_solcurve **crvs_o_,double *sv_, double **VTm_,ode_solcurve **crvs_i_)
   {
     double res_out = 0.0;
     #pragma omp parallel reduction(+:res_out)
@@ -449,7 +437,7 @@ struct global_Rmat_experiment : public global_multinomial_experiment
       #pragma omp for
       for (int icrv = 0; icrv < det.ncrv; icrv++)
       {
-        res_out += cdets[icrv]->compute_staggered_Hermite_flowout(crvs_alt_[icrv]->sols, lu_t,tvf_t , crvs_[icrv]->sols );
+        res_out += cdets[icrv]->compute_staggered_Hermite_flowout(crvs_o_[icrv]->sols, lu_t,tvf_t , crvs_i_[icrv]->sols );
       }
     }
     return res_out;
@@ -473,7 +461,7 @@ struct global_Rmat_experiment : public global_multinomial_experiment
         tsjet_i.set_jet_given_solh(tjchart_i.solh_alt);
 
        tjchart_i.sol0_alt.x = tjchart_i.sol0.x; tjchart_i.sol1_alt.x = tjchart_i.sol1.x;
-       if (trunc_smooth_Hermite) tsjet_i.compute_u_01(tjchart_i.sol0_alt.u,tjchart_i.sol1_alt.u,det.kor);
+       if (trunc_Hermite_exp) tsjet_i.compute_u_01(tjchart_i.sol0_alt.u,tjchart_i.sol1_alt.u,det.kor);
        else tsjet_i.compute_u_01(tjchart_i.sol0_alt.u,tjchart_i.sol1_alt.u);
 
        tvf_t.set_sol_dkxu(tjchart_i.sol0_alt, det.kor);

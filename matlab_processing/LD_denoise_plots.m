@@ -28,10 +28,16 @@ classdef LD_denoise_plots < LD_plots
             ndns_short_range = 1:5;
 
             % ndns_long_range = [];
-            ndns_long_range = (ndns_short_range(end)+1):1:10;
+            % ndns_long_range = (ndns_short_range(end)+1):1:10;
             % ndns_long_range = (ndns_short_range(end)+1):1:3;
             % ndns_long_range = (6):2:50;
+            % ndns_long_range = (10):10:500;
+            ndns_long_range = (100):100:500;
             % ndns_long_range = (200):200:1000;
+
+            % ndns_short_range = 1:2;
+            % ndns_short_range = 1;
+            % ndns_long_range = [];
 
             ndns_range = [ndns_short_range ndns_long_range];
 

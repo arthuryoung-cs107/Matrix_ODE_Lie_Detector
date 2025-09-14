@@ -76,10 +76,30 @@ struct ode_solution: public ode_solspc_element
     }
     printf("\n");
   }
+  inline double copy_comp_sol_residual(ode_solution &sol_, int kor_=0)
+  {
+    const int kor = (kor_)?(kor_):(eor),
+              ndim_acc = (kor<=eor)?(1+(ndep*(kor+1))):(ndim);
+    double res_out = 0.0;
+    for (int i = 0; i < ndim_acc; i++)
+    {
+      double err_i = pts[i]-sol_.pts[i];
+      res_out += err_i*err_i;
+      pts[i] = sol_.pts[i];
+    }
+    if ( ( kor>eor )&&( (dnp1xu != NULL)&&(sol_.dnp1xu != NULL) ) )
+      for (int i = 0; i < ndep; i++)
+      {
+        double err_i = dnp1xu[i]-sol_.dnp1xu[i];
+        res_out += err_i*err_i;
+        dnp1xu[i] = sol_.dnp1xu[i];
+      }
+    return res_out;
+  }
   inline double comp_sol_residual(ode_solution &sol_, int kor_=0)
   {
     const int kor = (kor_)?(kor_):(eor),
-              ndim_acc = (kor<=eor)?(1+ndep*(kor+1)):(ndim);
+              ndim_acc = (kor<=eor)?(1+(ndep*(kor+1))):(ndim);
     double res_out = 0.0;
     for (int i = 0; i < ndim_acc; i++)
     {

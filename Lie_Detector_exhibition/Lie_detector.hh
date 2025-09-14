@@ -25,6 +25,7 @@ class curve_Lie_detector
   jet_chart tjc_crv;
 
   const static int combine_flag;
+  const static bool truncate_Hermite_exp;
 
   inline double combine_2coords(double c1_,double c2_)
   {
@@ -113,10 +114,8 @@ class curve_Lie_detector
       tsj_.set_jet_given_solh(solh_); // use improved derivative estimates to update corresponding jet coeffficients
 
       // exponentiate resultant Hermite jet
-      // if (trunc_smooth_Hermite) tsj_.exp_u_trivial( sol_out_.u, sol_out_.x - solh_.x, kor);
-      // else tsj_.exp_u_trivial( sol_out_.u, sol_out_.x - solh_.x );
-
-      tsj_.exp_u_trivial( sol_out_.u, sol_out_.x - solh_.x, kor);
+      if (truncate_Hermite_exp) tsj_.exp_u_trivial( sol_out_.u, sol_out_.x - solh_.x, kor);
+      else tsj_.exp_u_trivial( sol_out_.u, sol_out_.x - solh_.x );
 
       tvf_.set_sol_dkxu(sol_out_, kor); // apply vfield to resultant solution for improved derivatives
     }
@@ -125,59 +124,55 @@ class curve_Lie_detector
     {
       double res_out = 0.0;
 
-      tsoljets[0]->set_and_solve_Hermite_jets( *(sols_h[0]) , lu_t, *(solsi_[0]), *(solsi_[1]) );
-
-      tvf_.set_sol_dkxu(tjcharts[0]->solh_alt,kor,*(sols_h[0])); // correct 0'th collocation point using trivial vector field
+      // compute deterministic Hermite jet directly from input point solutions
+      (tsoljets[0])->set_and_solve_Hermite_jets( *(sols_h[0]) , lu_, *(solsi_[0]), *(solsi_[1]) );
+      // correct 0'th collocation point using input trivial vector field
+      tvf_.set_sol_dkxu((tjcharts[0])->solh_alt,kor,*(sols_h[0]));
 
       for (int iobs = 1; iobs < nobs_h; iobs++) // loop over interior points
       {
-        tsoljets[iobs]->set_and_solve_Hermite_jets( *(sols_h[iobs]) , lu_t, *(solsi_[iobs]), *(solsi_[iobs+1]) );
+        // compute deterministic Hermite jet directly from input point solutions
+        (tsoljets[iobs])->set_and_solve_Hermite_jets( *(sols_h[iobs]) , lu_, *(solsi_[iobs]), *(solsi_[iobs+1]) );
+        // correct i'th collocation point using input trivial vector field
+        tvf_.set_sol_dkxu((tjcharts[iobs])->solh_alt, kor, *(sols_h[iobs])); // correct i'th collocation point using trivial vector field
 
-        tvf_.set_sol_dkxu(tjcharts[iobs]->solh_alt, kor, *(sols_h[iobs])); // correct i'th collocation point using trivial vector field
-
-        tjcharts[iobs]->sol1_alt.copy_xu_dxun( *(solsi_[iobs]) ); // save old point for computing residual later
-
-        solso_[iobs]->x = solsi_[iobs]->x;
-        compute_staggered_Hermite_flow(  *(solso_[iobs]),
+        ((tjcharts[iobs])->sol1_alt).x = (solsi_[iobs])->x;
+        compute_staggered_Hermite_flow(  (tjcharts[iobs])->sol1_alt,
           lu_, tvf_,
           *(tsoljets[iobs]),
-          tjcharts[iobs-1]->solh_alt, // left hand knot, already corrected
-          tjcharts[iobs]->sol0_alt, // induced collocation point
-          tjcharts[iobs]->solh_alt ); // right hand knot, freshly corrected
+          (tjcharts[iobs-1])->solh_alt, // left hand knot, already corrected
+          (tjcharts[iobs])->sol0_alt, // induced collocation point
+          (tjcharts[iobs])->solh_alt ); // right hand knot, freshly corrected
 
-        res_out += crvo_.sols[iobs]->comp_sol_residual(tjcharts[iobs]->sol1_alt, kor);
-
+        res_out += (solso_[iobs])->copy_comp_sol_residual((tjcharts[iobs])->sol1_alt, kor);
       }
       // We now have updated values for the interior points. Use these to generate updates at edges
 
+
       // crvo_.sols[0]->copy_sol( *(crvi_.sols[0]) );
       // generate LEFT edge update, uses smoothened solh_0 and UPDATED sol_1
-      tjchart_start()->sol1_alt.copy_xu_dxun( *(crvi_.sols[0]) ); // save old point for computing residual later
-
-      crvo_.sols[0]->x = crvi_.sols[0]->x;
-      compute_staggered_Hermite_flow(  *(crvo_.sols[0]),
+      ((tjcharts[0])->sol1_alt).x = (solsi_[0])->x;
+      compute_staggered_Hermite_flow(  (tjcharts[0])->sol1_alt,
        lu_, tvf_,
        *(tsjet_start()),
-       tjchart_start()->solh_alt, // left hand knot, already corrected
-       tjchart_start()->sol0_alt, // induced collocation point
-       *(crvo_.sols[1]) ); // right hand knot, already corrected (and updated)
+       (tjcharts[0])->solh_alt, // left hand knot, already corrected
+       (tjcharts[0])->sol0_alt, // induced collocation point
+       (tjcharts[1])->sol1_alt ); // right hand knot, already corrected (and updated)
 
-      res_out += crvo_.sols[0]->comp_sol_residual(tjchart_start()->sol1_alt, kor);
-
+      // res_out += solso_[0]->comp_sol_residual(tjchart_start()->sol1_alt, kor);
+      res_out += (solso_[0])->copy_comp_sol_residual((tjchart_start())->sol1_alt, kor);
 
       // crvo_.sols[nobs_h]->copy_sol( *(crvi_.sols[nobs_h]) );
       // generate RIGHT edge update, uses smoothened solh_f and UPDATED sol_f-1
-      tjchart_final()->sol1_alt.copy_xu_dxun( *(crvi_.sols[nobs_h]) ); // save old point for computing residual later
-
-      crvo_.sols[nobs_h]->x = crvi_.sols[nobs_h]->x;
-      compute_staggered_Hermite_flow(  *(crvo_.sols[nobs_h]),
+      ((tjchart_final())->sol1_alt).x = (solsi_[nobs_h])->x;
+      compute_staggered_Hermite_flow(  (tjchart_final())->sol1_alt,
        lu_, tvf_,
        *(tsjet_final()),
-       *(crvo_.sols[nobs_h-1]), // left hand knot, already corrected (and updated)
-       tjchart_final()->sol0_alt, // induced collocation point
-       tjchart_final()->solh_alt ); // right hand knot, already corrected
+       (tjcharts[nobs_h-1])->sol1_alt, // left hand knot, already corrected (and updated)
+       (tjchart_final())->sol0_alt, // induced collocation point
+       (tjcharts[nobs_h-1])->solh_alt ); // right hand knot, already corrected
 
-      res_out += crvo_.sols[nobs_h]->comp_sol_residual(tjchart_final()->sol1_alt, kor);
+      res_out += (solso_[nobs_h])->copy_comp_sol_residual((tjchart_final())->sol1_alt, kor);
 
       return res_out;
     }
