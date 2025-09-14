@@ -121,23 +121,24 @@ class curve_Lie_detector
       tvf_.set_sol_dkxu(sol_out_, kor); // apply vfield to resultant solution for improved derivatives
     }
 
-    inline double compute_staggered_Hermite_flowout(ode_solcurve &crvo_, LD_lu &lu_,LD_spectral_tvfield &tvf_ ,ode_solcurve &crvi_)
+    inline double compute_staggered_Hermite_flowout(ode_solution **solso_, LD_lu &lu_,LD_spectral_tvfield &tvf_ ,ode_solution **solsi_)
     {
       double res_out = 0.0;
 
-      // correct 0'th collocation point using trivial vector field
-      tvf_.set_sol_dkxu(tjcharts[0]->solh_alt,kor,tjcharts[0]->solh);
+      tsoljets[0]->set_and_solve_Hermite_jets( *(sols_h[0]) , lu_t, *(solsi_[0]), *(solsi_[1]) );
+
+      tvf_.set_sol_dkxu(tjcharts[0]->solh_alt,kor,*(sols_h[0])); // correct 0'th collocation point using trivial vector field
 
       for (int iobs = 1; iobs < nobs_h; iobs++) // loop over interior points
       {
+        tsoljets[iobs]->set_and_solve_Hermite_jets( *(sols_h[iobs]) , lu_t, *(solsi_[iobs]), *(solsi_[iobs+1]) );
 
-        // correct i'th collocation point using trivial vector field
-        tvf_.set_sol_dkxu(tjcharts[iobs]->solh_alt, kor, tjcharts[iobs]->solh);
+        tvf_.set_sol_dkxu(tjcharts[iobs]->solh_alt, kor, *(sols_h[iobs])); // correct i'th collocation point using trivial vector field
 
-        tjcharts[iobs]->sol1_alt.copy_xu_dxun( *(crvi_.sols[iobs]) ); // save old point for computing residual later
+        tjcharts[iobs]->sol1_alt.copy_xu_dxun( *(solsi_[iobs]) ); // save old point for computing residual later
 
-        crvo_.sols[iobs]->x = crvi_.sols[iobs]->x;
-        compute_staggered_Hermite_flow(  *(crvo_.sols[iobs]),
+        solso_[iobs]->x = solsi_[iobs]->x;
+        compute_staggered_Hermite_flow(  *(solso_[iobs]),
           lu_, tvf_,
           *(tsoljets[iobs]),
           tjcharts[iobs-1]->solh_alt, // left hand knot, already corrected
