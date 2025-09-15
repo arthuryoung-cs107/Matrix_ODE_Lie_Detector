@@ -149,21 +149,52 @@ classdef LD_observations_set
 
             obj_out.pts_mat = reshape(obj_out.pts_in,obj_out.ndim,[]);
         end
-        function dxuk_out = read_dxuk_data(obj,name_)
+        function dnse_summary = read_denoise_summary(obj,sum_name_)
 
-            dxuk_out = read_dxuk_struct([obj.dir_name '/' obj.dat_name name_ '.' obj.dat_suff]);
+            name = [obj.dir_name '/' obj.dat_name sum_name_ '.' obj.dat_suff];
+            file = fopen(name);
+            if (file == -1)
+                fprintf('(read_jet_sol_h_data) : WARNING - failed to read %s. Defaulting to empty output \n',name);
+                dnse_summary = [];
+            else
+                hlen = fread(file,1,'int=>int');
+                header = fread(file,hlen,'int=>int');
+                [nwrite,nsmooth,ilen,dlen] = deal(header(1),header(2),header(3),header(4));
+                idata = fread(file,ilen,'int=>int');
+                ddata = fread(file,dlen,'double=>double');
+                fclose(file);
 
-        end
-        function [R_svd,R_h_svd,theta_mat,pSj] = read_jet_sol_h_data(obj,nSVD_,nt_,nSmat_)
-            R_svd = obj.read_LD_svd(nSVD_{1});
-            R_h_svd = obj.read_LD_svd(nSVD_{2});
+                iwrite = idata(1:nwrite);
+                ranks = idata((nwrite+1):end);
+                residuals = ddata(1:nsmooth);
 
-            theta_mat = LD_aux.read_Tmat([obj.dir_name '/' obj.dat_name nt_ '.' obj.dat_suff]);
-
-            pSj = read_pts_struct([obj.dir_name '/' obj.dat_name nSmat_{1} '.' obj.dat_suff]);
-            for i = 2:length(nSmat_)
-                pSj(i) = read_pts_struct([obj.dir_name '/' obj.dat_name nSmat_{i} '.' obj.dat_suff]);;
+                dnse_summary = struct(  'nwrite', nwrite, ...
+                                        'nsmooth', nsmooth, ...
+                                        'iwrite', iwrite, ...
+                                        'ranks', ranks, ...
+                                        'residuals', residuals );
             end
+        end
+        function dxuk_out = read_dxuk_data(obj,name_)
+            dxuk_out = read_dxuk_struct([obj.dir_name '/' obj.dat_name name_ '.' obj.dat_suff]);
+        end
+        function [R_svd,R_h_svd,pSj] = read_jet_sol_h_data(obj,nSVD_,nSmat_,ps_)
+            if (nargin == 4)
+                ps = ps_;
+            else
+                ps = '';
+            end
+
+            R_svd = obj.read_LD_svd([nSVD_{1} ps]);
+            R_h_svd = obj.read_LD_svd([nSVD_{2} ps]);
+
+            % theta_mat = LD_aux.read_Tmat([obj.dir_name '/' obj.dat_name nt_ '.' obj.dat_suff]);
+
+            pSj = read_pts_struct([obj.dir_name '/' obj.dat_name nSmat_{1} ps '.' obj.dat_suff]);
+            for i = 2:length(nSmat_)
+                pSj(i) = read_pts_struct([obj.dir_name '/' obj.dat_name nSmat_{i} ps '.' obj.dat_suff]);;
+            end
+
             for i = 1:length(nSmat_)
                 pSj(i).pts_crv_inds = LD_observations_set.pts_crv_inds(obj.ndim,pSj(i).npts_per_crv);
             end

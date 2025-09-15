@@ -639,7 +639,7 @@ struct LD_svd : public LD_rectangular_decomp
     return rank_out;
   }
 
-  void write_LD_svd(const char name_[], bool write_U_=true)
+  void write_LD_svd(const char name_[], bool write_U_=true, bool verbose_=true)
   {
     FILE * file = fopen(name_,"wb");
     if (file != NULL)
@@ -663,7 +663,7 @@ struct LD_svd : public LD_rectangular_decomp
         for (int i = 0; i < Nuse; i++)
           fwrite(Vmat[i], sizeof(double), Nuse, file);
       fclose(file);
-      printf("(LD_svd::write_LD_svd) wrote %s\n",name_);
+      if (verbose_) printf("(LD_svd::write_LD_svd) wrote %s\n",name_);
     }
     else
     {

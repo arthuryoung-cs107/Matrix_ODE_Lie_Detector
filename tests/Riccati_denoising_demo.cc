@@ -61,8 +61,8 @@ const int write_sched_early = 5;
 // const int ndns_max = 3; // max permitted denoising steps
 // const int ndns_max = 5; // max permitted denoising steps
 // const int ndns_max = 10;
-const int ndns_max = 50;
-const int write_sched = 1;
+// const int ndns_max = 50;
+// const int write_sched = 1;
 
 // const int ndns_max = 10;
 // const int ndns_max = 20;
@@ -76,8 +76,8 @@ const int write_sched = 1;
 // const int ndns_max = 200;
 // const int ndns_max = 300;
 // const int ndns_max = 400;
-// const int ndns_max = 500;
-// const int write_sched = 10;
+const int ndns_max = 500;
+const int write_sched = 10;
 
 // const int ndns_max = 400;
 // const int ndns_max = 500;
@@ -115,8 +115,7 @@ struct global_Rmat_experiment : public global_multinomial_experiment
   double * const svec_Rk_global, // singular values of primary Rn matrix
          * const svec_Rk_h_global, // singular values of half step Rn matrix
          ** const VTmat_Rk_global, // transposed row space of primary Rn matrix
-         ** const VTmat_Rk_h_global, // transposed row space of half step Rn matrix
-         ** const theta_mat; // parameter space image of every observation
+         ** const VTmat_Rk_h_global; // transposed row space of half step Rn matrix
 
   // thread local workspaces
   double *** const xu_snap_wkspc;
@@ -142,7 +141,6 @@ struct global_Rmat_experiment : public global_multinomial_experiment
       svec_Rk_h_global(Rsvd_h_global.svec),
       VTmat_Rk_global(VTmat_global),
       VTmat_Rk_h_global(Tmatrix<double>(fspace0.ndof_full,fspace0.ndof_full)),
-    theta_mat(Tmatrix<double>(det.nobs,fspace0.ndof_full)),
     xu_snap_wkspc(T3tensor<double>(nthread_wkspc,nsnap,fspace0.nvar)),
     fbases0(new orthopolynomial_basis*[nthread_wkspc]),
     tvfields0(new LD_spectral_tvfield*[nthread_wkspc])
@@ -197,14 +195,15 @@ struct global_Rmat_experiment : public global_multinomial_experiment
       delete [] tvfields0; delete [] fbases0;
       free_T3tensor<double>(xu_snap_wkspc);
       free_Tmatrix<double>(VTmat_Rk_h_global);
-      free_Tmatrix<double>(theta_mat);
     }
 
   void denoise_data(ode_solcurve_chunk &Sobs_alt_)
   {
     int rnk_vec[ndns_max],
-        iwrite_vec[ndns_max];
+        iwrite_vec[ndns_max],
+        nwrite = 0;
     double res_vec[ndns_max];
+
     ode_solution ** const sols_alt = Sobs_alt_.sols;
     ode_solcurve ** const curves_alt = Sobs_alt_.curves;
 
@@ -217,9 +216,10 @@ struct global_Rmat_experiment : public global_multinomial_experiment
     int rank0 = encode_decompose_R_matrix_global(VTmat_Rk_global,Rsvd_global,Rkenc,sols,nobs);
       Rsvd_global.print_result("  Rsvd_global (0)");
 
-    double res_1 = res_vec[0];
+    double &res_1 = res_vec[0];
 
-    if (exp_staggered_Hermites) res_1 = exp_staggered_trivial_Rmat_Hermites(curves_alt,svec_Rk_global,VTmat_Rk_global,curves);
+    if (exp_staggered_Hermites)
+      res_1 = exp_staggered_trivial_Rmat_Hermites(curves_alt,svec_Rk_global,VTmat_Rk_global,curves);
     else
     {
       if (Rmat_Hermite_jets) // use R matrix pseudo inverse for Hermite knots
@@ -244,7 +244,7 @@ struct global_Rmat_experiment : public global_multinomial_experiment
     }
 
     int nsmooth=1;
-      write_curve_observations(Sobs_alt_,nsmooth,true);
+      write_curve_observations(Sobs_alt_,iwrite_vec[nwrite++] = nsmooth,true);
 
     printf("   (global_Rmat_experiment::denoise_data)"
            " i=%d, res_i = %.8f "
@@ -258,7 +258,8 @@ struct global_Rmat_experiment : public global_multinomial_experiment
        if (v_verbose) Rsvd_global.print_result("    Rsvd_global");
       double &res_i = res_vec[nsmooth];
 
-      if (exp_staggered_Hermites) res_i = exp_staggered_trivial_Rmat_Hermites(curves_alt,svec_Rk_global,VTmat_Rk_global,curves_alt);
+      if (exp_staggered_Hermites) res_i =
+        exp_staggered_trivial_Rmat_Hermites(curves_alt,svec_Rk_global,VTmat_Rk_global,curves_alt);
       else
       {
         if (Rmat_Hermite_jets) // use R matrix pseudo inverse for Hermite knots
@@ -285,7 +286,7 @@ struct global_Rmat_experiment : public global_multinomial_experiment
       }
 
       if ( ((++nsmooth)<=write_sched_early) || ((nsmooth%write_sched) == 0) )
-      write_curve_observations(Sobs_alt_,nsmooth,v_verbose);
+        write_curve_observations(Sobs_alt_,iwrite_vec[nwrite++] = nsmooth,v_verbose);
 
       printf("    (::denoise_data)" // "   (global_Rmat_experiment::denoise_data)"
             " i=%d, res_i = %.5e ( res_i/res_0 = %.1e )."
@@ -315,11 +316,37 @@ struct global_Rmat_experiment : public global_multinomial_experiment
       nsmooth,
       work_time, LD_threads::numthreads()
     );
-    // write_curve_observations(Sobs_alt_,nsmooth,true);
-    // write_denoising_summary(Sobs_alt_,nsmooth,res_vec);
 
     write_curve_observations(Sobs_alt_,nsmooth,true);
+    encode_decompose_R_matrix_global(VTmat_Rk_global,Rsvd_global,Rkenc,sols_alt,nobs);
     write_sol_h_data("_f");
+
+
+    const int hlen_sum = 4;
+    int sum_meta[hlen_sum+1];
+        sum_meta[0] = hlen_sum,
+        sum_meta[1] = nwrite,
+        sum_meta[2] = nsmooth,
+        sum_meta[3] = (1*nwrite)+(1*nsmooth),
+        sum_meta[4] = 1*nsmooth;
+
+    const int len_dir_name = strlen(dir_name),
+              len_obs_name = strlen(obs_name),
+              len_dat_suff = strlen(dat_suff),
+              len_base = len_dir_name+len_obs_name+len_dat_suff;
+    const char name_summary[] = ".denoise_summary";
+      char fname_summary[len_base+strlen(name_summary)+1];
+      sprintf(fname_summary,"%s%s%s%s",dir_name,obs_name, name_summary ,dat_suff);
+      FILE * file_summary = LD_io::fopen_SAFE(fname_summary,"wb");
+    fwrite(sum_meta,sizeof(int),hlen_sum+1,file_summary);
+
+    fwrite(iwrite_vec,sizeof(int),nwrite,file_summary);
+    fwrite(rnk_vec,sizeof(int),nsmooth,file_summary);
+
+    fwrite(res_vec,sizeof(double),nsmooth,file_summary);
+
+    LD_io::fclose_SAFE(file_summary);
+    printf("(global_Rmat_experiment::denoise_data) wrote %s\n",fname_summary);
 
   }
   int encode_decompose_R_matrix_global(double **VTmg_,LD_svd &Rsvdg_,LD_R_encoder &Rkenc_,ode_solution **sols_,int nobs_)
@@ -539,10 +566,10 @@ struct global_Rmat_experiment : public global_multinomial_experiment
       sprintf(fname_Rsvd_h,"%s%s%s%s%s",dir_name,obs_name, name_Rsvd_h, ps_ ,dat_suff);
       Rsvd_h_global.write_LD_svd(fname_Rsvd_h);
 
-    const char name_theta_mat[] = ".theta_mat";
-      char fname_theta_mat[len_base+strlen(name_theta_mat)+1];
-      sprintf(fname_theta_mat,"%s%s%s%s%s",dir_name,obs_name, name_theta_mat, ps_ ,dat_suff);
-      LD_io::write_Tmat<double>(fname_theta_mat,theta_mat,nobs_h,fspace0.ndof_full);
+    // const char name_theta_mat[] = ".theta_mat";
+    //   char fname_theta_mat[len_base+strlen(name_theta_mat)+1];
+    //   sprintf(fname_theta_mat,"%s%s%s%s%s",dir_name,obs_name, name_theta_mat, ps_ ,dat_suff);
+    //   LD_io::write_Tmat<double>(fname_theta_mat,theta_mat,nobs_h,fspace0.ndof_full);
 
     int ode_meta[2],
         &eor_meta = ode_meta[0] = det.eor,
@@ -618,6 +645,15 @@ struct global_Rmat_experiment : public global_multinomial_experiment
               len_obs_name = strlen(obs_name),
               len_dat_suff = strlen(dat_suff),
               len_base = len_dir_name+len_obs_name+len_dat_suff;
+
+    const size_t buf_pad = 6;
+
+    const char name_Rsvd[] = ".Rsvd_g";
+      char fname_Rsvd[len_base+strlen(name_Rsvd)+buf_pad];
+      sprintf(fname_Rsvd,"%s%s%s_%d%s",dir_name,obs_name, name_Rsvd, nsmooth_ ,dat_suff);
+      Rsvd_global.write_LD_svd(fname_Rsvd,false,verbose_);
+
+
     int ode_meta[2],
         &eor_meta = ode_meta[0] = Sobs_.eor,
         &ndep_meta = ode_meta[1] = Sobs_.ndep,
@@ -625,7 +661,6 @@ struct global_Rmat_experiment : public global_multinomial_experiment
         &ncrv_meta = obs_meta[0] = Sobs_.ncrv,
         &nobs_meta = obs_meta[1] = Sobs_.nobs;
 
-    const size_t buf_pad = 6;
     const char name_jsol_Rk[] = ".jsol_Rk";
       char fname_jsol_Rk[len_base+strlen(name_jsol_Rk)+buf_pad];
       sprintf(fname_jsol_Rk,"%s%s%s_%d%s",dir_name,obs_name, name_jsol_Rk,nsmooth_, dat_suff);

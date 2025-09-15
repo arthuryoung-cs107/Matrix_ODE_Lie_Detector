@@ -16,14 +16,136 @@ classdef LD_denoise_plots < LD_plots
             end
             res_vec = [];
             plts_out = plts_;
-            dnse_data = struct('res_vec', res_vec);
+
+            Rsvd_g_names = { 'Rsvd_g' ; 'Rsvd_h_g' };
+            jet_sol_names = { '.jsol_h'; ...
+            '.jsol_h_Rk'; ...
+            '.jsol_0_Rk'; ...
+            '.jsol_1_Rk'; ...
+            };
 
             Sref = Ssets_(1);
             meta0 = Sref.meta_data();
 
-            plts_out(1) = LD_denoise_plots.plot_denoised_trajectories(plts_out(1), ...
-                spc_,Ssets_(1),Ssets_(2),icrv_plot);
+            Snse = Ssets_(2);
 
+            pts_ref_cell = Sref.pts_cell();
+            pts_nse_cell = Snse.pts_cell();
+
+            dnse_summary = Snse.read_denoise_summary('.denoise_summary')
+
+            iwrite_full = dnse_summary.iwrite;
+            len_iwrite_full = length(iwrite_full);
+            nwrite_short_try = 5;
+            if (len_iwrite_full>=nwrite_short_try)
+                iwrite_short = iwrite_full(1:nwrite_short_try);
+            else
+                % iwrite_short = [];
+                iwrite_short = iwrite_full;
+            end
+            nwrite_short = length(iwrite_short);
+
+            residuals_iwrite = dnse_summary.residuals(iwrite_full);
+
+            inds_iwrite_full = 1:len_iwrite_full;
+            iibig_residuals_iwrite = residuals_iwrite > 1e-1;
+            iiplt_residuals_iwrite = iibig_residuals_iwrite;
+            iiplt_residuals_iwrite([1:nwrite_short len_iwrite_full]) = true;
+            iplot_residuals_iwrite = inds_iwrite_full(iiplt_residuals_iwrite);
+            iwrite_plot = iwrite_full(iplot_residuals_iwrite);
+            residuals_iplot = residuals_iwrite(iplot_residuals_iwrite);
+
+            len_iwrite_plot = length(iwrite_plot);
+            iwrite_long = iwrite_plot((nwrite_short+1):end);
+            nwrite_long = length(iwrite_long);
+
+            [Rsvd_g_s,~,pSj_s] = Snse.read_jet_sol_h_data(Rsvd_g_names, jet_sol_names);
+            [Rsvd_g_f,~,pSj_f] = Snse.read_jet_sol_h_data(Rsvd_g_names, jet_sol_names, '_f');
+            Sdnse_cell = cell([Snse.ncrv,len_iwrite_plot]);
+            for i = 1:len_iwrite_plot
+                Sdnse_cell(:,i) = Snse.read_Sobs_cell(['.jsol_Rk_' num2str(iwrite_plot(i))]);
+            end
+
+            icrv_plot = 1:6;
+
+            plt_spc = plts_out(1);
+
+            [spc.lspec,spc.lw,spc.mspec,spc.ms,spc.color] = deal('-',0.5,...
+                                                        '.',12, ...
+                                                        [0 0 0 1]);
+            plt_spc = LD_plots.plot_pts(pts_ref_cell(icrv_plot), ...
+                                    meta0,plt_spc,spc);
+
+            [spc.lspec,spc.lw,spc.mspec,spc.ms,spc.color] = deal('none',0.5,...
+                                                        '.',12, ...
+                                                        [1 0 0 1]);
+            plt_spc = LD_plots.plot_pts(pts_nse_cell(icrv_plot), ...
+                                    meta0,plt_spc,spc);
+
+
+            color_mat_short = flip(spring( nwrite_short ),1);
+
+            color_mat_full = flip(cool( double(dnse_summary.nsmooth) ),1);
+            % color_mat_long = flip(cool( nwrite_long ),1);
+            color_mat_long = color_mat_full( iwrite_plot((nwrite_short+1):end) , :);
+
+            color_mat = [color_mat_short ; color_mat_long];
+
+            [spc.lspec,spc.lw,spc.mspec,spc.ms] = deal('none',0.5,...
+                                                        'o',3);
+            for i = 1:(len_iwrite_plot-1)
+                spc.color = [color_mat(i,:) 1];
+                plt_spc = LD_plots.plot_pts(Sdnse_cell(icrv_plot,i), ...
+                                        meta0,plt_spc,spc);
+            end
+            [spc.lspec,spc.lw,spc.mspec,spc.ms] = deal('none',0.5,...
+                                                        '*',3);
+            spc.color = [color_mat(len_iwrite_plot,:) 1];
+            % spc.color = [LD_plots.green5 1];
+            plt_spc = LD_plots.plot_pts(Sdnse_cell(icrv_plot,len_iwrite_plot), ...
+                                    meta0,plt_spc,spc);
+
+
+            plt_cnv = plts_out(2);
+            [tdim1,tdim2] = deal(1,3);
+            plt_cnv = plt_cnv.init_tiles_safe(tdim1,tdim2);
+            hold(plt_cnv.axs, 'on');
+            box(plt_cnv.axs,'on');
+            axs_cnv = plt_cnv.axs;
+            axs_mat_cnv = plt_cnv.axs_mat();
+
+            [spc.lspec,spc.lw,spc.mspec,spc.ms] = deal('-',1,...
+                                                        's',3);
+            plot(axs_mat_cnv(1,1), ...
+                1:(dnse_summary.nsmooth), ...
+                dnse_summary.residuals, ...
+                'Color',[1 0 0], ...
+                'Marker', spc.mspec, ...
+                'LineStyle', spc.lspec, ...
+                'MarkerSize',spc.ms,'LineWidth',spc.lw)
+
+            [spc.lspec,spc.lw,spc.mspec,spc.ms] = deal('none',1,...
+                                                        '.',10);
+            plot(axs_mat_cnv(1,1), ...
+                iwrite_plot, ...
+                residuals_iplot, ...
+                'Color',[0 0 1], ...
+                'Marker', spc.mspec, ...
+                'LineStyle', spc.lspec, ...
+                'MarkerSize',spc.ms,'LineWidth',spc.lw)
+
+
+
+            set(axs_mat_cnv(1,1), 'TickLabelInterpreter','Latex','FontSize',12);
+            set(axs_mat_cnv(1,1),'YScale','log', 'XScale','linear');
+
+
+            plts_out(1) = plt_spc;
+            plts_out(2) = plt_cnv;
+
+            dnse_data = dnse_summary;
+
+            dnse_data.Sdnse_cell = Sdnse_cell;
         end
         function plt_out = plot_denoised_trajectories(plt_,spc_,Sref_,Snse_,icrv_)
             if (nargin==4)
@@ -57,7 +179,8 @@ classdef LD_denoise_plots < LD_plots
             % ndns_long_range = [];
             % ndns_long_range = (ndns_short_range(end)+1):1:50;
             % ndns_long_range = (ndns_short_range(end)+1):2:50;
-            ndns_long_range = 10:10:50;
+            % ndns_long_range = 10:10:50;
+            ndns_long_range = 100:100:1000;
 
             % ndns_short_range = 1;
             % ndns_short_range = 1:2;
@@ -75,8 +198,6 @@ classdef LD_denoise_plots < LD_plots
             color_mat_long = flip(cool( length(ndns_long_range) ),1);
             color_mat = [color_mat_short ; color_mat_long];
 
-            [spc.lspec,spc.lw] = deal('-',0.5);
-            [spc.mspec,spc.ms] = deal('o',3);
             for i = 1:len_ndns_range
                 idns = ndns_range(i);
                 pts_cell(:,i) = Snse_.read_Sobs_cell(['.jsol_Rk_' num2str(idns)]);

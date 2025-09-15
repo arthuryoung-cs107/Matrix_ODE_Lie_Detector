@@ -2,7 +2,7 @@ clear;
 close all;
 
 scrn_id = 1;
-% scrn_id = 4;
+% scrn_id = 3;
 
 % dir_name = '../data_directory';
 % dir_name = '../denoise_data_directory';
@@ -55,7 +55,7 @@ jet_sol_names = { '.jsol_h'; ...
 '.jsol_0_Rk'; ...
 '.jsol_1_Rk'; ...
 };
-[Rsvd_g_0,Rsvd_h_g_0,theta_jsh,pSj] = Snse.read_jet_sol_h_data(Rsvd_g_names,'.theta_mat', jet_sol_names);
+[Rsvd_g_0,Rsvd_h_g_0,pSj] = Snse.read_jet_sol_h_data(Rsvd_g_names, jet_sol_names);
 pSj_cells = LD_observations_set.pts_struct_2_cell(pSj);
 pSj_h_cell = pSj_cells(:,1);
 pSj_h_Rk_cell = pSj_cells(:,2);
@@ -88,22 +88,50 @@ dxuk_Rk = Snse.read_dxuk_data('.dxuk_Rk');
 %% inspecting curves
 ncrv_ref = Sref.ncrv;
 
+tdim_S_mesh = 13;
+tdim_S_wdth = tdim_S_mesh;
+tdim_S_hght = 3;
+
+
+i_crv = 1;
+spc.color = [0 0 0 0.2];
+plt0 = LD_plots('Sdns', ...
+                [tdim_S_mesh tdim_S_mesh],...
+                    [tdim_S_hght tdim_S_wdth],[tdim_S_hght 1], ...
+                scrn_id);
+% nse_plot1 = LD_denoise_plots.plot_denoised_trajectories(plt0, ...
+%                                                         spc, ...
+%                                                         Sref,Snse,i_crv);
+plt01 = LD_plots('conv', ...
+                [tdim_S_mesh tdim_S_mesh],...
+                    [tdim_S_hght tdim_S_wdth],[(2*(tdim_S_hght+1)) 1], ...
+                scrn_id);
+[dnse_plts,dnse_data] = LD_denoise_plots.plot_denoising_summary([plt0,plt01], ...
+                                                        spc, ...
+                                                        [Sref,Snse], ...
+                                                        i_crv);
+
+nse_plot1 = dnse_plts(1);
+
+% nse_plot1.show_menubar();
+nse_plot1.show_toolbar();
+
+
+% return
+
+
 % i_crv = 1;
 % i_crv = 2;
 % i_crv = 3;
 i_crv = 6;
-
-tdim_S_mesh = 13;
-tdim_S_wdth = tdim_S_mesh;
-tdim_S_hght = 3;
 
 nplt = 2;
 slnspc_plts = LD_plots.empty(nplt,0);
 for i = 1:nplt
     slnspc_plts(i) = LD_plots(['Sdns_plt', num2str(i)], ...
                     [tdim_S_mesh tdim_S_mesh],...
-                    [tdim_S_hght tdim_S_wdth],[(tdim_S_hght+1)*(i+1) 1], ...
-                scrn_id);
+                    [tdim_S_hght tdim_S_wdth],[tdim_S_mesh 1], scrn_id);
+                    % [tdim_S_hght tdim_S_wdth],[(tdim_S_hght+1)*(i+1) 1], scrn_id);
 end
 slnspc_ref_plt = slnspc_plts(1);
 spc.color = [0 0 0 0.25];
@@ -179,35 +207,10 @@ slnspc_nse_plt = LD_plots.plot_pts(pSj_Rk_1_cell(i_crv), ...
 slnspc_nse_plt.show_toolbar();
 
 
-
-
-i_crv = 1;
-spc.color = [0 0 0 0.2];
-plt0 = LD_plots('Sdns', ...
-                [tdim_S_mesh tdim_S_mesh],...
-                    [tdim_S_hght tdim_S_wdth],[tdim_S_hght 1], ...
-                scrn_id);
-% nse_plot1 = LD_denoise_plots.plot_denoised_trajectories(plt0, ...
-%                                                         spc, ...
-%                                                         Sref,Snse,i_crv);
-plt01 = LD_plots('conv', ...
-                [tdim_S_mesh tdim_S_mesh],...
-                    [tdim_S_hght tdim_S_wdth],[(2*(tdim_S_hght+1)) 1], ...
-                scrn_id);
-[dnse_plts,dnse_data] = LD_denoise_plots.plot_denoising_summary([plt0,plt01], ...
-                                                        spc, ...
-                                                        [Sref,Snse],i_crv);
-
-nse_plot1 = dnse_plts(1);
-
-% nse_plot1.show_menubar();
-nse_plot1.show_toolbar();
-
-
 return
 
 
-[Rsvd_g_0_tru,Rsvd_h_g_0_tru,theta_jsh_tru,pSj_tru] = Sref.read_jet_sol_h_data(Rsvd_g_names,'.theta_mat', jet_sol_names);
+[Rsvd_g_0_tru,Rsvd_h_g_0_tru,pSj_tru] = Sref.read_jet_sol_h_data(Rsvd_g_names, jet_sol_names);
 pSj_cells_tru = LD_observations_set.pts_struct_2_cell(pSj_tru);
 pSj_h_cell_tru = pSj_cells_tru(:,1);
 pSj_h_Rk_cell_tru = pSj_cells_tru(:,2);
@@ -231,9 +234,7 @@ return
 
 
 
-[Rsvd_g_0,Rsvd_h_g_0,theta_jsh,pSjh,pSjhRk,pSj0Rk,pSj1Rk] = Snse.read_jet_sol_h_data(Rsvd_g_names,'.theta_mat', jet_sol_names);
-% [theta_jsh,pSjh,pSjhRk,pSj0Rk,pSj1Rk,pSjRk] = Snse.read_jet_sol_h_data('.theta_mat', jet_sol_names);
-% [theta_jsh_1,pSjh_1,pSjhRk_1,pSj0Rk_1,pSj1Rk_1,pSjRk_1] = Snse_dns1.read_jet_sol_h_data('.theta_mat', jet_sol_names);
+[Rsvd_g_0,Rsvd_h_g_0,pSjh,pSjhRk,pSj0Rk,pSj1Rk] = Snse.read_jet_sol_h_data(Rsvd_g_names, jet_sol_names);
 
 get_pts_mat = @(pS_) reshape(pS_.pts_in,meta0.ndim,[]);
 pts_mat_crvi = @(pS_,i_) reshape(pS_.pts_in( (pS_.pts_crv_inds(1,i_)):(pS_.pts_crv_inds(2,i_)) ) , meta0.ndim,[]);
