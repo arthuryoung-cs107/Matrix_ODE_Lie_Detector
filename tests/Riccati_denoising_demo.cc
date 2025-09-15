@@ -26,6 +26,7 @@ const char dir_name[] = "./denoise_data_directory/Uniform_IC_perturbation/render
 // const char obs_name[] = "Riccati_xrange0_true_DoP853gen"; // name of observations file
 const char obs_name[] = "Riccati_xrange0_noise0_DoP853gen"; // name of observations file
 // const char obs_name[] = "Riccati_xrange0_noise1_DoP853gen"; // name of observations file
+// const char obs_name[] = "Riccati_xrange0_noise2_DoP853gen"; // name of observations file
 
 const char dat_suff[] = ".lddat"; // data file suffix (*.lddat)
 char data_name[strlen(dir_name) + strlen(obs_name) + strlen(dat_suff) + 1];
@@ -60,13 +61,15 @@ const int write_sched_early = 5;
 // const int ndns_max = 3; // max permitted denoising steps
 // const int ndns_max = 5; // max permitted denoising steps
 // const int ndns_max = 10;
-// const int write_sched = 1;
+const int ndns_max = 50;
+const int write_sched = 1;
 
 // const int ndns_max = 10;
 // const int ndns_max = 20;
 // const int ndns_max = 30;
 // const int ndns_max = 40;
 // const int ndns_max = 50;
+// const int ndns_max = 100;
 // const int write_sched = 2;
 
 // const int ndns_max = 100;
@@ -83,8 +86,8 @@ const int write_sched_early = 5;
 // const int ndns_max = 600;
 // const int write_sched = 50;
 
-const int ndns_max = 1000;
-const int write_sched = 100;
+// const int ndns_max = 1000;
+// const int write_sched = 100;
 
 // ode_curve_observations observations(data_name);
   ode_curve_observations observations(data_name,data_dnp1xu_name);
@@ -199,7 +202,8 @@ struct global_Rmat_experiment : public global_multinomial_experiment
 
   void denoise_data(ode_solcurve_chunk &Sobs_alt_)
   {
-    int rnk_vec[ndns_max];
+    int rnk_vec[ndns_max],
+        iwrite_vec[ndns_max];
     double res_vec[ndns_max];
     ode_solution ** const sols_alt = Sobs_alt_.sols;
     ode_solcurve ** const curves_alt = Sobs_alt_.curves;
@@ -312,7 +316,11 @@ struct global_Rmat_experiment : public global_multinomial_experiment
       work_time, LD_threads::numthreads()
     );
     // write_curve_observations(Sobs_alt_,nsmooth,true);
-    write_denoising_summary(Sobs_alt_,nsmooth,res_vec);
+    // write_denoising_summary(Sobs_alt_,nsmooth,res_vec);
+
+    write_curve_observations(Sobs_alt_,nsmooth,true);
+    write_sol_h_data("_f");
+
   }
   int encode_decompose_R_matrix_global(double **VTmg_,LD_svd &Rsvdg_,LD_R_encoder &Rkenc_,ode_solution **sols_,int nobs_)
   {
@@ -675,16 +683,16 @@ struct global_Rmat_experiment : public global_multinomial_experiment
       LD_io::fclose_SAFE(file_dxuk_Rk);
       printf("(global_Rmat_experiment::write_initial_diagnostics) wrote %s\n",fname_dxuk_Rk);
   }
-  void write_denoising_summary(ode_solcurve_chunk &Sobs_, int nsmooth_, double *res_vec_)
-  {
-    write_curve_observations(Sobs_,nsmooth_,true);
-    write_sol_h_data("_f");
-    // const int len_dir_name = strlen(dir_name),
-    //           len_obs_name = strlen(obs_name),
-    //           len_dat_suff = strlen(dat_suff),
-    //           len_base = len_dir_name+len_obs_name+len_dat_suff;
-
-  }
+  // void write_denoising_summary(ode_solcurve_chunk &Sobs_, int nsmooth_, double *res_vec_)
+  // {
+  //   write_curve_observations(Sobs_,nsmooth_,true);
+  //   write_sol_h_data("_f");
+  //   // const int len_dir_name = strlen(dir_name),
+  //   //           len_obs_name = strlen(obs_name),
+  //   //           len_dat_suff = strlen(dat_suff),
+  //   //           len_base = len_dir_name+len_obs_name+len_dat_suff;
+  //
+  // }
 
 };
 

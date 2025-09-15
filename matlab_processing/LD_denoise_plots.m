@@ -8,6 +8,23 @@ classdef LD_denoise_plots < LD_plots
         end
     end
     methods (Static)
+        function [plts_out,dnse_data] = plot_denoising_summary(plts_,spc_,Ssets_,icrv_)
+            if (nargin==3)
+                icrv_plot = 1:(Ssets_(1).ncrv);
+            else
+                icrv_plot = icrv_;
+            end
+            res_vec = [];
+            plts_out = plts_;
+            dnse_data = struct('res_vec', res_vec);
+
+            Sref = Ssets_(1);
+            meta0 = Sref.meta_data();
+
+            plts_out(1) = LD_denoise_plots.plot_denoised_trajectories(plts_out(1), ...
+                spc_,Ssets_(1),Ssets_(2),icrv_plot);
+
+        end
         function plt_out = plot_denoised_trajectories(plt_,spc_,Sref_,Snse_,icrv_)
             if (nargin==4)
                 icrv_plot = 1:Sref_.ncrv;
@@ -25,18 +42,25 @@ classdef LD_denoise_plots < LD_plots
 
             % ndns_short_range = 1;
             % ndns_short_range = 1:2;
-            ndns_short_range = 1:5;
+            % ndns_short_range = 1:5;
 
             % ndns_long_range = [];
             % ndns_long_range = (ndns_short_range(end)+1):1:10;
+            % ndns_long_range = (ndns_short_range(end)+1):1:50;
             % ndns_long_range = (ndns_short_range(end)+1):1:3;
             % ndns_long_range = (6):2:50;
             % ndns_long_range = (10):10:500;
-            ndns_long_range = (100):100:500;
+            % ndns_long_range = (100):100:500;
             % ndns_long_range = (200):200:1000;
 
-            % ndns_short_range = 1:2;
+            ndns_short_range = 1:5;
+            % ndns_long_range = [];
+            % ndns_long_range = (ndns_short_range(end)+1):1:50;
+            % ndns_long_range = (ndns_short_range(end)+1):2:50;
+            ndns_long_range = 10:10:50;
+
             % ndns_short_range = 1;
+            % ndns_short_range = 1:2;
             % ndns_long_range = [];
 
             ndns_range = [ndns_short_range ndns_long_range];
