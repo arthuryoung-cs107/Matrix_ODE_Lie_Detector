@@ -13,6 +13,7 @@
 //
 // };
 
+
 class curve_Lie_detector
 {
   const int kor,
@@ -114,8 +115,10 @@ class curve_Lie_detector
       tsj_.set_jet_given_solh(solh_); // use improved derivative estimates to update corresponding jet coeffficients
 
       // exponentiate resultant Hermite jet
-      if (truncate_Hermite_exp) tsj_.exp_u_trivial( sol_out_.u, sol_out_.x - solh_.x, kor);
-      else tsj_.exp_u_trivial( sol_out_.u, sol_out_.x - solh_.x );
+      // if (truncate_Hermite_exp) tsj_.exp_u_trivial( sol_out_.u, sol_out_.x - solh_.x, kor);
+      // else tsj_.exp_u_trivial( sol_out_.u, sol_out_.x - solh_.x );
+
+      tsj_.exp_u_trivial( sol_out_.u, sol_out_.x - solh_.x, kor);
 
       tvf_.set_sol_dkxu(sol_out_, kor); // apply vfield to resultant solution for improved derivatives
     }
@@ -237,6 +240,10 @@ class curve_Lie_detector
     inline ode_trivial_soljet * tsjet_0() {return tsoljets[0];}
     inline ode_trivial_soljet * tsjet_f() {return tsoljets[nobs_h-1];}
 
+    inline ode_solution * sol_wrk0_i(int i_)
+    { return ( i_<nobs_h )?( &(tjcharts[i_]->sol0_alt) ):( (i_==nobs_h)?(&(tjc_crv.sol0_alt)):(NULL) ); }
+    inline ode_solution * sol_wrk1_i(int i_)
+    { return ( i_<nobs_h )?( &(tjcharts[i_]->sol1_alt) ):( (i_==nobs_h)?(&(tjc_crv.sol1_alt)):(NULL) ); }
 };
 
 class Lie_detector
@@ -561,6 +568,20 @@ struct Lie_detector_experiment
     sol_out_.copy_xu(sol_in_);
     smooth_trivial_soljet(tsjet_,sol_out_,tvf_);
   }
+
+};
+
+class Lie_detector_multinomial_solmodel
+{
+  ode_solution &sol;
+  orthopolynomial_space &fspc;
+
+  public:
+
+    Lie_detector_multinomial_solmodel(ode_solution &sol_, orthopolynomial_space &fspc_) :
+      sol(sol_), fspc(fspc_) {}
+    ~Lie_detector_multinomial_solmodel() {}
+
 
 };
 

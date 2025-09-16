@@ -16,7 +16,8 @@
 // specify data directory for writing binary files
 // const char dir_name[] = "./denoise_data_directory";
 // const char dir_name[] = "./denoise_data_directory/Gaussian_IC_perturbation/rendering_data";
-const char dir_name[] = "./denoise_data_directory/Uniform_IC_perturbation/rendering_data";
+// const char dir_name[] = "./denoise_data_directory/Uniform_IC_perturbation/rendering_data";
+const char dir_name[] = "./denoise_data_directory/Uniform_IC_perturbation";
 // const char dir_name[] = "./dense_data_directory/Gaussian_IC_perturbation";
 const char dat_suff[] = "lddat";
 const char addtl_prefix[] = "";
@@ -40,8 +41,8 @@ LD_noise_aux nse(meta0); // helper class for setting up and running noise experi
 
 const int nc = 50, // 50, number of curves
           // np_min = 200, // 300, min number of points for extrapolation experiment
-          // np_min = 150, // 300, min number of points for extrapolation experiment
-          np_min = 100 , // 300, min number of points for extrapolation experiment
+          np_min = 150, // 100, min number of points for extrapolation experiment
+          // np_min = 100 , // 100, min number of points for extrapolation experiment
           np = np_min; // points per curve
 
 // identifier for independent variable range of data
@@ -54,7 +55,7 @@ const int xrange = 0; // 0 default
 // const int noise_level = -1; // unnoised case
 // const int noise_level = 0; // coordinates perturbed by std dev prop to coordinate scale
 // const int noise_level = 1; // ^-1
-const int noise_level = 2; // ^-2
+// const int noise_level = 2; // ^-2
 
 const bool  write_dnp1xu = true,
             write_JFs = true;

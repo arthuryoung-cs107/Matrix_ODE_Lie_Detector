@@ -1,14 +1,15 @@
 clear;
 close all;
 
-scrn_id = 1;
-% scrn_id = 3;
+% scrn_id = 1;
+scrn_id = 3;
 
 % dir_name = '../data_directory';
 % dir_name = '../denoise_data_directory';
 % dir_name = '../denoise_data_directory/Gaussian_IC_perturbation';
 % dir_name = '../denoise_data_directory/Gaussian_IC_perturbation/rendering_data';
-dir_name = '../denoise_data_directory/Uniform_IC_perturbation/rendering_data';
+% dir_name = '../denoise_data_directory/Uniform_IC_perturbation/rendering_data';
+dir_name = '../denoise_data_directory/Uniform_IC_perturbation';
 % dense_dir_name = '../dense_data_directory/Gaussian_IC_perturbation';
 dat_suff = 'lddat';
 

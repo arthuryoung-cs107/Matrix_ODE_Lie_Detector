@@ -22,9 +22,10 @@
 */
 // const char dir_name[] = "./denoise_data_directory/Gaussian_IC_perturbation/"; // data directory
 // const char dir_name[] = "./denoise_data_directory/Gaussian_IC_perturbation/rendering_data/"; // data directory
-const char dir_name[] = "./denoise_data_directory/Uniform_IC_perturbation/rendering_data/"; // data directory
-// const char obs_name[] = "Riccati_xrange0_true_DoP853gen"; // name of observations file
-const char obs_name[] = "Riccati_xrange0_noise0_DoP853gen"; // name of observations file
+// const char dir_name[] = "./denoise_data_directory/Uniform_IC_perturbation/rendering_data/"; // data directory
+const char dir_name[] = "./denoise_data_directory/Uniform_IC_perturbation/"; // data directory
+const char obs_name[] = "Riccati_xrange0_true_DoP853gen"; // name of observations file
+// const char obs_name[] = "Riccati_xrange0_noise0_DoP853gen"; // name of observations file
 // const char obs_name[] = "Riccati_xrange0_noise1_DoP853gen"; // name of observations file
 // const char obs_name[] = "Riccati_xrange0_noise2_DoP853gen"; // name of observations file
 
@@ -72,12 +73,15 @@ const int write_sched_early = 5;
 // const int ndns_max = 100;
 // const int write_sched = 2;
 
+const int ndns_max = 500;
+const int write_sched = 5;
+
 // const int ndns_max = 100;
 // const int ndns_max = 200;
 // const int ndns_max = 300;
 // const int ndns_max = 400;
-const int ndns_max = 500;
-const int write_sched = 10;
+// const int ndns_max = 500;
+// const int write_sched = 10;
 
 // const int ndns_max = 400;
 // const int ndns_max = 500;
@@ -213,7 +217,7 @@ struct global_Rmat_experiment : public global_multinomial_experiment
      an R matrix, this time over the colocation points.
     */
 
-    int rank0 = encode_decompose_R_matrix_global(VTmat_Rk_global,Rsvd_global,Rkenc,sols,nobs);
+    int rank0 = rnk_vec[0] = encode_decompose_R_matrix_global(VTmat_Rk_global,Rsvd_global,Rkenc,sols,nobs);
       Rsvd_global.print_result("  Rsvd_global (0)");
 
     double &res_1 = res_vec[0];
@@ -250,11 +254,15 @@ struct global_Rmat_experiment : public global_multinomial_experiment
            " i=%d, res_i = %.8f "
            "\n", nsmooth, res_1);
 
+    // if (exp_staggered_Hermites)
+    //   rnk_vec[nsmooth] = encode_decompose_R_matrix_global(VTmat_Rk_global,Rsvd_global,Rkenc,sols_alt,nobs);
+
     double  res_old = res_1,
             t0 = LD_threads::tic();
     do
     {
-      int &rank_i = rnk_vec[nsmooth] = encode_decompose_R_matrix_global(VTmat_Rk_global,Rsvd_global,Rkenc,sols_alt,nobs);
+      int &rank_i =
+        rnk_vec[nsmooth] = encode_decompose_R_matrix_global(VTmat_Rk_global,Rsvd_global,Rkenc,sols_alt,nobs);
        if (v_verbose) Rsvd_global.print_result("    Rsvd_global");
       double &res_i = res_vec[nsmooth];
 
@@ -365,6 +373,7 @@ struct global_Rmat_experiment : public global_multinomial_experiment
           );
       }
     }
+    // if (Rmat_telescoping_decomposition)
     Rsvdg_.decompose_U();
     Rsvdg_.unpack_VTmat(VTmg_);
     return Rsvdg_.rank();
