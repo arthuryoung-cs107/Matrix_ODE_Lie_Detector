@@ -17,7 +17,8 @@ classdef LD_denoise_plots < LD_plots
             res_vec = [];
             plts_out = plts_;
 
-            Rsvd_g_names = { 'Rsvd_g' ; 'Rsvd_h_g' };
+            % Rsvd_g_names = { 'Rsvd_g' ; 'Rsvd_h_g' };
+            Rsvd_g_names = { 'Rsvd_g' };
             jet_sol_names = { '.jsol_h'; ...
             '.jsol_h_Rk'; ...
             '.jsol_0_Rk'; ...
@@ -32,7 +33,9 @@ classdef LD_denoise_plots < LD_plots
             pts_ref_cell = Sref.pts_cell();
             pts_nse_cell = Snse.pts_cell();
 
+            % startup_data = Snse.read_startup_data('_s');
             dnse_summary = Snse.read_denoise_summary('.denoise_summary')
+            Sobs_f = Snse.read_Sobs_cell(['.jsol_Rk_' num2str(dnse_summary.nsmooth)]);
 
             iwrite_full = dnse_summary.iwrite;
             len_iwrite_full = length(iwrite_full);
@@ -64,8 +67,9 @@ classdef LD_denoise_plots < LD_plots
             iwrite_long = iwrite_plot((nwrite_short+1):end);
             nwrite_long = length(iwrite_long);
 
-            [Rsvd_g_s,~,pSj_s] = Snse.read_jet_sol_h_data(Rsvd_g_names, jet_sol_names);
-            [Rsvd_g_f,~,pSj_f] = Snse.read_jet_sol_h_data(Rsvd_g_names, jet_sol_names, '_f');
+            [Rsvd_g_0,pSj_0] = Snse.read_jet_sol_h_data(Rsvd_g_names, jet_sol_names);
+            [Rsvd_g_s,pSj_s] = Snse.read_jet_sol_h_data(Rsvd_g_names, jet_sol_names, '_s');
+            [Rsvd_g_f,pSj_f] = Snse.read_jet_sol_h_data(Rsvd_g_names, jet_sol_names, '_f');
             Sdnse_cell = cell([Snse.ncrv,len_iwrite_plot]);
             for i = 1:len_iwrite_plot
                 Sdnse_cell(:,i) = Snse.read_Sobs_cell(['.jsol_Rk_' num2str(iwrite_plot(i))]);
@@ -98,7 +102,8 @@ classdef LD_denoise_plots < LD_plots
 
             [spc.lspec,spc.lw,spc.mspec,spc.ms] = deal('-',1,...
                                                         'none',3);
-            for i = 1:(len_iwrite_plot-1)
+            % for i = 1:(len_iwrite_plot-1)
+            for i = 1:len_iwrite_plot
             % for i = 1:1
                 spc.color = [color_mat(i,:) 1];
                 plt_spc = LD_plots.plot_pts(Sdnse_cell(icrv_plot,i), ...
@@ -106,15 +111,15 @@ classdef LD_denoise_plots < LD_plots
             end
             [spc.lspec,spc.lw,spc.mspec,spc.ms,spc.color] = deal('-',1,...
                                                         'none',3, ...
-                                                        [[color_mat(len_iwrite_plot,:)] 0.3] );
+                                                        [[color_mat(end,:)] 0.3] );
                                                         % [LD_plots.green5 1]  );
-            plt_spc = LD_plots.plot_pts(Sdnse_cell(:,len_iwrite_plot), ...
+            plt_spc = LD_plots.plot_pts(Sobs_f(:,1), ...
                                     meta0,plt_spc,spc);
             [spc.lspec,spc.lw,spc.mspec,spc.ms,spc.color] = deal('-',1,...
                                                         'none',3, ...
-                                                        [[color_mat(len_iwrite_plot,:)] 1] );
+                                                        [[color_mat(end,:)] 1] );
                                                         % [LD_plots.green5 1]  );
-            plt_spc = LD_plots.plot_pts(Sdnse_cell(icrv_plot,len_iwrite_plot), ...
+            plt_spc = LD_plots.plot_pts(Sobs_f(icrv_plot,1), ...
                                     meta0,plt_spc,spc);
 
 

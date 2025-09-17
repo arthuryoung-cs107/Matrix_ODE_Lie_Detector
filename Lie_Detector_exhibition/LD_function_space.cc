@@ -142,7 +142,7 @@ dnxu_pow_ptrs((dxu_pows_allocate)?(new double*[ndep*(eorm2)]):(NULL)),
 dnxu_val((dxu_pows_allocate)?(new double**[ndep]):(NULL)),
 couples(new coupling_term*[eor+1])
 {
-  for (size_t i = 0; i <= eor; i++) couples[i] = new coupling_term(meta,i);
+  for (int i = 0; i <= eor; i++) couples[i] = new coupling_term(meta,i);
   if (dxu_pows_allocate) // if we need extra space for high order differential equations
   {
     int delchunk = ((eorm2)*(eorm2+1))/2;

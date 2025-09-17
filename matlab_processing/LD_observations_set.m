@@ -154,7 +154,7 @@ classdef LD_observations_set
             name = [obj.dir_name '/' obj.dat_name sum_name_ '.' obj.dat_suff];
             file = fopen(name);
             if (file == -1)
-                fprintf('(read_jet_sol_h_data) : WARNING - failed to read %s. Defaulting to empty output \n',name);
+                fprintf('(read_denoise_summary) : WARNING - failed to read %s. Defaulting to empty output \n',name);
                 dnse_summary = [];
             else
                 hlen = fread(file,1,'int=>int');
@@ -172,13 +172,14 @@ classdef LD_observations_set
                                         'nsmooth', nsmooth, ...
                                         'iwrite', iwrite, ...
                                         'ranks', ranks, ...
-                                        'residuals', residuals );
+                                        'residuals', residuals);  
             end
         end
         function dxuk_out = read_dxuk_data(obj,name_)
             dxuk_out = read_dxuk_struct([obj.dir_name '/' obj.dat_name name_ '.' obj.dat_suff]);
         end
-        function [R_svd,R_h_svd,pSj] = read_jet_sol_h_data(obj,nSVD_,nSmat_,ps_)
+        % function [R_svd,R_h_svd,pSj] = read_jet_sol_h_data(obj,nSVD_,nSmat_,ps_)
+        function [R_svd,pSj] = read_jet_sol_h_data(obj,nSVD_,nSmat_,ps_)
             if (nargin == 4)
                 ps = ps_;
             else
@@ -186,7 +187,9 @@ classdef LD_observations_set
             end
 
             R_svd = obj.read_LD_svd([nSVD_{1} ps]);
-            R_h_svd = obj.read_LD_svd([nSVD_{2} ps]);
+            for i = 2:length(nSVD_)
+                R_h_svd = obj.read_LD_svd([nSVD_{i} ps]);
+            end
 
             % theta_mat = LD_aux.read_Tmat([obj.dir_name '/' obj.dat_name nt_ '.' obj.dat_suff]);
 

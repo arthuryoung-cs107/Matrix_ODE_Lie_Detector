@@ -393,6 +393,79 @@ struct partial_chunk
   inline double * grad_utheta_i_vdxu(int i_) {return C_u[i_];}
 };
 
+struct prolongation_workspace: public function_space_element
+{
+
+  prolongation_workspace(function_space &fspc_) :
+    function_space_element(fspc_),
+    partials(partial_chunk(perm_len,eor,ndep)),
+    ord_len(fspc_.comp_ord_len()), ord_i_len(fspc_.comp_ord_i_len()),
+    dof_hot_flags_i(new bool[nvar]),
+    ord_xu(new int[nvar]), theta_xu(new double[nvar]),
+    s_j(new double[ndim]), v_j(new double[ndim]),
+    xu_vals(Tmatrix<double>(nvar,ord_len)),
+    dxu_vals(Tmatrix<double>(ndep,eor)),
+    dxu_pow_chunk((dxu_pows_allocate)?(new double[ndep*(((eorm2)*(eorm2+1))/2)]):(NULL)),
+    dnxu_pow_ptrs((dxu_pows_allocate)?(new double*[ndep*(eorm2)]):(NULL)),
+    dnxu_val((dxu_pows_allocate)?(new double**[ndep]):(NULL)),
+    couples(new coupling_term*[eor+1])
+    {
+      for (int i = 0; i <= eor; i++) couples[i] = new coupling_term(meta,i);
+      if (dxu_pows_allocate) // if we need extra space for high order differential equations
+      {
+        int delchunk = ((eorm2)*(eorm2+1))/2;
+        for (int idep = 0; idep < ndep; idep++)
+        {
+          dnxu_val[idep] = dnxu_pow_ptrs+(idep*(eorm2));
+          dnxu_val[idep][0] = dxu_pow_chunk + (idep*delchunk);
+          for (int ixp = 1, iskip = eorm2; ixp < eorm2; ixp++, iskip--)
+            dnxu_val[idep][ixp] = dnxu_val[idep][ixp-1] + iskip;
+        }
+      }
+    }
+  ~prolongation_workspace()
+  {
+    delete [] dof_hot_flags_i;
+    delete [] ord_xu; delete [] theta_xu;
+    delete [] s_j; delete [] v_j;
+    free_Tmatrix<double>(xu_vals);
+    free_Tmatrix<double>(dxu_vals);
+    if (dxu_pows_allocate) {delete [] dxu_pow_chunk; delete [] dnxu_pow_ptrs; delete [] dnxu_val;}
+    for (int i = 0; i <= eor; i++) delete couples[i];
+    delete [] couples;
+  }
+
+  partial_chunk partials;
+  double  ** const Jac_mat = partials.Jac_mat,
+          *** const C_x = partials.C_x,
+          ** const C_u = partials.C_u;
+
+  const bool dxu_pows_allocate = eor > 2;
+
+  const int eorm2 = eor-2,
+            ord_len,
+            ord_i_len;
+
+  bool  * const dof_hot_flags_i;
+
+  int * const ord_xu;
+
+  double  * const theta_xu,
+          * const s_j,
+          * const v_j,
+          ** const xu_vals,
+          ** const dxu_vals;
+
+  // conditionally defined data chunks for storing powers of high order derivatives
+  double  * const dxu_pow_chunk,
+          ** const dnxu_pow_ptrs,
+          *** const dnxu_val;
+
+  coupling_term ** const couples;
+
+};
+
+// class function_space_basis: public prolongation_workspace
 class function_space_basis: public function_space_element
 {
   public:
@@ -403,7 +476,7 @@ class function_space_basis: public function_space_element
     double  ** const Jac_mat = partials.Jac_mat,
             *** const C_x = partials.C_x,
             ** const C_u = partials.C_u;
-  
+
   inline double * v_eval(double *theta_,int eorcap_=0) // partial chunk already filled
   {
     function_space_basis::v_eval(partials,v_j,theta_,fspc,eorcap_);

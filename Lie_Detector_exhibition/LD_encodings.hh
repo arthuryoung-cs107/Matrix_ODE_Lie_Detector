@@ -405,8 +405,8 @@ struct LD_R_encoder: public LD_encoder
   {
     for (size_t idep = 0; idep < sol_.ndep; idep++)
     {
-      for (size_t icol = 0; icol < ndof_; icol++) Prows_[idep][icol] /= sol_.dnp1xu[idep];
-      // LD_linalg::normalize_vec_l2(Prows_[idep],ndof_);
+      // for (size_t icol = 0; icol < ndof_; icol++) Prows_[idep][icol] /= sol_.dnp1xu[idep];
+      LD_linalg::normalize_vec_l2(Prows_[idep],ndof_);
     }
   }
   static void normalize_Rk_rows(double **Rkrows_,ode_solution &sol_,int kor_,int ndof_)
@@ -414,15 +414,22 @@ struct LD_R_encoder: public LD_encoder
     if (kor_==(sol_.eor+1)) LD_R_encoder::normalize_P_rows(Rkrows_,sol_,ndof_);
     else
       for (size_t idep = 0, idxu = kor_*sol_.ndep; idep < sol_.ndep; idep++, idxu++)
-        for (size_t icol = 0; icol < ndof_; icol++) Rkrows_[idep][icol] /= sol_.u[idxu];
-        // LD_linalg::normalize_vec_l2(Rkrows_[idep],ndof_);
+      {
+        LD_linalg::normalize_vec_l2(Rkrows_[idep],ndof_);
+        // for (size_t icol = 0; icol < ndof_; icol++) Rkrows_[idep][icol] /= sol_.u[idxu];
+      }
   }
   static void normalize_Rn_rows(double **Rnrows_,ode_solution &sol_,int eorm1_,int ndof_)
   {
+    // for (int i = 0, ncod = (sol_.ndep)*(eorm1_+1); i < ncod; i++)
+    //   LD_linalg::normalize_vec_l2(Rnrows_[i],ndof_);
+
     for (size_t k = 0, idxu = 0; k <= eorm1_; k++)
       for (size_t idep = 0; idep < sol_.ndep; idep++, idxu++)
-        for (size_t icol = 0; icol < ndof_; icol++) Rnrows_[idxu][icol] /= sol_.dxu[idxu];
-        // LD_linalg::normalize_vec_l2(Rnrows_[idxu],ndof_);
+        {
+          // LD_linalg::normalize_vec_l2(Rnrows_[idxu],ndof_);
+          for (size_t icol = 0; icol < ndof_; icol++) Rnrows_[idxu][icol] /= sol_.dxu[idxu];
+        }
   }
 };
 

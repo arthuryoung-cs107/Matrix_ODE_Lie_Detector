@@ -41,7 +41,7 @@ LD_noise_aux nse(meta0); // helper class for setting up and running noise experi
 
 const int nc = 50, // 50, number of curves
           // np_min = 200, // 300, min number of points for extrapolation experiment
-          np_min = 150, // 100, min number of points for extrapolation experiment
+          np_min = 120, // 100, min number of points for extrapolation experiment
           // np_min = 100 , // 100, min number of points for extrapolation experiment
           np = np_min; // points per curve
 
@@ -52,8 +52,8 @@ const int xrange = 0; // 0 default
   we test 3 orders of magnitude of noise
 */
 // level of noise applied to observational data. If <0, then unnoised
-// const int noise_level = -1; // unnoised case
-const int noise_level = 0; // coordinates perturbed by std dev prop to coordinate scale
+const int noise_level = -1; // unnoised case
+// const int noise_level = 0; // coordinates perturbed by std dev prop to coordinate scale
 // const int noise_level = 1; // ^-1
 // const int noise_level = 2; // ^-2
 

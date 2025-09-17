@@ -45,7 +45,7 @@ const int data_dnp1xu_name_len = sprintf(data_dnp1xu_name,"%s%s%s%s", dir_name,o
 // ode_solspc_meta meta0(1,1); // Riccati equation : n = 1, q = 1
 
 const int Hermite_exp = 1; // 1, flag for Hermite exponentiation technique (0 uses num. quadrature instead)
-const bool exp_staggered_Hermites = true;
+const bool exp_staggered_Hermites = true; // use staggered Hermite jets for denoising exponentiation
 const bool trunc_Hermite_exp = true; // flag for truncating Rmatrix corrected Hermite jet
 
 const int curve_Lie_detector::combine_flag = 1; // 0, flag for updating smoothened coordinates, (0 lazy, 1 aggressive)
@@ -55,7 +55,7 @@ const bool v_verbose = false;
 const bool Rmat_h_exp = false;
 const bool Rmat_Hermite_jets = false;
 const bool stop_blowup = false;
-const int nullity_stop = 2; // nullity dimension required to terminate (if 0, don't stop)
+const int nullity_stop = 2; // nullity dimension required to terminate (if 0, does not stop)
 
 const double res_ratio_tol = 1e-12;
 const int write_sched_early = 5;
@@ -66,17 +66,17 @@ const int write_sched_early = 5;
 // const int ndns_max = 50;
 // const int write_sched = 1;
 
-// const int ndns_max = 10;
+const int ndns_max = 10;
 // const int ndns_max = 20;
 // const int ndns_max = 30;
 // const int ndns_max = 40;
 // const int ndns_max = 50;
 // const int ndns_max = 100;
-// const int write_sched = 2;
+const int write_sched = 2;
 
 // const int ndns_max = 50;
-const int ndns_max = 500;
-const int write_sched = 5;
+// const int ndns_max = 500;
+// const int write_sched = 5;
 
 // const int ndns_max = 100;
 // const int ndns_max = 200;
@@ -248,9 +248,11 @@ struct global_Rmat_experiment : public global_multinomial_experiment
       }
       res_1 = det.combine_trivial_flows(curves_alt,curves_alt);
     }
+      write_sol_h_data("_s");
 
     int nsmooth=1;
       write_curve_observations(Sobs_alt_,iwrite_vec[nwrite++] = nsmooth,true);
+
 
     printf("   (global_Rmat_experiment::denoise_data)"
            " i=%d, res_i = %.8f "
@@ -560,7 +562,7 @@ struct global_Rmat_experiment : public global_multinomial_experiment
   }
 
   // void write_sol_h_data(const char dir_name_[], const char obs_name_[], const char dat_suff_[])
-  void write_sol_h_data(const char ps_[] = "")
+  void write_sol_h_data(const char ps_[] = "", bool write_loads_=true)
   {
     const int len_dir_name = strlen(dir_name),
               len_obs_name = strlen(obs_name),
@@ -573,10 +575,10 @@ struct global_Rmat_experiment : public global_multinomial_experiment
       sprintf(fname_Rsvd,"%s%s%s%s%s",dir_name,obs_name, name_Rsvd, ps_ ,dat_suff);
       Rsvd_global.write_LD_svd(fname_Rsvd);
 
-    const char name_Rsvd_h[] = ".Rsvd_h_g";
-      char fname_Rsvd_h[len_base+strlen(name_Rsvd_h)+1];
-      sprintf(fname_Rsvd_h,"%s%s%s%s%s",dir_name,obs_name, name_Rsvd_h, ps_ ,dat_suff);
-      Rsvd_h_global.write_LD_svd(fname_Rsvd_h);
+    // const char name_Rsvd_h[] = ".Rsvd_h_g";
+    //   char fname_Rsvd_h[len_base+strlen(name_Rsvd_h)+1];
+    //   sprintf(fname_Rsvd_h,"%s%s%s%s%s",dir_name,obs_name, name_Rsvd_h, ps_ ,dat_suff);
+    //   Rsvd_h_global.write_LD_svd(fname_Rsvd_h);
 
     // const char name_theta_mat[] = ".theta_mat";
     //   char fname_theta_mat[len_base+strlen(name_theta_mat)+1];

@@ -688,8 +688,12 @@ struct LD_spectral_tvfield : public LD_trivial_vector_field
 
     for (int i = 0; i < len_theta; i++) theta_[i] = 0.0;
 
+    // const double  ww_tol = 1e-2;
+    // int istart = 0;
+    // while ( ( (sigma_min()/sv[istart])<ww_tol )&&( istart<nvec_use ) ) istart++;
+
     for (int ith = 0; ith < nvec_use; ith++) // compute local parameter values via spectral weighting scheme
-    // for (int ith = 1; ith < nvec_use; ith++) // compute local parameter values via spectral weighting scheme
+    // for (int ith = istart; ith < nvec_use; ith++) // compute local parameter values via spectral weighting scheme
     {
       const double  ww_i = sigma_min()/sv[ith], // scaled Moore-Penrose pseudoinverse
                     w_i = ww_i*ww_i; // squared to reflect squared scaling of vx_ith
@@ -708,14 +712,14 @@ struct LD_spectral_tvfield : public LD_trivial_vector_field
       // if (ww_i>1e-4)
       // if (ww_i>1e-4)
       // if (ww_i>1e-3)
-      if (ww_i>1e-2)
-      {
+      // if (ww_i>1e-2)
+      // {
         double  vx_ith = 0.0;
         for (int i = 0; i < len_lam; i++) vx_ith += VTm[ith][i]*lamvec_local[i];
 
         for (int i = 0; i < len_theta; i++) theta_[i] += w_i*vx_ith*VTm[ith][i];
         Wnet += w_i*vx_ith*vx_ith;
-      }
+      // }
     }
     for (int i = 0; i < len_theta; i++) theta_[i] /= Wnet; // normalize local parameters
   }
