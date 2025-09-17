@@ -49,6 +49,7 @@ classdef LD_denoise_plots < LD_plots
 
             ii_iwrite_plot = logical([ zeros(len_iwrite_full-1, 1) ; 1]); % always plot last iteration
             ii_iwrite_plot(1:nwrite_short) = true; % plot first few iterations
+            ii_iwrite_plot( logical([true ; diff(ranks_iwrite)<0 ]) ) = true; % plot any iterations with big errors
             ii_iwrite_plot(residuals_iwrite > 1e-1) = true; % plot any iterations with big errors
             ii_iwrite_plot( [true ; diff(residuals_iwrite) > 0.0] ) = true; % plot any increasing iterations
 
@@ -95,18 +96,24 @@ classdef LD_denoise_plots < LD_plots
 
             color_mat = [color_mat_short ; color_mat_long];
 
-            [spc.lspec,spc.lw,spc.mspec,spc.ms] = deal('-',0.5,...
-                                                        'o',3);
+            [spc.lspec,spc.lw,spc.mspec,spc.ms] = deal('-',1,...
+                                                        'none',3);
             for i = 1:(len_iwrite_plot-1)
             % for i = 1:1
                 spc.color = [color_mat(i,:) 1];
                 plt_spc = LD_plots.plot_pts(Sdnse_cell(icrv_plot,i), ...
                                         meta0,plt_spc,spc);
             end
-            [spc.lspec,spc.lw,spc.mspec,spc.ms] = deal('-',0.5,...
-                                                        '*',3);
-            spc.color = [color_mat(len_iwrite_plot,:) 1];
-            % spc.color = [LD_plots.green5 1];
+            [spc.lspec,spc.lw,spc.mspec,spc.ms,spc.color] = deal('-',1,...
+                                                        'none',3, ...
+                                                        [[color_mat(len_iwrite_plot,:)] 0.3] );
+                                                        % [LD_plots.green5 1]  );
+            plt_spc = LD_plots.plot_pts(Sdnse_cell(:,len_iwrite_plot), ...
+                                    meta0,plt_spc,spc);
+            [spc.lspec,spc.lw,spc.mspec,spc.ms,spc.color] = deal('-',1,...
+                                                        'none',3, ...
+                                                        [[color_mat(len_iwrite_plot,:)] 1] );
+                                                        % [LD_plots.green5 1]  );
             plt_spc = LD_plots.plot_pts(Sdnse_cell(icrv_plot,len_iwrite_plot), ...
                                     meta0,plt_spc,spc);
 

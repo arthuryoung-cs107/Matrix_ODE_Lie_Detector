@@ -24,8 +24,8 @@
 // const char dir_name[] = "./denoise_data_directory/Gaussian_IC_perturbation/rendering_data/"; // data directory
 // const char dir_name[] = "./denoise_data_directory/Uniform_IC_perturbation/rendering_data/"; // data directory
 const char dir_name[] = "./denoise_data_directory/Uniform_IC_perturbation/"; // data directory
-const char obs_name[] = "Riccati_xrange0_true_DoP853gen"; // name of observations file
-// const char obs_name[] = "Riccati_xrange0_noise0_DoP853gen"; // name of observations file
+// const char obs_name[] = "Riccati_xrange0_true_DoP853gen"; // name of observations file
+const char obs_name[] = "Riccati_xrange0_noise0_DoP853gen"; // name of observations file
 // const char obs_name[] = "Riccati_xrange0_noise1_DoP853gen"; // name of observations file
 // const char obs_name[] = "Riccati_xrange0_noise2_DoP853gen"; // name of observations file
 
@@ -55,6 +55,7 @@ const bool v_verbose = false;
 const bool Rmat_h_exp = false;
 const bool Rmat_Hermite_jets = false;
 const bool stop_blowup = false;
+const int nullity_stop = 2; // nullity dimension required to terminate (if 0, don't stop)
 
 const double res_ratio_tol = 1e-12;
 const int write_sched_early = 5;
@@ -73,6 +74,7 @@ const int write_sched_early = 5;
 // const int ndns_max = 100;
 // const int write_sched = 2;
 
+// const int ndns_max = 50;
 const int ndns_max = 500;
 const int write_sched = 5;
 
@@ -93,8 +95,8 @@ const int write_sched = 5;
 // const int ndns_max = 1000;
 // const int write_sched = 100;
 
-// ode_curve_observations observations(data_name);
-  ode_curve_observations observations(data_name,data_dnp1xu_name);
+ode_curve_observations observations(data_name);
+  // ode_curve_observations observations(data_name,data_dnp1xu_name);
 
 Lie_detector detector(observations);
   ode_solcurve_chunk observations_twin(detector.meta0,detector.ncrv,detector.npts_per_crv); // equal size data set for workspace
@@ -308,6 +310,7 @@ struct global_Rmat_experiment : public global_multinomial_experiment
       if ( nsmooth >= ndns_max ) break;
       if ( (stop_blowup)&&(res_i > res_old) ) break;
       if ( (res_i/res_1) < res_ratio_tol ) break;
+      if ( nullity_stop&&(rank_i<=(rank0-nullity_stop)) ) break;
 
       res_old = res_i;
     } while (true);
@@ -481,7 +484,7 @@ struct global_Rmat_experiment : public global_multinomial_experiment
       #pragma omp for
       for (int icrv = 0; icrv < det.ncrv; icrv++)
       {
-        res_out += cdets[icrv]->compute_staggered_Hermite_flowout(crvs_o_[icrv]->sols, lu_t,tvf_t , crvs_i_[icrv]->sols );
+        res_out += cdets[icrv]->compute_staggered_Hermite_flow_curve(crvs_o_[icrv]->sols, lu_t,tvf_t , crvs_i_[icrv]->sols );
       }
     }
     return res_out;

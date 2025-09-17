@@ -123,7 +123,7 @@ class curve_Lie_detector
       tvf_.set_sol_dkxu(sol_out_, kor); // apply vfield to resultant solution for improved derivatives
     }
 
-    inline double compute_staggered_Hermite_flowout(ode_solution **solso_, LD_lu &lu_,LD_spectral_tvfield &tvf_ ,ode_solution **solsi_)
+    inline double compute_staggered_Hermite_flow_curve(ode_solution **solso_, LD_lu &lu_,LD_spectral_tvfield &tvf_ ,ode_solution **solsi_)
     {
       double res_out = 0.0;
 
