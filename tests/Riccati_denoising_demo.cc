@@ -48,7 +48,7 @@ const int Hermite_exp = 1; // 1, flag for Hermite exponentiation technique (0 us
 const bool exp_staggered_Hermites = true; // use staggered Hermite jets for denoising exponentiation
 const bool trunc_Hermite_exp = true; // flag for truncating Rmatrix corrected Hermite jet
 
-const int curve_Lie_detector::combine_flag = 1; // 0, flag for updating smoothened coordinates, (0 lazy, 1 aggressive)
+const int curve_Lie_detector::combine_flag = 0; // 0, flag for updating smoothened coordinates, (0 lazy, 1 aggressive)
 const bool curve_Lie_detector::truncate_Hermite_exp = trunc_Hermite_exp;
 
 const bool v_verbose = false;
@@ -66,17 +66,17 @@ const int write_sched_early = 5;
 // const int ndns_max = 50;
 // const int write_sched = 1;
 
-const int ndns_max = 10;
+// const int ndns_max = 10;
 // const int ndns_max = 20;
 // const int ndns_max = 30;
 // const int ndns_max = 40;
 // const int ndns_max = 50;
 // const int ndns_max = 100;
-const int write_sched = 2;
+// const int write_sched = 2;
 
 // const int ndns_max = 50;
-// const int ndns_max = 500;
-// const int write_sched = 5;
+const int ndns_max = 1000;
+const int write_sched = 5;
 
 // const int ndns_max = 100;
 // const int ndns_max = 200;
@@ -95,8 +95,8 @@ const int write_sched = 2;
 // const int ndns_max = 1000;
 // const int write_sched = 100;
 
-ode_curve_observations observations(data_name);
-  // ode_curve_observations observations(data_name,data_dnp1xu_name);
+// ode_curve_observations observations(data_name);
+  ode_curve_observations observations(data_name,data_dnp1xu_name);
 
 Lie_detector detector(observations);
   ode_solcurve_chunk observations_twin(detector.meta0,detector.ncrv,detector.npts_per_crv); // equal size data set for workspace
@@ -312,7 +312,7 @@ struct global_Rmat_experiment : public global_multinomial_experiment
       if ( nsmooth >= ndns_max ) break;
       if ( (stop_blowup)&&(res_i > res_old) ) break;
       if ( (res_i/res_1) < res_ratio_tol ) break;
-      if ( nullity_stop&&(rank_i<=(rank0-nullity_stop)) ) break;
+      if ( nullity_stop&&(rank_i<=( Rsvd_global.Nuse-nullity_stop )) ) break;
 
       res_old = res_i;
     } while (true);

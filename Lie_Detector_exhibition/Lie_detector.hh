@@ -147,7 +147,10 @@ class curve_Lie_detector
           (tjcharts[iobs])->sol0_alt, // induced collocation point
           (tjcharts[iobs])->solh_alt ); // right hand knot, freshly corrected
 
-        res_out += (solso_[iobs])->copy_comp_sol_residual((tjcharts[iobs])->sol1_alt, kor);
+        // res_out += (solso_[iobs])->copy_comp_sol_residual((tjcharts[iobs])->sol1_alt, kor);
+        // res_out += combine_two_sols_dxu(solso_[iobs],solsi_[iobs],(tjcharts[iobs])->sol1_alt);
+        res_out += (combine_flag)?( (solso_[iobs])->copy_comp_sol_residual((tjcharts[iobs])->sol1_alt, kor) )
+                      : ( combine_two_sols_dxu(*(solso_[iobs]),*(solsi_[iobs]),(tjcharts[iobs])->sol1_alt) ) ;
       }
       // We now have updated values for the interior points. Use these to generate updates at edges
 
@@ -162,8 +165,10 @@ class curve_Lie_detector
        (tjcharts[0])->sol0_alt, // induced collocation point
        (tjcharts[1])->sol1_alt ); // right hand knot, already corrected (and updated)
 
-      // res_out += solso_[0]->comp_sol_residual(tjchart_start()->sol1_alt, kor);
-      res_out += (solso_[0])->copy_comp_sol_residual((tjchart_start())->sol1_alt, kor);
+      // res_out += (solso_[0])->copy_comp_sol_residual((tjcharts[0])->sol1_alt, kor);
+      // res_out += combine_two_sols_dxu(solso_[0],solsi_[0],(tjcharts[0])->sol1_alt);
+      res_out += (combine_flag)?( (solso_[0])->copy_comp_sol_residual((tjcharts[0])->sol1_alt, kor) )
+                    : ( combine_two_sols_dxu(*(solso_[0]),*(solsi_[0]),(tjcharts[0])->sol1_alt) ) ;
 
       // crvo_.sols[nobs_h]->copy_sol( *(crvi_.sols[nobs_h]) );
       // generate RIGHT edge update, uses smoothened solh_f and UPDATED sol_f-1
@@ -175,7 +180,10 @@ class curve_Lie_detector
        (tjchart_final())->sol0_alt, // induced collocation point
        (tjcharts[nobs_h-1])->solh_alt ); // right hand knot, already corrected
 
-      res_out += (solso_[nobs_h])->copy_comp_sol_residual((tjchart_final())->sol1_alt, kor);
+      // res_out += (solso_[nobs_h])->copy_comp_sol_residual((tjchart_final())->sol1_alt, kor);
+      // res_out += combine_two_sols_dxu(solso_[nobs_h],solsi_[nobs_h],(tjchart_final())->sol1_alt);
+      res_out += (combine_flag)?( (solso_[nobs_h])->copy_comp_sol_residual((tjchart_final())->sol1_alt, kor) )
+                    : ( combine_two_sols_dxu(*(solso_[nobs_h]),*(solsi_[nobs_h]),(tjchart_final())->sol1_alt) ) ;
 
       return res_out;
     }
@@ -226,6 +234,32 @@ class curve_Lie_detector
           double si_old = s0_.dnp1xu[i];
           si_old -= (s0_.dnp1xu[i] = combine_2coords(s1_.dnp1xu[i],s2_.dnp1xu[i]));
           res_out += si_old*si_old;
+        }
+      return res_out;
+    }
+    inline double combine_two_sols_dxu(ode_solution &snew_,ode_solution &sold_,ode_solution &sexp_)
+    {
+      snew_.x = sexp_.x;
+      double res_out = 0.0;
+      for (int i = 1; i < snew_.nvar; i++)
+      {
+        double si_diff = sold_.pts[i];
+        // si_diff -= (snew_.pts[i] = sexp_.pts[i]);
+        si_diff -= (snew_.pts[i] = 0.5*( sexp_.pts[i]+sold_.pts[i] ));
+        res_out += si_diff*si_diff;
+      }
+      for (int i = snew_.nvar, kdim = (kor>=snew_.eor)?(snew_.ndim):(1+snew_.ndep*(1+kor)) ; i < kdim; i++)
+      {
+        double si_diff = sold_.pts[i];
+        si_diff -= (snew_.pts[i] = 0.5*( sexp_.pts[i]+sold_.pts[i] ));
+        res_out += si_diff*si_diff;
+      }
+      if (kor>snew_.eor)
+        for (int i = 0; i < snew_.ndep; i++)
+        {
+          double si_diff = sold_.dnp1xu[i];
+          si_diff -= (snew_.dnp1xu[i] = 0.5*( sexp_.dnp1xu[i]+sold_.dnp1xu[i] ));
+          res_out += si_diff*si_diff;
         }
       return res_out;
     }
