@@ -244,8 +244,8 @@ class curve_Lie_detector
       for (int i = 1; i < snew_.nvar; i++)
       {
         double si_diff = sold_.pts[i];
-        // si_diff -= (snew_.pts[i] = sexp_.pts[i]);
-        si_diff -= (snew_.pts[i] = 0.5*( sexp_.pts[i]+sold_.pts[i] ));
+        si_diff -= (snew_.pts[i] = sexp_.pts[i]);
+        // si_diff -= (snew_.pts[i] = 0.5*( sexp_.pts[i]+sold_.pts[i] ));
         res_out += si_diff*si_diff;
       }
       for (int i = snew_.nvar, kdim = (kor>=snew_.eor)?(snew_.ndim):(1+snew_.ndep*(1+kor)) ; i < kdim; i++)
@@ -647,14 +647,13 @@ struct multinomial_experiment : public Lie_detector_experiment, public function_
     cmdls(new Lie_detector_multinomial_crvmodel*[det_.ncrv])
   {
     for (int i = 0; i < det_.ncrv; i++)
-    {
-      
-    }
+      cmdls[i] = new Lie_detector_multinomial_crvmodel( *(det_.cdets[i]), fspace0);
   }
 
   ~multinomial_experiment()
   {
-
+    for (int i = 0; i < det.ncrv; i++) delete cmdls[i];
+    delete [] cmdls;
   }
 
 };

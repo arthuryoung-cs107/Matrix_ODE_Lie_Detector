@@ -71,12 +71,12 @@ const int write_sched_early = 5;
 // const int ndns_max = 30;
 // const int ndns_max = 40;
 // const int ndns_max = 50;
-// const int ndns_max = 100;
-// const int write_sched = 2;
+const int ndns_max = 100;
+const int write_sched = 2;
 
 // const int ndns_max = 50;
-const int ndns_max = 1000;
-const int write_sched = 5;
+// const int ndns_max = 1000;
+// const int write_sched = 5;
 
 // const int ndns_max = 100;
 // const int ndns_max = 200;
