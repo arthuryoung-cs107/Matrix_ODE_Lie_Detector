@@ -255,8 +255,8 @@ struct global_Rmat_experiment : public global_multinomial_experiment
 
 
     printf("   (global_Rmat_experiment::denoise_data)"
-           " i=%d, res_i = %.8f "
-           "\n", nsmooth, res_1);
+           " i=1, r_1 = %.8f "
+           "\n", res_1);
 
     // if (exp_staggered_Hermites)
     //   rnk_vec[nsmooth] = encode_decompose_R_matrix_global(VTmat_Rk_global,Rsvd_global,Rkenc,sols_alt,nobs);
@@ -265,11 +265,15 @@ struct global_Rmat_experiment : public global_multinomial_experiment
             t0 = LD_threads::tic();
     do
     {
+      double ti = LD_threads::tic();
       int &rank_i =
         rnk_vec[nsmooth] = encode_decompose_R_matrix_global(VTmat_Rk_global,Rsvd_global,Rkenc,sols_alt,nobs);
        if (v_verbose) Rsvd_global.print_result("    Rsvd_global");
       double &res_i = res_vec[nsmooth];
 
+      double ti_svd = LD_threads::tic();
+
+      // employ staggered Hermite exponentiation technique
       if (exp_staggered_Hermites) res_i =
         exp_staggered_trivial_Rmat_Hermites(curves_alt,svec_Rk_global,VTmat_Rk_global,curves_alt);
       else
@@ -297,16 +301,20 @@ struct global_Rmat_experiment : public global_multinomial_experiment
         res_i = det.combine_trivial_flows(curves_alt,curves_alt);
       }
 
+      double ti_exp = LD_threads::tic();
+
       if ( ((++nsmooth)<=write_sched_early) || ((nsmooth%write_sched) == 0) )
         write_curve_observations(Sobs_alt_,iwrite_vec[nwrite++] = nsmooth,v_verbose);
 
-      printf("    (::denoise_data)" // "   (global_Rmat_experiment::denoise_data)"
-            " i=%d, res_i = %.5e ( res_i/res_0 = %.1e )."
-            " rank(Rk) = %d ( nulldim = %d, s_N = %.1e, cond = %.1e)"
+      printf("    " // "   (global_Rmat_experiment::denoise_data)"
+            " i=%d, ri = %.3e ( ri/r0 = %.1e )."
+            " rank(Rk) = %d ( kdim = %d, sN = %.1e, sN/s1 = %.1e)"
+            " dti=%.1e, dti_svd=%.1e (%.2f), dti_exp=%.1e"
             "\n",
               nsmooth, res_i, res_i/res_1,
               rank_i, Rsvd_global.Nuse-rank_i,
-              Rsvd_global.sigma_min(), Rsvd_global.cond()
+              Rsvd_global.sigma_min(), Rsvd_global.cond(),
+              ti_exp-ti, ti_svd-ti, (ti_svd-ti)/(ti_exp-ti), ti_exp-ti_svd
             );
 
       if ( nsmooth >= ndns_max ) break;

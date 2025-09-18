@@ -607,15 +607,30 @@ struct Lie_detector_experiment
 
 class Lie_detector_multinomial_solmodel
 {
-  ode_solution &sol;
+  ode_solution &sol_alt;
   orthopolynomial_space &fspc;
 
   public:
 
-    Lie_detector_multinomial_solmodel(ode_solution &sol_, orthopolynomial_space &fspc_) :
-      sol(sol_), fspc(fspc_) {}
+    Lie_detector_multinomial_solmodel(ode_solution &sol_alt_, orthopolynomial_space &fspc_) :
+      sol_alt(sol_alt_), fspc(fspc_) {}
     ~Lie_detector_multinomial_solmodel() {}
 
+};
+
+class Lie_detector_multinomial_crvmodel
+{
+  curve_Lie_detector &cdet;
+  orthopolynomial_space &fspc;
+
+  public:
+
+    Lie_detector_multinomial_crvmodel(curve_Lie_detector &cdet_, orthopolynomial_space &fspc_) :
+      cdet(cdet_), fspc(fspc_)
+    {
+
+    }
+    ~Lie_detector_multinomial_crvmodel() {}
 
 };
 
@@ -624,13 +639,23 @@ struct multinomial_experiment : public Lie_detector_experiment, public function_
 
   orthopolynomial_space &fspace0;
 
+  Lie_detector_multinomial_crvmodel ** const cmdls;
+
   multinomial_experiment(Lie_detector &det_, orthopolynomial_space &fspace0_) :
     Lie_detector_experiment(det_), function_space_element(fspace0_),
-    fspace0(fspace0_)
-    {}
+    fspace0(fspace0_),
+    cmdls(new Lie_detector_multinomial_crvmodel*[det_.ncrv])
+  {
+    for (int i = 0; i < det_.ncrv; i++)
+    {
+      
+    }
+  }
 
   ~multinomial_experiment()
-    {}
+  {
+
+  }
 
 };
 
@@ -654,7 +679,9 @@ struct global_multinomial_experiment : public multinomial_experiment
       ncod(ncod_), Asvd_global(ncod_*nobs,ndof_full),
       svec_global(Asvd_global.svec),
       VTmat_global(Tmatrix<double>(ndof_full,ndof_full))
-      {}
+    {
+
+    }
 
     ~global_multinomial_experiment()
     {
