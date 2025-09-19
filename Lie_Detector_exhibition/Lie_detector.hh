@@ -551,6 +551,7 @@ struct Lie_detector_experiment
   Lie_detector &det;
 
   const int nobs,
+            ncrv,
             nobs_h;
 
   // S (solution space) members, points and sets (curves)
@@ -571,7 +572,7 @@ struct Lie_detector_experiment
 
   Lie_detector_experiment(Lie_detector &det_) :
     det(det_),
-    nobs(det_.nobs), nobs_h(det_.nobs - det_.ncrv),
+    nobs(det_.nobs), ncrv(det_.ncrv), nobs_h(det_.nobs - det_.ncrv),
     curves(det.curves),
     curves_h(det.curves_h),
       sols(det.sols),
@@ -623,10 +624,13 @@ class Lie_detector_multinomial_crvmodel
   curve_Lie_detector &cdet;
   orthopolynomial_space &fspc;
 
+  double * const svec,
+         ** const VTmat;
   public:
 
-    Lie_detector_multinomial_crvmodel(curve_Lie_detector &cdet_, orthopolynomial_space &fspc_) :
-      cdet(cdet_), fspc(fspc_)
+    Lie_detector_multinomial_crvmodel(curve_Lie_detector &cdet_, orthopolynomial_space &fspc_, double * svec_,double ** VTmat_) :
+      cdet(cdet_), fspc(fspc_),
+      svec(svec_), VTmat(VTmat_)
     {
 
     }
@@ -634,27 +638,37 @@ class Lie_detector_multinomial_crvmodel
 
 };
 
-struct multinomial_experiment : public Lie_detector_experiment, public function_space_element
+class multinomial_experiment : public Lie_detector_experiment, public function_space_element
 {
+  protected:
 
-  orthopolynomial_space &fspace0;
+    double  ** const svecs_crvs,
+            *** const VTmats_crvs;
 
-  Lie_detector_multinomial_crvmodel ** const cmdls;
+  public:
 
-  multinomial_experiment(Lie_detector &det_, orthopolynomial_space &fspace0_) :
-    Lie_detector_experiment(det_), function_space_element(fspace0_),
-    fspace0(fspace0_),
-    cmdls(new Lie_detector_multinomial_crvmodel*[det_.ncrv])
-  {
-    for (int i = 0; i < det_.ncrv; i++)
-      cmdls[i] = new Lie_detector_multinomial_crvmodel( *(det_.cdets[i]), fspace0);
-  }
+    orthopolynomial_space &fspace0;
 
-  ~multinomial_experiment()
-  {
-    for (int i = 0; i < det.ncrv; i++) delete cmdls[i];
-    delete [] cmdls;
-  }
+    Lie_detector_multinomial_crvmodel ** const cmdls;
+
+    multinomial_experiment(Lie_detector &det_, orthopolynomial_space &fspace0_) :
+      Lie_detector_experiment(det_), function_space_element(fspace0_),
+      svecs_crvs(Tmatrix<double>(ncrv,ndof_full)),
+      VTmats_crvs(T3tensor<double>(ncrv,ndof_full,ndof_full)),
+      fspace0(fspace0_),
+      cmdls(new Lie_detector_multinomial_crvmodel*[ncrv])
+    {
+      for (int i = 0; i < ncrv; i++)
+        cmdls[i] = new Lie_detector_multinomial_crvmodel( *(det_.cdets[i]), fspace0, svecs_crvs[i], VTmats_crvs[i]);
+    }
+
+    ~multinomial_experiment()
+    {
+      free_Tmatrix<double>(svecs_crvs);
+      free_T3tensor<double>(VTmats_crvs);
+      for (int i = 0; i < ncrv; i++) delete cmdls[i];
+      delete [] cmdls;
+    }
 
 };
 
@@ -665,7 +679,7 @@ struct global_multinomial_experiment : public multinomial_experiment
     const int ncod; // number of linear constraints per point solution in nullspace problem
     LD_svd Asvd_global; // SVD of globally encoded matrix
 
-    inline double * Umat_jsol(int jsol_) {return Asvd_global.Umat[jsol_*ncod];}
+    inline double * Umat_jsol_global(int jsol_) {return Asvd_global.Umat[jsol_*ncod];}
 
   public:
 
@@ -685,6 +699,47 @@ struct global_multinomial_experiment : public multinomial_experiment
     ~global_multinomial_experiment()
     {
       free_Tmatrix<double>(VTmat_global);
+    }
+
+    inline int telescope_decompose_global_matrix(double **VTmg_,LD_svd &Asvdg_,LD_encoder &Aenc_,int nobs_)
+    {
+      #pragma omp parallel
+      {
+        double ** const Umatg_t = Asvdg_.Umat,
+                        wvec_t[ndof_full];
+
+        #pragma omp for
+        for (int icrv = 0; icrv < ncrv; icrv++)
+        {
+          int iobs_i=0;
+          for (int i = 0; i < icrv; i++) iobs_i += det.npts_per_crv[i];
+
+          LD_svd Asvd_icrv( Aenc_.ncod*det.npts_per_crv[icrv], Asvdg_.Nuse ,
+            Umatg_t+(Aenc_.ncod*iobs_i), VTmats_crvs[icrv], svecs_crvs[icrv], wvec_t );
+
+          Asvd_icrv.decompose_U();
+          Asvd_icrv.transpose_V();
+        }
+
+        #pragma omp for
+        for (int icrv = 0; icrv < ncrv; icrv++)
+        {
+          double ** const Umat_i = Umatg_t + (Asvdg_.Nuse*icrv);
+          for (int i = 0; i < Asvdg_.Nuse; i++)
+            for (int j = 0; j < Asvdg_.Nuse; j++)
+              Umat_i[i][j] = svecs_crvs[icrv][i]*VTmats_crvs[icrv][i][j];
+        }
+      }
+
+      const int Muse_old = Asvdg_.Muse;
+
+      Asvdg_.decompose_U(ncrv*Asvdg_.Nuse,Asvdg_.Nuse);
+      Asvdg_.unpack_VTmat(VTmat_global);
+
+      int rank_out = Asvdg_.rank();
+      Asvdg_.set_use_dims(Muse_old,Asvdg_.Nuse);
+
+      return rank_out;
     }
 
 };

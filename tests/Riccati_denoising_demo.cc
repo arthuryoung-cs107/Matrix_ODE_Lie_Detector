@@ -47,6 +47,7 @@ const int data_dnp1xu_name_len = sprintf(data_dnp1xu_name,"%s%s%s%s", dir_name,o
 const int Hermite_exp = 1; // 1, flag for Hermite exponentiation technique (0 uses num. quadrature instead)
 const bool exp_staggered_Hermites = true; // use staggered Hermite jets for denoising exponentiation
 const bool trunc_Hermite_exp = true; // flag for truncating Rmatrix corrected Hermite jet
+const bool Rmat_telescoping_decomposition = true; // split up global SVD into curve based parallel SVD
 
 const int curve_Lie_detector::combine_flag = 0; // 0, flag for updating smoothened coordinates, (0 lazy, 1 aggressive)
 const bool curve_Lie_detector::truncate_Hermite_exp = trunc_Hermite_exp;
@@ -386,10 +387,14 @@ struct global_Rmat_experiment : public global_multinomial_experiment
           );
       }
     }
-    // if (Rmat_telescoping_decomposition)
-    Rsvdg_.decompose_U();
-    Rsvdg_.unpack_VTmat(VTmg_);
-    return Rsvdg_.rank();
+    if (Rmat_telescoping_decomposition)
+      return telescope_decompose_global_matrix(VTmg_,Rsvdg_,Rkenc_,nobs_);
+    else
+    {
+      Rsvdg_.decompose_U();
+      Rsvdg_.unpack_VTmat(VTmg_);
+      return Rsvdg_.rank();
+    }
   }
   void set_trivial_Rmat_Hermite_jets(ode_solution ** sols_h_,ode_solcurve ** crvs_,double *sv_,double **VTm_)
   {
@@ -492,7 +497,7 @@ struct global_Rmat_experiment : public global_multinomial_experiment
       LD_lu lu_t(tjmeta.jor+1,tjmeta.jor+1);
 
       #pragma omp for
-      for (int icrv = 0; icrv < det.ncrv; icrv++)
+      for (int icrv = 0; icrv < ncrv; icrv++)
       {
         res_out += cdets[icrv]->compute_staggered_Hermite_flow_curve(crvs_o_[icrv]->sols, lu_t,tvf_t , crvs_i_[icrv]->sols );
       }

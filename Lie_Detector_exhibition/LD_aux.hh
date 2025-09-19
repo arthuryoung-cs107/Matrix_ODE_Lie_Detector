@@ -424,16 +424,24 @@ struct LD_rng
 struct LD_rectangular_decomp
 {
   LD_rectangular_decomp(size_t Mmax_, size_t Nmax_) :
+    workspace_owner(true),
     Mmax(LD_linalg::max_T<int>(Mmax_,2)),
     Nmax(LD_linalg::min_T<int>(Mmax,Nmax_)),
     Muse(Mmax), Nuse(Nmax),
     rec_mat(Tmatrix<double>(Mmax,Nmax))
     {}
+  LD_rectangular_decomp(size_t Mmax_, size_t Nmax_, double **rec_mat_) :
+    workspace_owner(false),
+    Mmax(LD_linalg::max_T<int>(Mmax_,2)),
+    Nmax(LD_linalg::min_T<int>(Mmax,Nmax_)),
+    Muse(Mmax), Nuse(Nmax),
+    rec_mat(rec_mat_)
+    {}
   ~LD_rectangular_decomp()
   {
-    free_Tmatrix<double>(rec_mat);
+    if (workspace_owner) free_Tmatrix<double>(rec_mat);
   }
-
+  const bool workspace_owner;
   const int Mmax,
             Nmax;
   int Muse,
@@ -469,7 +477,15 @@ struct LD_lu : public LD_rectangular_decomp
     prmu(new size_t[Nmax]),
     LUmat(rec_mat)
   {}
-  ~LD_lu() {delete prmu;}
+  LD_lu(size_t Mmax_, size_t Nmax_, double **LUmat_, size_t *prmu_) :
+    LD_rectangular_decomp(Mmax_,Nmax_,LUmat_),
+    prmu(prmu_),
+    LUmat(rec_mat)
+  {}
+  ~LD_lu()
+  {
+    if (workspace_owner) delete prmu;
+  }
 
   int signum;
   size_t * const prmu;
@@ -554,10 +570,18 @@ struct LD_svd : public LD_rectangular_decomp
     Umat(rec_mat),
     Vmat(Tmatrix<double>(Nmax,Nmax)),
     svec(new double[Nmax]), wvec(new double[Nmax]) {}
+  LD_svd(size_t Mmax_, size_t Nmax_,double **Umat_,double **Vmat_,double *svec_,double *wvec_):
+    LD_rectangular_decomp(Mmax_,Nmax_,Umat_),
+    Umat(rec_mat),
+    Vmat(Vmat_),
+    svec(svec_), wvec(wvec_) {}
   ~LD_svd()
   {
-    delete [] wvec; delete [] svec;
-    free_Tmatrix<double>(Vmat);
+    if (workspace_owner)
+    {
+      delete [] wvec; delete [] svec;
+      free_Tmatrix<double>(Vmat);
+    }
   }
 
   double  ** const Umat,
@@ -580,6 +604,17 @@ struct LD_svd : public LD_rectangular_decomp
   {
     printf("(LD_svd::print_result) %s (%d x %d) SVD (rank = %d):\n", name_, Muse, Nuse, rank());
     LD_linalg::print_xT("  s",svec,Nuse);
+  }
+
+  inline void transpose_V()
+  {
+    for (int i = 0, Nusem1 = Nuse-1; i < Nusem1; i++)
+      for (int j = i+1; j < Nuse; j++)
+      {
+        double Vij = Vmat[i][j];
+        Vmat[i][j] = Vmat[j][i];
+        Vmat[j][i] = Vij;
+      }
   }
 
   inline void load_and_decompose_U(double **Amat_, int Muse_=0, int Nuse_=0)
