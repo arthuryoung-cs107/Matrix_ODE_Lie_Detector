@@ -72,12 +72,15 @@ const int write_sched_early = 5;
 // const int ndns_max = 30;
 // const int ndns_max = 40;
 // const int ndns_max = 50;
-const int ndns_max = 100;
-const int write_sched = 2;
+// const int ndns_max = 100;
+// const int write_sched = 2;
 
 // const int ndns_max = 50;
-// const int ndns_max = 1000;
-// const int write_sched = 5;
+const int ndns_max = 1000;
+const int write_sched = 5;
+
+// const int ndns_max = 2000;
+// const int write_sched = 100;
 
 // const int ndns_max = 100;
 // const int ndns_max = 200;
@@ -96,8 +99,8 @@ const int write_sched = 2;
 // const int ndns_max = 1000;
 // const int write_sched = 100;
 
-// ode_curve_observations observations(data_name);
-  ode_curve_observations observations(data_name,data_dnp1xu_name);
+ode_curve_observations observations(data_name);
+  // ode_curve_observations observations(data_name,data_dnp1xu_name);
 
 Lie_detector detector(observations);
   ode_solcurve_chunk observations_twin(detector.meta0,detector.ncrv,detector.npts_per_crv); // equal size data set for workspace
