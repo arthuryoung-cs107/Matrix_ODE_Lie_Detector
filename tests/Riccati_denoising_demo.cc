@@ -48,9 +48,12 @@ const int Hermite_exp = 1; // 1, flag for Hermite exponentiation technique (0 us
 const bool exp_staggered_Hermites = true; // use staggered Hermite jets for denoising exponentiation
 const bool trunc_Hermite_exp = true; // flag for truncating Rmatrix corrected Hermite jet
 const bool Rmat_telescoping_decomposition = true; // split up global SVD into curve based parallel SVD
+const bool stepladder_update = true;
 
 const int curve_Lie_detector::combine_flag = 0; // 0, flag for updating smoothened coordinates, (0 lazy, 1 aggressive)
 const bool curve_Lie_detector::truncate_Hermite_exp = trunc_Hermite_exp;
+int curve_Lie_detector::kor_upd = 0,
+    &kor_update = curve_Lie_detector::kor_upd;
 
 const bool v_verbose = false;
 const bool Rmat_h_exp = false;
@@ -59,6 +62,7 @@ const bool stop_blowup = false;
 const int nullity_stop = 2; // nullity dimension required to terminate (if 0, does not stop)
 
 const double res_ratio_tol = 1e-12;
+const double stepladder_ratio_tol = 1e-7;
 const int write_sched_early = 5;
 
 // const int ndns_max = 3; // max permitted denoising steps
@@ -99,8 +103,8 @@ const int write_sched = 5;
 // const int ndns_max = 1000;
 // const int write_sched = 100;
 
-ode_curve_observations observations(data_name);
-  // ode_curve_observations observations(data_name,data_dnp1xu_name);
+// ode_curve_observations observations(data_name);
+  ode_curve_observations observations(data_name,data_dnp1xu_name);
 
 Lie_detector detector(observations);
   ode_solcurve_chunk observations_twin(detector.meta0,detector.ncrv,detector.npts_per_crv); // equal size data set for workspace
@@ -226,7 +230,8 @@ struct global_Rmat_experiment : public global_multinomial_experiment
     int rank0 = rnk_vec[0] = encode_decompose_R_matrix_global(VTmat_Rk_global,Rsvd_global,Rkenc,sols,nobs);
       Rsvd_global.print_result("  Rsvd_global (0)");
 
-    double &res_1 = res_vec[0];
+    // double &res_1 = res_vec[0];
+    double res_1;
 
     if (exp_staggered_Hermites)
       res_1 = exp_staggered_trivial_Rmat_Hermites(curves_alt,svec_Rk_global,VTmat_Rk_global,curves);
@@ -252,6 +257,7 @@ struct global_Rmat_experiment : public global_multinomial_experiment
       }
       res_1 = det.combine_trivial_flows(curves_alt,curves_alt);
     }
+      res_vec[0] = res_1;
       write_sol_h_data("_s");
 
     int nsmooth=1;
@@ -264,7 +270,7 @@ struct global_Rmat_experiment : public global_multinomial_experiment
 
     // if (exp_staggered_Hermites)
     //   rnk_vec[nsmooth] = encode_decompose_R_matrix_global(VTmat_Rk_global,Rsvd_global,Rkenc,sols_alt,nobs);
-
+    bool update_res_1 = false;
     double  res_old = res_1,
             t0 = LD_threads::tic();
     do
@@ -274,6 +280,12 @@ struct global_Rmat_experiment : public global_multinomial_experiment
         rnk_vec[nsmooth] = encode_decompose_R_matrix_global(VTmat_Rk_global,Rsvd_global,Rkenc,sols_alt,nobs);
        if (v_verbose) Rsvd_global.print_result("    Rsvd_global");
       double &res_i = res_vec[nsmooth];
+
+      if (update_res_1)
+      {
+        res_1 = res_i;
+        update_res_1 = false;
+      }
 
       double ti_svd = LD_threads::tic();
 
@@ -315,7 +327,7 @@ struct global_Rmat_experiment : public global_multinomial_experiment
             " rank(Rk) = %d ( kdim = %d, sN = %.1e, sN/s1 = %.1e)"
             " dti=%.1e, dti_svd=%.1e (%.2f), dti_exp=%.1e"
             "\n",
-              nsmooth, res_i, res_i/res_1,
+              nsmooth, res_i, res_i/res_vec[0],
               rank_i, Rsvd_global.Nuse-rank_i,
               Rsvd_global.sigma_min(), Rsvd_global.cond(),
               ti_exp-ti, ti_svd-ti, (ti_svd-ti)/(ti_exp-ti), ti_exp-ti_svd
@@ -323,9 +335,19 @@ struct global_Rmat_experiment : public global_multinomial_experiment
 
       if ( nsmooth >= ndns_max ) break;
       if ( (stop_blowup)&&(res_i > res_old) ) break;
-      if ( (res_i/res_1) < res_ratio_tol ) break;
+      if ( (res_i/res_vec[0]) < res_ratio_tol ) break;
       if ( nullity_stop&&(rank_i<=( Rsvd_global.Nuse-nullity_stop )) ) break;
 
+      if ( stepladder_update&&( (res_i/res_1) < stepladder_ratio_tol ) )
+      {
+        if (kor_update==det.kor) break;
+        else
+        {
+          kor_update++;
+          update_res_1 = true;
+        }
+      }
+      if (kor_update>det.kor) break;
       res_old = res_i;
     } while (true);
     double work_time = LD_threads::toc(t0);

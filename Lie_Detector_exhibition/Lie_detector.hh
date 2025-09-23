@@ -43,6 +43,8 @@ class curve_Lie_detector
 
   public:
 
+    static int kor_upd;
+
     const int nobs_f,
               nobs_h;
 
@@ -248,19 +250,47 @@ class curve_Lie_detector
         // si_diff -= (snew_.pts[i] = 0.5*( sexp_.pts[i]+sold_.pts[i] ));
         res_out += si_diff*si_diff;
       }
-      for (int i = snew_.nvar, kdim = (kor>=snew_.eor)?(snew_.ndim):(1+snew_.ndep*(1+kor)) ; i < kdim; i++)
-      {
-        double si_diff = sold_.pts[i];
-        si_diff -= (snew_.pts[i] = 0.5*( sexp_.pts[i]+sold_.pts[i] ));
-        res_out += si_diff*si_diff;
-      }
-      if (kor>snew_.eor)
-        for (int i = 0; i < snew_.ndep; i++)
+      int ivar = sold_.nvar,
+          kor_cap = LD_linalg::min_T_3way<int>(kor_upd,kor,snew_.eor);
+      for (int k = 1 ; k <= kor_cap; k++)
+        for (int i = 0; i < snew_.ndep; i++,ivar++)
         {
-          double si_diff = sold_.dnp1xu[i];
-          si_diff -= (snew_.dnp1xu[i] = 0.5*( sexp_.dnp1xu[i]+sold_.dnp1xu[i] ));
+          double si_diff = sold_.pts[ivar];
+          // si_diff -= (snew_.pts[ivar] = sexp_.pts[ivar]);
+          // si_diff -= (snew_.pts[ivar] = sold_.pts[ivar] );
+          si_diff -= (snew_.pts[ivar] = 0.5*( sexp_.pts[ivar]+sold_.pts[ivar] ));
           res_out += si_diff*si_diff;
         }
+      for (int k = kor_cap+1; k <= snew_.eor; k++)
+        for (int i = 0; i < snew_.ndep; i++,ivar++)
+        {
+          double si_diff = sold_.pts[ivar];
+          // si_diff -= (snew_.pts[ivar] = sexp_.pts[ivar]);
+          si_diff -= (snew_.pts[ivar] = sold_.pts[ivar] );
+          // si_diff -= (snew_.pts[ivar] = 0.5*( sexp_.pts[ivar]+sold_.pts[ivar] ));
+          res_out += si_diff*si_diff;
+        }
+      // for (int i = snew_.nvar, kdim = (kor>=snew_.eor)?(snew_.ndim):(1+snew_.ndep*(1+kor)) ; i < kdim; i++)
+      // {
+      //   double si_diff = sold_.pts[i];
+      //   // si_diff -= (snew_.pts[i] = 0.5*( sexp_.pts[i]+sold_.pts[i] ));
+      //   si_diff -= (snew_.pts[i] = sold_.pts[i] ); // don't update derivatives
+      //   res_out += si_diff*si_diff;
+      // }
+      if (kor>snew_.eor)
+      {
+        if (kor_upd>snew_.eor)
+        {
+          for (int i = 0; i < snew_.ndep; i++)
+          {
+            double si_diff = sold_.dnp1xu[i];
+            // si_diff -= (snew_.dnp1xu[i] = sexp_.dnp1xu[i]);
+            si_diff -= (snew_.dnp1xu[i] = 0.5*( sexp_.dnp1xu[i]+sold_.dnp1xu[i] ));
+            res_out += si_diff*si_diff;
+          }
+        }
+        else for (int i = 0; i < snew_.ndep; i++) snew_.dnp1xu[i] = sold_.dnp1xu[i];
+      }
       return res_out;
     }
 

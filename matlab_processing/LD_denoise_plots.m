@@ -102,11 +102,12 @@ classdef LD_denoise_plots < LD_plots
             end
             err_tru = sqrt(res_tru);
             [err_tru_min,i_err_tru_min] = min(err_tru,[],2)
-            iwrite_err_tru_min = iwrite_full(i_err_tru_min)
+            [iwrite_err_tru_min,err_rat_tru_min] = deal(iwrite_full(i_err_tru_min), err_tru_min./err_nse_ref)
 
             err_sys = sqrt(res_sys);
             [err_sys_min,i_err_sys_min] = min(err_sys,[],2)
-            iwrite_err_sys_min = iwrite_full(i_err_sys_min)
+            [iwrite_err_sys_min,err_rat_sys_min] = deal(iwrite_full(i_err_sys_min), err_sys_min./err_nse_sys)
+            % iwrite_err_sys_min = iwrite_full(i_err_sys_min)
 
             [res_min,i_res_min] = min(dnse_summary.residuals)
 
