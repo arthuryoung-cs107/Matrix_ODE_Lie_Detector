@@ -48,7 +48,7 @@ const int Hermite_exp = 1; // 1, flag for Hermite exponentiation technique (0 us
 const bool exp_staggered_Hermites = true; // use staggered Hermite jets for denoising exponentiation
 const bool trunc_Hermite_exp = true; // flag for truncating Rmatrix corrected Hermite jet
 const bool Rmat_telescoping_decomposition = true; // split up global SVD into curve based parallel SVD
-const bool stepladder_update = true;
+const bool stepladder_update = false;
 
 const int curve_Lie_detector::combine_flag = 0; // 0, flag for updating smoothened coordinates, (0 lazy, 1 aggressive)
 const bool curve_Lie_detector::truncate_Hermite_exp = trunc_Hermite_exp;
@@ -62,7 +62,7 @@ const bool stop_blowup = false;
 const int nullity_stop = 2; // nullity dimension required to terminate (if 0, does not stop)
 
 const double res_ratio_tol = 1e-12;
-const double stepladder_ratio_tol = 1e-7;
+const double stepladder_ratio_tol = 1e-1;
 const int write_sched_early = 5;
 
 // const int ndns_max = 3; // max permitted denoising steps
@@ -322,15 +322,16 @@ struct global_Rmat_experiment : public global_multinomial_experiment
       if ( ((++nsmooth)<=write_sched_early) || ((nsmooth%write_sched) == 0) )
         write_curve_observations(Sobs_alt_,iwrite_vec[nwrite++] = nsmooth,v_verbose);
 
-      printf("    " // "   (global_Rmat_experiment::denoise_data)"
+      printf("#" // "   (global_Rmat_experiment::denoise_data)"
             " i=%d, ri = %.3e ( ri/r0 = %.1e )."
-            " rank(Rk) = %d ( kdim = %d, sN = %.1e, sN/s1 = %.1e)"
-            " dti=%.1e, dti_svd=%.1e (%.2f), dti_exp=%.1e"
+            " Rk : rank = %d, kdim = %d, sN = %.1e, sN/s1 = %.1e."
+            " dti=%.1e, dti_svd=%.1e (%.2f)" // , dti_exp=%.1e"
             "\n",
               nsmooth, res_i, res_i/res_vec[0],
               rank_i, Rsvd_global.Nuse-rank_i,
               Rsvd_global.sigma_min(), Rsvd_global.cond(),
-              ti_exp-ti, ti_svd-ti, (ti_svd-ti)/(ti_exp-ti), ti_exp-ti_svd
+              ti_exp-ti, ti_svd-ti, (ti_svd-ti)/(ti_exp-ti)
+              // , ti_exp-ti_svd
             );
 
       if ( nsmooth >= ndns_max ) break;
@@ -787,6 +788,8 @@ global_Rmat_experiment Rk_experiment(detector,function_space);
 
 int main()
 {
+  if (stepladder_update==false) kor_update = Rk_experiment.det.kor;
+
   // observations.print_details();
   // detector.print_details();
 
