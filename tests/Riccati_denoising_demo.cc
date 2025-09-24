@@ -52,8 +52,7 @@ const bool stepladder_update = false;
 
 const int curve_Lie_detector::combine_flag = 0; // 0, flag for updating smoothened coordinates, (0 lazy, 1 aggressive)
 const bool curve_Lie_detector::truncate_Hermite_exp = trunc_Hermite_exp;
-int curve_Lie_detector::kor_upd = 0,
-    &kor_update = curve_Lie_detector::kor_upd;
+// int curve_Lie_detector::kor_upd = 0;
 
 const bool v_verbose = false;
 const bool Rmat_h_exp = false;
@@ -62,7 +61,7 @@ const bool stop_blowup = false;
 const int nullity_stop = 2; // nullity dimension required to terminate (if 0, does not stop)
 
 const double res_ratio_tol = 1e-12;
-const double stepladder_ratio_tol = 1e-1;
+const double stepladder_ratio_tol = 1e-4;
 const int write_sched_early = 5;
 
 // const int ndns_max = 3; // max permitted denoising steps
@@ -105,6 +104,10 @@ const int write_sched = 5;
 
 // ode_curve_observations observations(data_name);
   ode_curve_observations observations(data_name,data_dnp1xu_name);
+
+const int kor_obs = observations.kor_obs();
+// int &kor_update = curve_Lie_detector::kor_upd = (stepladder_update)?(0):(kor_obs);
+int kor_update = (stepladder_update)?(0):(kor_obs);
 
 Lie_detector detector(observations);
   ode_solcurve_chunk observations_twin(detector.meta0,detector.ncrv,detector.npts_per_crv); // equal size data set for workspace
@@ -234,7 +237,8 @@ struct global_Rmat_experiment : public global_multinomial_experiment
     double res_1;
 
     if (exp_staggered_Hermites)
-      res_1 = exp_staggered_trivial_Rmat_Hermites(curves_alt,svec_Rk_global,VTmat_Rk_global,curves);
+      res_1 = exp_staggered_trivial_Rmat_Hermites(curves_alt,
+        svec_Rk_global,VTmat_Rk_global,curves,kor_update);
     else
     {
       if (Rmat_Hermite_jets) // use R matrix pseudo inverse for Hermite knots
@@ -291,7 +295,7 @@ struct global_Rmat_experiment : public global_multinomial_experiment
 
       // employ staggered Hermite exponentiation technique
       if (exp_staggered_Hermites) res_i =
-        exp_staggered_trivial_Rmat_Hermites(curves_alt,svec_Rk_global,VTmat_Rk_global,curves_alt);
+        exp_staggered_trivial_Rmat_Hermites(curves_alt,svec_Rk_global,VTmat_Rk_global,curves_alt,kor_update);
       else
       {
         if (Rmat_Hermite_jets) // use R matrix pseudo inverse for Hermite knots
@@ -341,14 +345,15 @@ struct global_Rmat_experiment : public global_multinomial_experiment
 
       if ( stepladder_update&&( (res_i/res_1) < stepladder_ratio_tol ) )
       {
-        if (kor_update==det.kor) break;
-        else
-        {
-          kor_update++;
-          update_res_1 = true;
-        }
+        update_kor_constraints(curves_alt,svec_Rk_global,VTmat_Rk_global,det.kor);
+        // if (kor_update==det.kor) break;
+        // else
+        // {
+        //   kor_update++;
+        //   update_res_1 = true;
+        // }
       }
-      if (kor_update>det.kor) break;
+      // if (kor_update>det.kor) break;
       res_old = res_i;
     } while (true);
     double work_time = LD_threads::toc(t0);
@@ -368,7 +373,6 @@ struct global_Rmat_experiment : public global_multinomial_experiment
     write_curve_observations(Sobs_alt_,nsmooth,true);
     encode_decompose_R_matrix_global(VTmat_Rk_global,Rsvd_global,Rkenc,sols_alt,nobs);
     write_sol_h_data("_f");
-
 
     const int hlen_sum = 4;
     int sum_meta[hlen_sum+1];
@@ -421,6 +425,43 @@ struct global_Rmat_experiment : public global_multinomial_experiment
       Rsvdg_.unpack_VTmat(VTmg_);
       return Rsvdg_.rank();
     }
+  }
+  void update_kor_constraints(ode_solcurve **crvs_o_,double *sv_, double **VTm_,int kor_upd_)
+  {
+    #pragma omp parallel
+    {
+      LD_spectral_tvfield &tvf_t = *(tvfields0[LD_threads::thread_id()]);
+        tvf_t.set_SVD_space(sv_,VTm_);
+      #pragma omp for
+      for (int icrv = 0; icrv < ncrv; icrv++)
+      {
+        for (int iobs = 0; iobs < cdets[icrv]->nobs_f; iobs++)
+        {
+          // apply vfield to resultant solution for improved derivatives
+          tvf_t.set_sol_dkxu(*(crvs_o_[icrv]->sols[iobs]), kor_upd_);
+        }
+      }
+    }
+  }
+  double exp_staggered_trivial_Rmat_Hermites(ode_solcurve **crvs_o_,double *sv_, double **VTm_,ode_solcurve **crvs_i_,int kor_upd_=-1)
+  {
+    const int kor_upd = (kor_upd_>=0)?(kor_upd_):(det.kor);
+    double res_out = 0.0;
+    #pragma omp parallel reduction(+:res_out)
+    {
+
+      LD_spectral_tvfield &tvf_t = *(tvfields0[LD_threads::thread_id()]);
+        tvf_t.set_SVD_space(sv_,VTm_);
+
+      LD_lu lu_t(tjmeta.jor+1,tjmeta.jor+1);
+
+      #pragma omp for
+      for (int icrv = 0; icrv < ncrv; icrv++)
+      {
+        res_out += cdets[icrv]->compute_staggered_Hermite_flow_curve(crvs_o_[icrv]->sols, lu_t,tvf_t , crvs_i_[icrv]->sols, kor_upd);
+      }
+    }
+    return res_out;
   }
   void set_trivial_Rmat_Hermite_jets(ode_solution ** sols_h_,ode_solcurve ** crvs_,double *sv_,double **VTm_)
   {
@@ -510,25 +551,6 @@ struct global_Rmat_experiment : public global_multinomial_experiment
     }
     Rsvdg_.decompose_U();
     Rsvdg_.unpack_VTmat(VTm_out_);
-  }
-  double exp_staggered_trivial_Rmat_Hermites(ode_solcurve **crvs_o_,double *sv_, double **VTm_,ode_solcurve **crvs_i_)
-  {
-    double res_out = 0.0;
-    #pragma omp parallel reduction(+:res_out)
-    {
-
-      LD_spectral_tvfield &tvf_t = *(tvfields0[LD_threads::thread_id()]);
-        tvf_t.set_SVD_space(sv_,VTm_);
-
-      LD_lu lu_t(tjmeta.jor+1,tjmeta.jor+1);
-
-      #pragma omp for
-      for (int icrv = 0; icrv < ncrv; icrv++)
-      {
-        res_out += cdets[icrv]->compute_staggered_Hermite_flow_curve(crvs_o_[icrv]->sols, lu_t,tvf_t , crvs_i_[icrv]->sols );
-      }
-    }
-    return res_out;
   }
   void exp_trivial_Rmat_Hermites(jet_chart **tjc_, ode_trivial_soljet **tsj_, int nobs_, double *sv_, double **VTm_)
   {
@@ -788,7 +810,7 @@ global_Rmat_experiment Rk_experiment(detector,function_space);
 
 int main()
 {
-  if (stepladder_update==false) kor_update = Rk_experiment.det.kor;
+  // if (stepladder_update==false) kor_update = Rk_experiment.det.kor;
 
   // observations.print_details();
   // detector.print_details();

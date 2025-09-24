@@ -119,6 +119,8 @@ class ode_curve_observations
     inline bool palloc() {return dnp1xu_in!=NULL;}
     inline bool Jalloc() {return JFs_in!=NULL;}
 
+    inline int kor_obs() {return (palloc())?(eor+1):(eor); }
+
     void read_basic_observations(const char name_addtl_[], bool force_overwrite_=false);
     void read_additional_observations(const char name_addtl_[]);
     void write_observed_solutions(const char name_[])

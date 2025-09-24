@@ -43,7 +43,7 @@ class curve_Lie_detector
 
   public:
 
-    static int kor_upd;
+    // static int kor_upd;
 
     const int nobs_f,
               nobs_h;
@@ -100,32 +100,7 @@ class curve_Lie_detector
       delete [] avec_crv;
     }
 
-    inline void compute_staggered_Hermite_flow(ode_solution &sol_out_, // output. Assume that x is set
-      LD_lu &lu_,LD_spectral_tvfield &tvf_,
-      ode_trivial_soljet &tsj_,
-      ode_solution &sol0_,
-      ode_solution &solh_,
-      ode_solution &sol1_)
-    {
-      // construct Hermite interpolant between given knots
-      tsj_.set_and_solve_Hermite_jets(lu_,sol0_,sol1_);
-
-      // record u coordinate values of estimated intermediate solution induced by Hermite jet over knots.
-      solh_.x = 0.5*( sol0_.x + sol1_.x ); // set x value of new colocation point
-      tsj_.set_sol_h_u(solh_); // set u values of new colocation point using raw Hermite jet
-        tvf_.set_sol_dkxu(solh_, kor); // improved estimate of derivatives at new collocation point
-      tsj_.set_jet_given_solh(solh_); // use improved derivative estimates to update corresponding jet coeffficients
-
-      // exponentiate resultant Hermite jet
-      // if (truncate_Hermite_exp) tsj_.exp_u_trivial( sol_out_.u, sol_out_.x - solh_.x, kor);
-      // else tsj_.exp_u_trivial( sol_out_.u, sol_out_.x - solh_.x );
-
-      tsj_.exp_u_trivial( sol_out_.u, sol_out_.x - solh_.x, kor);
-
-      tvf_.set_sol_dkxu(sol_out_, kor); // apply vfield to resultant solution for improved derivatives
-    }
-
-    inline double compute_staggered_Hermite_flow_curve(ode_solution **solso_, LD_lu &lu_,LD_spectral_tvfield &tvf_ ,ode_solution **solsi_)
+    inline double compute_staggered_Hermite_flow_curve(ode_solution **solso_, LD_lu &lu_,LD_spectral_tvfield &tvf_ ,ode_solution **solsi_, int kor_upd_)
     {
       double res_out = 0.0;
 
@@ -150,9 +125,9 @@ class curve_Lie_detector
           (tjcharts[iobs])->solh_alt ); // right hand knot, freshly corrected
 
         // res_out += (solso_[iobs])->copy_comp_sol_residual((tjcharts[iobs])->sol1_alt, kor);
-        // res_out += combine_two_sols_dxu(solso_[iobs],solsi_[iobs],(tjcharts[iobs])->sol1_alt);
-        res_out += (combine_flag)?( (solso_[iobs])->copy_comp_sol_residual((tjcharts[iobs])->sol1_alt, kor) )
-                      : ( combine_two_sols_dxu(*(solso_[iobs]),*(solsi_[iobs]),(tjcharts[iobs])->sol1_alt) ) ;
+        res_out += combine_two_sols_dxu(*(solso_[iobs]),*(solsi_[iobs]),(tjcharts[iobs])->sol1_alt,kor_upd_);
+        // res_out += (combine_flag)?( (solso_[iobs])->copy_comp_sol_residual((tjcharts[iobs])->sol1_alt, kor) )
+        //               : ( combine_two_sols_dxu(*(solso_[iobs]),*(solsi_[iobs]),(tjcharts[iobs])->sol1_alt) ) ;
       }
       // We now have updated values for the interior points. Use these to generate updates at edges
 
@@ -168,9 +143,9 @@ class curve_Lie_detector
        (tjcharts[1])->sol1_alt ); // right hand knot, already corrected (and updated)
 
       // res_out += (solso_[0])->copy_comp_sol_residual((tjcharts[0])->sol1_alt, kor);
-      // res_out += combine_two_sols_dxu(solso_[0],solsi_[0],(tjcharts[0])->sol1_alt);
-      res_out += (combine_flag)?( (solso_[0])->copy_comp_sol_residual((tjcharts[0])->sol1_alt, kor) )
-                    : ( combine_two_sols_dxu(*(solso_[0]),*(solsi_[0]),(tjcharts[0])->sol1_alt) ) ;
+      res_out += combine_two_sols_dxu(*(solso_[0]),*(solsi_[0]),(tjcharts[0])->sol1_alt,kor_upd_);
+      // res_out += (combine_flag)?( (solso_[0])->copy_comp_sol_residual((tjcharts[0])->sol1_alt, kor) )
+      //               : ( combine_two_sols_dxu(*(solso_[0]),*(solsi_[0]),(tjcharts[0])->sol1_alt) ) ;
 
       // crvo_.sols[nobs_h]->copy_sol( *(crvi_.sols[nobs_h]) );
       // generate RIGHT edge update, uses smoothened solh_f and UPDATED sol_f-1
@@ -183,10 +158,97 @@ class curve_Lie_detector
        (tjcharts[nobs_h-1])->solh_alt ); // right hand knot, already corrected
 
       // res_out += (solso_[nobs_h])->copy_comp_sol_residual((tjchart_final())->sol1_alt, kor);
-      // res_out += combine_two_sols_dxu(solso_[nobs_h],solsi_[nobs_h],(tjchart_final())->sol1_alt);
-      res_out += (combine_flag)?( (solso_[nobs_h])->copy_comp_sol_residual((tjchart_final())->sol1_alt, kor) )
-                    : ( combine_two_sols_dxu(*(solso_[nobs_h]),*(solsi_[nobs_h]),(tjchart_final())->sol1_alt) ) ;
+      res_out += combine_two_sols_dxu(*(solso_[nobs_h]),*(solsi_[nobs_h]),(tjchart_final())->sol1_alt,kor_upd_);
+      // res_out += (combine_flag)?( (solso_[nobs_h])->copy_comp_sol_residual((tjchart_final())->sol1_alt, kor) )
+      //               : ( combine_two_sols_dxu(*(solso_[nobs_h]),*(solsi_[nobs_h]),(tjchart_final())->sol1_alt) ) ;
 
+      return res_out;
+    }
+    inline void compute_staggered_Hermite_flow(ode_solution &sol_out_, // output. Assume that x is set
+      LD_lu &lu_,LD_spectral_tvfield &tvf_,
+      ode_trivial_soljet &tsj_,
+      ode_solution &sol0_,
+      ode_solution &solh_,
+      ode_solution &sol1_)
+    {
+      // construct Hermite interpolant between given knots
+      tsj_.set_and_solve_Hermite_jets(lu_,sol0_,sol1_);
+
+      // record u coordinate values of estimated intermediate solution induced by Hermite jet over knots.
+      solh_.x = 0.5*( sol0_.x + sol1_.x ); // set x value of new colocation point
+      tsj_.set_sol_h_u(solh_); // set u values of new colocation point using raw Hermite jet
+        tvf_.set_sol_dkxu(solh_, kor); // improved estimate of derivatives at new collocation point
+      tsj_.set_jet_given_solh(solh_); // use improved derivative estimates to update corresponding jet coeffficients
+
+      // exponentiate resultant Hermite jet
+      // if (truncate_Hermite_exp) tsj_.exp_u_trivial( sol_out_.u, sol_out_.x - solh_.x, kor);
+      // else tsj_.exp_u_trivial( sol_out_.u, sol_out_.x - solh_.x );
+
+      tsj_.exp_u_trivial( sol_out_.u, sol_out_.x - solh_.x, kor);
+
+      tvf_.set_sol_dkxu(sol_out_, kor); // apply vfield to resultant solution for improved derivatives
+    }
+    inline double combine_two_sols_dxu(ode_solution &snew_,ode_solution &sold_,ode_solution &sexp_, int kor_upd_)
+    {
+      snew_.x = sexp_.x;
+      double res_out = 0.0;
+      for (int i = 1; i < snew_.nvar; i++)
+      {
+        double si_diff = sold_.pts[i];
+        // si_diff -= (
+        //   snew_.pts[i] = (combine_flag)?(sexp_.pts[i]):(0.5*( sexp_.pts[i]+sold_.pts[i] ))
+        //   );
+        si_diff -= ( snew_.pts[i] = sexp_.pts[i] );
+        // si_diff -= (snew_.pts[i] = 0.5*( sexp_.pts[i]+sold_.pts[i] ));
+        res_out += si_diff*si_diff;
+      }
+      int ivar = sold_.nvar,
+          kor_cap = LD_linalg::min_T_3way<int>(kor_upd_,kor,snew_.eor);
+      for (int k = 1 ; k <= kor_cap; k++)
+        for (int i = 0; i < snew_.ndep; i++,ivar++)
+        {
+          double si_diff = sold_.pts[ivar];
+          si_diff -= (
+            snew_.pts[i] = (combine_flag)?(sexp_.pts[ivar]):(0.5*( sexp_.pts[ivar]+sold_.pts[ivar] ))
+            );
+          // si_diff -= (snew_.pts[ivar] = sexp_.pts[ivar]);
+          // si_diff -= (snew_.pts[ivar] = 0.5*( sexp_.pts[ivar]+sold_.pts[ivar] ));
+          res_out += si_diff*si_diff;
+        }
+      for (int k = kor_cap+1; k <= snew_.eor; k++)
+        for (int i = 0; i < snew_.ndep; i++,ivar++)
+        {
+          snew_.pts[ivar] = sold_.pts[ivar];
+
+          // double si_diff = sold_.pts[ivar];
+          // si_diff -= (snew_.pts[ivar] = sold_.pts[ivar] );
+          // si_diff -= (snew_.pts[ivar] = 0.5*( sexp_.pts[ivar]+sold_.pts[ivar] ));
+          // res_out += si_diff*si_diff;
+        }
+      // for (int i = snew_.nvar, kdim = (kor>=snew_.eor)?(snew_.ndim):(1+snew_.ndep*(1+kor)) ; i < kdim; i++)
+      // {
+      //   double si_diff = sold_.pts[i];
+      //   // si_diff -= (snew_.pts[i] = 0.5*( sexp_.pts[i]+sold_.pts[i] ));
+      //   si_diff -= (snew_.pts[i] = sold_.pts[i] ); // don't update derivatives
+      //   res_out += si_diff*si_diff;
+      // }
+      if (kor>snew_.eor)
+      {
+        if (kor_upd_>snew_.eor)
+        {
+          for (int i = 0; i < snew_.ndep; i++)
+          {
+            double si_diff = sold_.dnp1xu[i];
+            si_diff -= (
+              snew_.dnp1xu[i] = (combine_flag)?(sexp_.dnp1xu[i]):(0.5*( sexp_.dnp1xu[i]+sold_.dnp1xu[i] ))
+              );
+            // si_diff -= (snew_.dnp1xu[i] = sexp_.dnp1xu[i]);
+            // si_diff -= (snew_.dnp1xu[i] = 0.5*( sexp_.dnp1xu[i]+sold_.dnp1xu[i] ));
+            res_out += si_diff*si_diff;
+          }
+        }
+        else for (int i = 0; i < snew_.ndep; i++) snew_.dnp1xu[i] = sold_.dnp1xu[i];
+      }
       return res_out;
     }
 
@@ -202,7 +264,6 @@ class curve_Lie_detector
       res_out += combine_two_sols( *(crv_alt_.sol_f()), *(crv_.sol_f()), (tjchart_f())->sol1_alt );
       return res_out;
     }
-
     inline double combine_three_sols(ode_solution &s0_,ode_solution &s1_,ode_solution &s2_,ode_solution &s3_)
     {
       double res_out = 0.0;
@@ -237,60 +298,6 @@ class curve_Lie_detector
           si_old -= (s0_.dnp1xu[i] = combine_2coords(s1_.dnp1xu[i],s2_.dnp1xu[i]));
           res_out += si_old*si_old;
         }
-      return res_out;
-    }
-    inline double combine_two_sols_dxu(ode_solution &snew_,ode_solution &sold_,ode_solution &sexp_)
-    {
-      snew_.x = sexp_.x;
-      double res_out = 0.0;
-      for (int i = 1; i < snew_.nvar; i++)
-      {
-        double si_diff = sold_.pts[i];
-        si_diff -= (snew_.pts[i] = sexp_.pts[i]);
-        // si_diff -= (snew_.pts[i] = 0.5*( sexp_.pts[i]+sold_.pts[i] ));
-        res_out += si_diff*si_diff;
-      }
-      int ivar = sold_.nvar,
-          kor_cap = LD_linalg::min_T_3way<int>(kor_upd,kor,snew_.eor);
-      for (int k = 1 ; k <= kor_cap; k++)
-        for (int i = 0; i < snew_.ndep; i++,ivar++)
-        {
-          double si_diff = sold_.pts[ivar];
-          // si_diff -= (snew_.pts[ivar] = sexp_.pts[ivar]);
-          // si_diff -= (snew_.pts[ivar] = sold_.pts[ivar] );
-          si_diff -= (snew_.pts[ivar] = 0.5*( sexp_.pts[ivar]+sold_.pts[ivar] ));
-          res_out += si_diff*si_diff;
-        }
-      for (int k = kor_cap+1; k <= snew_.eor; k++)
-        for (int i = 0; i < snew_.ndep; i++,ivar++)
-        {
-          double si_diff = sold_.pts[ivar];
-          // si_diff -= (snew_.pts[ivar] = sexp_.pts[ivar]);
-          si_diff -= (snew_.pts[ivar] = sold_.pts[ivar] );
-          // si_diff -= (snew_.pts[ivar] = 0.5*( sexp_.pts[ivar]+sold_.pts[ivar] ));
-          res_out += si_diff*si_diff;
-        }
-      // for (int i = snew_.nvar, kdim = (kor>=snew_.eor)?(snew_.ndim):(1+snew_.ndep*(1+kor)) ; i < kdim; i++)
-      // {
-      //   double si_diff = sold_.pts[i];
-      //   // si_diff -= (snew_.pts[i] = 0.5*( sexp_.pts[i]+sold_.pts[i] ));
-      //   si_diff -= (snew_.pts[i] = sold_.pts[i] ); // don't update derivatives
-      //   res_out += si_diff*si_diff;
-      // }
-      if (kor>snew_.eor)
-      {
-        if (kor_upd>snew_.eor)
-        {
-          for (int i = 0; i < snew_.ndep; i++)
-          {
-            double si_diff = sold_.dnp1xu[i];
-            // si_diff -= (snew_.dnp1xu[i] = sexp_.dnp1xu[i]);
-            si_diff -= (snew_.dnp1xu[i] = 0.5*( sexp_.dnp1xu[i]+sold_.dnp1xu[i] ));
-            res_out += si_diff*si_diff;
-          }
-        }
-        else for (int i = 0; i < snew_.ndep; i++) snew_.dnp1xu[i] = sold_.dnp1xu[i];
-      }
       return res_out;
     }
 
