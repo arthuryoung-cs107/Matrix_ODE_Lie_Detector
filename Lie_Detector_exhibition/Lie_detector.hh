@@ -180,8 +180,6 @@ class curve_Lie_detector
       tsj_.set_jet_given_solh(solh_); // use improved derivative estimates to update corresponding jet coeffficients
 
       // exponentiate resultant Hermite jet
-      // if (truncate_Hermite_exp) tsj_.exp_u_trivial( sol_out_.u, sol_out_.x - solh_.x, kor);
-      // else tsj_.exp_u_trivial( sol_out_.u, sol_out_.x - solh_.x );
 
       tsj_.exp_u_trivial( sol_out_.u, sol_out_.x - solh_.x, kor);
 

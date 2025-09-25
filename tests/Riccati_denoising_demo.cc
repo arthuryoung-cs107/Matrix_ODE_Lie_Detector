@@ -52,16 +52,15 @@ const bool stepladder_update = true;
 
 const int curve_Lie_detector::combine_flag = 1; // 0, flag for updating smoothened coordinates, (0 lazy, 1 aggressive)
 const bool curve_Lie_detector::truncate_Hermite_exp = trunc_Hermite_exp;
-// int curve_Lie_detector::kor_upd = 0;
 
 const bool v_verbose = false;
 const bool Rmat_h_exp = false;
 const bool Rmat_Hermite_jets = false;
 const bool stop_blowup = false;
-const int nullity_stop = 2; // nullity dimension required to terminate (if 0, does not stop)
+const int nullity_stop = 0; // nullity dimension required to terminate (if 0, does not stop)
 
 const double res_ratio_tol = 1e-12;
-const double stepladder_ratio_tol = 1e-6;
+const double stepladder_ratio_tol = 1e-5; // 1e-6
 const int write_sched_early = 5;
 
 // const int ndns_max = 3; // max permitted denoising steps
