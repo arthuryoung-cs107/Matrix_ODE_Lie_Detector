@@ -111,7 +111,8 @@ classdef LD_denoise_plots < LD_plots
 
             [res_min,i_res_min] = min(dnse_summary.residuals)
 
-            icrv_plot = 1:6;
+            % icrv_plot = 1:6;
+            icrv_plot = [1,3,6];
 
             plt_spc = plts_out(1);
 

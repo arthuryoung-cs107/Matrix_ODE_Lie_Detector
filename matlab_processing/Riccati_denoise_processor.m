@@ -67,8 +67,8 @@ jet_sol_names = { '.jsol_h'; ...
 [Rsvd_g_0f,pSj0f] = Snse.read_jet_sol_h_data(Rsvd_g_names, jet_sol_names,'_f');
 
 % [Rsvd_g_0,pSj] = deal(Rsvd_g_00,pSj00);
-% [Rsvd_g_0,pSj] = deal(Rsvd_g_0s,pSj0s);
-[Rsvd_g_0,pSj] = deal(Rsvd_g_0f,pSj0f);
+[Rsvd_g_0,pSj] = deal(Rsvd_g_0s,pSj0s);
+% [Rsvd_g_0,pSj] = deal(Rsvd_g_0f,pSj0f);
 
 pSj_cells = LD_observations_set.pts_struct_2_cell(pSj);
 pSj_h_cell = pSj_cells(:,1);

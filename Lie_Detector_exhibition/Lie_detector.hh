@@ -131,7 +131,6 @@ class curve_Lie_detector
       }
       // We now have updated values for the interior points. Use these to generate updates at edges
 
-
       // crvo_.sols[0]->copy_sol( *(crvi_.sols[0]) );
       // generate LEFT edge update, uses smoothened solh_0 and UPDATED sol_1
       ((tjcharts[0])->sol1_alt).x = (solsi_[0])->x;
@@ -209,7 +208,7 @@ class curve_Lie_detector
         {
           double si_diff = sold_.pts[ivar];
           si_diff -= (
-            snew_.pts[i] = (combine_flag)?(sexp_.pts[ivar]):(0.5*( sexp_.pts[ivar]+sold_.pts[ivar] ))
+            snew_.pts[ivar] = (combine_flag)?(sexp_.pts[ivar]):(0.5*( sexp_.pts[ivar]+sold_.pts[ivar] ))
             );
           // si_diff -= (snew_.pts[ivar] = sexp_.pts[ivar]);
           // si_diff -= (snew_.pts[ivar] = 0.5*( sexp_.pts[ivar]+sold_.pts[ivar] ));
@@ -225,13 +224,6 @@ class curve_Lie_detector
           // si_diff -= (snew_.pts[ivar] = 0.5*( sexp_.pts[ivar]+sold_.pts[ivar] ));
           // res_out += si_diff*si_diff;
         }
-      // for (int i = snew_.nvar, kdim = (kor>=snew_.eor)?(snew_.ndim):(1+snew_.ndep*(1+kor)) ; i < kdim; i++)
-      // {
-      //   double si_diff = sold_.pts[i];
-      //   // si_diff -= (snew_.pts[i] = 0.5*( sexp_.pts[i]+sold_.pts[i] ));
-      //   si_diff -= (snew_.pts[i] = sold_.pts[i] ); // don't update derivatives
-      //   res_out += si_diff*si_diff;
-      // }
       if (kor>snew_.eor)
       {
         if (kor_upd_>snew_.eor)
