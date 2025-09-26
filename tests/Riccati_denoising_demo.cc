@@ -48,7 +48,7 @@ const int Hermite_exp = 1; // 1, flag for Hermite exponentiation technique (0 us
 const bool exp_staggered_Hermites = true; // use staggered Hermite jets for denoising exponentiation
 const bool trunc_Hermite_exp = true; // flag for truncating Rmatrix corrected Hermite jet
 const bool Rmat_telescoping_decomposition = true; // split up global SVD into curve based parallel SVD
-const bool stepladder_update = true;
+const bool stepladder_update = false;
 
 const int curve_Lie_detector::combine_flag = 1; // 0, flag for updating smoothened coordinates, (0 lazy, 1 aggressive)
 const bool curve_Lie_detector::truncate_Hermite_exp = trunc_Hermite_exp;

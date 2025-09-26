@@ -192,10 +192,11 @@ class curve_Lie_detector
       for (int i = 1; i < snew_.nvar; i++)
       {
         double si_diff = sold_.pts[i];
-        // si_diff -= (
-        //   snew_.pts[i] = (combine_flag)?(sexp_.pts[i]):(0.5*( sexp_.pts[i]+sold_.pts[i] ))
-        //   );
-        si_diff -= ( snew_.pts[i] = sexp_.pts[i] );
+        si_diff -= (
+          snew_.pts[i] = (combine_flag)?(sexp_.pts[i]):(0.5*( sexp_.pts[i]+sold_.pts[i] ))
+          // snew_.pts[i] = (combine_flag)?(sexp_.pts[i]):(0.5*( 1.5*sexp_.pts[i]+0.5*sold_.pts[i] ))
+          );
+        // si_diff -= ( snew_.pts[i] = sexp_.pts[i] );
         // si_diff -= (snew_.pts[i] = 0.5*( sexp_.pts[i]+sold_.pts[i] ));
         res_out += si_diff*si_diff;
       }
@@ -207,6 +208,7 @@ class curve_Lie_detector
           double si_diff = sold_.pts[ivar];
           si_diff -= (
             snew_.pts[ivar] = (combine_flag)?(sexp_.pts[ivar]):(0.5*( sexp_.pts[ivar]+sold_.pts[ivar] ))
+            // snew_.pts[ivar] = (combine_flag)?(sexp_.pts[ivar]):(0.5*( 1.5*sexp_.pts[ivar]+0.5*sold_.pts[ivar] ))
             );
           // si_diff -= (snew_.pts[ivar] = sexp_.pts[ivar]);
           // si_diff -= (snew_.pts[ivar] = 0.5*( sexp_.pts[ivar]+sold_.pts[ivar] ));
@@ -225,19 +227,19 @@ class curve_Lie_detector
       if (kor>snew_.eor)
       {
         if (kor_upd_>snew_.eor)
-        {
           for (int i = 0; i < snew_.ndep; i++)
           {
             double si_diff = sold_.dnp1xu[i];
             si_diff -= (
               snew_.dnp1xu[i] = (combine_flag)?(sexp_.dnp1xu[i]):(0.5*( sexp_.dnp1xu[i]+sold_.dnp1xu[i] ))
+              // snew_.dnp1xu[i] = (combine_flag)?(sexp_.dnp1xu[i]):(0.5*( 1.5*sexp_.dnp1xu[i]+0.5*sold_.dnp1xu[i] ))
               );
             // si_diff -= (snew_.dnp1xu[i] = sexp_.dnp1xu[i]);
             // si_diff -= (snew_.dnp1xu[i] = 0.5*( sexp_.dnp1xu[i]+sold_.dnp1xu[i] ));
             res_out += si_diff*si_diff;
           }
-        }
-        else for (int i = 0; i < snew_.ndep; i++) snew_.dnp1xu[i] = sold_.dnp1xu[i];
+        else
+          for (int i = 0; i < snew_.ndep; i++) snew_.dnp1xu[i] = sold_.dnp1xu[i];
       }
       return res_out;
     }
