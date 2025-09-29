@@ -60,17 +60,19 @@ const bool Rmat_h_exp = false;
 const bool Rmat_Hermite_jets = false;
 const bool stop_blowup = false;
 const int nullity_stop = 0; // nullity dimension required to terminate (if 0, does not stop)
+const int nstep_substep_max = 500;
 
 const double res_conv_tol = 1e-7;
 const double res_ratio_tol = 1e-12;
 const double stepladder_ratio_tol = (res_conv_cond)?(1e-1):(1e-6); // 1e-6
+const double res_tol_substep = 1e-2; // 1e-6
 const int write_sched_early = 5;
 
 // const int ndns_max = 3; // max permitted denoising steps
 // const int ndns_max = 5; // max permitted denoising steps
-const int ndns_max = 10;
+// const int ndns_max = 10;
 // const int ndns_max = 20;
-// const int ndns_max = 50;
+const int ndns_max = 50;
 const int write_sched = 1;
 
 // const int ndns_max = 50;
@@ -207,11 +209,12 @@ struct global_Rmat_experiment : public global_multinomial_experiment
 
   void denoise_data(ode_solcurve_chunk &Sobs_alt_)
   {
-    int kor_update = (stepladder_update)?(0):(kor_obs),
+    int nwrite = 0,
+        nstep_substep = 0,
         kor_upd_step = 0,
+        kor_update = (stepladder_update)?(0):(kor_obs),
         rnk_vec[ndns_max],
-        iwrite_vec[ndns_max],
-        nwrite = 0;
+        iwrite_vec[ndns_max];
     double res_vec[ndns_max];
 
     ode_solution ** const sols_alt = Sobs_alt_.sols;
@@ -227,11 +230,24 @@ struct global_Rmat_experiment : public global_multinomial_experiment
       Rsvd_global.print_result("  Rsvd_global (0)");
 
     // double &res_1 = res_vec[0];
-    double res_1;
+    double res_1_init,
+           res_1;
 
     if (exp_staggered_Hermites)
-      res_1 = exp_staggered_trivial_Rmat_Hermites(curves_alt,
+    {
+      res_1_init = res_1 = exp_staggered_trivial_Rmat_Hermites(curves_alt,
         svec_Rk_global,VTmat_Rk_global,curves,kor_update);
+      nstep_substep = 0;
+      while ( nstep_substep_max
+        &&( (++nstep_substep)<=nstep_substep_max )
+        &&( res_1>res_tol_substep ) )
+        // &&( (res_1/res_1_init)>res_tol_substep ) )
+      {
+        res_1 = exp_staggered_trivial_Rmat_Hermites(curves_alt,
+          svec_Rk_global,VTmat_Rk_global,curves_alt,kor_update);
+          printf("#   i=%d : res_1_init=%.2e, ii=%d, res_1=%.2e\n", 1,res_1_init,nstep_substep,res_1);
+      }
+    }
     else
     {
       if (Rmat_Hermite_jets) // use R matrix pseudo inverse for Hermite knots
@@ -285,8 +301,23 @@ struct global_Rmat_experiment : public global_multinomial_experiment
       double ti_svd = LD_threads::tic();
 
       // employ staggered Hermite exponentiation technique
-      if (exp_staggered_Hermites) res_i =
-        exp_staggered_trivial_Rmat_Hermites(curves_alt,svec_Rk_global,VTmat_Rk_global,curves_alt,kor_update);
+      if (exp_staggered_Hermites)
+      {
+        const double res_i_init = res_i = exp_staggered_trivial_Rmat_Hermites(curves_alt,
+          svec_Rk_global,VTmat_Rk_global,curves_alt,kor_update);
+        nstep_substep = 0;
+        while ( nstep_substep_max
+          &&( (++nstep_substep)<=nstep_substep_max )
+          &&( res_i>res_tol_substep ) )
+          // &&( (res_i/res_1_init)>res_tol_substep ) )
+          // &&( (res_i/res_i_init)>res_tol_substep ) )
+        {
+          res_i = exp_staggered_trivial_Rmat_Hermites(curves_alt,
+              svec_Rk_global,VTmat_Rk_global,curves_alt,kor_update);
+          printf("#   i=%d : res_1_init=%.2e, ii=%d, res_1=%.2e\n",
+            nsmooth+1,res_i_init,nstep_substep,res_i);
+        }
+      }
       else
       {
         if (Rmat_Hermite_jets) // use R matrix pseudo inverse for Hermite knots
