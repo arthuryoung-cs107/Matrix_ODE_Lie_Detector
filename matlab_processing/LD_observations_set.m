@@ -172,11 +172,15 @@ classdef LD_observations_set
                                         'nsmooth', nsmooth, ...
                                         'iwrite', iwrite, ...
                                         'ranks', ranks, ...
-                                        'residuals', residuals);  
+                                        'residuals', residuals);
             end
         end
-        function dxuk_out = read_dxuk_data(obj,name_)
+        function [dxuk_out,dxuk_cell] = read_dxuk_data(obj,name_)
             dxuk_out = read_dxuk_struct([obj.dir_name '/' obj.dat_name name_ '.' obj.dat_suff]);
+            if (nargout == 2)
+                dlen = length(dxuk_out.dxuk_in)/dxuk_out.nobs;
+                dxuk_cell = LD_observations_set.dat_cell(dlen,dxuk_out.dxuk_in,1:dxuk_out.ncrv,dxuk_out.npts_per_crv);
+            end
         end
         % function [R_svd,R_h_svd,pSj] = read_jet_sol_h_data(obj,nSVD_,nSmat_,ps_)
         function [R_svd,pSj] = read_jet_sol_h_data(obj,nSVD_,nSmat_,ps_)
@@ -486,6 +490,18 @@ classdef LD_observations_set
         end
     end
     methods (Static)
+        function pS_out = substitute_dkxu_pts_cells(pS_,dxuk_,dxuk_cell_)
+            pS_out = pS_;
+
+            nvar = 1 + dxuk_.ndep;
+            ndim = size(pS_{1}, 1);
+            eor = (ndim-1)/dxuk_.ndep;
+            nsub = ndim-nvar;
+
+            for i = 1:length(pS_out)
+                pS_out{i}((nvar+1):end,:) = dxuk_cell_{i}(1:nsub,:);
+            end
+        end
         function pts_cell_out = combine_pts_cells(pSs01_,pSref_)
             if (nargin == 2) % lazy update
                 pts_cell_out = pSref_;

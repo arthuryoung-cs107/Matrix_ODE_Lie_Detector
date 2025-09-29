@@ -61,13 +61,12 @@ jet_sol_names = { '.jsol_h'; ...
 '.jsol_0_Rk'; ...
 '.jsol_1_Rk'; ...
 };
-% [Rsvd_g_0,pSj] = Snse.read_jet_sol_h_data(Rsvd_g_names, jet_sol_names);
 [Rsvd_g_00,pSj00] = Snse.read_jet_sol_h_data(Rsvd_g_names, jet_sol_names);
 [Rsvd_g_0s,pSj0s] = Snse.read_jet_sol_h_data(Rsvd_g_names, jet_sol_names,'_s');
 [Rsvd_g_0f,pSj0f] = Snse.read_jet_sol_h_data(Rsvd_g_names, jet_sol_names,'_f');
 
-% [Rsvd_g_0,pSj] = deal(Rsvd_g_00,pSj00);
-[Rsvd_g_0,pSj] = deal(Rsvd_g_0s,pSj0s);
+[Rsvd_g_0,pSj] = deal(Rsvd_g_00,pSj00);
+% [Rsvd_g_0,pSj] = deal(Rsvd_g_0s,pSj0s);
 % [Rsvd_g_0,pSj] = deal(Rsvd_g_0f,pSj0f);
 
 pSj_cells = LD_observations_set.pts_struct_2_cell(pSj);
@@ -76,7 +75,8 @@ pSj_h_Rk_cell = pSj_cells(:,2);
 pSj_0_Rk_cell = pSj_cells(:,3);
 pSj_1_Rk_cell = pSj_cells(:,4);
 pSj_Rk_1_cell = LD_observations_set.combine_pts_cells( pSj_cells(:,3:4),pts_nse_cell );
-dxuk_Rk = Snse.read_dxuk_data('.dxuk_Rk');
+[dxuk_Rk,dxuk_Rk_cell] = Snse.read_dxuk_data('.dxuk_Rk');
+pSj_Rk_cell = LD_observations_set.substitute_dkxu_pts_cells(pts_nse_cell,dxuk_Rk,dxuk_Rk_cell);
 
 %% inspecting curves
 ncrv_ref = Sref.ncrv;
@@ -92,12 +92,9 @@ plt0 = LD_plots('Sdns', ...
                 [tdim_S_mesh tdim_S_mesh],...
                     [tdim_S_hght tdim_S_wdth],[tdim_S_hght 1], ...
                 scrn_id);
-% nse_plot1 = LD_denoise_plots.plot_denoised_trajectories(plt0, ...
-%                                                         spc, ...
-%                                                         Sref,Snse,i_crv);
 plt01 = LD_plots('conv', ...
                 [tdim_S_mesh tdim_S_mesh],...
-                    [tdim_S_hght tdim_S_wdth],[(2*(tdim_S_hght+1)) 1], ...
+                    [1.70*tdim_S_hght tdim_S_wdth],[(2.25*(tdim_S_hght+1)) 1], ...
                 scrn_id);
 [dnse_plts,dnse_data] = LD_denoise_plots.plot_denoising_summary([plt0,plt01], ...
                                                         spc, ...
@@ -115,9 +112,6 @@ nse_plot1.show_toolbar();
 
 
 % i_crv = 1;
-% i_crv = 2;
-% i_crv = 3;
-% i_crv = 6;
 
 i_crv = [1,3,6];
 
@@ -143,10 +137,14 @@ spc.color = [1 0 0 1];
 [spc.lspec,spc.lw,spc.mspec,spc.ms] = deal('-',1,'s',2);
 slnspc_ref_plt = LD_plots.plot_pts(pts_nse_cell(i_crv), ...
                         meta0,slnspc_ref_plt,spc);
-% spc.color = [LD_plots.green1 1];
-% [spc.lspec,spc.lw,spc.mspec,spc.ms] = deal('none',1,'d',2);
-% slnspc_ref_plt = LD_plots.plot_pts(pSj_h_cell(i_crv), ...
-%                         meta0,slnspc_ref_plt,spc);
+spc.color = [0 0 1 1];
+[spc.lspec,spc.lw,spc.mspec,spc.ms] = deal('-',1,'s',2);
+slnspc_ref_plt = LD_plots.plot_pts(pSj_Rk_cell(i_crv), ...
+                        meta0,slnspc_ref_plt,spc);
+spc.color = [LD_plots.green1 1];
+[spc.lspec,spc.lw,spc.mspec,spc.ms] = deal('none',1,'d',2);
+slnspc_ref_plt = LD_plots.plot_pts(pSj_h_cell(i_crv), ...
+                        meta0,slnspc_ref_plt,spc);
 spc.color = [LD_plots.green4 1];
 [spc.lspec,spc.lw,spc.mspec,spc.ms] = deal('-',1,'d',2);
 slnspc_ref_plt = LD_plots.plot_pts(pSj_h_Rk_cell(i_crv), ...
@@ -159,10 +157,6 @@ spc.color = [LD_plots.purple5 1];
 [spc.lspec,spc.lw,spc.mspec,spc.ms] = deal('-',1,'>',2);
 slnspc_ref_plt = LD_plots.plot_pts(pSj_1_Rk_cell(i_crv), ...
                     meta0,slnspc_ref_plt,spc);
-spc.color = [0 0 1 1];
-[spc.lspec,spc.lw,spc.mspec,spc.ms] = deal('-',1,'s',2);
-slnspc_ref_plt = LD_plots.plot_pts(pSj_Rk_1_cell(i_crv), ...
-                        meta0,slnspc_ref_plt,spc);
 % slnspc_ref_plt.show_menubar();
 slnspc_ref_plt.show_toolbar();
 
@@ -175,6 +169,10 @@ slnspc_nse_plt = LD_plots.plot_pts(pts_nse_cell(1:ncrv_ref), ...
 spc.color = [1 0 0 1];
 [spc.lspec,spc.lw,spc.mspec,spc.ms] = deal('-',1,'s',4);
 slnspc_nse_plt = LD_plots.plot_pts(pts_nse_cell(i_crv), ...
+                        meta0,slnspc_nse_plt,spc);
+spc.color = [0 0 1 1];
+[spc.lspec,spc.lw,spc.mspec,spc.ms] = deal('-',1,'s',4);
+slnspc_nse_plt = LD_plots.plot_pts(pSj_Rk_cell(i_crv), ...
                         meta0,slnspc_nse_plt,spc);
 spc.color = [0 0 0 1];
 [spc.lspec,spc.lw,spc.mspec,spc.ms] = deal('-',1,'o',2);
@@ -196,25 +194,22 @@ spc.color = [LD_plots.purple5 1];
 [spc.lspec,spc.lw,spc.mspec,spc.ms] = deal('-',1,'>',2);
 slnspc_nse_plt = LD_plots.plot_pts(pSj_1_Rk_cell(i_crv), ...
                     meta0,slnspc_nse_plt,spc);
-spc.color = [0 0 1 1];
-[spc.lspec,spc.lw,spc.mspec,spc.ms] = deal('-',1,'s',4);
-% slnspc_nse_plt = LD_plots.plot_pts(pSj_Rk_1_cell(i_crv), ...
-%                         meta0,slnspc_nse_plt,spc);
 % slnspc_nse_plt.show_menubar();
 slnspc_nse_plt.show_toolbar();
 
 
-return
+hx = 1e-3;
+P_phx = hx.^(0:5);
+P_mhx = (-hx).^(0:5);
+
+dV_pm = [   P_mhx ; ...
+            0 , P_mhx(2:end).*(1:5) ; ...
+            0, 0, P_mhx(3:end).*(2:5).*(1:4) ; ...
+            P_phx ; ...
+            0 , P_phx(2:end).*(1:5) ; ...
+            0, 0, P_phx(3:end).*(2:5).*(1:4) ]
 
 
-[Rsvd_g_0_tru,Rsvd_h_g_0_tru,pSj_tru] = Sref.read_jet_sol_h_data(Rsvd_g_names, jet_sol_names);
-pSj_cells_tru = LD_observations_set.pts_struct_2_cell(pSj_tru);
-pSj_h_cell_tru = pSj_cells_tru(:,1);
-pSj_h_Rk_cell_tru = pSj_cells_tru(:,2);
-pSj_0_Rk_cell_tru = pSj_cells_tru(:,3);
-pSj_1_Rk_cell_tru = pSj_cells_tru(:,4);
-pSj_Rk_1_cell_tru = LD_observations_set.combine_pts_cells( pSj_cells_tru(:,3:4),pts_ref_cell );
-dxuk_Rk_tru = Sref.read_dxuk_data('.dxuk_Rk');
 
 
 return

@@ -142,12 +142,17 @@ struct ode_trivial_soljet : public ode_soljet
     exp_sol_trivial(sol0_out_,-0.5*hx,jor_use_);
     exp_sol_trivial(sol1_out_,0.5*hx,jor_use_);
   }
-  inline void set_jet_given_solh(ode_solution &solh_)
+  inline void set_jet_given_solh(ode_solution &solh_,bool trunc_flag_=false)
   {
     const int kor = comp_kor();
     for (int k = 0; k <= kor; k++)
       for (int i = 0; i < ndep; i++)
         set_aki_dkxui_hat(k,i,solh_.dkxui(k,i));
+
+    if (trunc_flag_)
+      for (int k = kor+1; k <= jor; k++)
+        for (int i = 0; i < ndep; i++)
+          set_aki_dkxui_hat(k,i,0.0);
   }
   inline void stage_regularized_trivial_jet(double **bm_,double ***At_,double *sv_,double *lv_)
   {
@@ -688,7 +693,7 @@ struct LD_spectral_tvfield : public LD_trivial_vector_field
 
     for (int i = 0; i < len_theta; i++) theta_[i] = 0.0;
 
-    // const double  ww_tol = 1e-2;
+    // const double  ww_tol = 1e-1;
     // int istart = 0;
     // while ( ( (sigma_min()/sv[istart])<ww_tol )&&( istart<nvec_use ) ) istart++;
 
@@ -698,28 +703,11 @@ struct LD_spectral_tvfield : public LD_trivial_vector_field
       const double  ww_i = sigma_min()/sv[ith], // scaled Moore-Penrose pseudoinverse
                     w_i = ww_i*ww_i; // squared to reflect squared scaling of vx_ith
 
-      // if (ww_i>1e-10)
-      // if (ww_i>1e-6)
-      // if (ww_i>1e-4)
-      // if (ww_i>=1e-2)
-
-      // if (ww_i>1e-10)
-      // if (ww_i>1e-8)
-      // if (ww_i>1e-6)
-      // if (ww_i>1e-5)
-      // if (ww_i>1e-4)
-      // if (ww_i>1e-6)
-      // if (ww_i>1e-4)
-      // if (ww_i>1e-4)
-      // if (ww_i>1e-3)
-      // if (ww_i>1e-2)
-      // {
         double  vx_ith = 0.0;
         for (int i = 0; i < len_lam; i++) vx_ith += VTm[ith][i]*lamvec_local[i];
 
         for (int i = 0; i < len_theta; i++) theta_[i] += w_i*vx_ith*VTm[ith][i];
         Wnet += w_i*vx_ith*vx_ith;
-      // }
     }
     for (int i = 0; i < len_theta; i++) theta_[i] /= Wnet; // normalize local parameters
   }

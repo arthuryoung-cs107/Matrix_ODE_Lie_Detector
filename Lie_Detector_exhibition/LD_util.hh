@@ -134,4 +134,56 @@ template <typename T> T ** Tsym_lower(int M_)
   return rows;
 }
 
+class LD_util
+{
+  public:
+
+    LD_util() {}
+    ~LD_util() {}
+
+
+
+    template <typename T> static T min_Tdata(T *dat_, int len_, int &ind_)
+    {
+      T val_out = dat_[ind_=0];
+      for (size_t i = 1; i < len_; i++)
+        if (val_out > dat_[i])
+          val_out = dat_[ind_ = i];
+      return val_out;
+    }
+    template <typename T> static T max_Tdata(T *dat_, int len_, int &ind_)
+    {
+      T val_out = dat_[ind_=0];
+      for (size_t i = 1; i < len_; i++)
+        if (val_out < dat_[i])
+          val_out = dat_[ind_ = i];
+      return val_out;
+    }
+    template <typename T> static T min_Tdata(T *dat_,int len_)
+    {
+      T val_out = dat_[0];
+      for (size_t i = 1; i < len_; i++) if (val_out > dat_[i]) val_out = dat_[i];
+      return val_out;
+    }
+    template <typename T> static T max_Tdata(T *dat_,int len_)
+    {
+      T val_out = dat_[0];
+      for (size_t i = 1; i < len_; i++) if (val_out < dat_[i]) val_out = dat_[i];
+      return val_out;
+    }
+    template <typename T> static T min_T(T a_, T b_) {return (a_<b_)?(a_):b_;}
+    template <typename T> static T max_T(T a_, T b_) {return (a_>b_)?(a_):b_;}
+    template <typename T> static T min_T(T a_, T b_, T c_) {return min_T<T>(min_T<T>(a_,b_),c_);}
+    template <typename T> static T max_T(T a_, T b_, T c_) {return max_T<T>(max_T<T>(a_,b_),c_);}
+    template <typename T> static void copy_Tdata(T *dato_,int len_,T *dati_)
+      { for (int i = 0; i < len_; i++) dato_[i] = dati_[i]; }
+    template <typename T> static T sum_Tdata(T *dat_,int len_)
+    {
+      T acc = 0;
+      for (int i = 0; i < len_; i++) acc += dat_[i];
+      return acc;
+    }
+
+};
+
 #endif

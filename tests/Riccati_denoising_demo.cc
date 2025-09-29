@@ -49,6 +49,8 @@ const bool exp_staggered_Hermites = true; // use staggered Hermite jets for deno
 const bool trunc_Hermite_exp = true; // flag for truncating Rmatrix corrected Hermite jet
 const bool Rmat_telescoping_decomposition = true; // split up global SVD into curve based parallel SVD
 const bool stepladder_update = false;
+const bool normalize_submat_flag = false;
+const bool res_conv_cond = true;
 
 const int curve_Lie_detector::combine_flag = 1; // 0, flag for updating smoothened coordinates, (0 lazy, 1 aggressive)
 const bool curve_Lie_detector::truncate_Hermite_exp = trunc_Hermite_exp;
@@ -59,47 +61,22 @@ const bool Rmat_Hermite_jets = false;
 const bool stop_blowup = false;
 const int nullity_stop = 0; // nullity dimension required to terminate (if 0, does not stop)
 
+const double res_conv_tol = 1e-7;
 const double res_ratio_tol = 1e-12;
-const double stepladder_ratio_tol = 1e-5; // 1e-6
+const double stepladder_ratio_tol = (res_conv_cond)?(1e-1):(1e-6); // 1e-6
 const int write_sched_early = 5;
 
 // const int ndns_max = 3; // max permitted denoising steps
 // const int ndns_max = 5; // max permitted denoising steps
-// const int ndns_max = 10;
-// const int ndns_max = 50;
-// const int write_sched = 1;
-
-// const int ndns_max = 10;
+const int ndns_max = 10;
 // const int ndns_max = 20;
-// const int ndns_max = 30;
-// const int ndns_max = 40;
 // const int ndns_max = 50;
-// const int ndns_max = 100;
-// const int write_sched = 2;
+const int write_sched = 1;
 
 // const int ndns_max = 50;
-const int ndns_max = 1000;
-const int write_sched = 5;
-
-// const int ndns_max = 2000;
-// const int write_sched = 100;
-
-// const int ndns_max = 100;
-// const int ndns_max = 200;
-// const int ndns_max = 300;
-// const int ndns_max = 400;
 // const int ndns_max = 500;
-// const int write_sched = 10;
-
-// const int ndns_max = 400;
-// const int ndns_max = 500;
-// const int write_sched = 20;
-
-// const int ndns_max = 600;
-// const int write_sched = 50;
-
 // const int ndns_max = 1000;
-// const int write_sched = 100;
+// const int write_sched = 5;
 
 // ode_curve_observations observations(data_name);
   ode_curve_observations observations(data_name,data_dnp1xu_name);
@@ -114,6 +91,8 @@ orthopolynomial_space function_space(detector.meta0,3); // initializes as unmapp
                                             // set_Legendre_coeffs(axlims,-0.95,0.95);
                                             // set_Chebyshev1_coeffs(axlims,-0.95,0.95);
                                             // set_Chebyshev2_coeffs(axlims,-0.95,0.95);
+
+Lie_detector_digital_twin LDtwin(detector,observations_twin,function_space);
 
 // basic experiment, suitable for any first order system
 struct global_Rmat_experiment : public global_multinomial_experiment
@@ -164,44 +143,59 @@ struct global_Rmat_experiment : public global_multinomial_experiment
         fbases0[i] = new orthopolynomial_basis(fspace0);
         tvfields0[i] = new LD_spectral_tvfield(*(fbases0[i]),svec_Rk_global,VTmat_Rk_global);
       }
-      double t0 = LD_threads::tic();
+
+      double work_time,
+             twork1,
+             res_1,
+             t0 = LD_threads::tic();
 
       int rank0 = encode_decompose_R_matrix_global(VTmat_Rk_global,Rsvd_global,Rkenc,sols,nobs);
         Rsvd_global.print_result("Rsvd_global");
 
-      if (Rmat_Hermite_jets) // use R matrix pseudo inverse for Hermite knots
-        set_trivial_Rmat_Hermite_jets(sols_h,curves,svec_Rk_global,VTmat_Rk_global);
-
-      smooth_enc_decomp_trivial_flows(VTmat_Rk_h_global,Rsvd_h_global,sols_h_alt, // output args
-                                        nobs_h,Rkenc,sols_h,svec_Rk_global,VTmat_Rk_global); // input args
-        Rsvd_h_global.print_result("Rsvd_h_global");
-
-      double twork1 = LD_threads::toc(t0);
-
-      if (Hermite_exp)
+      if (exp_staggered_Hermites)
       {
-        if (Rmat_h_exp) exp_trivial_Rmat_Hermites(tjcharts,tsjets,nobs_h,svec_Rk_h_global,VTmat_Rk_h_global);
-        else exp_trivial_Rmat_Hermites(tjcharts,tsjets,nobs_h,svec_Rk_global,VTmat_Rk_global);
+        // res_1 = exp_staggered_trivial_Rmat_Hermites(observations_twin.curves,
+        //         svec_Rk_global,VTmat_Rk_global,curves,det.kor);
+
+        scan_initial_jetspace(observations_twin.curves,ncrv,svec_Rk_global,VTmat_Rk_global,curves);
+
+        write_initial_diagnostics();
       }
-      else
+      else // old routine
       {
-        if (Rmat_h_exp) exp_trivial_flows(tjcharts,nobs_h,svec_Rk_h_global,VTmat_Rk_h_global);
-        else exp_trivial_flows(tjcharts,nobs_h,svec_Rk_global,VTmat_Rk_global);
+        if (Rmat_Hermite_jets) // use R matrix pseudo inverse for Hermite knots
+          set_trivial_Rmat_Hermite_jets(sols_h,curves,svec_Rk_global,VTmat_Rk_global);
+        smooth_enc_decomp_trivial_flows(VTmat_Rk_h_global,Rsvd_h_global,sols_h_alt, // output args
+                                          nobs_h,Rkenc,sols_h,svec_Rk_global,VTmat_Rk_global); // input args
+          Rsvd_h_global.print_result("Rsvd_h_global");
+
+        twork1 = LD_threads::toc(t0);
+        if (Hermite_exp)
+        {
+          if (Rmat_h_exp) exp_trivial_Rmat_Hermites(tjcharts,tsjets,nobs_h,svec_Rk_h_global,VTmat_Rk_h_global);
+          else exp_trivial_Rmat_Hermites(tjcharts,tsjets,nobs_h,svec_Rk_global,VTmat_Rk_global);
+        }
+        else
+        {
+          if (Rmat_h_exp) exp_trivial_flows(tjcharts,nobs_h,svec_Rk_h_global,VTmat_Rk_h_global);
+          else exp_trivial_flows(tjcharts,nobs_h,svec_Rk_global,VTmat_Rk_global);
+        }
+        work_time = LD_threads::toc(t0);
+
+        printf(
+          "(global_Rmat_experiment::global_Rmat_experiment) "
+          "encoded and SV-decomposed %d by %d (global) R%d matrix. "
+          "Applied Rk pseudoinverse to Hermite jets, "
+          "then exponentiated 2*(%d)=%d flowouts over %d dimensions "
+          "in %.3f seconds (%d threads)\n",
+          Rsvd_global.Muse, Rsvd_global.Nuse, det.kor,
+          nobs_h, 2*nobs_h, ndep+1,
+          work_time, LD_threads::numthreads()
+        );
+
+        write_initial_diagnostics();
       }
 
-      double work_time = LD_threads::toc(t0);
-      printf(
-        "(global_Rmat_experiment::global_Rmat_experiment) "
-        "encoded and SV-decomposed %d by %d (global) R%d matrix. "
-        "Applied Rk pseudoinverse to Hermite jets, "
-        "then exponentiated 2*(%d)=%d flowouts over %d dimensions "
-        "in %.3f seconds (%d threads)\n",
-        Rsvd_global.Muse, Rsvd_global.Nuse, det.kor,
-        nobs_h, 2*nobs_h, ndep+1,
-        work_time, LD_threads::numthreads()
-      );
-      // write_sol_h_data();
-      write_initial_diagnostics();
     }
     ~global_Rmat_experiment()
     {
@@ -214,6 +208,7 @@ struct global_Rmat_experiment : public global_multinomial_experiment
   void denoise_data(ode_solcurve_chunk &Sobs_alt_)
   {
     int kor_update = (stepladder_update)?(0):(kor_obs),
+        kor_upd_step = 0,
         rnk_vec[ndns_max],
         iwrite_vec[ndns_max],
         nwrite = 0;
@@ -270,8 +265,6 @@ struct global_Rmat_experiment : public global_multinomial_experiment
            " i=1, r_1 = %.8f "
            "\n", res_1);
 
-    // if (exp_staggered_Hermites)
-    //   rnk_vec[nsmooth] = encode_decompose_R_matrix_global(VTmat_Rk_global,Rsvd_global,Rkenc,sols_alt,nobs);
     bool update_res_1 = false;
     double  res_old = res_1,
             t0 = LD_threads::tic();
@@ -337,17 +330,32 @@ struct global_Rmat_experiment : public global_multinomial_experiment
             );
 
       if ( nsmooth >= ndns_max ) break;
-      if ( (stop_blowup)&&(res_i > res_old) ) break;
-      if ( (res_i/res_vec[0]) < res_ratio_tol ) break;
+      if ( stop_blowup&&(res_i > res_old) ) break;
+      if ( res_conv_cond&&( res_i<res_conv_tol  ) ) break;
+      else
+        if ( (res_i/res_vec[0]) < res_ratio_tol ) break;
       if ( nullity_stop&&(rank_i<=( Rsvd_global.Nuse-nullity_stop )) ) break;
-
-      if ( stepladder_update&&( (res_i/res_1) < stepladder_ratio_tol ) )
+      if ( stepladder_update )
       {
-        // if (kor_update==det.kor) break;
-        // else update_kor_constraints(curves_alt,svec_Rk_global,VTmat_Rk_global,++kor_update);
-        update_kor_constraints(curves_alt,svec_Rk_global,VTmat_Rk_global,det.kor);
-        // kor_update++;
-        // update_res_1 = true;
+        if ( res_conv_cond&&( stepladder_ratio_tol ) )
+        {
+          kor_upd_step = (kor_upd_step < det.kor)?( kor_upd_step+1 ):( det.kor );
+          update_kor_constraints(curves_alt,svec_Rk_global,VTmat_Rk_global,kor_upd_step);
+        }
+        else
+          if ((res_i/res_1) < stepladder_ratio_tol)
+        {
+          // if (kor_update==det.kor) break;
+          // else update_kor_constraints(curves_alt,svec_Rk_global,VTmat_Rk_global,++kor_update);
+          // update_kor_constraints(curves_alt,svec_Rk_global,VTmat_Rk_global,det.kor);
+          // kor_update++;
+          // update_res_1 = true;
+
+          update_kor_constraints(curves_alt,svec_Rk_global,VTmat_Rk_global,det.kor);
+
+          // if (kor_update==det.kor) kor_update = 0;
+          // else kor_update++;
+        }
       }
       if (kor_update>det.kor) break;
       res_old = res_i;
@@ -412,15 +420,28 @@ struct global_Rmat_experiment : public global_multinomial_experiment
             false // normalization flag (off by default)
           );
       }
+
+      // #pragma omp single
     }
-    if (Rmat_telescoping_decomposition)
-      return telescope_decompose_global_matrix(VTmg_,Rsvdg_,Rkenc_,nobs_);
+    int rank_out;
+    if (Rmat_telescoping_decomposition) rank_out = telescope_decompose_global_matrix(VTmg_,Rsvdg_,Rkenc_,nobs_,normalize_submat_flag);
     else
     {
       Rsvdg_.decompose_U();
       Rsvdg_.unpack_VTmat(VTmg_);
-      return Rsvdg_.rank();
+      rank_out = Rsvdg_.rank();
     }
+    #pragma omp parallel
+    {
+      LD_spectral_tvfield &tvf_t = *(tvfields0[LD_threads::thread_id()]);
+        tvf_t.set_SVD_space(Rsvdg_.svec,VTmg_);
+      #pragma omp for
+      for (int i = 0; i < nobs_; i++)
+      {
+        tvf_t.comp_spectral_theta_local(LDtwin.theta_space[i],sols_[i]->x,sols_[i]->u);
+      }
+    }
+    return rank_out;
   }
   double update_kor_constraints(ode_solcurve **crvs_o_,double *sv_, double **VTm_,int kor_upd_)
   {
@@ -473,6 +494,90 @@ struct global_Rmat_experiment : public global_multinomial_experiment
     }
     return res_out;
   }
+  void scan_initial_jetspace(ode_solcurve **crvso_, int ncrv_,double *sv_, double **VTm_,ode_solcurve **crvsi_)
+  {
+    const bool trunc_point_jet = true;
+    const int kor_use = det.kor;
+
+    #pragma omp parallel
+    {
+
+      LD_spectral_tvfield &tvf_t = *(tvfields0[LD_threads::thread_id()]);
+        tvf_t.set_SVD_space(sv_,VTm_);
+
+      LD_lu lu_t(tjmeta.jor+1,tjmeta.jor+1);
+
+      #pragma omp for
+      for (int icrv = 0; icrv < ncrv_; icrv++)
+      {
+        curve_Lie_detector &cdet_i = *(cdets[icrv]);
+        ode_trivial_curvejet &tcjet_i = cdet_i.tcrvjet;
+        ode_solcurve &crvi_i = *(crvsi_[icrv]),
+                     &crvo_i = *(crvso_[icrv]),
+                     &crvh_i = cdet_i.crv_h;
+
+        ode_trivial_soljet ** const tsjets_i = cdet_i.tsoljets,
+                                    &tsj_f_i = *(cdet_i.tsjet_final());
+        jet_chart ** const tjcharts_i = cdet_i.tjcharts,
+                           &tjc_f_i = *(cdet_i.tjchart_final());
+
+        // compute kor order trivial point jet centered on input observed solution
+        tsjets_i[0]->set_jet_given_solh( *(crvi_i.sols[0]), trunc_point_jet );
+          // evaluate point jet to the left (out of bounds), yields prediction of upstream colocation point
+          tjcharts_i[0]->sol0_alt.x = crvi_i.sols[0]->x - 0.5*( crvi_i.sols[1]->x-crvi_i.sols[0]->x );
+          tsjets_i[0]->exp_sol_trivial( tjcharts_i[0]->sol0_alt, -0.5*( crvi_i.sols[1]->x-crvi_i.sols[0]->x ), kor_use );
+          // evaluate point jet to the right, yields prediction of downstream colocation point
+          tjcharts_i[0]->sol1_alt.x = 0.5*(crvi_i.sols[1]->x + crvi_i.sols[0]->x);
+          tsjets_i[0]->exp_sol_trivial( tjcharts_i[0]->sol1_alt, 0.5*( crvi_i.sols[1]->x-crvi_i.sols[0]->x ), kor_use );
+
+        // use pseudoinverse trivial vector field to estimate derivatives as predicted by model
+        tvf_t.set_sol_dkxu( *(crvo_i.sols[0]), kor_use , *(crvi_i.sols[0]));
+
+        // compute 2*(kor+1)-1 order trivial Hermite jet centered on downstream colocation point
+        tsjets_i[0]->set_and_solve_Hermite_jets(tjcharts_i[0]->solh,lu_t,*(crvi_i.sols[0]),*(crvi_i.sols[1]));
+          // use pseudoinverse trivial vector field to estimate derivatives at colocation point
+          tvf_t.set_sol_dkxu(tjcharts_i[0]->solh_alt, kor_use ,tjcharts_i[0]->solh);
+
+        for (int iobs = 1; iobs < cdet_i.nobs_h; iobs++)
+        {
+          // compute kor order trivial point jet centered on input observed solution
+          tsjets_i[iobs]->set_jet_given_solh( *(crvi_i.sols[iobs]), trunc_point_jet );
+            // evaluate point jet to the left, yields prediction of upstream colocation point
+            tjcharts_i[iobs]->sol0_alt.x = 0.5*(crvi_i.sols[iobs-1]->x + crvi_i.sols[iobs]->x);
+            tsjets_i[iobs]->exp_sol_trivial(tjcharts_i[iobs]->sol0_alt,-0.5*( crvi_i.sols[iobs]->x-crvi_i.sols[iobs-1]->x ),kor_use);
+            // evaluate point jet to the right, yields prediction of downstream colocation point
+            tjcharts_i[iobs]->sol1_alt.x = 0.5*(crvi_i.sols[iobs]->x + crvi_i.sols[iobs+1]->x);
+            tsjets_i[iobs]->exp_sol_trivial(tjcharts_i[iobs]->sol1_alt,0.5*( crvi_i.sols[iobs+1]->x-crvi_i.sols[iobs]->x ),kor_use);
+
+          // use pseudoinverse trivial vector field to estimate derivatives as predicted by model
+          tvf_t.set_sol_dkxu( *(crvo_i.sols[iobs]), kor_use , *(crvi_i.sols[iobs]));
+
+          // compute 2*(kor+1)-1 order trivial Hermite jet centered on downstream colocation point
+          tsjets_i[iobs]->set_and_solve_Hermite_jets(tjcharts_i[iobs]->solh,lu_t,*(crvi_i.sols[iobs]),*(crvi_i.sols[iobs+1]));
+            // use pseudoinverse trivial vector field to estimate derivatives at colocation point
+            tvf_t.set_sol_dkxu(tjcharts_i[iobs]->solh_alt, kor_use ,tjcharts_i[iobs]->solh);
+
+        }
+        // compute kor order trivial point jet centered on input observed solution
+        tsj_f_i.set_jet_given_solh( *(crvi_i.sols[cdet_i.nobs_h]), trunc_point_jet );
+          // evaluate point jet to the left, yields prediction of upstream colocation point
+          tjc_f_i.sol0_alt.x = 0.5*(crvi_i.sols[cdet_i.nobs_h-1]->x + crvi_i.sols[cdet_i.nobs_h]->x);
+          tsj_f_i.exp_sol_trivial( tjc_f_i.sol0_alt,-0.5*(crvi_i.sols[cdet_i.nobs_h]->x-crvi_i.sols[cdet_i.nobs_h-1]->x),kor_use );
+          // evaluate point jet to the right (out of bounds), yields prediction of downstream colocation point
+          tjc_f_i.sol1_alt.x = crvi_i.sols[cdet_i.nobs_h]->x + 0.5*( crvi_i.sols[cdet_i.nobs_h]->x-crvi_i.sols[cdet_i.nobs_h-1]->x );
+          tsj_f_i.exp_sol_trivial( tjc_f_i.sol1_alt,0.5*(crvi_i.sols[cdet_i.nobs_h]->x-crvi_i.sols[cdet_i.nobs_h-1]->x),kor_use );
+
+        // use pseudoinverse trivial vector field to estimate derivatives as predicted by model
+        tvf_t.set_sol_dkxu( *(crvo_i.sols[cdet_i.nobs_h]), kor_use , *(crvi_i.sols[cdet_i.nobs_h]));
+
+      }
+    }
+  }
+
+
+  /*
+    mostly relegated methods
+  */
   void set_trivial_Rmat_Hermite_jets(ode_solution ** sols_h_,ode_solcurve ** crvs_,double *sv_,double **VTm_)
   {
     // const int nobs_h = nobs-ncrv;
@@ -632,6 +737,48 @@ struct global_Rmat_experiment : public global_multinomial_experiment
     }
   }
 
+
+  /*
+    io methods
+  */
+
+  // void write_curve_observations(ode_solcurve_chunk &Sobs_, int nsmooth_, const char dir_name_[], const char obs_name_[], const char dat_suff_[])
+  void write_curve_observations(ode_solcurve_chunk &Sobs_, int nsmooth_, bool verbose_=true)
+  {
+
+    const int len_dir_name = strlen(dir_name),
+              len_obs_name = strlen(obs_name),
+              len_dat_suff = strlen(dat_suff),
+              len_base = len_dir_name+len_obs_name+len_dat_suff;
+
+    const size_t buf_pad = 6;
+
+    const char name_Rsvd[] = ".Rsvd_g";
+      char fname_Rsvd[len_base+strlen(name_Rsvd)+buf_pad];
+      sprintf(fname_Rsvd,"%s%s%s_%d%s",dir_name,obs_name, name_Rsvd, nsmooth_ ,dat_suff);
+      Rsvd_global.write_LD_svd(fname_Rsvd,false,verbose_);
+
+
+    int ode_meta[2],
+        &eor_meta = ode_meta[0] = Sobs_.eor,
+        &ndep_meta = ode_meta[1] = Sobs_.ndep,
+        obs_meta[2],
+        &ncrv_meta = obs_meta[0] = Sobs_.ncrv,
+        &nobs_meta = obs_meta[1] = Sobs_.nobs;
+
+    const char name_jsol_Rk[] = ".jsol_Rk";
+      char fname_jsol_Rk[len_base+strlen(name_jsol_Rk)+buf_pad];
+      sprintf(fname_jsol_Rk,"%s%s%s_%d%s",dir_name,obs_name, name_jsol_Rk,nsmooth_, dat_suff);
+      FILE * file_jsol_Rk = LD_io::fopen_SAFE(fname_jsol_Rk,"wb");
+      fwrite(ode_meta,sizeof(int),2,file_jsol_Rk);
+      fwrite(obs_meta,sizeof(int),2,file_jsol_Rk);
+      fwrite(Sobs_.npts_per_crv,sizeof(int),ncrv_meta,file_jsol_Rk);
+      for (int iobs = 0; iobs < nobs_meta; iobs++)
+        fwrite((Sobs_.sols[iobs])->pts, sizeof(double),Sobs_.ndim,file_jsol_Rk);
+      LD_io::fclose_SAFE(file_jsol_Rk);
+      if (verbose_) printf("(global_Rmat_experiment::write_curve_observations) wrote %s\n",fname_jsol_Rk);
+  }
+
   // void write_sol_h_data(const char dir_name_[], const char obs_name_[], const char dat_suff_[])
   void write_sol_h_data(const char ps_[] = "", bool write_loads_=true)
   {
@@ -646,15 +793,10 @@ struct global_Rmat_experiment : public global_multinomial_experiment
       sprintf(fname_Rsvd,"%s%s%s%s%s",dir_name,obs_name, name_Rsvd, ps_ ,dat_suff);
       Rsvd_global.write_LD_svd(fname_Rsvd);
 
-    // const char name_Rsvd_h[] = ".Rsvd_h_g";
-    //   char fname_Rsvd_h[len_base+strlen(name_Rsvd_h)+1];
-    //   sprintf(fname_Rsvd_h,"%s%s%s%s%s",dir_name,obs_name, name_Rsvd_h, ps_ ,dat_suff);
-    //   Rsvd_h_global.write_LD_svd(fname_Rsvd_h);
-
-    // const char name_theta_mat[] = ".theta_mat";
-    //   char fname_theta_mat[len_base+strlen(name_theta_mat)+1];
-    //   sprintf(fname_theta_mat,"%s%s%s%s%s",dir_name,obs_name, name_theta_mat, ps_ ,dat_suff);
-    //   LD_io::write_Tmat<double>(fname_theta_mat,theta_mat,nobs_h,fspace0.ndof_full);
+    const char name_Tsvd[] = ".Theta_SVD_g";
+      char fname_Tsvd[len_base+strlen(name_Tsvd)+1];
+      sprintf(fname_Tsvd,"%s%s%s%s%s",dir_name,obs_name, name_Tsvd, ps_ ,dat_suff);
+      LDtwin.Theta_SVD.write_LD_svd(fname_Tsvd);
 
     int ode_meta[2],
         &eor_meta = ode_meta[0] = det.eor,
@@ -722,42 +864,6 @@ struct global_Rmat_experiment : public global_multinomial_experiment
       printf("(global_Rmat_experiment::write_sol_h_data) wrote %s\n",fname_jsol_0_Rk);
 
   }
-  // void write_curve_observations(ode_solcurve_chunk &Sobs_, int nsmooth_, const char dir_name_[], const char obs_name_[], const char dat_suff_[])
-  void write_curve_observations(ode_solcurve_chunk &Sobs_, int nsmooth_, bool verbose_=true)
-  {
-
-    const int len_dir_name = strlen(dir_name),
-              len_obs_name = strlen(obs_name),
-              len_dat_suff = strlen(dat_suff),
-              len_base = len_dir_name+len_obs_name+len_dat_suff;
-
-    const size_t buf_pad = 6;
-
-    const char name_Rsvd[] = ".Rsvd_g";
-      char fname_Rsvd[len_base+strlen(name_Rsvd)+buf_pad];
-      sprintf(fname_Rsvd,"%s%s%s_%d%s",dir_name,obs_name, name_Rsvd, nsmooth_ ,dat_suff);
-      Rsvd_global.write_LD_svd(fname_Rsvd,false,verbose_);
-
-
-    int ode_meta[2],
-        &eor_meta = ode_meta[0] = Sobs_.eor,
-        &ndep_meta = ode_meta[1] = Sobs_.ndep,
-        obs_meta[2],
-        &ncrv_meta = obs_meta[0] = Sobs_.ncrv,
-        &nobs_meta = obs_meta[1] = Sobs_.nobs;
-
-    const char name_jsol_Rk[] = ".jsol_Rk";
-      char fname_jsol_Rk[len_base+strlen(name_jsol_Rk)+buf_pad];
-      sprintf(fname_jsol_Rk,"%s%s%s_%d%s",dir_name,obs_name, name_jsol_Rk,nsmooth_, dat_suff);
-      FILE * file_jsol_Rk = LD_io::fopen_SAFE(fname_jsol_Rk,"wb");
-      fwrite(ode_meta,sizeof(int),2,file_jsol_Rk);
-      fwrite(obs_meta,sizeof(int),2,file_jsol_Rk);
-      fwrite(Sobs_.npts_per_crv,sizeof(int),ncrv_meta,file_jsol_Rk);
-      for (int iobs = 0; iobs < nobs_meta; iobs++)
-        fwrite((Sobs_.sols[iobs])->pts, sizeof(double),Sobs_.ndim,file_jsol_Rk);
-      LD_io::fclose_SAFE(file_jsol_Rk);
-      if (verbose_) printf("(global_Rmat_experiment::write_curve_observations) wrote %s\n",fname_jsol_Rk);
-  }
 
   void write_initial_diagnostics()
   {
@@ -793,11 +899,12 @@ struct global_Rmat_experiment : public global_multinomial_experiment
       fwrite(det.npts_per_crv,sizeof(int),ncrv_meta,file_dxuk_Rk);
       for (int iobs = 0; iobs < nobs_meta; iobs++)
       {
-        sol_work.copy_xu(*(sols[iobs]));
+        // sol_work.copy_xu();
+        // tvf.comp_spectral_theta_local(sol_work.x,sol_work.u);
+        //   tvf.eval_prn_theta_image(sol_work,det.kor);
 
-        tvf.comp_spectral_theta_local(sol_work.x,sol_work.u);
-          tvf.eval_prn_theta_image(sol_work,det.kor);
         // writing out the Rk matrix pseudoinverse prediction of dx u^(k) at noisy u
+        tvf.set_sol_dkxu(sol_work, det.kor, *(sols[iobs]));
         fwrite(sol_work.dxu,sizeof(double),n_dxuk,file_dxuk_Rk);
       }
       LD_io::fclose_SAFE(file_dxuk_Rk);

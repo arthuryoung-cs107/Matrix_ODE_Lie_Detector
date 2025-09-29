@@ -100,6 +100,14 @@ class curve_Lie_detector
       delete [] avec_crv;
     }
 
+    inline void compute_trivial_point_jets(ode_solution **sols_, int nobs_, bool trunc_flag_=true)
+    {
+      for (int iobs = 0, nobs_cap = LD_util::min_T(nobs_h,nobs_-1); iobs < nobs_cap; iobs++)
+        tsoljets[iobs]->set_jet_given_solh( *(sols_[iobs]), trunc_flag_ );
+      if (nobs_>nobs_h) // compute one more
+        tsjet_final()->set_jet_given_solh( *(sols_[nobs_-1]), trunc_flag_ );
+    }
+
     inline double compute_staggered_Hermite_flow_curve(ode_solution **solso_, LD_lu &lu_,LD_spectral_tvfield &tvf_ ,ode_solution **solsi_, int kor_upd_)
     {
       double res_out = 0.0;
@@ -192,11 +200,11 @@ class curve_Lie_detector
       for (int i = 1; i < snew_.nvar; i++)
       {
         double si_diff = sold_.pts[i];
-        si_diff -= (
-          snew_.pts[i] = (combine_flag)?(sexp_.pts[i]):(0.5*( sexp_.pts[i]+sold_.pts[i] ))
-          // snew_.pts[i] = (combine_flag)?(sexp_.pts[i]):(0.5*( 1.5*sexp_.pts[i]+0.5*sold_.pts[i] ))
-          );
-        // si_diff -= ( snew_.pts[i] = sexp_.pts[i] );
+        // si_diff -= (
+        //   snew_.pts[i] = (combine_flag)?(sexp_.pts[i]):(0.5*( sexp_.pts[i]+sold_.pts[i] ))
+        //   // snew_.pts[i] = (combine_flag)?(sexp_.pts[i]):(0.5*( 1.5*sexp_.pts[i]+0.5*sold_.pts[i] ))
+        //   );
+        si_diff -= ( snew_.pts[i] = sexp_.pts[i] );
         // si_diff -= (snew_.pts[i] = 0.5*( sexp_.pts[i]+sold_.pts[i] ));
         res_out += si_diff*si_diff;
       }
@@ -730,7 +738,7 @@ struct global_multinomial_experiment : public multinomial_experiment
       free_Tmatrix<double>(VTmat_global);
     }
 
-    inline int telescope_decompose_global_matrix(double **VTmg_,LD_svd &Asvdg_,LD_encoder &Aenc_,int nobs_)
+    inline int telescope_decompose_global_matrix(double **VTmg_,LD_svd &Asvdg_,LD_encoder &Aenc_,int nobs_,bool nrm_flg_=false)
     {
       #pragma omp parallel
       {
@@ -754,9 +762,19 @@ struct global_multinomial_experiment : public multinomial_experiment
         for (int icrv = 0; icrv < ncrv; icrv++)
         {
           double ** const Umat_i = Umatg_t + (Asvdg_.Nuse*icrv);
-          for (int i = 0; i < Asvdg_.Nuse; i++)
-            for (int j = 0; j < Asvdg_.Nuse; j++)
-              Umat_i[i][j] = svecs_crvs[icrv][i]*VTmats_crvs[icrv][i][j];
+
+          if (nrm_flg_)
+          {
+            const double fro_i = LD_linalg::norm_l2(svecs_crvs[icrv],Asvdg_.Nuse);
+
+            for (int i = 0; i < Asvdg_.Nuse; i++)
+              for (int j = 0; j < Asvdg_.Nuse; j++)
+                Umat_i[i][j] = svecs_crvs[icrv][i]*VTmats_crvs[icrv][i][j]/fro_i;
+          }
+          else
+            for (int i = 0; i < Asvdg_.Nuse; i++)
+              for (int j = 0; j < Asvdg_.Nuse; j++)
+                Umat_i[i][j] = svecs_crvs[icrv][i]*VTmats_crvs[icrv][i][j];
         }
       }
 
@@ -777,13 +795,22 @@ struct Lie_detector_digital_twin
 {
   Lie_detector &det;
   ode_solcurve_chunk &Stwn;
+  orthopolynomial_space &fspc;
 
-  Lie_detector_digital_twin(Lie_detector &det_, ode_solcurve_chunk &Stwn_) :
-    det(det_), Stwn(Stwn)
+  LD_svd Theta_SVD;
+
+  double  * const s_Theta = Theta_SVD.svec,
+          ** const V_Theta = Theta_SVD.Vmat,
+          ** const theta_space = Theta_SVD.Umat;
+
+  Lie_detector_digital_twin(Lie_detector &detector_, ode_solcurve_chunk &S_twin_,orthopolynomial_space &function_space_) :
+    det(detector_), Stwn(S_twin_), fspc(function_space_),
+    Theta_SVD(detector_.nobs,function_space_.ndof_full)
     {}
 
   ~Lie_detector_digital_twin()
-    {}
+    {
+    }
 
 
 
