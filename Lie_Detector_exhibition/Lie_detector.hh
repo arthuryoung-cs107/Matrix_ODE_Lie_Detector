@@ -178,8 +178,18 @@ class curve_Lie_detector
       ode_solution &solh_,
       ode_solution &sol1_)
     {
+      const int kor_exp = kor,
+                jor_len = (2*(kor_exp+1)),
+                jor_exp = jor_len-1;
+
       // construct Hermite interpolant between given knots
-      tsj_.set_and_solve_Hermite_jets(lu_,sol0_,sol1_);
+      // tsj_.set_and_solve_Hermite_jets(lu_,sol0_,sol1_);
+      tsj_.set_and_solve_Hermite_jets(lu_,sol0_,sol1_,kor_exp);
+        // tsj_.set_trivial_Amat(lu_.LUmat,sol0_,sol1_,kor_exp);
+        // tsj_.set_trivial_Amat(lu_.LUmat,0.5*(sol1_.x-sol0_.x),kor_exp);
+        // lu_.decompose_A(jor_len,jor_len);
+        // for (int i = 0; i < sol0_.ndep; i++)
+        //   lu_.solve_system(tsj_.set_trivial_bvec(i,sol0_,sol1_,kor_exp), jor_len);
 
       // record u coordinate values of estimated intermediate solution induced by Hermite jet over knots.
       solh_.x = 0.5*( sol0_.x + sol1_.x ); // set x value of new colocation point

@@ -83,6 +83,14 @@ struct ode_trivial_soljet : public ode_soljet
     for (int i = 0; i < ndim; i++) printf("   %.3e, %.3e, %.3e \n", sol0.s_idim(i),s_hat_idim(i),sol1.s_idim(i));
   }
 
+  inline void set_and_solve_Hermite_jets(LD_lu &lu_, ode_solution &sol0_, ode_solution &sol1_,int kor_)
+  {
+    const int jor_len = (2*(kor_+1));
+    set_trivial_Amat(lu_.LUmat,0.5*(sol1_.x-sol0_.x),kor_);
+    lu_.decompose_A(jor_len,jor_len);
+    for (int i = 0; i < ndep; i++)
+      lu_.solve_system(set_trivial_bvec(i,sol0_,sol1_,kor_),jor_len) ;
+  }
   inline void set_and_solve_Hermite_jets(LD_lu &lu_, ode_solution &sol0_, ode_solution &sol1_)
   {
     set_trivial_Amat(lu_.LUmat,sol0_,sol1_);
@@ -165,24 +173,25 @@ struct ode_trivial_soljet : public ode_soljet
     {set_trivial_Amat(Amat_, hx() );}
   inline void set_trivial_Amat(double **Amat_,ode_solution &sol0_,ode_solution &sol1_)
     {set_trivial_Amat(Amat_, 0.5*(sol1_.x-sol0_.x) );}
-  inline void set_trivial_Amat(double **Amat_,double hx_)
+  inline void set_trivial_Amat(double **Amat_,double hx_,int kor_=-1)
   {
-    const int kor = comp_kor();
+    const int kor_use = (kor_>=1)?(kor_):(comp_kor()),
+              jor_use = (2*(kor_use+1))-1;
     double  ** const Amat0 = Amat_,
              * const Avec0 = Amat0[0],
-            ** const Amat1 = Amat0+(kor+1),
+            ** const Amat1 = Amat0+(kor_use+1),
              * const Avec1 = Amat1[0];
     Amat0[0][0] = Amat1[0][0] = 1.0;
-    for (int k = 1; k <= jor; k++)
+    for (int k = 1; k <= jor_use; k++)
     {
       Amat0[0][k] = -hx_*Amat0[0][k-1];
       Amat1[0][k] =  hx_*Amat1[0][k-1];
     }
-    for (int l = 1; l <= kor; l++)
+    for (int l = 1; l <= kor_use; l++)
     {
       for (int k = 0; k < l; k++)
         Amat0[l][k] = Amat1[l][k] = 0.0;
-      for (int k = l, ih = 0; k <= jor; k++, ih++)
+      for (int k = l, ih = 0; k <= jor_use; k++, ih++)
       {
         const double F_lk_local = (double)(F_lk(l,k));
         Amat0[l][k] = F_lk_local*Amat0[0][ih];
