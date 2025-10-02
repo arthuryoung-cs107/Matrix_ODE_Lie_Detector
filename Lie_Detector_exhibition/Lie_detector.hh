@@ -178,6 +178,7 @@ class curve_Lie_detector
       ode_solution &solh_,
       ode_solution &sol1_)
     {
+      // const int kor_exp = 1,
       const int kor_exp = kor,
                 jor_len = (2*(kor_exp+1)),
                 jor_exp = jor_len-1;
@@ -195,13 +196,21 @@ class curve_Lie_detector
       solh_.x = 0.5*( sol0_.x + sol1_.x ); // set x value of new colocation point
       tsj_.set_sol_h_u(solh_); // set u values of new colocation point using raw Hermite jet
         tvf_.set_sol_dkxu(solh_, kor); // improved estimate of derivatives at new collocation point
-      tsj_.set_jet_given_solh(solh_); // use improved derivative estimates to update corresponding jet coeffficients
+
+      tsj_.set_jet_given_solh_kor(solh_,kor); // use improved derivative estimates to update corresponding jet coeffficients
+      // tsj_.set_jet_given_solh_kor(solh_,kor_exp); // use improved derivative estimates to update corresponding jet coeffficients
+      // tsj_.set_jet_given_solh(solh_); // use improved derivative estimates to update corresponding jet coeffficients
 
       // exponentiate resultant Hermite jet
+      // tsj_.exp_sol_trivial( sol_out_, sol_out_.x - solh_.x, kor_exp);
+      // tsj_.exp_sol_trivial( sol_out_, sol_out_.x - solh_.x, kor);
+      // tsj_.exp_sol_trivial( sol_out_, sol_out_.x - solh_.x, jor_exp);
+        // tvf_.set_sol_dkxu(sol_out_, kor); // apply vfield to resultant solution for improved derivatives
 
-      tsj_.exp_u_trivial( sol_out_.u, sol_out_.x - solh_.x, kor);
-
-      tvf_.set_sol_dkxu(sol_out_, kor); // apply vfield to resultant solution for improved derivatives
+      // tsj_.exp_u_trivial( sol_out_.u, sol_out_.x - solh_.x, jor_exp);
+      tsj_.exp_u_trivial( sol_out_.u, sol_out_.x - solh_.x, kor_exp);
+      // tsj_.exp_u_trivial( sol_out_.u, sol_out_.x - solh_.x, kor);
+        tvf_.set_sol_dkxu(sol_out_, kor); // apply vfield to resultant solution for improved derivatives
     }
     inline double combine_two_sols_dxu(ode_solution &snew_,ode_solution &sold_,ode_solution &sexp_, int kor_upd_)
     {

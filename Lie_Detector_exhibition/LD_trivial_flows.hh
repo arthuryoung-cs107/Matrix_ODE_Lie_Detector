@@ -83,21 +83,25 @@ struct ode_trivial_soljet : public ode_soljet
     for (int i = 0; i < ndim; i++) printf("   %.3e, %.3e, %.3e \n", sol0.s_idim(i),s_hat_idim(i),sol1.s_idim(i));
   }
 
-  inline void set_and_solve_Hermite_jets(LD_lu &lu_, ode_solution &sol0_, ode_solution &sol1_,int kor_)
+  // inline void set_and_solve_Hermite_jets(LD_lu &lu_, ode_solution &sol0_, ode_solution &sol1_,int kor_)
+  inline void set_and_solve_Hermite_jets(LD_lu &lu_, ode_solution &sol0_, ode_solution &sol1_,int kor_=-1)
   {
-    const int jor_len = (2*(kor_+1));
-    set_trivial_Amat(lu_.LUmat,0.5*(sol1_.x-sol0_.x),kor_);
+    const int kor_use = (kor_>=1)?(kor_):(comp_kor()),
+              jor_len = (2*(kor_use+1));
+    set_trivial_Amat(lu_.LUmat,0.5*(sol1_.x-sol0_.x),kor_use);
     lu_.decompose_A(jor_len,jor_len);
     for (int i = 0; i < ndep; i++)
-      lu_.solve_system(set_trivial_bvec(i,sol0_,sol1_,kor_),jor_len) ;
+      lu_.solve_system(set_trivial_bvec(i,sol0_,sol1_,kor_use),jor_len) ;
   }
-  inline void set_and_solve_Hermite_jets(LD_lu &lu_, ode_solution &sol0_, ode_solution &sol1_)
-  {
-    set_trivial_Amat(lu_.LUmat,sol0_,sol1_);
-    lu_.decompose_A();
-    for (int i = 0; i < ndep; i++)
-      lu_.solve_system(set_trivial_bvec(i,sol0_,sol1_)) ;
-  }
+  // inline void set_and_solve_Hermite_jets(LD_lu &lu_, ode_solution &sol0_, ode_solution &sol1_)
+  // {
+  //   const int kor_use = comp_kor(),
+  //             jor_len = jor+1;
+  //   set_trivial_Amat(lu_.LUmat,0.5*(sol1_.x-sol0_.x),kor_use);
+  //   lu_.decompose_A(jor_len,jor_len);
+  //   for (int i = 0; i < ndep; i++)
+  //     lu_.solve_system(set_trivial_bvec(i,sol0_,sol1_,kor_use),jor_len) ;
+  // }
   inline void set_and_solve_Hermite_jets(ode_solution &solh_, LD_lu &lu_, ode_solution &sol0_, ode_solution &sol1_)
   {
     set_and_solve_Hermite_jets(lu_,sol0_,sol1_);
@@ -149,6 +153,12 @@ struct ode_trivial_soljet : public ode_soljet
     const double  hx = (sol1_out_.x = sol1.x) - (sol0_out_.x = sol0.x);
     exp_sol_trivial(sol0_out_,-0.5*hx,jor_use_);
     exp_sol_trivial(sol1_out_,0.5*hx,jor_use_);
+  }
+  inline void set_jet_given_solh_kor(ode_solution &solh_,int kor_)
+  {
+    for (int k = 0; k <= kor_; k++)
+      for (int i = 0; i < ndep; i++)
+        set_aki_dkxui_hat(k,i,solh_.dkxui(k,i));
   }
   inline void set_jet_given_solh(ode_solution &solh_,bool trunc_flag_=false)
   {
@@ -614,6 +624,10 @@ struct LD_trivial_vector_field : public LD_svd_vector_field
   }
   inline void eval_prn_theta_image(ode_solution &sol_, int kor_)
     {eval_prn_theta_image(sol_,kor_,theta_local);}
+  // inline void eval_prn_theta_image(ode_solution &sol_, int kor_,int nor_, double *theta_)
+  // {
+  //
+  // }
   inline void eval_prn_theta_image(ode_solution &sol_, int kor_, double *theta_)
   {
     eval_pr1_theta_image(sol_.dxu,theta_);
