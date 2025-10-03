@@ -24,8 +24,9 @@
 // const char dir_name[] = "./denoise_data_directory/Gaussian_IC_perturbation/rendering_data/"; // data directory
 // const char dir_name[] = "./denoise_data_directory/Uniform_IC_perturbation/rendering_data/"; // data directory
 const char dir_name[] = "./denoise_data_directory/Uniform_IC_perturbation/"; // data directory
-// const char obs_name[] = "Riccati_xrange0_true_DoP853gen"; // name of observations file
-const char obs_name[] = "Riccati_xrange0_noise0_DoP853gen"; // name of observations file
+// const char dir_name[] = "./denoise_data_directory/Uniform_IC_perturbation/dense_data/"; // data directory
+const char obs_name[] = "Riccati_xrange0_true_DoP853gen"; // name of observations file
+// const char obs_name[] = "Riccati_xrange0_noise0_DoP853gen"; // name of observations file
 // const char obs_name[] = "Riccati_xrange0_noise1_DoP853gen"; // name of observations file
 // const char obs_name[] = "Riccati_xrange0_noise2_DoP853gen"; // name of observations file
 
@@ -65,7 +66,7 @@ const int nstep_substep_max = 0; // 1000
 const double res_conv_tol = 1e-7;
 const double res_ratio_tol = 1e-12;
 const double stepladder_ratio_tol = (res_conv_cond)?(1e-1):(1e-6); // 1e-6
-const double res_tol_substep = 1e-3; // 1e-3 // 1e-6
+const double res_tol_substep = 1e-4; // 1e-3 // 1e-6
 const int write_sched_early = 5;
 
 // const int ndns_max = 3; // max permitted denoising steps
@@ -278,7 +279,7 @@ struct global_Rmat_experiment : public global_multinomial_experiment
 
 
     printf("   (global_Rmat_experiment::denoise_data)"
-           " i=1, r_1 = %.8f "
+           " i=1, r_1 = %.5e "
            "\n", res_1);
 
     bool update_res_1 = false;

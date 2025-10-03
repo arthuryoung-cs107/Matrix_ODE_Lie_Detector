@@ -36,6 +36,7 @@ classdef LD_denoise_plots < LD_plots
             SVT_g_0_tru = (Rsvd_g_0_tru.s)' .* (Rsvd_g_0_tru.V)';
 
             Snse = Ssets_(2);
+            % Snse = Sref; 
 
             pts_ref_cell = Sref.pts_cell();
             pts_nse_cell = Snse.pts_cell();
