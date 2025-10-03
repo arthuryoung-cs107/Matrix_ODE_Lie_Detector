@@ -178,8 +178,8 @@ class curve_Lie_detector
       ode_solution &solh_,
       ode_solution &sol1_)
     {
-      // const int kor_exp = 1,
-      const int kor_exp = kor,
+      const int kor_exp = 1,
+      // const int kor_exp = kor,
                 jor_len = (2*(kor_exp+1)),
                 jor_exp = jor_len-1;
 

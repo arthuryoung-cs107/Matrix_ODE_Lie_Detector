@@ -60,12 +60,12 @@ const bool Rmat_h_exp = false;
 const bool Rmat_Hermite_jets = false;
 const bool stop_blowup = false;
 const int nullity_stop = 0; // nullity dimension required to terminate (if 0, does not stop)
-const int nstep_substep_max = 1000;
+const int nstep_substep_max = 0; // 1000
 
 const double res_conv_tol = 1e-7;
 const double res_ratio_tol = 1e-12;
 const double stepladder_ratio_tol = (res_conv_cond)?(1e-1):(1e-6); // 1e-6
-const double res_tol_substep = 1e-6; // 1e-3 // 1e-6
+const double res_tol_substep = 1e-3; // 1e-3 // 1e-6
 const int write_sched_early = 5;
 
 // const int ndns_max = 3; // max permitted denoising steps
