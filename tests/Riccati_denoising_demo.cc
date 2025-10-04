@@ -22,11 +22,11 @@
 */
 // const char dir_name[] = "./denoise_data_directory/Gaussian_IC_perturbation/"; // data directory
 // const char dir_name[] = "./denoise_data_directory/Gaussian_IC_perturbation/rendering_data/"; // data directory
-// const char dir_name[] = "./denoise_data_directory/Uniform_IC_perturbation/rendering_data/"; // data directory
 const char dir_name[] = "./denoise_data_directory/Uniform_IC_perturbation/"; // data directory
+// const char dir_name[] = "./denoise_data_directory/Uniform_IC_perturbation/rendering_data/"; // data directory
 // const char dir_name[] = "./denoise_data_directory/Uniform_IC_perturbation/dense_data/"; // data directory
-const char obs_name[] = "Riccati_xrange0_true_DoP853gen"; // name of observations file
-// const char obs_name[] = "Riccati_xrange0_noise0_DoP853gen"; // name of observations file
+// const char obs_name[] = "Riccati_xrange0_true_DoP853gen"; // name of observations file
+const char obs_name[] = "Riccati_xrange0_noise0_DoP853gen"; // name of observations file
 // const char obs_name[] = "Riccati_xrange0_noise1_DoP853gen"; // name of observations file
 // const char obs_name[] = "Riccati_xrange0_noise2_DoP853gen"; // name of observations file
 
@@ -69,11 +69,9 @@ const double stepladder_ratio_tol = (res_conv_cond)?(1e-1):(1e-6); // 1e-6
 const double res_tol_substep = 1e-4; // 1e-3 // 1e-6
 const int write_sched_early = 5;
 
-// const int ndns_max = 3; // max permitted denoising steps
-// const int ndns_max = 5; // max permitted denoising steps
-// const int ndns_max = 10;
+const int ndns_max = 10;
 // const int ndns_max = 20;
-const int ndns_max = 50;
+// const int ndns_max = 50;
 const int write_sched = 1;
 
 // const int ndns_max = 50;
@@ -161,8 +159,8 @@ struct global_Rmat_experiment : public global_multinomial_experiment
         //         svec_Rk_global,VTmat_Rk_global,curves,det.kor);
 
         scan_initial_jetspace(observations_twin.curves,ncrv,svec_Rk_global,VTmat_Rk_global,curves);
-
         write_initial_diagnostics();
+
       }
       else // old routine
       {

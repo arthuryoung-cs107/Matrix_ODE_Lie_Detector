@@ -490,6 +490,23 @@ classdef LD_observations_set
         end
     end
     methods (Static)
+        function mat_out = cell_2_ptsmat(cell_)
+            [cdim1,cdim2] = size(cell_);
+            net_cells = cdim1*cdim2;
+
+            ndim = size(cell_{1},1);
+
+            net_points = 0;
+            for i = 1:net_cells
+                net_points = net_points + size(cell_{i},2);
+            end
+
+            imat = 0;
+            mat_out = nan(ndim,net_points);
+            for i = 1:net_cells
+                mat_out(:,(imat+1):(imat+size(cell_{i},2))) = cell_{i};
+            end
+        end
         function pS_out = substitute_dkxu_pts_cells(pS_,dxuk_,dxuk_cell_)
             pS_out = pS_;
 
