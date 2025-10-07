@@ -246,6 +246,7 @@ classdef LD_observations_set
             file = fopen(name);
             if (file == -1)
                 [sigma_s,sigma_dnp1xu,sigma_JFs] = deal([]);
+                fprintf('FAILED TO READ %s \n', name);
             else
                 hlen = fread(file,1,'int=>int');
                 header = fread(file,hlen,'int=>int');
@@ -254,6 +255,7 @@ classdef LD_observations_set
                 sigma_dnp1xu = fread(file,ndep,'double=>double');
                 sigma_JFs = fread(file,ndep*(1 + ndep*(eor+1)),'double=>double');
                 fclose(file);
+                fprintf('(load_sigmas) read %s \n', name);
             end
             obj_out.sigma_s = sigma_s;
             obj_out.sigma_dnp1xu = sigma_dnp1xu;
@@ -490,6 +492,46 @@ classdef LD_observations_set
         end
     end
     methods (Static)
+        % function [err_report,err_cell] = generate_error_report(snse_cell_,sref_cell_,ode_)
+        function err_report = generate_error_report(snse_cell_,sref_cell_,ode_)
+            [ncrv,ntst] = size(snse_cell_);
+            ndim = size(snse_cell_{1},1);
+            [eor,ndep] = deal(ode_.meta.eor,ode_.meta.ndep);
+
+            npts_per_crv = zeros(1,ncrv);
+            for i = 1:ncrv
+                npts_per_crv(i) = size(sref_cell_{i},2);
+            end
+            nobs = sum(npts_per_crv(:));
+
+            err_report = struct(    'npts_per_crv', npts_per_crv, ...
+                                    'nobs', nobs , ...
+                                    'ntst', ntst);
+
+            [err_tru_cell,err_sys_cell] = deal(cell([ncrv,ntst]));
+            netcrv_err_tru = zeros(ndim,ncrv,ntst);
+            netcrv_err_sys = zeros(ndep,ncrv,ntst);
+            net_err_tru = zeros(ndim,ntst);
+            net_err_sys = zeros(ndep,ntst);
+            for i = 1:ntst
+                for j = 1:ncrv
+                    err_tru_cell{j,i} = snse_cell_{j,i} - sref_cell_{j,1};
+                    err_sys_cell{j,i} = snse_cell_{j,i}((end-ndep+1):end,:) ...
+                                        - ode_.dnxu(snse_cell_{j,i}(1:(ndim-ndep),:));
+
+                    netcrv_err_tru(:,j,i) = sum( abs(err_tru_cell{j,i}), 2 );
+                    netcrv_err_sys(:,j,i) = sum( abs(err_sys_cell{j,i}), 2 );
+                end
+                net_err_tru(:,i) = sum( netcrv_err_tru(:,:,i), 2);
+                net_err_sys(:,i) = sum( netcrv_err_sys(:,:,i), 2);
+            end
+            err_report.err_tru_cell = err_tru_cell;
+            err_report.err_sys_cell = err_sys_cell;
+            err_report.netcrv_err_tru = netcrv_err_tru;
+            err_report.netcrv_err_sys = netcrv_err_sys;
+            err_report.net_err_tru = net_err_tru;
+            err_report.net_err_sys = net_err_sys;
+        end
         function mat_out = cell_2_ptsmat(cell_)
             [cdim1,cdim2] = size(cell_);
             net_cells = cdim1*cdim2;

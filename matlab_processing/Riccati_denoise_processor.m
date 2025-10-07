@@ -55,6 +55,9 @@ Snse.crvs = Snse.make_curve_array;
 pts_ref_cell = Sref.pts_cell();
 pts_nse_cell = Snse.pts_cell();
 
+% [err_nse_report,err_nse_cell] = LD_observations_set.generate_error_report(pts_nse_cell,pts_ref_cell,ode_struct);
+err_nse_report = LD_observations_set.generate_error_report(pts_nse_cell,pts_ref_cell,ode_struct);
+
 % Rsvd_g_names = { 'Rsvd_g' ; 'Rsvd_h_g' };
 Rsvd_g_names = { 'Rsvd_g' };
 jet_sol_names = { '.jsol_h'; ...

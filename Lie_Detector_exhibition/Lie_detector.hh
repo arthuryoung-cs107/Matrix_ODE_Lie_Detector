@@ -340,6 +340,8 @@ class curve_Lie_detector
     { return ( i_<nobs_h )?( &(tjcharts[i_]->sol0_alt) ):( (i_==nobs_h)?(&(tjc_crv.sol0_alt)):(NULL) ); }
     inline ode_solution * sol_wrk1_i(int i_)
     { return ( i_<nobs_h )?( &(tjcharts[i_]->sol1_alt) ):( (i_==nobs_h)?(&(tjc_crv.sol1_alt)):(NULL) ); }
+
+    inline const int get_kor() {return kor;}
 };
 
 class Lie_detector
@@ -816,6 +818,30 @@ struct global_multinomial_experiment : public multinomial_experiment
 
 };
 
+struct LD_curve_twin
+{
+  curve_Lie_detector &cdet;
+  ode_solcurve &ctwn;
+
+  double ** const err_dkxu_mat;
+
+  LD_curve_twin(curve_Lie_detector &cdet_,ode_solcurve &ctwn_) :
+    cdet(cdet_), ctwn(ctwn_),
+    err_dkxu_mat(Tmatrix<double>(ctwn.ndep*(cdet.get_kor()),cdet.nobs_f))
+    {}
+  ~LD_curve_twin()
+  {
+    free_Tmatrix<double>(err_dkxu_mat);
+  }
+
+  inline void scan_curve_model(LD_spectral_tvfield &tvf_,ode_solution **solsi_)
+  {
+
+
+  }
+
+};
+
 struct Lie_detector_digital_twin
 {
   Lie_detector &det;
@@ -828,13 +854,20 @@ struct Lie_detector_digital_twin
           ** const V_Theta = Theta_SVD.Vmat,
           ** const theta_space = Theta_SVD.Umat;
 
+  LD_curve_twin ** const ctwins;
+
   Lie_detector_digital_twin(Lie_detector &detector_, ode_solcurve_chunk &S_twin_,orthopolynomial_space &function_space_) :
     det(detector_), Stwn(S_twin_), fspc(function_space_),
-    Theta_SVD(detector_.nobs,function_space_.ndof_full)
-    {}
-
+    Theta_SVD(detector_.nobs,function_space_.ndof_full),
+    ctwins(new LD_curve_twin*[detector_.ncrv])
+    {
+      for (int i = 0; i < det.ncrv; i++)
+        ctwins[i] = new LD_curve_twin(*(det.cdets[i]),*(Stwn.curves[i]));
+    }
   ~Lie_detector_digital_twin()
     {
+      for (int i = 0; i < det.ncrv; i++) delete ctwins[i];
+      delete [] ctwins;
     }
 
 

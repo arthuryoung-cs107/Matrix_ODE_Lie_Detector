@@ -40,6 +40,7 @@ classdef LD_denoise_plots < LD_plots
 
             pts_ref_cell = Sref.pts_cell();
             pts_nse_cell = Snse.pts_cell();
+            err_nse_report = LD_observations_set.generate_error_report(pts_nse_cell,pts_ref_cell,ode_);
 
             % startup_data = Snse.read_startup_data('_s');
             dnse_summary = Snse.read_denoise_summary('.denoise_summary')
@@ -117,11 +118,12 @@ classdef LD_denoise_plots < LD_plots
             err_nse_ref = sqrt(res_nse_ref);
             err_nse_sys = sqrt(res_nse_sys);
 
-            [errSdnse_tru,errSdnse_nse,errSdnse_sys] = deal(cell([ncrv,len_iwrite_full]));
+            [Sdnse_cell_full,errSdnse_tru,errSdnse_nse,errSdnse_sys] = deal(cell([ncrv,len_iwrite_full]));
             res_tru = zeros( Snse.ndep*(Snse.eor+1),len_iwrite_full ) ;
             res_sys = zeros( Snse.ndep, len_iwrite_full ) ;
             for i = 1:len_iwrite_full
                 Sdnse_cell_i = Snse.read_Sobs_cell(['.jsol_Rk_' num2str(iwrite_full(i))]);
+                Sdnse_cell_full(:,i) = Sdnse_cell_i;
 
                 for j = 1:ncrv
                     errSdnse_tru{j,i} = err_evl_tru( Sdnse_cell_i, j );
@@ -140,6 +142,8 @@ classdef LD_denoise_plots < LD_plots
                         ).^2, 2);
                 end
             end
+            err_dnse_report = LD_observations_set.generate_error_report(Sdnse_cell_full,pts_ref_cell,ode_)
+
             err_tru = sqrt(res_tru);
             [err_tru_min,i_err_tru_min] = min(err_tru,[],2)
             [iwrite_err_tru_min,err_rat_tru_min] = deal(iwrite_full(i_err_tru_min), err_tru_min./err_nse_ref)
@@ -488,14 +492,27 @@ classdef LD_denoise_plots < LD_plots
 
             axs_ver = axs_mat_cnv(2,4);
             [spc.lspec,spc.lw,spc.mspec,spc.ms,spc.color] = deal('none',1,...
-                                                                '.',8, ...
+                                                                '.',10, ...
                                                                 [0 0 0] );
+            err_dnse_report
+            % pause
+            spc.color = [0 0 0 0.5];
+            for i = 1:ncrv
+                % plot_ax(axs_ver, ...
+                %         errSdnse_nse{icrv_plot(i),1}(3,:) , ...
+                %         errSdnse_tru{icrv_plot(i),1}(3,:) , ...
+                %         spc);
 
-            spc.color = [0 0 0 1];
-            for i = 1:length(icrv_plot)
+                spc.color = [0 0 0 0.5];
                 plot_ax(axs_ver, ...
-                        errSdnse_nse{icrv_plot(i),1}(2,:) , ...
-                        errSdnse_tru{icrv_plot(i),1}(2,:) , ...
+                        errSdnse_nse{i,1}(2,:) , ...
+                        errSdnse_tru{i,1}(2,:) , ...
+                        spc);
+                        
+                spc.color = [color_mat(end,:) 0.5];
+                plot_ax(axs_ver, ...
+                        errSdnse_nse{i,end}(2,:) , ...
+                        errSdnse_tru{i,end}(2,:) , ...
                         spc);
             end
 

@@ -65,7 +65,8 @@ const int nstep_substep_max = 0; // 1000
 
 const double res_conv_tol = 1e-7;
 const double res_ratio_tol = 1e-12;
-const double stepladder_ratio_tol = (res_conv_cond)?(1e-1):(1e-6); // 1e-6
+// const double stepladder_ratio_tol = (res_conv_cond)?(1e-1):(1e-6); // 1e-6
+const double stepladder_ratio_tol = 1e-3; // 1e-6
 const double res_tol_substep = 1e-4; // 1e-3 // 1e-6
 const int write_sched_early = 5;
 
@@ -79,8 +80,8 @@ const int write_sched = 1;
 // const int ndns_max = 1000;
 // const int write_sched = 5;
 
-// ode_curve_observations observations(data_name);
-  ode_curve_observations observations(data_name,data_dnp1xu_name);
+ode_curve_observations observations(data_name);
+  // ode_curve_observations observations(data_name,data_dnp1xu_name);
 
 const int kor_obs = observations.kor_obs();
 
@@ -160,7 +161,7 @@ struct global_Rmat_experiment : public global_multinomial_experiment
 
         scan_initial_jetspace(observations_twin.curves,ncrv,svec_Rk_global,VTmat_Rk_global,curves);
         write_initial_diagnostics();
-
+        scan_Rsvd_tvfield_model(VTmat_Rk_h_global,Rsvd_h_global,svec_Rk_global,VTmat_Rk_global,ncrv,curves);
       }
       else // old routine
       {
@@ -367,13 +368,15 @@ struct global_Rmat_experiment : public global_multinomial_experiment
       if ( nullity_stop&&(rank_i<=( Rsvd_global.Nuse-nullity_stop )) ) break;
       if ( stepladder_update )
       {
-        if ( res_conv_cond&&( stepladder_ratio_tol ) )
-        {
-          kor_upd_step = (kor_upd_step < det.kor)?( kor_upd_step+1 ):( det.kor );
-          update_kor_constraints(curves_alt,svec_Rk_global,VTmat_Rk_global,kor_upd_step);
-        }
-        else
-          if ((res_i/res_1) < stepladder_ratio_tol)
+        // if ( res_conv_cond&&( stepladder_ratio_tol ) )
+        // {
+        //   kor_upd_step = (kor_upd_step < det.kor)?( kor_upd_step+1 ):( det.kor );
+        //   update_kor_constraints(curves_alt,svec_Rk_global,VTmat_Rk_global,kor_upd_step);
+        //   // update_kor_constraints(curves_alt,svec_Rk_global,VTmat_Rk_global,det.kor);
+        // }
+        // else
+          // if ((res_i/res_1) < stepladder_ratio_tol)
+          if ((res_i/res_1_init) < stepladder_ratio_tol)
         {
           // if (kor_update==det.kor) break;
           // else update_kor_constraints(curves_alt,svec_Rk_global,VTmat_Rk_global,++kor_update);
@@ -523,6 +526,24 @@ struct global_Rmat_experiment : public global_multinomial_experiment
       }
     }
     return res_out;
+  }
+  void scan_Rsvd_tvfield_model(double ** VTo_,LD_svd &svdo_,double *si_, double **VTi_,int ncrv_,ode_solcurve **crvsi_)
+  {
+    const int kor_use = det.kor;
+    #pragma omp parallel
+    {
+      LD_spectral_tvfield &tvf_t = *(tvfields0[LD_threads::thread_id()]);
+
+      // LD_lu lu_t(tjmeta.jor+1,tjmeta.jor+1);
+      #pragma omp for
+      for (int icrv = 0; icrv < ncrv_; icrv++)
+      {
+        tvf_t.set_SVD_space(si_,VTi_);
+        LDtwin.ctwins[icrv]->scan_curve_model(tvf_t,crvsi_[icrv]->sols);
+
+
+      }
+    }
   }
   void scan_initial_jetspace(ode_solcurve **crvso_, int ncrv_,double *sv_, double **VTm_,ode_solcurve **crvsi_)
   {
