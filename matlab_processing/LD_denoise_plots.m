@@ -17,6 +17,7 @@ classdef LD_denoise_plots < LD_plots
             res_vec = [];
             plts_out = plts_;
 
+            Tsvd_g_name = 'Tsvd_g';
             % Rsvd_g_names = { 'Rsvd_g' ; 'Rsvd_h_g' };
             Rsvd_g_names = { 'Rsvd_g' };
             jet_sol_names = { '.jsol_h'; ...
@@ -30,6 +31,7 @@ classdef LD_denoise_plots < LD_plots
             [eor,ndep,ndim] = deal(meta0.eor,meta0.ndep,meta0.ndim);
             ncrv = Sref.ncrv;
 
+            Tsvd_g_0_tru = Sref.read_LD_svd( [Tsvd_g_name '_full'] );
             [Rsvd_g_0_tru,pSj_0_tru] = Sref.read_jet_sol_h_data(Rsvd_g_names, jet_sol_names);
             [Rsvd_g_s_tru,pSj_s_tru] = Sref.read_jet_sol_h_data(Rsvd_g_names, jet_sol_names, '_s');
             [Rsvd_g_f_tru,pSj_f_tru] = Sref.read_jet_sol_h_data(Rsvd_g_names, jet_sol_names, '_f');
@@ -76,6 +78,7 @@ classdef LD_denoise_plots < LD_plots
             iwrite_long = iwrite_plot((nwrite_short+1):end);
             nwrite_long = length(iwrite_long);
 
+            Tsvd_g_0 = Snse.read_LD_svd( [Tsvd_g_name '_full'] );
             [Rsvd_g_0,pSj_0] = Snse.read_jet_sol_h_data(Rsvd_g_names, jet_sol_names);
             [Rsvd_g_s,pSj_s] = Snse.read_jet_sol_h_data(Rsvd_g_names, jet_sol_names, '_s');
             [Rsvd_g_f,pSj_f] = Snse.read_jet_sol_h_data(Rsvd_g_names, jet_sol_names, '_f');
@@ -340,6 +343,18 @@ classdef LD_denoise_plots < LD_plots
                     Rsvd_g_0.s, ...
                     spc);
 
+            spc.color = LD_plots.blue5;
+            plot_ax(axs_sigma, ...
+                    1:ndof, ...
+                    Tsvd_g_0_tru.s, ...
+                    spc);
+
+            spc.color = LD_plots.purple1;
+            plot_ax(axs_sigma, ...
+                    1:ndof, ...
+                    Tsvd_g_0.s, ...
+                    spc);
+
             % for i = 1:len_iwrite_plot
             %     spc.color = [color_mat(i,:) 1];
             %     plot(axs_sigma, ...
@@ -418,6 +433,7 @@ classdef LD_denoise_plots < LD_plots
 
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             comp_spec_err = @(s_,V_) sqrt( sum( abs(SVT_g_0_tru*( s_ .* V_ )), 1));
+            comp_null_err = @(s_,V_) comp_spec_err(flip( (s_(end)./s_) , 2 ) ,flip(V_,2));
             % comp_spec_err = @(s_,V_) sqrt( sum( (SVT_g_0_tru*( s_' .* V_ )).^2, 1));
 
             axs_ker = axs_mat_cnv(2,2);
@@ -433,6 +449,18 @@ classdef LD_denoise_plots < LD_plots
             plot_ax(axs_ker, ...
                     1:ndof, ...
                     comp_spec_err(Rsvd_g_0.s , Rsvd_g_0.V), ...
+                    spc);
+
+            spc.color = LD_plots.blue5;
+            plot_ax(axs_ker, ...
+                    1:ndof, ...
+                    comp_null_err(Tsvd_g_0_tru.s , Tsvd_g_0_tru.V), ...
+                    spc);
+
+            spc.color = LD_plots.purple1;
+            plot_ax(axs_ker, ...
+                    1:ndof, ...
+                    comp_null_err(Tsvd_g_0.s , Tsvd_g_0.V), ...
                     spc);
 
             % for i = 1:len_iwrite_plot

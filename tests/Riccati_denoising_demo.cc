@@ -81,8 +81,8 @@ const int write_sched = 1;
 // const int ndns_max = 1000;
 // const int write_sched = 5;
 
-ode_curve_observations observations(data_name);
-  // ode_curve_observations observations(data_name,data_dnp1xu_name);
+// ode_curve_observations observations(data_name);
+  ode_curve_observations observations(data_name,data_dnp1xu_name);
 
 const int kor_obs = observations.kor_obs();
 
@@ -154,6 +154,11 @@ struct global_Rmat_experiment : public global_multinomial_experiment
 
       int rank0 = encode_decompose_R_matrix_global(VTmat_Rk_global,Rsvd_global,Rkenc,sols,nobs);
         Rsvd_global.print_result("Rsvd_global");
+
+      LDtwin.Theta_SVD.decompose_U();
+        write_svd_data(LDtwin.Theta_SVD,".Tsvd_g_full",true,-1,true);
+
+      // compute_theta_image_svd();
 
       if (exp_staggered_Hermites)
       {
@@ -458,7 +463,8 @@ struct global_Rmat_experiment : public global_multinomial_experiment
       // #pragma omp single
     }
     int rank_out;
-    if (Rmat_telescoping_decomposition) rank_out = telescope_decompose_global_matrix(VTmg_,Rsvdg_,Rkenc_,nobs_,normalize_submat_flag);
+    if (Rmat_telescoping_decomposition)
+      rank_out = telescope_decompose_global_matrix(VTmg_,Rsvdg_,Rkenc_,nobs_,normalize_submat_flag);
     else
     {
       Rsvdg_.decompose_U();
@@ -845,7 +851,7 @@ struct global_Rmat_experiment : public global_multinomial_experiment
       sprintf(fname_Rsvd,"%s%s%s%s%s",dir_name,obs_name, name_Rsvd, ps_ ,dat_suff);
       Rsvd_global.write_LD_svd(fname_Rsvd);
 
-    const char name_Tsvd[] = ".Theta_SVD_g";
+    const char name_Tsvd[] = ".Tsvd_g";
       char fname_Tsvd[len_base+strlen(name_Tsvd)+1];
       sprintf(fname_Tsvd,"%s%s%s%s%s",dir_name,obs_name, name_Tsvd, ps_ ,dat_suff);
       LDtwin.Theta_SVD.write_LD_svd(fname_Tsvd);
@@ -951,16 +957,24 @@ struct global_Rmat_experiment : public global_multinomial_experiment
       fwrite(det.npts_per_crv,sizeof(int),ncrv_meta,file_dxuk_Rk);
       for (int iobs = 0; iobs < nobs_meta; iobs++)
       {
-        // sol_work.copy_xu();
-        // tvf.comp_spectral_theta_local(sol_work.x,sol_work.u);
-        //   tvf.eval_prn_theta_image(sol_work,det.kor);
-
         // writing out the Rk matrix pseudoinverse prediction of dx u^(k) at noisy u
         tvf.set_sol_dkxu(sol_work, det.kor, *(sols[iobs]));
         fwrite(sol_work.dxu,sizeof(double),n_dxuk,file_dxuk_Rk);
       }
       LD_io::fclose_SAFE(file_dxuk_Rk);
       printf("(global_Rmat_experiment::write_initial_diagnostics) wrote %s\n",fname_dxuk_Rk);
+  }
+  void write_svd_data(LD_svd &svd_,const char svd_name_[], bool write_loads_=false, int n_=-1, bool verbose_=false)
+  {
+    const size_t len_dir_name = strlen(dir_name),
+                 len_obs_name = strlen(obs_name),
+                 len_dat_suff = strlen(dat_suff),
+                 len_base = len_dir_name+len_obs_name+len_dat_suff,
+                 buf_pad = 6;
+    char fname_svd[len_base+strlen(svd_name_)+buf_pad];
+    if (n_>=0) sprintf(fname_svd,"%s%s%s_%d%s",dir_name,obs_name, svd_name_, n_ ,dat_suff);
+    else sprintf(fname_svd,"%s%s%s%s",dir_name,obs_name, svd_name_ ,dat_suff);
+    svd_.write_LD_svd(fname_svd,write_loads_,verbose_);
   }
   // void write_denoising_summary(ode_solcurve_chunk &Sobs_, int nsmooth_, double *res_vec_)
   // {
