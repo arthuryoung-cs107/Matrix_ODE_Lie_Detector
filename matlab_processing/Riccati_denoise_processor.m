@@ -69,8 +69,8 @@ jet_sol_names = { '.jsol_h'; ...
 [Rsvd_g_0s,pSj0s] = Snse.read_jet_sol_h_data(Rsvd_g_names, jet_sol_names,'_s');
 [Rsvd_g_0f,pSj0f] = Snse.read_jet_sol_h_data(Rsvd_g_names, jet_sol_names,'_f');
 
-[Rsvd_g_0,pSj] = deal(Rsvd_g_00,pSj00);
-% [Rsvd_g_0,pSj] = deal(Rsvd_g_0s,pSj0s);
+% [Rsvd_g_0,pSj] = deal(Rsvd_g_00,pSj00);
+[Rsvd_g_0,pSj] = deal(Rsvd_g_0s,pSj0s);
 % [Rsvd_g_0,pSj] = deal(Rsvd_g_0f,pSj0f);
 
 pSj_cells = LD_observations_set.pts_struct_2_cell(pSj);
@@ -145,10 +145,10 @@ spc.color = [0 0 1 1];
 [spc.lspec,spc.lw,spc.mspec,spc.ms] = deal('-',1,'s',2);
 slnspc_ref_plt = LD_plots.plot_pts(pSj_Rk_cell(i_crv), ...
                         meta0,slnspc_ref_plt,spc);
-spc.color = [LD_plots.green1 1];
-[spc.lspec,spc.lw,spc.mspec,spc.ms] = deal('none',1,'d',2);
-slnspc_ref_plt = LD_plots.plot_pts(pSj_h_cell(i_crv), ...
-                        meta0,slnspc_ref_plt,spc);
+% spc.color = [LD_plots.green1 1];
+% [spc.lspec,spc.lw,spc.mspec,spc.ms] = deal('none',1,'d',2);
+% slnspc_ref_plt = LD_plots.plot_pts(pSj_h_cell(i_crv), ...
+%                         meta0,slnspc_ref_plt,spc);
 spc.color = [LD_plots.green4 1];
 [spc.lspec,spc.lw,spc.mspec,spc.ms] = deal('-',1,'d',2);
 slnspc_ref_plt = LD_plots.plot_pts(pSj_h_Rk_cell(i_crv), ...

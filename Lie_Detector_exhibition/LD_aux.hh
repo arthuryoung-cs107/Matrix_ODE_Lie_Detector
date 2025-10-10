@@ -637,6 +637,20 @@ struct LD_svd : public LD_rectangular_decomp
                     w_gsl = gsl_vector_view_array(wvec,Nuse);
     int status_decomp = gsl_linalg_SV_decomp(&(U_gsl.matrix),&(V_gsl.matrix),&(s_gsl.vector),&(w_gsl.vector));
   }
+  inline void decompose_U_pseudoinvert_SV_ordered(int Muse_=0, int Nuse_=0)
+  {
+    decompose_U(Muse_,Nuse_);
+    LD_util::flip_Tdata<double>(svec,Nuse);
+    const double s0_raw = svec[0];
+    for (int i = 0; i < Nuse; i++) svec[i] = s0_raw/svec[i];
+    LD_util::flip_Tmatrix_rows<double>(Vmat,Nuse,Nuse);
+  }
+  inline void decompose_U_pseudoinvert_ordered(int Muse_=0, int Nuse_=0)
+  {
+    decompose_U_pseudoinvert_SV_ordered(Muse_,Nuse_);
+    LD_util::flip_Tmatrix_rows<double>(Umat,Muse,Nuse);
+  }
+
   inline void unpack_VTmat(double **VTmat_)
   {
     for (size_t i = 0; i < Nuse; i++)

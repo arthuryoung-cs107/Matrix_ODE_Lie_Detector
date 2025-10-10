@@ -60,7 +60,8 @@ const bool v_verbose = false;
 const bool Rmat_h_exp = false;
 const bool Rmat_Hermite_jets = false;
 const bool stop_blowup = false;
-const int nullity_stop = 0; // nullity dimension required to terminate (if 0, does not stop)
+const bool Theta_svd_model = true;
+const int nullity_stop = 1; // nullity dimension required to terminate (if 0, does not stop)
 const int nstep_substep_max = 0; // 1000
 const int Rksvd_filter = 0;
 
@@ -221,7 +222,9 @@ struct global_Rmat_experiment : public global_multinomial_experiment
         kor_update = (stepladder_update)?(0):(kor_obs),
         rnk_vec[ndns_max],
         iwrite_vec[ndns_max];
-    double res_vec[ndns_max];
+    double res_vec[ndns_max],
+           * const svec_exp = (Theta_svd_model)?(LDtwin.s_Theta):(svec_Rk_global),
+           ** const VTmat_exp = (Theta_svd_model)?(LDtwin.V_Theta):(VTmat_Rk_global);
 
     ode_solution ** const sols_alt = Sobs_alt_.sols;
     ode_solcurve ** const curves_alt = Sobs_alt_.curves;
@@ -235,6 +238,19 @@ struct global_Rmat_experiment : public global_multinomial_experiment
     int rank0 = rnk_vec[0] = encode_decompose_R_matrix_global(VTmat_Rk_global,Rsvd_global,Rkenc,sols,nobs);
       Rsvd_global.print_result("  Rsvd_global (0)");
 
+    if (Theta_svd_model)
+    {
+      if (Rmat_telescoping_decomposition)
+      {
+        const int Muse_old = LDtwin.Theta_SVD.Muse;
+        telescope_global_matrix(LDtwin.Theta_SVD,1,false);
+        LDtwin.Theta_SVD.decompose_U_pseudoinvert_SV_ordered(ncrv*(LDtwin.Theta_SVD.Nuse),LDtwin.Theta_SVD.Nuse);
+        LDtwin.Theta_SVD.set_use_dims(Muse_old,LDtwin.Theta_SVD.Nuse);
+      }
+      else LDtwin.Theta_SVD.decompose_U_pseudoinvert_ordered();
+      LDtwin.Theta_SVD.transpose_V();
+    }
+
     // double &res_1 = res_vec[0];
     double res_1_init,
            res_1;
@@ -242,7 +258,7 @@ struct global_Rmat_experiment : public global_multinomial_experiment
     if (exp_staggered_Hermites)
     {
       res_1_init = res_1 = exp_staggered_trivial_Rmat_Hermites(curves_alt,
-        svec_Rk_global,VTmat_Rk_global,curves,kor_update);
+        svec_exp,VTmat_exp,curves,kor_update);
       nstep_substep = 0;
       while ( nstep_substep_max
         &&( (++nstep_substep)<=nstep_substep_max )
@@ -250,7 +266,7 @@ struct global_Rmat_experiment : public global_multinomial_experiment
         &&( (res_1/res_1_init)>res_tol_substep ) )
       {
         res_1 = exp_staggered_trivial_Rmat_Hermites(curves_alt,
-          svec_Rk_global,VTmat_Rk_global,curves_alt,kor_update);
+          svec_exp,VTmat_exp,curves_alt,kor_update);
           printf("#   i=%d : res_1_init=%.2e, ii=%d, res_1=%.2e\n", 1,res_1_init,nstep_substep,res_1);
       }
     }
@@ -296,6 +312,20 @@ struct global_Rmat_experiment : public global_multinomial_experiment
       int &rank_i =
         rnk_vec[nsmooth] = encode_decompose_R_matrix_global(VTmat_Rk_global,Rsvd_global,Rkenc,sols_alt,nobs);
        if (v_verbose) Rsvd_global.print_result("    Rsvd_global");
+
+      if (Theta_svd_model)
+      {
+        if (Rmat_telescoping_decomposition)
+        {
+          const int Muse_old = LDtwin.Theta_SVD.Muse;
+          telescope_global_matrix(LDtwin.Theta_SVD,1,false);
+          LDtwin.Theta_SVD.decompose_U_pseudoinvert_SV_ordered(ncrv*(LDtwin.Theta_SVD.Nuse),LDtwin.Theta_SVD.Nuse);
+          LDtwin.Theta_SVD.set_use_dims(Muse_old,LDtwin.Theta_SVD.Nuse);
+        }
+        else LDtwin.Theta_SVD.decompose_U_pseudoinvert_ordered();
+        LDtwin.Theta_SVD.transpose_V();
+      }
+
       double &res_i = res_vec[nsmooth];
 
       if (update_res_1)
@@ -306,11 +336,10 @@ struct global_Rmat_experiment : public global_multinomial_experiment
 
       double ti_svd = LD_threads::tic();
 
-      // employ staggered Hermite exponentiation technique
-      if (exp_staggered_Hermites)
+      if (exp_staggered_Hermites) // employ staggered Hermite exponentiation technique
       {
         const double res_i_init = res_i = exp_staggered_trivial_Rmat_Hermites(curves_alt,
-          svec_Rk_global,VTmat_Rk_global,curves_alt,kor_update);
+          svec_exp,VTmat_exp,curves_alt,kor_update);
         nstep_substep = 0;
         while ( nstep_substep_max
           &&( (++nstep_substep)<=nstep_substep_max )
@@ -319,7 +348,7 @@ struct global_Rmat_experiment : public global_multinomial_experiment
           // &&( (res_i/res_i_init)>res_tol_substep ) )
         {
           res_i = exp_staggered_trivial_Rmat_Hermites(curves_alt,
-              svec_Rk_global,VTmat_Rk_global,curves_alt,kor_update);
+              svec_exp,VTmat_exp,curves_alt,kor_update);
           printf("#   i=%d : res_1_init=%.2e, ii=%d, res_1=%.2e\n",
             nsmooth+1,res_i_init,nstep_substep,res_i);
         }
@@ -460,11 +489,10 @@ struct global_Rmat_experiment : public global_multinomial_experiment
           );
       }
 
-      // #pragma omp single
     }
     int rank_out;
     if (Rmat_telescoping_decomposition)
-      rank_out = telescope_decompose_global_matrix(VTmg_,Rsvdg_,Rkenc_,nobs_,normalize_submat_flag);
+      rank_out = telescope_decompose_global_matrix(VTmg_,Rsvdg_,Rkenc_.ncod,normalize_submat_flag);
     else
     {
       Rsvdg_.decompose_U();

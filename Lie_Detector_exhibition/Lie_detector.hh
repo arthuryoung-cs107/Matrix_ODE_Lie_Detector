@@ -765,21 +765,20 @@ struct global_multinomial_experiment : public multinomial_experiment
       free_Tmatrix<double>(VTmat_global);
     }
 
-    inline int telescope_decompose_global_matrix(double **VTmg_,LD_svd &Asvdg_,LD_encoder &Aenc_,int nobs_,bool nrm_flg_=false)
+    inline void telescope_global_matrix(LD_svd &Asvdg_,int ncod_,bool nrm_flg_=false)
     {
       #pragma omp parallel
       {
         double ** const Umatg_t = Asvdg_.Umat,
                         wvec_t[ndof_full];
-
         #pragma omp for
         for (int icrv = 0; icrv < ncrv; icrv++)
         {
           int iobs_i=0;
           for (int i = 0; i < icrv; i++) iobs_i += det.npts_per_crv[i];
 
-          LD_svd Asvd_icrv( Aenc_.ncod*det.npts_per_crv[icrv], Asvdg_.Nuse ,
-            Umatg_t+(Aenc_.ncod*iobs_i), VTmats_crvs[icrv], svecs_crvs[icrv], wvec_t );
+          LD_svd Asvd_icrv( ncod_*det.npts_per_crv[icrv], Asvdg_.Nuse ,
+            Umatg_t+(ncod_*iobs_i), VTmats_crvs[icrv], svecs_crvs[icrv], wvec_t );
 
           Asvd_icrv.decompose_U();
           Asvd_icrv.transpose_V();
@@ -804,13 +803,16 @@ struct global_multinomial_experiment : public multinomial_experiment
                 Umat_i[i][j] = svecs_crvs[icrv][i]*VTmats_crvs[icrv][i][j];
         }
       }
-
+    }
+    inline int telescope_decompose_global_matrix(double **VTmg_,LD_svd &Asvdg_,int ncod_,bool nrm_flg_=false)
+    {
       const int Muse_old = Asvdg_.Muse;
 
+      telescope_global_matrix(Asvdg_,ncod_,nrm_flg_);
       Asvdg_.decompose_U(ncrv*Asvdg_.Nuse,Asvdg_.Nuse);
-      Asvdg_.unpack_VTmat(VTmat_global);
-
+      Asvdg_.unpack_VTmat(VTmg_);
       int rank_out = Asvdg_.rank();
+
       Asvdg_.set_use_dims(Muse_old,Asvdg_.Nuse);
 
       return rank_out;

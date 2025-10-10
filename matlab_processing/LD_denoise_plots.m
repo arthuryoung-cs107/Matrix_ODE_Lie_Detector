@@ -432,8 +432,9 @@ classdef LD_denoise_plots < LD_plots
                 ['$$ \mathbf{v}_{i_{\theta}} ( \mathbf{R}_{i}^{(k)} ) $$'], 'Interpreter','Latex','FontSize',14);
 
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            comp_spec_err = @(s_,V_) sqrt( sum( abs(SVT_g_0_tru*( s_ .* V_ )), 1));
-            comp_null_err = @(s_,V_) comp_spec_err(flip( (s_(end)./s_) , 2 ) ,flip(V_,2));
+            % comp_spec_err = @(s_,V_) sqrt( sum( abs(SVT_g_0_tru*( s_ .* V_ )), 1));
+            comp_spec_err = @(s_,V_) sum( abs(SVT_g_0_tru*( V_ )), 1);
+            comp_pinv_spec_err = @(s_,V_) comp_spec_err(flip( (s_(end)./s_) , 2 ) ,flip(V_,2));
             % comp_spec_err = @(s_,V_) sqrt( sum( (SVT_g_0_tru*( s_' .* V_ )).^2, 1));
 
             axs_ker = axs_mat_cnv(2,2);
@@ -454,13 +455,13 @@ classdef LD_denoise_plots < LD_plots
             spc.color = LD_plots.blue5;
             plot_ax(axs_ker, ...
                     1:ndof, ...
-                    comp_null_err(Tsvd_g_0_tru.s , Tsvd_g_0_tru.V), ...
+                    comp_pinv_spec_err(Tsvd_g_0_tru.s , Tsvd_g_0_tru.V), ...
                     spc);
 
             spc.color = LD_plots.purple1;
             plot_ax(axs_ker, ...
                     1:ndof, ...
-                    comp_null_err(Tsvd_g_0.s , Tsvd_g_0.V), ...
+                    comp_pinv_spec_err(Tsvd_g_0.s , Tsvd_g_0.V), ...
                     spc);
 
             % for i = 1:len_iwrite_plot
@@ -523,6 +524,8 @@ classdef LD_denoise_plots < LD_plots
                                                                 'o',10, ...
                                                                 [0 0 0] );
             err_dnse_report
+            [min_err_tru,imin_err_tru] = min(err_dnse_report.net_err_tru,[],2)
+            [min_err_sys,imin_err_sys] = min(err_dnse_report.net_err_sys,[],2)
             % pause
             spc.color = [0 0 0 0.5];
             for i = 1:ncrv

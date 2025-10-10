@@ -141,8 +141,37 @@ class LD_util
     LD_util() {}
     ~LD_util() {}
 
-
-
+    template <typename T> static void flip_Tdata(T *dat_, int len_)
+    {
+      for (int i = 0, len_o2 = ((int)(len_/2)), iend = len_-1; i < len_o2; i++, iend--)
+      {
+        double di = dat_[i];
+        dat_[i] = dat_[iend];
+        dat_[iend] = di;
+      }
+    }
+    template <typename T> static void flip_Tmatrix_rows(T **dat_, int len1_, int len2_)
+    {
+      const int len2_o2 = ((int)(len2_/2));
+      for (int i = 0; i < len1_; i++)
+        for (int j = 0, jend = len2_-1; j < len2_o2; j++, jend--)
+        {
+          // LD_util::flip_Tdata<T>(dat_[i],len2_);
+          double dij = dat_[i][j];
+          dat_[i][j] = dat_[i][jend];
+          dat_[i][jend] = dij;
+        }
+    }
+    template <typename T> static void transpose_Tmatrix(T **dat_, int len_)
+    {
+      for (int i = 0, lenm1 = len_-1; i < lenm1; i++)
+        for (int j = i+1; j < len_; j++)
+        {
+          T dij = dat_[i][j];
+          dat_[i][j] = dat_[j][i];
+          dat_[j][i] = dij;
+        }
+    }
     template <typename T> static T min_Tdata(T *dat_, int len_, int &ind_)
     {
       T val_out = dat_[ind_=0];
