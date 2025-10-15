@@ -574,9 +574,7 @@ struct global_Rmat_experiment : public global_multinomial_experiment
       for (int icrv = 0; icrv < ncrv_; icrv++)
       {
         tvf_t.set_SVD_space(si_,VTi_);
-        LDtwin.ctwins[icrv]->scan_curve_model(tvf_t,crvsi_[icrv]->sols);
-
-
+        // LDtwin.ctwins[icrv]->scan_curve_model(tvf_t,crvsi_[icrv]->sols);
       }
     }
   }

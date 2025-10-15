@@ -836,11 +836,9 @@ struct LD_curve_twin
     free_Tmatrix<double>(err_dkxu_mat);
   }
 
-  inline void scan_curve_model(LD_spectral_tvfield &tvf_,ode_solution **solsi_)
-  {
-
-
-  }
+  // inline void scan_curve_model(LD_spectral_tvfield &tvf_,ode_solution **solsi_)
+  // {
+  // }
 
 };
 
