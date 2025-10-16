@@ -107,10 +107,11 @@ plt01 = LD_plots('conv', ...
                                                         i_crv);
 
 nse_plot1 = dnse_plts(1);
+cnv_plot1 = dnse_plts(2);
 
 % nse_plot1.show_menubar();
 nse_plot1.show_toolbar();
-
+cnv_plot1.show_toolbar();
 
 % return
 

@@ -157,6 +157,7 @@ struct global_Rmat_experiment : public global_multinomial_experiment
         Rsvd_global.print_result("Rsvd_global");
 
       LDtwin.Theta_SVD.decompose_U();
+      LDtwin.Theta_SVD.print_result("Tsvd_global");
         write_svd_data(LDtwin.Theta_SVD,".Tsvd_g_full",true,-1,true);
 
       // compute_theta_image_svd();
@@ -245,6 +246,7 @@ struct global_Rmat_experiment : public global_multinomial_experiment
         const int Muse_old = LDtwin.Theta_SVD.Muse;
         telescope_global_matrix(LDtwin.Theta_SVD,1,false);
         LDtwin.Theta_SVD.decompose_U_pseudoinvert_SV_ordered(ncrv*(LDtwin.Theta_SVD.Nuse),LDtwin.Theta_SVD.Nuse);
+        LDtwin.Theta_SVD.print_result("    Tsvd_global (0)");
         LDtwin.Theta_SVD.set_use_dims(Muse_old,LDtwin.Theta_SVD.Nuse);
       }
       else LDtwin.Theta_SVD.decompose_U_pseudoinvert_ordered();
@@ -320,6 +322,7 @@ struct global_Rmat_experiment : public global_multinomial_experiment
           const int Muse_old = LDtwin.Theta_SVD.Muse;
           telescope_global_matrix(LDtwin.Theta_SVD,1,false);
           LDtwin.Theta_SVD.decompose_U_pseudoinvert_SV_ordered(ncrv*(LDtwin.Theta_SVD.Nuse),LDtwin.Theta_SVD.Nuse);
+          if (v_verbose) LDtwin.Theta_SVD.print_result("    Tsvd_global");
           LDtwin.Theta_SVD.set_use_dims(Muse_old,LDtwin.Theta_SVD.Nuse);
         }
         else LDtwin.Theta_SVD.decompose_U_pseudoinvert_ordered();
