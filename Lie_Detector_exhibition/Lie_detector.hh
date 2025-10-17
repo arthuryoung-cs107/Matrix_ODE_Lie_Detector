@@ -756,15 +756,63 @@ struct global_multinomial_experiment : public multinomial_experiment
       ncod(ncod_), Asvd_global(ncod_*nobs,ndof_full),
       svec_global(Asvd_global.svec),
       VTmat_global(Tmatrix<double>(ndof_full,ndof_full))
-    {
-
-    }
+    {}
 
     ~global_multinomial_experiment()
     {
       free_Tmatrix<double>(VTmat_global);
     }
 
+    inline void compute_global_trivial_Theta_space(double **Tg_,LD_svd &Tsvdg_,LD_R_encoder &Rkenc_,orthopolynomial_basis **fbases_,ode_solution **sols_,int nobs_, bool normalization_flag_=false)
+    {
+      #pragma omp parallel
+      {
+        orthopolynomial_basis &fbse_t = *( fbases_[LD_threads::thread_id()] );
+        #pragma omp for
+        for (int i = 0; i < nobs_; i++)
+        {
+          Rkenc_.encode_normalize_rows(
+              Rkenc_.submat_i(Tsvdg_.Umat,i), // submatrix of R associated with observation i
+              fbse_t, // thread local prolongation workspace
+              *(sols_[i]), // jet space data associated with observation i
+              normalization_flag_ // normalization flag (off by default)
+            );
+        }
+
+        double wvec_t[ndof_full];
+        #pragma omp for
+        for (int icrv = 0; icrv < ncrv; icrv++)
+        {
+          int iobs_i=0;
+          for (int i = 0; i < icrv; i++) iobs_i += det.npts_per_crv[i];
+
+          LD_svd Asvd_icrv( Rkenc_.ncod*det.npts_per_crv[icrv], Tsvdg_.Nuse ,
+            Tsvdg_.Umat+(Rkenc_.ncod*iobs_i), VTmats_crvs[icrv], svecs_crvs[icrv], wvec_t );
+
+          Asvd_icrv.decompose_U();
+          Asvd_icrv.transpose_V();
+        }
+
+      }
+
+    }
+    inline void encode_matrix(double **U_g_,LD_encoder &Aenc_,orthopolynomial_basis **fbases_,ode_solution **sols_,int nobs_, bool normalization_flag_=false)
+    {
+      #pragma omp parallel
+      {
+        orthopolynomial_basis &fbse_t = *( fbases_[LD_threads::thread_id()] );
+        #pragma omp for
+        for (int i = 0; i < nobs_; i++)
+        {
+          Aenc_.encode_normalize_rows(
+              Aenc_.submat_i(U_g_,i), // submatrix of R associated with observation i
+              fbse_t, // thread local prolongation workspace
+              *(sols_[i]), // jet space data associated with observation i
+              normalization_flag_ // normalization flag (off by default)
+            );
+        }
+      }
+    }
     inline void telescope_global_matrix(LD_svd &Asvdg_,int ncod_,bool nrm_flg_=false)
     {
       #pragma omp parallel

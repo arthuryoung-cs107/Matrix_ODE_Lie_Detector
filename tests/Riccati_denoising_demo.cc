@@ -478,21 +478,8 @@ struct global_Rmat_experiment : public global_multinomial_experiment
   }
   int encode_decompose_R_matrix_global(double **VTmg_,LD_svd &Rsvdg_,LD_R_encoder &Rkenc_,ode_solution **sols_,int nobs_)
   {
-    #pragma omp parallel
-    {
-      orthopolynomial_basis &fbse_t = *( fbases0[LD_threads::thread_id()] );
-      #pragma omp for
-      for (int i = 0; i < nobs_; i++)
-      {
-        Rkenc_.encode_normalize_rows(
-            Rkenc_.submat_i(Rsvdg_.Umat,i), // submatrix of R associated with observation i
-            fbse_t, // thread local prolongation workspace
-            *(sols_[i]), // jet space data associated with observation i
-            false // normalization flag (off by default)
-          );
-      }
+    encode_matrix(Rsvdg_.Umat,Rkenc_,fbases0,sols_,nobs_,false);
 
-    }
     int rank_out;
     if (Rmat_telescoping_decomposition)
       rank_out = telescope_decompose_global_matrix(VTmg_,Rsvdg_,Rkenc_.ncod,normalize_submat_flag);
