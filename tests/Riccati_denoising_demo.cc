@@ -244,7 +244,7 @@ struct global_Rmat_experiment : public global_multinomial_experiment
       if (Rmat_telescoping_decomposition)
       {
         const int Muse_old = LDtwin.Theta_SVD.Muse;
-        telescope_global_matrix(LDtwin.Theta_SVD,1,false);
+        telescope_global_matrix(LDtwin.Theta_SVD.Umat,LDtwin.Theta_SVD.Nuse,1,det.npts_per_crv,false);
         LDtwin.Theta_SVD.decompose_U_pseudoinvert_SV_ordered(ncrv*(LDtwin.Theta_SVD.Nuse),LDtwin.Theta_SVD.Nuse);
         LDtwin.Theta_SVD.print_result("    Tsvd_global (0)");
         LDtwin.Theta_SVD.set_use_dims(Muse_old,LDtwin.Theta_SVD.Nuse);
@@ -320,7 +320,7 @@ struct global_Rmat_experiment : public global_multinomial_experiment
         if (Rmat_telescoping_decomposition)
         {
           const int Muse_old = LDtwin.Theta_SVD.Muse;
-          telescope_global_matrix(LDtwin.Theta_SVD,1,false);
+          telescope_global_matrix(LDtwin.Theta_SVD.Umat,LDtwin.Theta_SVD.Nuse,1,det.npts_per_crv,false);
           LDtwin.Theta_SVD.decompose_U_pseudoinvert_SV_ordered(ncrv*(LDtwin.Theta_SVD.Nuse),LDtwin.Theta_SVD.Nuse);
           if (v_verbose) LDtwin.Theta_SVD.print_result("    Tsvd_global");
           LDtwin.Theta_SVD.set_use_dims(Muse_old,LDtwin.Theta_SVD.Nuse);

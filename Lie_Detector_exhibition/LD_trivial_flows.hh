@@ -633,6 +633,42 @@ struct LD_trivial_vector_field : public LD_svd_vector_field
     }
     for (int i = 0; i < len_theta; i++) theta_[i] /= Wnet; // normalize local parameters
   }
+  inline void comp_spectral_theta_local(double *theta_,double x_,double *u_)
+  {
+    // pts_local[0] = x_;
+    // for (int i = 0; i < fspc.ndep; i++) pts_local[i+1] = u_[i];
+    // fspc.lamvec_eval(pts_local,lamvec_local,vxu_wkspc);
+    fill_lamvec_local(x_,u_);
+
+    const int len_lam = fspc.perm_len,
+              len_theta = fspc.ndof_full,
+              nvec_use = fspc.ndof_full;
+    double Wnet = 0.0;
+
+    for (int i = 0; i < len_theta; i++) theta_[i] = 0.0;
+
+    int istart = 0;
+
+    // const double  ww_tol = 1e-1;
+    // while ( ( (sigma_min()/sv[istart])<ww_tol )&&( istart<nvec_use ) ) istart++;
+
+    // for (int ith = 0; ith < nvec_use; ith++) // compute local parameter values via spectral weighting scheme
+    for (int ith = istart; ith < nvec_use; ith++) // compute local parameter values via spectral weighting scheme
+    {
+      const double  ww_i = sigma_min()/sv[ith], // scaled Moore-Penrose pseudoinverse
+                    w_i = ww_i*ww_i; // squared to reflect squared scaling of vx_ith
+
+        double  vx_ith = 0.0;
+        for (int i = 0; i < len_lam; i++) vx_ith += VTm[ith][i]*lamvec_local[i];
+
+        for (int i = 0; i < len_theta; i++) theta_[i] += w_i*vx_ith*VTm[ith][i];
+        Wnet += w_i*vx_ith*vx_ith;
+    }
+    for (int i = 0; i < len_theta; i++) theta_[i] /= Wnet; // normalize local parameters
+  }
+  inline void comp_spectral_theta_local(double x_,double *u_)
+    {comp_spectral_theta_local(theta_local,x_,u_);}
+
   inline void eval_pr1_theta_image(double *dudx_) {eval_pr1_theta_image(dudx_,theta_local);}
   inline void eval_pr1_theta_image(double *dudx_, double *theta_)
   {
@@ -724,41 +760,6 @@ struct LD_spectral_tvfield : public LD_trivial_vector_field
   }
   inline void set_sol_dkxu(ode_solution &sol_o_,int kor_,ode_solution &sol_i_)
     {sol_o_.copy_xu(sol_i_); set_sol_dkxu(sol_o_,kor_); }
-  inline void comp_spectral_theta_local(double x_,double *u_)
-    {comp_spectral_theta_local(theta_local,x_,u_);}
-  inline void comp_spectral_theta_local(double *theta_,double x_,double *u_)
-  {
-    // pts_local[0] = x_;
-    // for (int i = 0; i < fspc.ndep; i++) pts_local[i+1] = u_[i];
-    // fspc.lamvec_eval(pts_local,lamvec_local,vxu_wkspc);
-    fill_lamvec_local(x_,u_);
-
-    const int len_lam = fspc.perm_len,
-              len_theta = fspc.ndof_full,
-              nvec_use = fspc.ndof_full;
-    double Wnet = 0.0;
-
-    for (int i = 0; i < len_theta; i++) theta_[i] = 0.0;
-
-    int istart = 0;
-
-    // const double  ww_tol = 1e-1;
-    // while ( ( (sigma_min()/sv[istart])<ww_tol )&&( istart<nvec_use ) ) istart++;
-
-    // for (int ith = 0; ith < nvec_use; ith++) // compute local parameter values via spectral weighting scheme
-    for (int ith = istart; ith < nvec_use; ith++) // compute local parameter values via spectral weighting scheme
-    {
-      const double  ww_i = sigma_min()/sv[ith], // scaled Moore-Penrose pseudoinverse
-                    w_i = ww_i*ww_i; // squared to reflect squared scaling of vx_ith
-
-        double  vx_ith = 0.0;
-        for (int i = 0; i < len_lam; i++) vx_ith += VTm[ith][i]*lamvec_local[i];
-
-        for (int i = 0; i < len_theta; i++) theta_[i] += w_i*vx_ith*VTm[ith][i];
-        Wnet += w_i*vx_ith*vx_ith;
-    }
-    for (int i = 0; i < len_theta; i++) theta_[i] /= Wnet; // normalize local parameters
-  }
   inline void comp_rowspace_image(double *theta_,double *vnu_,double *vnu_syn_,double x_,double *u_)
   {
     comp_spectral_theta_local(theta_local,x_,u_);

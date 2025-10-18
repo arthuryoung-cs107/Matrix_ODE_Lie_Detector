@@ -763,52 +763,95 @@ struct global_multinomial_experiment : public multinomial_experiment
       free_Tmatrix<double>(VTmat_global);
     }
 
-    inline void compute_global_trivial_Theta_space(double **Tg_,LD_svd &Tsvdg_,LD_R_encoder &Rkenc_,orthopolynomial_basis **fbases_,ode_solution **sols_,int nobs_, bool normalization_flag_=false)
+    template <class TAPV> int compute_global_trivial_Theta_svdspace(
+      LD_svd &Tsvdg_, LD_svd &Rsvdg_,
+      LD_R_encoder &Rkenc_,
+      TAPV **tapvs_, orthopolynomial_basis **fbses_,
+      ode_solcurve **crvs_,int ncrv_, bool normalization_flag_=false)
     {
       #pragma omp parallel
       {
-        orthopolynomial_basis &fbse_t = *( fbases_[LD_threads::thread_id()] );
+        orthopolynomial_basis &fbse_t = *( fbses_[LD_threads::thread_id()] );
 
-        // encode global R^(k) matrix
+        /*
+          encode global R^(k) matrix
+        */
         #pragma omp for
-        for (int i = 0; i < nobs_; i++)
+        for (int icrv = 0; icrv < ncrv_; icrv++)
         {
-          Rkenc_.encode_normalize_rows(
-              Rkenc_.submat_i(Tsvdg_.Umat,i), // submatrix of R associated with observation i
-              fbse_t, // thread local prolongation workspace
-              *(sols_[i]), // jet space data associated with observation i
-              normalization_flag_ // normalization flag (off by default)
-            );
-        }
+          const int npts_icrv = crvs_[icrv]->nobs;
+          int iobs_i=0;
+          for (int i = 0; i < icrv; i++) iobs_i += crvs_[i]->nobs;
+          double ** const Umat_R_icrv  = Rsvdg_.Umat+(Rkenc_.ncod*iobs_i);
 
+          for (int i = 0; i < npts_icrv; i++)
+          {
+            Rkenc_.encode_normalize_rows(
+                Rkenc_.submat_i(Umat_R_icrv,i), // submatrix of R associated with observation i
+                fbse_t, // thread local prolongation workspace
+                *( crvs_[icrv]->sols[i] ), // jet space data associated with observation i
+                normalization_flag_ // normalization flag (off by default)
+              );
+          }
+        }
+        // threads wait for others to finish encoding global matrix
+
+        TAPV &tapv_t = *( tapvs_[LD_threads::thread_id()] );
         double wvec_t[ndof_full]; // workspace for svd and theta image
+
         /*
           Decompose curve R^(k) matrix, transpose V.
           Compute Theta mat image for each curve, decompose result.
         */
         #pragma omp for
-        for (int icrv = 0; icrv < ncrv; icrv++)
+        for (int icrv = 0; icrv < ncrv_; icrv++)
         {
-          const int npts_icrv = det.npts_per_crv[icrv];
+          const int npts_icrv = crvs_[icrv]->nobs;
           int iobs_i=0;
-          for (int i = 0; i < icrv; i++) iobs_i += det.npts_per_crv[i];
-          double ** const Umat_t  = Tsvdg_.Umat+(Rkenc_.ncod*iobs_i);
+          for (int i = 0; i < icrv; i++) iobs_i += crvs_[i]->nobs;
+          double ** const Umat_R_icrv  = Rsvdg_.Umat+(Rkenc_.ncod*iobs_i);
 
-          LD_svd Asvd_icrv( Rkenc_.ncod*npts_icrv, Tsvdg_.Nuse ,
-            Umat_t, VTmats_crvs[icrv], svecs_crvs[icrv], wvec_t );
-          Asvd_icrv.decompose_U();
-          Asvd_icrv.transpose_V();
+          // generate svd solver over populated U curve R submatrix and local right space data
+          LD_svd Rsvd_icrv( Rkenc_.ncod*npts_icrv, Rsvdg_.Nuse,
+            Umat_R_icrv, VTmats_crvs[icrv], svecs_crvs[icrv], wvec_t );
 
-          for (int j = 0; j < npts_icrv; j++)
-          {
+          Rsvd_icrv.decompose_U_transpose_V(); // decompose U, transpose V to set VT
+          tapv_t.set_SVD_space( svecs_crvs[icrv], VTmats_crvs[icrv] );
 
-            // Umat_t
-          }
+          double ** const Umat_T_icrv  = Tsvdg_.Umat+iobs_i;
+          ode_solution ** const sols_i = crvs_[icrv]->sols;
+          // compute image of curve local trivial vector field
+          for (int i = 0; i < npts_icrv; i++)
+            tapv_t.comp_spectral_theta_local( Umat_T_icrv[i], sols_i[i]->x, sols_i[i]->u );
 
+          // generate svd solver over populated U curve T submatrix and local right space data
+          LD_svd Tsvd_icrv( npts_icrv, Rsvdg_.Nuse,
+            Umat_T_icrv, VTmats_crvs[icrv], svecs_crvs[icrv], wvec_t );
+          // compute svd of theta curve image, transpose V to set VT
+          Tsvd_icrv.decompose_U_transpose_V();
+          // the resultant V spans, at most, a P dimensional subspace of R^N
         }
+        // wait for other threads to finish encoding and decomposing curve T submatrices
 
+        // write P dimensional row space basis of each curve to global Theta matrix decomposition
+        #pragma omp for
+        for (int icrv = 0; icrv < ncrv_; icrv++)
+        {
+          double ** const Umat_Tg_icrv = Tsvdg_.Umat+(icrv*(fspace0.perm_len));
+          for (int iP = 0; iP < fspace0.perm_len; iP++)
+            for (int iN = 0; iN < Rsvdg_.Nuse; iN++)
+              Umat_Tg_icrv[iP][iN] = svecs_crvs[icrv][iP]*VTmats_crvs[icrv][iP][iN];
+        }
       }
+      // wait for all curves to finish encoding curve Theta matrices
 
+      const int Muse_old = Tsvdg_.Muse;
+      Tsvdg_.decompose_U(ncrv_*(fspace0.perm_len),Tsvdg_.Nuse);
+
+      int rank_out = Tsvdg_.rank();
+      Tsvdg_.set_use_dims(Muse_old,Tsvdg_.Nuse);
+
+      return rank_out;
     }
     inline void encode_matrix(double **U_g_,LD_encoder &Aenc_,orthopolynomial_basis **fbases_,ode_solution **sols_,int nobs_, bool normalization_flag_=false)
     {
@@ -827,20 +870,20 @@ struct global_multinomial_experiment : public multinomial_experiment
         }
       }
     }
-    inline void telescope_global_matrix(LD_svd &Asvdg_,int ncod_,bool nrm_flg_=false)
+    // inline void telescope_global_matrix(LD_svd &Asvdg_,int ncod_,bool nrm_flg_=false)
+    inline void telescope_global_matrix(double **Umat_,int Nuse_,int ncod_,int *npts_per_crv_,bool nrm_flg_=false)
     {
       #pragma omp parallel
       {
-        double ** const Umatg_t = Asvdg_.Umat,
-                        wvec_t[ndof_full];
+        double wvec_t[Nuse_];
         #pragma omp for
         for (int icrv = 0; icrv < ncrv; icrv++)
         {
           int iobs_i=0;
-          for (int i = 0; i < icrv; i++) iobs_i += det.npts_per_crv[i];
+          for (int i = 0; i < icrv; i++) iobs_i += npts_per_crv_[i];
 
-          LD_svd Asvd_icrv( ncod_*det.npts_per_crv[icrv], Asvdg_.Nuse ,
-            Umatg_t+(ncod_*iobs_i), VTmats_crvs[icrv], svecs_crvs[icrv], wvec_t );
+          LD_svd Asvd_icrv( ncod_*npts_per_crv_[icrv], Nuse_ ,
+            Umat_+(ncod_*iobs_i), VTmats_crvs[icrv], svecs_crvs[icrv], wvec_t );
 
           Asvd_icrv.decompose_U();
           Asvd_icrv.transpose_V();
@@ -849,19 +892,19 @@ struct global_multinomial_experiment : public multinomial_experiment
         #pragma omp for
         for (int icrv = 0; icrv < ncrv; icrv++)
         {
-          double ** const Umat_i = Umatg_t + (Asvdg_.Nuse*icrv);
+          double ** const Umat_i = Umat_ + (Nuse_*icrv);
 
           if (nrm_flg_)
           {
-            const double fro_i = LD_linalg::norm_l2(svecs_crvs[icrv],Asvdg_.Nuse);
+            const double fro_i = LD_linalg::norm_l2(svecs_crvs[icrv],Nuse_);
 
-            for (int i = 0; i < Asvdg_.Nuse; i++)
-              for (int j = 0; j < Asvdg_.Nuse; j++)
+            for (int i = 0; i < Nuse_; i++)
+              for (int j = 0; j < Nuse_; j++)
                 Umat_i[i][j] = svecs_crvs[icrv][i]*VTmats_crvs[icrv][i][j]/fro_i;
           }
           else
-            for (int i = 0; i < Asvdg_.Nuse; i++)
-              for (int j = 0; j < Asvdg_.Nuse; j++)
+            for (int i = 0; i < Nuse_; i++)
+              for (int j = 0; j < Nuse_; j++)
                 Umat_i[i][j] = svecs_crvs[icrv][i]*VTmats_crvs[icrv][i][j];
         }
       }
@@ -870,7 +913,7 @@ struct global_multinomial_experiment : public multinomial_experiment
     {
       const int Muse_old = Asvdg_.Muse;
 
-      telescope_global_matrix(Asvdg_,ncod_,nrm_flg_);
+      telescope_global_matrix(Asvdg_.Umat,Asvdg_.Nuse,ncod_,det.npts_per_crv,nrm_flg_);
       Asvdg_.decompose_U(ncrv*Asvdg_.Nuse,Asvdg_.Nuse);
       Asvdg_.unpack_VTmat(VTmg_);
       int rank_out = Asvdg_.rank();

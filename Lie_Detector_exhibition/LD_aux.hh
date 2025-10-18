@@ -590,6 +590,26 @@ struct LD_svd : public LD_rectangular_decomp
           * const wvec;
   double &s0 = svec[0];
 
+  static int rank(double *s_, int len_, int iscl_)
+  {
+    const double tol_eps = ((double) iscl_) * LD_linalg::eps(s_[0]);
+    int rank_out = 0;
+    for (size_t i = 0; i < len_; i++)
+      if (s_[i]>tol_eps) rank_out++;
+      else break;
+    return rank_out;
+  }
+
+  inline int comp_rank(double tol_eps_)
+  {
+    int rank_out = 0;
+    for (size_t i = 0; i < Nuse; i++)
+      if (svec[i]>tol_eps_) rank_out++;
+      else break;
+    return rank_out;
+  }
+  inline int rank(int iscl_=0) {return comp_rank( ((double) ((iscl_)?(iscl_):(Muse)))*(LD_linalg::eps(svec[0])) );}
+  inline int nulldim(int iscl_=0) {return Nuse - rank(iscl_);}
   inline double cond() {return svec[Nuse-1]/svec[0];}
   inline double sigma_min() {return svec[Nuse-1];}
   inline double norm_oprt() {return svec[0];}
@@ -599,13 +619,11 @@ struct LD_svd : public LD_rectangular_decomp
     for (size_t i = 0; i < Nuse; i++) acc += svec[i];
     return acc;
   }
-
   inline void print_result(const char name_[])
   {
     printf("(LD_svd::print_result) %s (%d x %d) SVD (rank = %d):\n", name_, Muse, Nuse, rank());
     LD_linalg::print_xT("  s",svec,Nuse);
   }
-
   inline void transpose_V()
   {
     for (int i = 0, Nusem1 = Nuse-1; i < Nusem1; i++)
@@ -617,6 +635,9 @@ struct LD_svd : public LD_rectangular_decomp
       }
   }
 
+  /*
+    decompositions
+  */
   inline void load_and_decompose_U(double **Amat_, int Muse_=0, int Nuse_=0)
   {
     set_use_dims(Muse_,Nuse_);
@@ -627,7 +648,6 @@ struct LD_svd : public LD_rectangular_decomp
                     w_gsl = gsl_vector_view_array(wvec,Nuse);
     int status_decomp = gsl_linalg_SV_decomp(&(U_gsl.matrix),&(V_gsl.matrix),&(s_gsl.vector),&(w_gsl.vector));
   }
-
   inline void decompose_U(int Muse_=0, int Nuse_=0)
   {
     set_use_dims(Muse_,Nuse_);
@@ -636,6 +656,11 @@ struct LD_svd : public LD_rectangular_decomp
     gsl_vector_view s_gsl = gsl_vector_view_array(svec,Nuse),
                     w_gsl = gsl_vector_view_array(wvec,Nuse);
     int status_decomp = gsl_linalg_SV_decomp(&(U_gsl.matrix),&(V_gsl.matrix),&(s_gsl.vector),&(w_gsl.vector));
+  }
+  inline void decompose_U_transpose_V(int Muse_=0, int Nuse_=0)
+  {
+    decompose_U(Muse_,Nuse_);
+    transpose_V();
   }
   inline void decompose_U_pseudoinvert_SV_ordered(int Muse_=0, int Nuse_=0)
   {
@@ -651,6 +676,9 @@ struct LD_svd : public LD_rectangular_decomp
     LD_util::flip_Tmatrix_rows<double>(Umat,Muse,Nuse);
   }
 
+  /*
+    output
+  */
   inline void unpack_VTmat(double **VTmat_)
   {
     for (size_t i = 0; i < Nuse; i++)
@@ -667,27 +695,10 @@ struct LD_svd : public LD_rectangular_decomp
     unpack_svec_VTmat(svec_,VTmat_);
     return comp_rank(((double) Muse)*(LD_linalg::eps(svec_[0])));
   }
-  inline int nulldim(int iscl_=0) {return Nuse - rank(iscl_);}
-  inline int rank(int iscl_=0) {return comp_rank( ((double) ((iscl_)?(iscl_):(Muse)))*(LD_linalg::eps(svec[0])) );}
-  inline int comp_rank(double tol_eps_)
-  {
-    int rank_out = 0;
-    for (size_t i = 0; i < Nuse; i++)
-      if (svec[i]>tol_eps_) rank_out++;
-      else break;
-    return rank_out;
-  }
 
-  static int rank(double *s_, int len_, int iscl_)
-  {
-    const double tol_eps = ((double) iscl_) * LD_linalg::eps(s_[0]);
-    int rank_out = 0;
-    for (size_t i = 0; i < len_; i++)
-      if (s_[i]>tol_eps) rank_out++;
-      else break;
-    return rank_out;
-  }
-
+  /*
+    file io
+  */
   void write_LD_svd(const char name_[], bool write_U_=true, bool verbose_=true)
   {
     FILE * file = fopen(name_,"wb");
