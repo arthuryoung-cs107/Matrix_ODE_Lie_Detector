@@ -584,19 +584,41 @@ struct LD_trivial_vector_field : public LD_svd_vector_field
 
   function_space_basis &fbse;
 
+  inline void fill_lamvec_local(double x_,double *u_)
+  {
+    pts_local[0] = x_;
+    for (int i = 0; i < fspc.ndep; i++) pts_local[i+1] = u_[i];
+    fspc.lamvec_eval(pts_local,lamvec_local,vxu_wkspc);
+  }
+
   virtual void dudx_eval(double x_,double *u_,double *dudx_)
   {
     // compute local parameter values
     comp_nullspace_theta_local(theta_local,x_,u_);
     eval_theta_image(u_,dudx_);
   }
-
+  inline void comp_rowspace_theta_local(double *theta_,double x_,double *u_)
+  {
+    if (!rank) set_rank();
+    fill_lamvec_local(x_,u_);
+    const int len_lam = fspc.perm_len,
+              len_theta = fspc.ndof_full,
+              nvec_use = fspc.ndof_full;
+    double Wnet = 0.0;
+    for (int i = 0; i < len_theta; i++) theta_[i] = 0.0;
+    for (int ith = 0; ith < rank; ith++) // compute local parameter values via specified rank
+    {
+      double  vx_ith = 0.0;
+      for (int i = 0; i < len_lam; i++) vx_ith += VTm[ith][i]*lamvec_local[i];
+      for (int i = 0; i < len_theta; i++) theta_[i] += vx_ith*VTm[ith][i];
+      Wnet += vx_ith*vx_ith;
+    }
+    for (int i = 0; i < len_theta; i++) theta_[i] /= Wnet; // normalize local parameters
+  }
   inline void comp_nullspace_theta_local(double *theta_,double x_,double *u_)
   {
     if (!rank) set_rank();
-    pts_local[0] = x_;
-    for (int i = 0; i < fspc.ndep; i++) pts_local[i+1] = u_[i];
-    fspc.lamvec_eval(pts_local,lamvec_local,vxu_wkspc);
+    fill_lamvec_local(x_,u_);
     const int len_lam = fspc.perm_len,
               len_theta = fspc.ndof_full,
               nvec_use = fspc.ndof_full;
@@ -706,9 +728,11 @@ struct LD_spectral_tvfield : public LD_trivial_vector_field
     {comp_spectral_theta_local(theta_local,x_,u_);}
   inline void comp_spectral_theta_local(double *theta_,double x_,double *u_)
   {
-    pts_local[0] = x_;
-    for (int i = 0; i < fspc.ndep; i++) pts_local[i+1] = u_[i];
-    fspc.lamvec_eval(pts_local,lamvec_local,vxu_wkspc);
+    // pts_local[0] = x_;
+    // for (int i = 0; i < fspc.ndep; i++) pts_local[i+1] = u_[i];
+    // fspc.lamvec_eval(pts_local,lamvec_local,vxu_wkspc);
+    fill_lamvec_local(x_,u_);
+
     const int len_lam = fspc.perm_len,
               len_theta = fspc.ndof_full,
               nvec_use = fspc.ndof_full;

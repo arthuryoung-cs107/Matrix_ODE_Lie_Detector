@@ -768,6 +768,8 @@ struct global_multinomial_experiment : public multinomial_experiment
       #pragma omp parallel
       {
         orthopolynomial_basis &fbse_t = *( fbases_[LD_threads::thread_id()] );
+
+        // encode global R^(k) matrix
         #pragma omp for
         for (int i = 0; i < nobs_; i++)
         {
@@ -779,18 +781,30 @@ struct global_multinomial_experiment : public multinomial_experiment
             );
         }
 
-        double wvec_t[ndof_full];
+        double wvec_t[ndof_full]; // workspace for svd and theta image
+        /*
+          Decompose curve R^(k) matrix, transpose V.
+          Compute Theta mat image for each curve, decompose result.
+        */
         #pragma omp for
         for (int icrv = 0; icrv < ncrv; icrv++)
         {
+          const int npts_icrv = det.npts_per_crv[icrv];
           int iobs_i=0;
           for (int i = 0; i < icrv; i++) iobs_i += det.npts_per_crv[i];
+          double ** const Umat_t  = Tsvdg_.Umat+(Rkenc_.ncod*iobs_i);
 
-          LD_svd Asvd_icrv( Rkenc_.ncod*det.npts_per_crv[icrv], Tsvdg_.Nuse ,
-            Tsvdg_.Umat+(Rkenc_.ncod*iobs_i), VTmats_crvs[icrv], svecs_crvs[icrv], wvec_t );
-
+          LD_svd Asvd_icrv( Rkenc_.ncod*npts_icrv, Tsvdg_.Nuse ,
+            Umat_t, VTmats_crvs[icrv], svecs_crvs[icrv], wvec_t );
           Asvd_icrv.decompose_U();
           Asvd_icrv.transpose_V();
+
+          for (int j = 0; j < npts_icrv; j++)
+          {
+
+            // Umat_t
+          }
+
         }
 
       }
