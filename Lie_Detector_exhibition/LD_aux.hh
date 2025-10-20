@@ -600,6 +600,12 @@ struct LD_svd : public LD_rectangular_decomp
     return rank_out;
   }
 
+  inline int comp_rank_set_dims(int Muse_,int Nuse_=0,int iscl_=0)
+  {
+    const int rank_out = rank( (iscl_)?(iscl_):(Muse) );
+    set_use_dims(Muse_,(Nuse_)?(Nuse_):(Nuse));
+    return rank_out;
+  }
   inline int comp_rank(double tol_eps_)
   {
     int rank_out = 0;

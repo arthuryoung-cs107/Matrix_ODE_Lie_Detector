@@ -153,6 +153,14 @@ struct global_Rmat_experiment : public global_multinomial_experiment
              res_1,
              t0 = LD_threads::tic();
 
+      int rank_TPg0 = compute_global_trivial_Theta_svdspace<LD_spectral_tvfield>(
+            Rsvd_global, LDtwin.Theta_SVD,
+            Rkenc,
+            tvfields0, fbases0,
+            curves, ncrv, false );
+      LDtwin.Theta_SVD.print_result("Tsvd_Projected_global");
+      write_svd_data(LDtwin.Theta_SVD,".Tsvd_Pg_full",true,-1,true);
+
       int rank0 = encode_decompose_R_matrix_global(VTmat_Rk_global,Rsvd_global,Rkenc,sols,nobs);
         Rsvd_global.print_result("Rsvd_global");
 

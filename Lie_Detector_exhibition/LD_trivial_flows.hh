@@ -527,7 +527,7 @@ struct LD_svd_vector_field : public ode_system
     ndof_ODE(eor_*ndep_), rank(0),
     sv(sv_), VTm(VTm_),
     // sigma0(sv_[0]), sigmaN(sv_[fspc_.ndof_full-1]),
-    ispc(0)
+    ispc(0), Mspc(fspc_.ndof_full)
     {}
   ~LD_svd_vector_field()  {}
 
@@ -550,6 +550,9 @@ struct LD_svd_vector_field : public ode_system
   inline void set_SVD_space(double *sv_,double **VTm_)
     { sv = sv_; VTm = VTm_; }
 
+  inline void set_SVD_space(double *sv_,double **VTm_,int ispc_,int Mspc_)
+    { sv = sv_; VTm = VTm_; }
+
   protected:
 
     // double *  const sv,
@@ -559,7 +562,8 @@ struct LD_svd_vector_field : public ode_system
     double *  sv,
            ** VTm;
 
-    int ispc;
+    int ispc,
+        Mspc;
 
 };
 
