@@ -1,12 +1,12 @@
-CXX:=g++-14
-CC:=gcc-14
+CXX:=g++-15
+CC:=gcc-15
 OS:=OSX
 CFLAGS_EXHIB:= -march=native -O3 -fopenmp -DGSL -DHAVE_INLINE
 
 IBASIC:=-isystem/usr/local/include/
 LINK:=-L/usr/local/lib/
-# LIBS_EXHIB:=-lm -lgsl -lgslcblas
-LIBS_EXHIB:=-lm -lgsl -lcblas
+LIBS_EXHIB:=-lm -lgsl -lgslcblas
+# LIBS_EXHIB:=-lm -lgsl -lcblas
 
 # directories
 
