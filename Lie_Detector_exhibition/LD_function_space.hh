@@ -393,6 +393,20 @@ struct partial_chunk
   inline double * grad_utheta_i_vdxu(int i_) {return C_u[i_];}
 };
 
+// struct Jv_chunk
+// {
+//   double * const lam_
+//   Jv_chunk(int perm_len_, int kcap_, int ndep_) :
+//
+//   {
+//
+//   }
+//   ~Jv_chunk()
+//   {
+//
+//   }
+// };
+
 struct prolongation_workspace: public function_space_element
 {
 
@@ -515,6 +529,36 @@ class function_space_basis: public function_space_element
       if (!(dof_hot_flags[i])) {fill_partial_chunk_sparse(s_,eorcap_); return;}
     fill_partial_chunk_full(s_,eorcap_);
   }
+
+  // void Jac_tku_W(double *Jac_,double *s_,double **W_,int k_=0)
+  // {
+  //   const int kcap = (k_)?(k_):(eor);
+  //   init_workspace(s_); // precompute powers of variables and derivatives
+  //   coupling_term &c0 = *(couples[0]);
+  //   for (int ixord = 0, i_L_start = 0; ixord < ord_len; i_L_start+=ord_i_len, ixord++)
+  //   {
+  //     double Li_x = stage_indep_var(ixord);
+  //     for (int iu_perm = 0, i_L = i_L_start; iu_perm < ord_i_len; iu_perm++, i_L++)
+  //     {
+  //       double  Li_u = stage_dep_var(i_L),
+  //               Li = Jac_mat[0][i_L] = Li_x*Li_u;
+  //       for (int ivar = 1; ivar <= ndep; ivar++) Jac_mat[ivar][i_L] = Li;
+  //
+  //       if (kcap>0)
+  //       {
+  //         stage_coupling(-1.0); compute_x_coupling(c0,kcap); // perform dxde couplings
+  //           // accumulate dxde contribution to v, store partial derivative
+  //         for (int idnxu = nvar, iparx = 0; idnxu < ndim; idnxu++, iparx++) C_x[i_L][0][iparx] = v_j[idnxu];
+  //
+  //         // perform dude couplings
+  //         stage_coupling(1.0); compute_u_coupling(1,c0,kcap);
+  //         for (int ider = 1, idnxu = nvar, idnxu_skip = idnxu; ider <= eor; ider++, idnxu_skip+=ndep)
+  //           C_u[i_L][ider-1] = v_j[idnxu_skip];
+  //       }
+  //     }
+  //   }
+  //
+  // }
 
   protected:
 

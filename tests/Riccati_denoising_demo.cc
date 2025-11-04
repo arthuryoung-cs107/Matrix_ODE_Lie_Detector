@@ -43,6 +43,10 @@ const char dnp1xu_suffix[] = "_dnp1xu";
 char data_dnp1xu_name[strlen(dir_name) + strlen(obs_name) + strlen(dnp1xu_suffix) + strlen(dat_suff) + 1];
 const int data_dnp1xu_name_len = sprintf(data_dnp1xu_name,"%s%s%s%s", dir_name,obs_name,dnp1xu_suffix,dat_suff);
 
+const char JFs_suffix[] = "_JFs";
+char data_JFs_name[strlen(dir_name) + strlen(obs_name) + strlen(JFs_suffix) + strlen(dat_suff) + 1];
+const int data_JFs_name_len = sprintf(data_JFs_name,"%s%s%s%s", dir_name,obs_name,JFs_suffix,dat_suff);
+
 // ode_solspc_meta meta0(1,1); // Riccati equation : n = 1, q = 1
 
 const int Hermite_exp = 1; // 1, flag for Hermite exponentiation technique (0 uses num. quadrature instead)
@@ -83,7 +87,8 @@ const int write_sched = 1;
 // const int write_sched = 5;
 
 // ode_curve_observations observations(data_name);
-  ode_curve_observations observations(data_name,data_dnp1xu_name);
+  // ode_curve_observations observations(data_name,data_dnp1xu_name);
+  ode_curve_observations observations(data_name,data_dnp1xu_name,data_JFs_name);
 
 const int kor_obs = observations.kor_obs();
 
