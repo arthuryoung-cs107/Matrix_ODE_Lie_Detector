@@ -79,8 +79,25 @@ struct function_space: public ode_solspc_element
   inline void lamvec_eval(double *xu_, double *lamvec_, vxu_workspace &wkspc_)
   {
     init_vxu(xu_,wkspc_); // precompute powers of variables
-    for (size_t ilam = 0; ilam < perm_len; ilam++)
+    for (int ilam = 0; ilam < perm_len; ilam++)
       lamvec_[ilam] = comp_lambda_i(ilam,wkspc_.xu_vals);
+  }
+  inline void Jlamvec_eval(double *J_chunk_, vxu_workspace &wkspc_, double *xu_)
+  {
+    init_vxu(xu_,wkspc_); // precompute powers of variables
+    for (int ilam = 0, iJ = 0; ilam < perm_len; ilam++, iJ+=nvar)
+    {
+      // compute lambda_i at x,u, accumulated and saving L coordinate evals in place.
+      double lam_i = 1.0;
+      for (int ivar = 0, iiJ = iJ; ivar < nvar; ivar++, iiJ++)
+        lam_i *= ( J_chunk_[iiJ] = wkspc_.xu_vals[ivar][order_mat[ilam][ivar]] );
+
+      // Quickly (safely?) set partial derivatives
+      for (int ivar = 0, iiJ = iJ; ivar < nvar; ivar++, iiJ++)
+        J_chunk_[iiJ] = (lam_i/J_chunk_[iiJ]) // here is where we would define zero behavior
+                          *get_dcoeff( ivar, order_mat[ilam][ivar] )
+                          *eval_dnLi( 1 , wkspc_.xu_vals[ivar], order_mat[ilam][ivar] ) ;
+    }
   }
   void vxu_eval(double *xu_,double *v_,vxu_workspace &wkspc_);
   void vx_spc_eval(double *xu_, double *vx_, vxu_workspace &wkspc_, double ** Kmat_, int kappa_);
@@ -89,7 +106,7 @@ struct function_space: public ode_solspc_element
   {
     int * const Ovec_i = order_mat[ilam_];
     double  out = 1.0;
-    for (size_t ivar = 0; ivar < nvar; ivar++) out *= xu_vals_[ivar][Ovec_i[ivar]];
+    for (int ivar = 0; ivar < nvar; ivar++) out *= xu_vals_[ivar][Ovec_i[ivar]];
     return out;
   }
 
@@ -238,9 +255,18 @@ struct orthopolynomial_space: public power_space
   }
 
   double eval_Li(double *v_, int O_)
-    {double L_acc = 0.0; for (int i = 0; i <= O_ ; i++) L_acc += poly_coeffs[O_][i]*v_[i]; return L_acc;}
+  {
+    double L_acc = 0.0;
+    for (int i = 0; i <= O_ ; i++) L_acc += poly_coeffs[O_][i]*v_[i];
+    return L_acc;
+  }
   double eval_dnLi(int n_, double *v_, int O_)
-    {double dnL_acc=0.0; for (int i = n_, ishift=0; i <= O_; i++, ishift++) dnL_acc += ((double)icoeff_mat[n_][ishift])*poly_coeffs[O_][i]*v_[i-n_]; return dnL_acc;}
+  {
+    double dnL_acc=0.0;
+    for (int i = n_, ishift=0; i <= O_; i++, ishift++)
+      dnL_acc += ((double)icoeff_mat[n_][ishift])*poly_coeffs[O_][i]*v_[i-n_];
+    return dnL_acc;
+  }
   double get_dcoeff(int idim_, int O_) {return fmap_m[idim_];}
 
   inline void set_multinomial_coeffs()
