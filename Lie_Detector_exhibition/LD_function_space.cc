@@ -2,9 +2,9 @@
 #include "LD_aux.hh"
 // #include "LD_io.hh"
 
-vxu_workspace::vxu_workspace(int nvar_, int ord_len_):
-xu(new double[nvar_]), xu_vals(Tmatrix<double>(nvar_,ord_len_)) {}
-vxu_workspace::~vxu_workspace() {delete xu; free_Tmatrix<double>(xu_vals);}
+// vxu_workspace::vxu_workspace(int nvar_, int ord_len_):
+// xu(new double[nvar_]), xu_vals(Tmatrix<double>(nvar_,ord_len_)) {}
+// vxu_workspace::~vxu_workspace() {delete xu; free_Tmatrix<double>(xu_vals);}
 
 function_space::function_space(ode_solspc_meta &meta_, int bor_, int perm_len_):
 ode_solspc_element(meta_), bor(bor_), perm_len(perm_len_),

@@ -39,8 +39,11 @@ struct permutation_computer
 
 struct vxu_workspace
 {
-  vxu_workspace(int nvar_, int ord_len_);
-  ~vxu_workspace();
+  // vxu_workspace(int nvar_, int ord_len_);
+  // ~vxu_workspace();
+  vxu_workspace(int nvar_, int ord_len_) :
+    xu(new double[nvar_]), xu_vals(Tmatrix<double>(nvar_,ord_len_)) {}
+  ~vxu_workspace() {delete xu; free_Tmatrix<double>(xu_vals);}
 
   double  * const xu,
           ** const xu_vals;
@@ -78,35 +81,57 @@ struct function_space: public ode_solspc_element
 
   inline void lamvec_eval(double *xu_, double *lamvec_, vxu_workspace &wkspc_)
   {
-    init_vxu(xu_,wkspc_); // precompute powers of variables
+    init_vxu(xu_,wkspc_); // precompute bor-order separable basis functions
     for (int ilam = 0; ilam < perm_len; ilam++)
       lamvec_[ilam] = comp_lambda_i(ilam,wkspc_.xu_vals);
   }
-  inline void Jlamvec_eval(double *J_chunk_, vxu_workspace &wkspc_, double *xu_)
+  inline void J_lamvec_eval(double *J_chunk_, vxu_workspace &wkspc_, double *xu_)
   {
-    init_vxu(xu_,wkspc_); // precompute powers of variables
+    precompute_xu_workspace(wkspc_,xu_); // precompute basis function components in each variable
+    double ** const xu_vals_work = wkspc_.xu_vals;
     for (int ilam = 0, iJ = 0; ilam < perm_len; ilam++, iJ+=nvar)
     {
       // compute lambda_i at x,u, accumulated and saving L coordinate evals in place.
       double lam_i = 1.0;
       for (int ivar = 0, iiJ = iJ; ivar < nvar; ivar++, iiJ++)
-        lam_i *= ( J_chunk_[iiJ] = wkspc_.xu_vals[ivar][order_mat[ilam][ivar]] );
+        lam_i *= ( J_chunk_[iiJ] = eval_Li(xu_vals_work[ivar],order_mat[ilam][ivar]) );
 
-      // Quickly (safely?) set partial derivatives
+      // Quickly, safely set partial derivatives
       for (int ivar = 0, iiJ = iJ; ivar < nvar; ivar++, iiJ++)
-        J_chunk_[iiJ] = (lam_i/J_chunk_[iiJ]) // here is where we would define zero behavior
-                          *get_dcoeff( ivar, order_mat[ilam][ivar] )
-                          *eval_dnLi( 1 , wkspc_.xu_vals[ivar], order_mat[ilam][ivar] ) ;
+        J_chunk_[iiJ] =
+        ( is_zero(J_chunk_[iiJ]) )?( comp_partial_ivar_lambda_i( ivar,ilam,xu_vals_work ) ) // safely compute
+          :( // otherwise, this is a simple update calculation
+            (lam_i/J_chunk_[iiJ]) // here is where we would get undefined behavior
+            *get_dcoeff( ivar, order_mat[ilam][ivar] ) // get derivative coefficient
+            *eval_dnLi( 1 , xu_vals_work[ivar], order_mat[ilam][ivar] )  // compute derivative
+          );
     }
   }
   void vxu_eval(double *xu_,double *v_,vxu_workspace &wkspc_);
   void vx_spc_eval(double *xu_, double *vx_, vxu_workspace &wkspc_, double ** Kmat_, int kappa_);
+
+  virtual void precompute_xu_workspace(vxu_workspace &wkspc_,double *xu_in_) = 0;
   virtual void init_vxu(double *xu_in_, vxu_workspace &wkspc_) = 0;
+
+  inline double comp_partial_ivar_lambda_i(int ivar_,int ilam_, double **xu_vals_)
+  {
+    double  out = 1.0;
+
+    for (int i = 0; i < ivar_; i++)
+      out *= eval_Li( xu_vals_[i],order_mat[ilam_][i] );
+
+    out *= get_dcoeff( ivar_, order_mat[ilam_][ivar_] )
+            *eval_dnLi( 1 , xu_vals_[ivar_], order_mat[ilam_][ivar_] );
+
+    for (int i = ivar_+1; i < nvar; i++)
+      out *= eval_Li( xu_vals_[i],order_mat[ilam_][i] );
+
+    return out;
+  }
   inline double comp_lambda_i(int ilam_, double **xu_vals_)
   {
-    int * const Ovec_i = order_mat[ilam_];
     double  out = 1.0;
-    for (int ivar = 0; ivar < nvar; ivar++) out *= xu_vals_[ivar][Ovec_i[ivar]];
+    for (int ivar = 0; ivar < nvar; ivar++) out *= xu_vals_[ivar][order_mat[ilam_][ivar]];
     return out;
   }
 
@@ -114,6 +139,7 @@ struct function_space: public ode_solspc_element
   virtual double eval_dnLi(int n_, double *v_, int O_) = 0;
   virtual double get_dcoeff(int idim_, int O_) = 0;
 
+  inline bool is_zero(double in_) {return ((in_+0.0)==0.0);}
 };
 
 struct power_space: public function_space
@@ -131,7 +157,8 @@ struct power_space: public function_space
     for (int ivar = 0; ivar < nvar; ivar++) // precompute powers of indep. and dep. vars.
     {
       xu_vals_[ivar][0] = 1.0;
-      for (int ipow = 1; ipow <= bor; ipow++) xu_vals_[ivar][ipow] = xu_vals_[ivar][ipow-1]*xu_[ivar];
+      for (int ipow = 1; ipow <= bor; ipow++)
+        xu_vals_[ivar][ipow] = xu_vals_[ivar][ipow-1]*xu_[ivar];
     }
   }
 };
@@ -245,10 +272,30 @@ struct orthopolynomial_space: public power_space
     }
   }
 
+  inline void precompute_xu_powers(double **xu_vals_,double *xu_map_,double *xu_raw_)
+  {
+    // apply linear map of variables to polynomial family domain
+    for (int ivar = 0; ivar < nvar; ivar++)
+      xu_map_[ivar] = (fmap_m[ivar]*xu_raw_[ivar]) + fmap_b[ivar];
+
+    // compute monomial powers in each variable
+    init_xu_vals(xu_map_,xu_vals_);
+  }
+
+  void precompute_xu_workspace(vxu_workspace &wkspc_,double *xu_in_)
+    { precompute_xu_powers(wkspc_.xu_vals,wkspc_.xu,xu_in_); }
   void init_vxu(double *xu_in_, vxu_workspace &wkspc_)
   {
-    for (size_t ivar = 0; ivar < nvar; ivar++) wkspc_.xu[ivar] = (fmap_m[ivar]*xu_in_[ivar]) + fmap_b[ivar];
+    // apply linear map of variables to polynomial family domain
+    for (int ivar = 0; ivar < nvar; ivar++)
+      wkspc_.xu[ivar] = (fmap_m[ivar]*xu_in_[ivar]) + fmap_b[ivar];
+
+    // begin by computing monomial powers in each variable
     init_xu_vals(wkspc_.xu,wkspc_.xu_vals);
+
+    // precompute_xu_powers( wkspc_.xu_vals,wkspc_.xu,xu_in_ );
+
+    // use monomial powers to compute polynomial family values over each variable
     for (int ivar = ndep; ivar >= 0; ivar--)
       for (int iord = bor; iord >= 0; iord--)
         wkspc_.xu_vals[ivar][iord] = eval_Li(wkspc_.xu_vals[ivar],iord);
@@ -556,36 +603,6 @@ class function_space_basis: public function_space_element
     fill_partial_chunk_full(s_,eorcap_);
   }
 
-  // void Jac_tku_W(double *Jac_,double *s_,double **W_,int k_=0)
-  // {
-  //   const int kcap = (k_)?(k_):(eor);
-  //   init_workspace(s_); // precompute powers of variables and derivatives
-  //   coupling_term &c0 = *(couples[0]);
-  //   for (int ixord = 0, i_L_start = 0; ixord < ord_len; i_L_start+=ord_i_len, ixord++)
-  //   {
-  //     double Li_x = stage_indep_var(ixord);
-  //     for (int iu_perm = 0, i_L = i_L_start; iu_perm < ord_i_len; iu_perm++, i_L++)
-  //     {
-  //       double  Li_u = stage_dep_var(i_L),
-  //               Li = Jac_mat[0][i_L] = Li_x*Li_u;
-  //       for (int ivar = 1; ivar <= ndep; ivar++) Jac_mat[ivar][i_L] = Li;
-  //
-  //       if (kcap>0)
-  //       {
-  //         stage_coupling(-1.0); compute_x_coupling(c0,kcap); // perform dxde couplings
-  //           // accumulate dxde contribution to v, store partial derivative
-  //         for (int idnxu = nvar, iparx = 0; idnxu < ndim; idnxu++, iparx++) C_x[i_L][0][iparx] = v_j[idnxu];
-  //
-  //         // perform dude couplings
-  //         stage_coupling(1.0); compute_u_coupling(1,c0,kcap);
-  //         for (int ider = 1, idnxu = nvar, idnxu_skip = idnxu; ider <= eor; ider++, idnxu_skip+=ndep)
-  //           C_u[i_L][ider-1] = v_j[idnxu_skip];
-  //       }
-  //     }
-  //   }
-  //
-  // }
-
   protected:
 
     const bool dxu_pows_allocate = eor > 2;
@@ -809,8 +826,8 @@ class orthopolynomial_basis: public power_basis
 
       void init_workspace(double *s_)
       {
-        for (size_t idim = 0; idim < ndim; idim++) s_j_raw[idim] = s_j_hat[idim] = s_[idim];
-        for (size_t ivar = 0; ivar < nvar; ivar++) s_j_hat[ivar] = (map_params[0][ivar]*s_j_hat[ivar]) + map_params[1][ivar];
+        for (int idim = 0; idim < ndim; idim++) s_j_raw[idim] = s_j_hat[idim] = s_[idim];
+        for (int ivar = 0; ivar < nvar; ivar++) s_j_hat[ivar] = (map_params[0][ivar]*s_j_hat[ivar]) + map_params[1][ivar];
         power_basis::init_workspace(s_j_hat);
       }
 };
