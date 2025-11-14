@@ -39,14 +39,34 @@ struct permutation_computer
 
 struct vxu_workspace
 {
+  double  * const xu,
+          ** const xu_vals;
+
   // vxu_workspace(int nvar_, int ord_len_);
   // ~vxu_workspace();
   vxu_workspace(int nvar_, int ord_len_) :
     xu(new double[nvar_]), xu_vals(Tmatrix<double>(nvar_,ord_len_)) {}
   ~vxu_workspace() {delete xu; free_Tmatrix<double>(xu_vals);}
+};
 
-  double  * const xu,
-          ** const xu_vals;
+struct J_vxu_workspace : public vxu_workspace
+{
+  double  * const lamvec,
+          * const t_theta,
+          ** const Azmat;
+
+  J_vxu_workspace(int nvar_, int ord_len_) : vxu_workspace(nvar_,ord_len_),
+    lamvec(new double[ord_len_]),
+    t_theta(new double[nvar_*ord_len_]),
+    Azmat(Tmatrix<double>(ord_len_,ord_len_))
+  {}
+  ~J_vxu_workspace()
+  {
+    delete [] lamvec;
+    delete [] t_theta;
+    free_Tmatrix<double>(Azmat);
+  }
+
 };
 
 struct function_space: public ode_solspc_element
@@ -100,12 +120,58 @@ struct function_space: public ode_solspc_element
       for (int ivar = 0, iiJ = iJ; ivar < nvar; ivar++, iiJ++)
         J_chunk_[iiJ] =
         ( is_zero(J_chunk_[iiJ]) )?( comp_partial_ivar_lambda_i( ivar,ilam,xu_vals_work ) ) // safely compute
-          :( // otherwise, this is a simple update calculation
+          :( // otherwise, a simple rescaling suffices
             (lam_i/J_chunk_[iiJ]) // here is where we would get undefined behavior
             *get_dcoeff( ivar, order_mat[ilam][ivar] ) // get derivative coefficient
             *eval_dnLi( 1 , xu_vals_work[ivar], order_mat[ilam][ivar] )  // compute derivative
           );
     }
+  }
+  inline void J_tauxu_eval(double *J_chunk_, J_vxu_workspace &wkspc_, double **WTmat_, double *xu_)
+  {
+    lamvec_eval(xu_,wkspc_.lamvec,wkspc_);
+
+    for (int i = 0; i < ndof_full; i++) wkspc_.t_theta[i] = 0.0;
+
+    double * const lvec = wkspc_.lamvec,
+           * const tvec = wkspc_.t_theta,
+           Dlta = 0.0;
+    for (int iN = 0; iN < ndof_full; iN++)
+    {
+      double vx_iN = 0.0;
+      for (int iP = 0; iP < perm_len; iP++) vx_iN += WTmat_[iN][iP]*lvec[iP];
+      Dlta += vx_iN*vx_iN;
+
+      for (int jN = 0; jN < ndof_full; jN++) tvec[jN] += vx_iN*WTmat_[iN][jN];
+    }
+    for (int jN = 0; jN < ndof_full; jN++) tvec[jN] /= Dlta;
+
+    for (int i = 0, Jlen = nvar*nvar; i < Jlen; i++) J_chunk_[i] = 0.0;
+    precompute_xu_workspace(wkspc_,xu_); // precompute basis function components in each variable
+
+    double ** const xu_vals_work = wkspc_.xu_vals,
+            * const lamvec = wkspc_.d_work,
+            * const t_theta_x = lamvec + perm_len,
+            * const t_theta_z = t_theta_x + perm_len;
+
+
+
+    for (int i = 0; i < ndof_full; i++)
+    {
+      t_theta_x[i] = 0.0;
+    }
+
+
+
+    for (int iz = 1, iwz = perm_len; iz <= ndep; iz++, iwz+=perm_len)
+    {
+
+
+      for (int ilam = 0, iJ = 0; ilam < perm_len; ilam++, iJ+=nvar)
+        J_chunk_[iiJ] = comp_partial_ivar_lambda_i( ivar,ilam,xu_vals_work )
+
+    }
+
   }
   void vxu_eval(double *xu_,double *v_,vxu_workspace &wkspc_);
   void vx_spc_eval(double *xu_, double *vx_, vxu_workspace &wkspc_, double ** Kmat_, int kappa_);
@@ -301,17 +367,18 @@ struct orthopolynomial_space: public power_space
         wkspc_.xu_vals[ivar][iord] = eval_Li(wkspc_.xu_vals[ivar],iord);
   }
 
-  double eval_Li(double *v_, int O_)
+  double eval_Li(double *v_, int o_)
   {
     double L_acc = 0.0;
-    for (int i = 0; i <= O_ ; i++) L_acc += poly_coeffs[O_][i]*v_[i];
+    for (int i = 0; i <= o_ ; i++) L_acc += poly_coeffs[o_][i]*v_[i];
     return L_acc;
   }
-  double eval_dnLi(int n_, double *v_, int O_)
+  // n_'th derivative of order o_ basis polynomial given v_ such that y^k = v_[k]
+  double eval_dnLi(int n_, double *v_, int o_)
   {
     double dnL_acc=0.0;
-    for (int i = n_, ishift=0; i <= O_; i++, ishift++)
-      dnL_acc += ((double)icoeff_mat[n_][ishift])*poly_coeffs[O_][i]*v_[i-n_];
+    for (int i = n_, ishift=0; i <= o_; i++, ishift++)
+      dnL_acc += ((double)icoeff_mat[n_][ishift])*poly_coeffs[o_][i]*v_[i-n_];
     return dnL_acc;
   }
   double get_dcoeff(int idim_, int O_) {return fmap_m[idim_];}
