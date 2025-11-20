@@ -121,8 +121,8 @@ struct function_space: public ode_solspc_element
         J_chunk_[iiJ] =
         ( is_zero(J_chunk_[iiJ]) )?( comp_partial_ivar_lambda_i( ivar,ilam,xu_vals_work ) ) // safely compute
           :( // otherwise, a simple rescaling suffices
-            (lam_i/J_chunk_[iiJ]) // here is where we would get undefined behavior
-            *get_dcoeff( ivar, order_mat[ilam][ivar] ) // get derivative coefficient
+            (lam_i/J_chunk_[iiJ]) // divide away L_y(y) contribution to lambda(x,u)
+            *get_dcoeff( ivar, order_mat[ilam][ivar] ) // derivative coefficient
             *eval_dnLi( 1 , xu_vals_work[ivar], order_mat[ilam][ivar] )  // compute derivative
           );
     }
@@ -130,7 +130,7 @@ struct function_space: public ode_solspc_element
   inline void J_tauxu_eval(double *J_chunk_, J_vxu_workspace &wkspc_, double **WTmat_, double *xu_)
   {
     lamvec_eval(xu_,wkspc_.lamvec,wkspc_);
-
+    
     for (int i = 0; i < ndof_full; i++) wkspc_.t_theta[i] = 0.0;
 
     double * const lvec = wkspc_.lamvec,
