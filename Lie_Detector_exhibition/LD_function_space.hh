@@ -53,18 +53,21 @@ struct J_vxu_workspace : public vxu_workspace
 {
   double  * const lamvec,
           * const t_theta,
-          ** const Azmat;
+          * const gt_gl_vec,
+          * const J_l_chunk;
 
   J_vxu_workspace(int nvar_, int ord_len_) : vxu_workspace(nvar_,ord_len_),
     lamvec(new double[ord_len_]),
     t_theta(new double[nvar_*ord_len_]),
-    Azmat(Tmatrix<double>(ord_len_,ord_len_))
+    gvz_gl_vec(new double[ord_len_]),
+    J_l_chunk(new double[nvar_*ord_len_])
   {}
   ~J_vxu_workspace()
   {
     delete [] lamvec;
     delete [] t_theta;
-    free_Tmatrix<double>(Azmat);
+    delete [] gvz_gl_vec;
+    delete [] J_l_chunk;
   }
 
 };
@@ -129,13 +132,19 @@ struct function_space: public ode_solspc_element
   }
   inline void J_tauxu_eval(double *J_chunk_, J_vxu_workspace &wkspc_, double **WTmat_, double *xu_)
   {
+
+    // first compute image of (x,u) through { l } product map
     lamvec_eval(xu_,wkspc_.lamvec,wkspc_);
-    
-    for (int i = 0; i < ndof_full; i++) wkspc_.t_theta[i] = 0.0;
+
+    // compute the Jacobian of { l } vector wrt x, u
+    J_lamvec_eval(wkspc_.J_l_chunk, wkspc_ ,xu_);
 
     double * const lvec = wkspc_.lamvec,
            * const tvec = wkspc_.t_theta,
            Dlta = 0.0;
+    // clear space for local parameter values
+    for (int i = 0; i < ndof_full; i++) wkspc_.t_theta[i] = 0.0;
+    // compute local parameter values
     for (int iN = 0; iN < ndof_full; iN++)
     {
       double vx_iN = 0.0;
@@ -144,33 +153,20 @@ struct function_space: public ode_solspc_element
 
       for (int jN = 0; jN < ndof_full; jN++) tvec[jN] += vx_iN*WTmat_[iN][jN];
     }
+    // rescale with respect to squared x coordinate function.
     for (int jN = 0; jN < ndof_full; jN++) tvec[jN] /= Dlta;
 
-    for (int i = 0, Jlen = nvar*nvar; i < Jlen; i++) J_chunk_[i] = 0.0;
-    precompute_xu_workspace(wkspc_,xu_); // precompute basis function components in each variable
-
-    double ** const xu_vals_work = wkspc_.xu_vals,
-            * const lamvec = wkspc_.d_work,
-            * const t_theta_x = lamvec + perm_len,
-            * const t_theta_z = t_theta_x + perm_len;
-
-
-
-    for (int i = 0; i < ndof_full; i++)
-    {
-      t_theta_x[i] = 0.0;
-    }
-
-
-
-    for (int iz = 1, iwz = perm_len; iz <= ndep; iz++, iwz+=perm_len)
+    for (int iz = 0, iJz = 0, itz = 0; iz < nvar; iz++, iJz+=nvar, itz+=perm_len)
     {
 
+      for (int ig = 0; ig < perm_len; ig++)
+      {
+        
+      }
 
-      for (int ilam = 0, iJ = 0; ilam < perm_len; ilam++, iJ+=nvar)
-        J_chunk_[iiJ] = comp_partial_ivar_lambda_i( ivar,ilam,xu_vals_work )
 
     }
+
 
   }
   void vxu_eval(double *xu_,double *v_,vxu_workspace &wkspc_);
