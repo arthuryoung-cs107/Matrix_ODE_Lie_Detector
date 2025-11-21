@@ -53,20 +53,17 @@ struct J_vxu_workspace : public vxu_workspace
 {
   double  * const lamvec,
           * const t_theta,
-          * const gt_gl_vec,
           * const J_l_chunk;
 
   J_vxu_workspace(int nvar_, int ord_len_) : vxu_workspace(nvar_,ord_len_),
     lamvec(new double[ord_len_]),
     t_theta(new double[nvar_*ord_len_]),
-    gvz_gl_vec(new double[ord_len_]),
     J_l_chunk(new double[nvar_*ord_len_])
   {}
   ~J_vxu_workspace()
   {
     delete [] lamvec;
     delete [] t_theta;
-    delete [] gvz_gl_vec;
     delete [] J_l_chunk;
   }
 
@@ -141,6 +138,7 @@ struct function_space: public ode_solspc_element
 
     double * const lvec = wkspc_.lamvec,
            * const tvec = wkspc_.t_theta,
+           * const Jl_v = wkspc_.J_l_chunk,
            Dlta = 0.0;
     // clear space for local parameter values
     for (int i = 0; i < ndof_full; i++) wkspc_.t_theta[i] = 0.0;
@@ -156,18 +154,36 @@ struct function_space: public ode_solspc_element
     // rescale with respect to squared x coordinate function.
     for (int jN = 0; jN < ndof_full; jN++) tvec[jN] /= Dlta;
 
+    // compute Jacobian of tau_xu = v_xu wrt x,u
     for (int iz = 0, iJz = 0, itz = 0; iz < nvar; iz++, iJz+=nvar, itz+=perm_len)
     {
+      // compute vz = < t_z,l > coordinate
+      double vz = 0.0;
+      for (int il = 0; il < perm_len; il++)
+        vz += tvec[itz+il]*lvec[il];
 
-      for (int ig = 0; ig < perm_len; ig++)
+      // clear gradient of tau_z wrt x,u
+      for (int iy = 0; iy < nvar; iy++)
+        J_chunk_[iJz+iy] = 0.0;
+
+      // compute gradient of tau_z wrt x,u
+      for (int il = 0; il < perm_len; il++)
       {
-        
+        double cz_il = 0.0;
+        for (int jl = 0; jl < perm_len; jl++)
+        {
+          double ww_ji = 0.0;
+          for (int lN = 0; lN < ndof_full; lN++)
+            ww_ji += WTmat_[lN][itz+jl]*WTmat_[lN][il];
+          cz_il += lvec[jl]*ww_ji;
+        }
+        cz_il = (cz_il/Dlta) + tvec[itz+il] - 2.0*(vz*tvec[il]);
+
+        // apply partial derivative contribution of l_i to l_i's partial in y = x, u_1, ...
+        for (int iy = 0, iJl = nvar*il; iy < nvar; iy++)
+          J_chunk_[iJz+iy] += cz_il*Jl_v[iJl+iy];
       }
-
-
     }
-
-
   }
   void vxu_eval(double *xu_,double *v_,vxu_workspace &wkspc_);
   void vx_spc_eval(double *xu_, double *vx_, vxu_workspace &wkspc_, double ** Kmat_, int kappa_);
