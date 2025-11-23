@@ -166,6 +166,38 @@ function_space_basis::~function_space_basis()
   for (int i = 0; i <= eor; i++) delete couples[i];
   delete [] couples;
 }
+void function_space_basis::J_tauk_eval(double *Jtk_chunk_,J_vk_workspace &wkspc_,double *theta_,double *s_,int eorcap_)
+{
+  const int eorcap = ((eorcap_)&&(eorcap_<eor))?(eorcap_):(eor);
+  // for (int i = 0; i < ndim; i ++) v_[i] = 0.0; // clear output v eval space
+  init_workspace(s_); // precompute powers of variables and derivatives
+  coupling_term &c0 = *(couples[0]);
+  for (int ixord = 0, i_L_start = 0; ixord < ord_len; i_L_start+=ord_i_len, ixord++)
+  {
+    double Li_x = stage_indep_var(ixord);
+    for (int iu_perm = 0, i_L = i_L_start; iu_perm < ord_i_len; iu_perm++, i_L++)
+    {
+      double  Li_u = stage_dep_var(i_L),
+              Li = Li_x*Li_u;
+
+      // for (int ivar = 0, ioffset=0; ivar < nvar; ivar++,ioffset+=perm_len)
+      //   v_[ivar] += ((theta_xu[ivar] = theta_[i_L+ioffset])*Li);
+
+      // stage_coupling(-1.0); compute_x_coupling(c0,eorcap);
+
+      // for (int idnxu = nvar; idnxu < ndim; idnxu++)
+        // v_[idnxu] += theta_xu[0]*v_j[idnxu];
+
+      stage_coupling(1.0); compute_u_coupling(1,c0,eorcap);
+
+      // for (int ider = 1, idnxu = nvar, idnxu_skip = idnxu; ider <= eor; ider++, idnxu_skip+=ndep)
+      //   for (int iu = 1; iu < nvar; iu++, idnxu++)
+      //     v_[idnxu] += theta_xu[iu]*v_j[idnxu_skip];
+
+      stage_coupling(-1.0); compute_x_coupling(c0,eorcap);
+    }
+  }
+}
 
 void function_space_basis::v_eval(double *s_,double *v_,double *theta_,int eorcap_)
 {

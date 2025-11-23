@@ -69,6 +69,30 @@ struct J_vxu_workspace : public vxu_workspace
 
 };
 
+struct J_vk_workspace : public J_vxu_workspace
+{
+  const int Gylen;
+  double * const lxchunk,
+         * const dkxlchunk,
+         * const Gchunk;
+
+  ode_prk_lambda pr0_lambda;
+
+  J_vk_workspace(int nvar_, int ord_len_,int kor_) :
+    J_vxu_workspace(nvar_,ord_len_),
+    dkxlchunk( new double[ kor_+1 ] ),
+    lxchunk( new double[ kor_*(nvar_-1) ] ),
+    Gylen( (kor_*nvar_) + ((nvar_-1)*((kor_*(kor_+1))/2)) ),
+    Gchunk(new double[ nvar_*(Gylen+1) ]), // = nvar_*(Gylen) (+nvar_, 0'th order)
+    pr0_lambda(kor_,nvar_-1,dkxlchunk,lxchunk,Gchunk,Gchunk+Gylen+nvar_)
+  {}
+  ~J_vk_workspace() { delete [] Gchunk; }
+
+  // inline double * Gu() {return Gchunk;}
+  // inline double * Gx() {return (Gchunk+Gylen);}
+
+};
+
 struct function_space: public ode_solspc_element
 {
   function_space(ode_solspc_meta &meta_, int bor_, int perm_len_);
@@ -642,6 +666,13 @@ class function_space_basis: public function_space_element
     double  ** const Jac_mat = partials.Jac_mat,
             *** const C_x = partials.C_x,
             ** const C_u = partials.C_u;
+
+  void J_tauk_eval(double *Jtk_chunk_,J_vk_workspace &wkspc_,double *theta_,double *s_,int eorcap_);
+
+  // void compute_u_coupling()
+  // {
+  //
+  // }
 
   inline double * v_eval(double *theta_,int eorcap_=0) // partial chunk already filled
   {

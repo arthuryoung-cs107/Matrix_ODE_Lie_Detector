@@ -25,6 +25,62 @@ struct ode_solspc_element
             &ndim = meta.ndim,
             &nvar = meta.nvar;
 };
+
+struct ode_prk_lambda
+{
+  const int kor,
+            ndep,
+            bklen;
+
+  double &dkxl,
+         * const lk_x,
+         * const gku,
+         * const gkx;
+
+  ode_prk_lambda * const prkp1;
+
+  // public constructor for pr0_lambda
+  ode_prk_lambda(int eor_, int ndep_,
+    double * dkxlc_, double * lkxc_,
+    double * Gu_, double * Gx_) :
+    kor(0), ndep(ndep_),
+    bklen( 1+ndep ),
+    dkxl(dkxlc_[0]), lk_x(NULL),
+    gku( Gu_ ), gkx(NULL),
+    prkp1( (eor_)?(new ode_prk_lambda(eor_,ndep_,1,dkxlc_+1,lkxc_,Gu_+bklen,Gx_)):(NULL) )
+  {}
+
+  ~ode_prk_lambda() { if (prkp1 != NULL) delete prkp1; }
+
+  inline void clear_space()
+  {
+    dkxl = 0.0;
+    for (int i = 0; i < bklen; i++) gku[i] = 0.0;
+    if (kor)
+    {
+      for (int i = 0; i < ndep; i++) lk_x[i] = 0.0;
+      for (int i = 0, gkxlen = ndep*bklen; i < gkxlen; i++) gkx[i] = 0.0;
+    }
+    if (prkp1!=NULL) prkp1->clear_space();
+  }
+
+  private:
+
+    // public constructor for pr1_lambda and higher
+    ode_prk_lambda(int eor_, int ndep_,
+      int kor_,
+      double * dkxl_, double * lkx_,
+      double * gku_, double * gkx_) :
+      kor(kor_), ndep(ndep_),
+      bklen( 1 + ndep_*(kor_+1) ),
+      dkxl(dkxl_[0]), lk_x(lkx_),
+      gku( gku_ ), gkx( gkx_ ),
+      prkp1( (kor_==eor_)?(NULL):( new ode_prk_lambda(eor_,ndep_,kor_+1,dkxl_+1,lkx_+ndep_,gkx_+(ndep_*bklen),gku_+bklen) ) )
+    {}
+
+
+};
+
 struct ode_solchunk
 {
   ode_solchunk(int eor_,int ndep_) :
