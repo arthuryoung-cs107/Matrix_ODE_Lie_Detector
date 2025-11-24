@@ -669,11 +669,6 @@ class function_space_basis: public function_space_element
 
   void J_tauk_eval(double *Jtk_chunk_,J_vk_workspace &wkspc_,double *theta_,double *s_,int eorcap_);
 
-  // void compute_u_coupling()
-  // {
-  //
-  // }
-
   inline double * v_eval(double *theta_,int eorcap_=0) // partial chunk already filled
   {
     function_space_basis::v_eval(partials,v_j,theta_,fspc,eorcap_);
@@ -738,6 +733,53 @@ class function_space_basis: public function_space_element
 
     coupling_term ** const couples;
 
+    void compute_u_coupling(int k_,coupling_term &ckm1_,ode_prk_lambda &prkm1_,int eorcap_)
+    {
+      bool continue_coupling = k_<eorcap_;
+      int k_m1 = k_-1;
+      double  ckm1_dnxu_power_product = comp_dnxu_power_product(ckm1_),
+              &v_j_dkui = v_j[comp_v_k_start_index(k_)],
+              ncoeff,
+              dLsi,
+              dLy;
+      coupling_term &ck = *(couples[k_]);
+      check_coupling_derivatives(ckm1_);
+      if (ckm1_.xderiv_flag)
+      {
+        const double dx_dnLi = comp_dx_dnLi(ckm1_,ncoeff,dLsi)*ckm1_dnxu_power_product;
+        v_j_dkui += dx_dnLi;
+        
+        if (continue_coupling)
+        {
+          stage_dx_couple(ckm1_,ck,ncoeff,dLsi); // copy ckm1_ information regarding freshly computed derivative wrt t to ck coupling
+          compute_u_coupling(k_+1,ck,eorcap_); // pass ck to next order of prolongation
+        }
+      }
+      for (int iu = 1; iu <= ndep; iu++)
+        if (ckm1_.deriv_flags[iu])
+        {
+          v_j_dkui += comp_dui_dnLi(ckm1_,iu,ncoeff,dLsi,dLy)*ckm1_dnxu_power_product*s_j[iu+ndep];
+          if (continue_coupling)
+          {
+            stage_du_couple(iu,ckm1_,ck,ncoeff,dLsi,dLy);
+            compute_u_coupling(k_+1,ck,eorcap_);
+          }
+        }
+      // for xp powers, we strictly have polynomial characteristics
+      double Lxu = ckm1_.Lxh*ckm1_.Luh;
+      for (int kk = 1, ind_dnxuj = nvar; kk <= k_m1; kk++) // consider dxp input L contribution for each order kk up to kk = k-1
+        for (int jdep = 0; jdep < ndep; jdep++, ind_dnxuj++) // consider dkk xpj (partial wrt kk'th derivative of j'th dep. var.) for input L
+          if (ckm1_.Pvec[ind_dnxuj]>0) // if input L has derivative in dkk xpj
+          {
+            ncoeff = ((double) ckm1_.Pvec[ind_dnxuj])*ckm1_.coeff, // update scalar coefficient according to power rule
+            v_j_dkui += comp_ddnxui_power_product(ind_dnxuj,ckm1_,ncoeff*Lxu)*s_j[ind_dnxuj+ndep]; // accumulate products forming L evaluation, chaining j'th dep. var. derivative
+            if (continue_coupling)
+            {
+              stage_ddnxu_couple(ind_dnxuj,ckm1_,ck,ncoeff);
+              compute_u_coupling(k_+1,ck,eorcap_);
+            }
+          }
+    }
     void compute_x_coupling(coupling_term &c0_,int eorcap_);
     void compute_u_coupling(int k_, coupling_term &ckm1_,int eorcap_);
     void compute_u_coupling(int k_, coupling_term &ckm1_,int indep_source_,int eorcap_);

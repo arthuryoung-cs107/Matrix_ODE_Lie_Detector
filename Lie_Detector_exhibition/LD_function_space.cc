@@ -172,6 +172,7 @@ void function_space_basis::J_tauk_eval(double *Jtk_chunk_,J_vk_workspace &wkspc_
   // for (int i = 0; i < ndim; i ++) v_[i] = 0.0; // clear output v eval space
   init_workspace(s_); // precompute powers of variables and derivatives
   coupling_term &c0 = *(couples[0]);
+  ode_prk_lambda &pr0_l = wkspc_.pr0_lambda;
   for (int ixord = 0, i_L_start = 0; ixord < ord_len; i_L_start+=ord_i_len, ixord++)
   {
     double Li_x = stage_indep_var(ixord);
@@ -188,7 +189,9 @@ void function_space_basis::J_tauk_eval(double *Jtk_chunk_,J_vk_workspace &wkspc_
       // for (int idnxu = nvar; idnxu < ndim; idnxu++)
         // v_[idnxu] += theta_xu[0]*v_j[idnxu];
 
-      stage_coupling(1.0); compute_u_coupling(1,c0,eorcap);
+      stage_coupling(1.0);
+      pr0_l.clear_space(); pr0_l.dkxl = Li;
+      compute_u_coupling(1,c0,pr0_l,eorcap);
 
       // for (int ider = 1, idnxu = nvar, idnxu_skip = idnxu; ider <= eor; ider++, idnxu_skip+=ndep)
       //   for (int iu = 1; iu < nvar; iu++, idnxu++)
