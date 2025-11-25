@@ -741,14 +741,15 @@ class function_space_basis: public function_space_element
               &v_j_dkui = v_j[comp_v_k_start_index(k_)],
               ncoeff,
               dLsi,
-              dLy;
+              dLy,
+              pylki;
       coupling_term &ck = *(couples[k_]);
       check_coupling_derivatives(ckm1_);
       if (ckm1_.xderiv_flag)
       {
-        const double dx_dnLi = comp_dx_dnLi(ckm1_,ncoeff,dLsi)*ckm1_dnxu_power_product;
-        v_j_dkui += dx_dnLi;
-        
+        prkm1_.gku[0] += (pylki = comp_dx_dnLi(ckm1_,ncoeff,dLsi)*ckm1_dnxu_power_product);
+        v_j_dkui += pylki;
+
         if (continue_coupling)
         {
           stage_dx_couple(ckm1_,ck,ncoeff,dLsi); // copy ckm1_ information regarding freshly computed derivative wrt t to ck coupling
@@ -758,7 +759,9 @@ class function_space_basis: public function_space_element
       for (int iu = 1; iu <= ndep; iu++)
         if (ckm1_.deriv_flags[iu])
         {
-          v_j_dkui += comp_dui_dnLi(ckm1_,iu,ncoeff,dLsi,dLy)*ckm1_dnxu_power_product*s_j[iu+ndep];
+          prkm1_.gku[iu] += (pylki = comp_dui_dnLi(ckm1_,iu,ncoeff,dLsi,dLy)*ckm1_dnxu_power_product);
+          v_j_dkui += pylki*s_j[iu+ndep]; // apply chain rule
+
           if (continue_coupling)
           {
             stage_du_couple(iu,ckm1_,ck,ncoeff,dLsi,dLy);
@@ -771,14 +774,99 @@ class function_space_basis: public function_space_element
         for (int jdep = 0; jdep < ndep; jdep++, ind_dnxuj++) // consider dkk xpj (partial wrt kk'th derivative of j'th dep. var.) for input L
           if (ckm1_.Pvec[ind_dnxuj]>0) // if input L has derivative in dkk xpj
           {
-            ncoeff = ((double) ckm1_.Pvec[ind_dnxuj])*ckm1_.coeff, // update scalar coefficient according to power rule
-            v_j_dkui += comp_ddnxui_power_product(ind_dnxuj,ckm1_,ncoeff*Lxu)*s_j[ind_dnxuj+ndep]; // accumulate products forming L evaluation, chaining j'th dep. var. derivative
+            ncoeff = ((double) ckm1_.Pvec[ind_dnxuj])*ckm1_.coeff; // update scalar coefficient according to power rule
+            prkm1_.gku[ind_dnxuj] += (pylki = comp_ddnxui_power_product(ind_dnxuj,ckm1_,ncoeff*Lxu));
+            v_j_dkui += pylki*s_j[ind_dnxuj+ndep]; // accumulate products forming L evaluation, chaining j'th dep. var. derivative
+
             if (continue_coupling)
             {
               stage_ddnxu_couple(ind_dnxuj,ckm1_,ck,ncoeff);
               compute_u_coupling(k_+1,ck,eorcap_);
             }
           }
+    }
+    void compute_u_coupling(int k_,coupling_term &ckm1_,ode_prk_lambda &prkm1_,int indep_source_,int eorcap_)
+    {
+      bool continue_coupling = k_<eorcap_;
+      int k_m1 = k_-1,
+          iv_start = comp_v_k_start_index(k_), // start index of k'th prolongation dimension
+          ipre_dnxu_start = 1+(indep_source_*ndep), // start index of premultiplied derivative dep. var. terms
+          bkm1len = prkm1_.bklen;
+      double  ckm1_dnxu_power_product = comp_dnxu_power_product(ckm1_),
+              ncoeff,
+              dLsi,
+              dLy,
+              pylki;
+      coupling_term &ck = *(couples[k_]);
+      check_coupling_derivatives(ckm1_);
+      if (ckm1_.xderiv_flag)
+      {
+        double acc = comp_dx_dnLi(ckm1_,ncoeff,dLsi)*ckm1_dnxu_power_product;
+        for (int idep = 0, iv = iv_start, ipre_dnxu = ipre_dnxu_start, ili = 0; idep < ndep; idep++, iv++, ipre_dnxu++, ili+=bkm1len)
+        {
+          prkm1_.gkx[ili] += (pylki = acc*s_j[ipre_dnxu]);
+          v_j[iv] += pylki; // accumulate in corresponding dp/de dimension
+        }
+
+        if (continue_coupling)
+        {
+          stage_dx_couple(ckm1_,ck,ncoeff,dLsi); // copy ckm1_ information regarding freshly computed derivative wrt t to ck coupling
+          compute_u_coupling(k_+1,ck,indep_source_,eorcap_); // pass ck to next order of prolongation
+        }
+      }
+      for (int iu = 1; iu <= ndep; iu++)
+        if (ckm1_.deriv_flags[iu])
+        {
+          double acc = (pylki = comp_dui_dnLi(ckm1_,iu,ncoeff,dLsi,dLy)*ckm1_dnxu_power_product)*s_j[iu+ndep];
+          for (int idep = 0, iv = iv_start, ipre_dnxu = ipre_dnxu_start, ili = iu; idep < ndep; idep++, iv++, ipre_dnxu++, ili+=bkm1len)
+          {
+            prkm1_.gkx[ili] += pylki*s_j[ipre_dnxu];
+            v_j[iv] += acc*s_j[ipre_dnxu]; // accumulate in corresponding dp/de dimension
+          }
+
+          if (continue_coupling)
+          {
+            stage_du_couple(iu,ckm1_,ck,ncoeff,dLsi,dLy); // copy ckm1_ information regarding freshly computed derivative wrt i'th dep. var. to ck coupling
+            compute_u_coupling(k_+1,ck,indep_source_,eorcap_); // pass ck to next order of prolongation
+          }
+        }
+      // for xp powers, we strictly have polynomial characteristics
+      double Lxu = ckm1_.Lxh*ckm1_.Luh;
+      for (int kk = 1, ind_dnxuj = nvar; kk <= k_m1; kk++) // consider dxp input L contribution for each order kk up to kk = k-1
+        for (int jdep = 0; jdep < ndep; jdep++, ind_dnxuj++) // consider dkk xpj (partial wrt kk'th derivative of j'th dep. var.) for input L
+          if (ckm1_.Pvec[ind_dnxuj]>0) // if input L has derivative in dkk xpj
+          {
+            ncoeff = ((double) ckm1_.Pvec[ind_dnxuj])*ckm1_.coeff; // update scalar coefficient according to power rule
+            double acc = (pylki = comp_ddnxui_power_product(ind_dnxuj,ckm1_,ncoeff*Lxu))*s_j[ind_dnxuj+ndep]; // accumulate products forming L evaluation, chaining j'th dep. var. derivative
+            for (int idep = 0, iv = iv_start, ipre_dnxu = ipre_dnxu_start, ili = ind_dnxuj; idep < ndep; idep++, iv++, ipre_dnxu++, ili+=bkm1len)
+            {
+              prkm1_.gkx[ili] += pylki*s_j[ipre_dnxu];
+              v_j[iv] += acc*s_j[ipre_dnxu]; // accumulate in corresponding dp/de dimension
+            }
+            if (continue_coupling)
+            {
+              stage_ddnxu_couple(ind_dnxuj,ckm1_,ck,ncoeff); // copy ckm1_ information regarding freshly computed derivative wrt kk'th derivative of j'th dep. var. to ck coupling
+              compute_u_coupling(k_+1,ck,indep_source_,eorcap_); // pass ck to next order of prolongation
+            }
+          }
+      /*
+        Finally, add contribution of product rule term for premultiplied vector
+        Initiate accumulation of products forming L evaluation.
+        Note that this is equivalent to input L evaluation, but premultiplied by
+        derivatives of premultiplied vector
+      */
+      double acc = ckm1_.coeff*Lxu*ckm1_dnxu_power_product;
+      // compute accumulation to each dep. var. dimension
+      for (int jjdep = 0, iv = iv_start, ipre_dnxu = ipre_dnxu_start+ndep, ili = ipre_dnxu_start; jjdep < ndep; jjdep++, iv++, ipre_dnxu++, ili+=bkm1len)
+      {
+        prkm1_.gkx[ili] += acc;
+        v_j[iv] += acc*(s_j[ipre_dnxu]); // accumulate in corresponding dp/de dimension
+      }
+      if (continue_coupling)
+      {
+        spawn_ddnxu_couple(k_,ckm1_,ck); // copy ckm1_ information regarding freshly computed derivative wrt kk'th derivative of j'th dep. var. to ck coupling
+        compute_u_coupling(k_+1,ck,k_,eorcap_); // pass ck to next order of prolongation
+      }
     }
     void compute_x_coupling(coupling_term &c0_,int eorcap_);
     void compute_u_coupling(int k_, coupling_term &ckm1_,int eorcap_);
