@@ -409,7 +409,8 @@ class Lie_detector
     */
 
     Lie_detector(ode_curve_observations &obs_,bool verbose_=true) :
-      palloc(obs_.dnp1xu_in!=NULL), Jalloc(obs_.JFs_in!=NULL),
+      // palloc(obs_.dnp1xu_in!=NULL), Jalloc(obs_.JFs_in!=NULL),
+      palloc(true), Jalloc(true),
       obs(obs_),
       meta0(obs_.eor,obs_.ndep),
       eor(obs_.eor), ndep(obs_.ndep), ndim(meta0.ndim),
@@ -906,7 +907,7 @@ struct global_multinomial_experiment : public multinomial_experiment
 
       int rank_T = Tsvdg_.comp_rank_set_dims(Muse_T_old,Nuse),
           rank_R = Rsvdg_.comp_rank_set_dims(Muse_T_old,Nuse);
-          
+
       return rank_T;
 
       // return Tsvdg_.comp_rank_set_dims(Muse_T_old);

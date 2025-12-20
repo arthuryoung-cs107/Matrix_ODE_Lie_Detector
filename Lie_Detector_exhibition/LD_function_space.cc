@@ -189,15 +189,16 @@ void function_space_basis::J_tauk_eval(double *Jtk_chunk_,J_vk_workspace &wkspc_
       // for (int idnxu = nvar; idnxu < ndim; idnxu++)
         // v_[idnxu] += theta_xu[0]*v_j[idnxu];
 
-      stage_coupling(1.0);
       pr0_l.clear_space(); pr0_l.dkxl = Li;
-      compute_u_coupling(1,c0,pr0_l,eorcap);
+
+      stage_coupling(-1.0); compute_x_coupling(c0,eorcap);
+      
+      stage_coupling(1.0); compute_u_coupling(1,c0,pr0_l,eorcap);
+
 
       // for (int ider = 1, idnxu = nvar, idnxu_skip = idnxu; ider <= eor; ider++, idnxu_skip+=ndep)
       //   for (int iu = 1; iu < nvar; iu++, idnxu++)
       //     v_[idnxu] += theta_xu[iu]*v_j[idnxu_skip];
-
-      stage_coupling(-1.0); compute_x_coupling(c0,eorcap);
     }
   }
 }

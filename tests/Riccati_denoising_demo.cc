@@ -87,8 +87,8 @@ const int write_sched = 1;
 // const int write_sched = 5;
 
 // ode_curve_observations observations(data_name);
-  // ode_curve_observations observations(data_name,data_dnp1xu_name);
-  ode_curve_observations observations(data_name,data_dnp1xu_name,data_JFs_name);
+  ode_curve_observations observations(data_name,data_dnp1xu_name);
+  // ode_curve_observations observations(data_name,data_dnp1xu_name,data_JFs_name);
 
 const int kor_obs = observations.kor_obs();
 
@@ -172,6 +172,9 @@ struct global_Rmat_experiment : public global_multinomial_experiment
       LDtwin.Theta_SVD.decompose_U();
       LDtwin.Theta_SVD.print_result("Tsvd_global");
         write_svd_data(LDtwin.Theta_SVD,".Tsvd_g_full",true,-1,true);
+
+      if (det_.eor == 1)
+        compute_R1_Jacobian(observations_twin.sols,VTmat_Rk_global,svec_Rk_global,sols,nobs);
 
       // compute_theta_image_svd();
 
@@ -488,6 +491,39 @@ struct global_Rmat_experiment : public global_multinomial_experiment
     LD_io::fclose_SAFE(file_summary);
     printf("(global_Rmat_experiment::denoise_data) wrote %s\n",fname_summary);
 
+  }
+  void compute_R1_Jacobian(ode_solution **solo_,double **VTg_,double *sg_,ode_solution **soli_,int nobs_)
+  {
+
+    double wTvec[fspace0.ndof_full*fspace0.ndof_full],
+           * WTmat_t[fspace0.ndof_full];
+    for (int i = 0; i < fspace0.ndof_full; i++)
+    {
+      WTmat_t[i] = wTvec + (i*fspace0.ndof_full);
+      for (int j = 0; j < fspace0.ndof_full; j++)
+        WTmat_t[i][j] = VTg_[i][j]*(sg_[fspace0.ndof_full-1]/sg_[i]);
+    }
+
+    J_vxu_workspace Jwkspc_t(nvar,fspace0.perm_len);
+    fspace0.J_tauxu_eval(solo_[0]->JFs[0],Jwkspc_t,WTmat_t,soli_[0]->pts);
+
+    for (int i = 0; i < fspace0.nvar; i++) printf("%e ", soli_[0]->JFs[0][i] );
+    printf("\n");
+    for (int i = 0; i < fspace0.nvar; i++) printf("%e ", solo_[0]->JFs[0][i] );
+    printf("\n");
+    getchar();
+
+    // #pragma omp parallel
+    // {
+    //
+    //   J_vxu_workspace Jwkspc_t(nvar,fspace0.perm_len);
+    //
+    //   #pragma omp for
+    //   for (int iobs = 0; iobs < nobs_; iobs++)
+    //   {
+    //
+    //   }
+    // }
   }
   int encode_decompose_R_matrix_global(double **VTmg_,LD_svd &Rsvdg_,LD_R_encoder &Rkenc_,ode_solution **sols_,int nobs_)
   {
