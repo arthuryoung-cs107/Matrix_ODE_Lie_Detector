@@ -170,9 +170,9 @@ struct function_space: public ode_solspc_element
     printf("(J_tauxu_eval) computed J_lamvec_eval\n");
 
     printf("(J_tauxu_eval) wkspc_.J_l_chunk :\n");
-    for (size_t i = 0; i < perm_len; i++)
+    for (int i = 0; i < perm_len; i++)
     {
-      for (size_t j = 0; j < nvar; j++) printf("%.1e ", wkspc_.J_l_chunk[i*(nvar)+j]);
+      for (int j = 0; j < nvar; j++) printf("%.1e ", wkspc_.J_l_chunk[i*(nvar)+j]);
       printf("\n");
     }
 

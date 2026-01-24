@@ -87,8 +87,8 @@ const int write_sched = 1;
 // const int write_sched = 5;
 
 // ode_curve_observations observations(data_name);
-  ode_curve_observations observations(data_name,data_dnp1xu_name);
-  // ode_curve_observations observations(data_name,data_dnp1xu_name,data_JFs_name);
+  // ode_curve_observations observations(data_name,data_dnp1xu_name);
+  ode_curve_observations observations(data_name,data_dnp1xu_name,data_JFs_name);
 
 const int kor_obs = observations.kor_obs();
 
@@ -506,18 +506,27 @@ struct global_Rmat_experiment : public global_multinomial_experiment
     }
     printf("creating Jwkspc_t \n");
     J_vxu_workspace Jwkspc_t(nvar,fspace0.perm_len);
-    printf("evaluating J_tauxu_eval \n");
+
+
+    printf("Printing Jfs_o[0][:] \n");
+    for (int i = 0; i < fspace0.nvar; i++) printf("%e ", solo_[0]->JFs[0][i] );
+    printf("\n");
+
     fspace0.J_tauxu_eval(solo_[0]->JFs[0],Jwkspc_t,WTmat_t,soli_[0]->pts);
     printf("done with J_tauxu_eval. \n");
 
-    printf("Printing Jfs[0][:] \n");
+    printf("Printing Jfs_o[0][:] \n");
     for (int i = 0; i < fspace0.nvar; i++) printf("%e ", solo_[0]->JFs[0][i] );
     printf("\n");
 
-    printf("Printing Jfs[0][:] \n");
-    for (int i = 0; i < fspace0.nvar; i++) printf("%e ", solo_[0]->JFs[0][i] );
+    printf("Printing Jfs_i[0][:] \n");
+    for (int i = 0; i < fspace0.nvar; i++) printf("%e ", soli_[0]->JFs[0][i] );
     printf("\n");
-    // getchar();
+
+
+
+
+    getchar();
 
     // #pragma omp parallel
     // {
