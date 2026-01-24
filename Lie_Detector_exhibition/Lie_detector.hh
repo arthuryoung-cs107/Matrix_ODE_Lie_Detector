@@ -13,7 +13,6 @@
 //
 // };
 
-
 class curve_Lie_detector
 {
   const int kor,

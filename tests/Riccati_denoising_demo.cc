@@ -495,6 +495,7 @@ struct global_Rmat_experiment : public global_multinomial_experiment
   void compute_R1_Jacobian(ode_solution **solo_,double **VTg_,double *sg_,ode_solution **soli_,int nobs_)
   {
 
+    printf("entering W matrix scaling\n");
     double wTvec[fspace0.ndof_full*fspace0.ndof_full],
            * WTmat_t[fspace0.ndof_full];
     for (int i = 0; i < fspace0.ndof_full; i++)
@@ -503,15 +504,20 @@ struct global_Rmat_experiment : public global_multinomial_experiment
       for (int j = 0; j < fspace0.ndof_full; j++)
         WTmat_t[i][j] = VTg_[i][j]*(sg_[fspace0.ndof_full-1]/sg_[i]);
     }
-
+    printf("creating Jwkspc_t \n");
     J_vxu_workspace Jwkspc_t(nvar,fspace0.perm_len);
+    printf("evaluating J_tauxu_eval \n");
     fspace0.J_tauxu_eval(solo_[0]->JFs[0],Jwkspc_t,WTmat_t,soli_[0]->pts);
+    printf("done with J_tauxu_eval. \n");
 
-    for (int i = 0; i < fspace0.nvar; i++) printf("%e ", soli_[0]->JFs[0][i] );
-    printf("\n");
+    printf("Printing Jfs[0][:] \n");
     for (int i = 0; i < fspace0.nvar; i++) printf("%e ", solo_[0]->JFs[0][i] );
     printf("\n");
-    getchar();
+
+    printf("Printing Jfs[0][:] \n");
+    for (int i = 0; i < fspace0.nvar; i++) printf("%e ", solo_[0]->JFs[0][i] );
+    printf("\n");
+    // getchar();
 
     // #pragma omp parallel
     // {

@@ -66,7 +66,7 @@ struct ode_prk_lambda
 
   private:
 
-    // public constructor for pr1_lambda and higher
+    // private constructor for pr1_lambda and higher
     ode_prk_lambda(int eor_, int ndep_,
       int kor_,
       double * dkxl_, double * lkx_,
@@ -77,7 +77,6 @@ struct ode_prk_lambda
       gku( gku_ ), gkx( gkx_ ),
       prkp1( (kor_==eor_)?(NULL):( new ode_prk_lambda(eor_,ndep_,kor_+1,dkxl_+1,lkx_+ndep_,gkx_+(ndep_*bklen),gku_+bklen) ) )
     {}
-
 
 };
 
