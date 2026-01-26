@@ -51,17 +51,20 @@ struct vxu_workspace
 
 struct J_vxu_workspace : public vxu_workspace
 {
-  double  * const lamvec,
+  double  * const vu_vec,
+          * const lamvec,
           * const t_theta,
           * const J_l_chunk;
 
   J_vxu_workspace(int nvar_, int ord_len_) : vxu_workspace(nvar_,ord_len_),
+    vu_vec(new double[nvar_-1]),
     lamvec(new double[ord_len_]),
     t_theta(new double[nvar_*ord_len_]),
     J_l_chunk(new double[nvar_*ord_len_])
   {}
   ~J_vxu_workspace()
   {
+    delete [] vu_vec;
     delete [] lamvec;
     delete [] t_theta;
     delete [] J_l_chunk;
@@ -151,6 +154,84 @@ struct function_space: public ode_solspc_element
           );
     }
   }
+  inline void J_tauxu_eval_crossfree(double *J_chunk_, J_vxu_workspace &wkspc_, double **WTmat_, double *xu_)
+  {
+    printf("(J_tauxu_eval) xu_ :\n");
+    for (size_t i = 0; i < nvar; i++) printf("%.1e ", xu_[i]); printf("\n");
+
+    // compute the Jacobian of { l } vector wrt x, u
+    J_lamvec_eval(wkspc_.J_l_chunk, wkspc_ ,xu_);
+    printf("(J_tauxu_eval) computed J_lamvec_eval\n");
+
+    for (size_t i = 0, l = 0; i < perm_len; i++)
+      for (size_t j = 0; j < nvar; j++, l++) printf("%.1e ", wkspc_.J_l_chunk[l]); printf("\n");
+
+    // first compute image of (x,u) through { l } product map
+    lamvec_eval(xu_,wkspc_.lamvec,wkspc_);
+    printf("(J_tauxu_eval) computed lamvec\n");
+    for (size_t i = 0; i < perm_len; i++) printf("%.1e ", wkspc_.lamvec[i]); printf("\n");
+
+
+    int istart = 0;
+    // int istart = ndof_full-1;
+    // compute local parameter values via spectral weighting scheme
+    const int len_lam = perm_len,
+              len_theta = ndof_full,
+              nvec_use = ndof_full;
+    double  * const vu_vec = wkspc_.vu_vec,
+            * const lam_vec = wkspc_.lamvec,
+            * const theta_vec = wkspc_.t_theta,
+                    Wnet = 0.0;
+    for (int i = 0; i < ndep; i++) vu_vec[i] = 0.0;
+    for (int i = 0; i < len_theta; i++) theta_vec[i] = 0.0;
+    for (int ith = istart; ith < nvec_use; ith++)
+    {
+        double  vx_ith = 0.0;
+        for (int i = 0; i < len_lam; i++) vx_ith += WTmat_[ith][i]*lam_vec[i];
+
+        // for (int i = 0; i < len_theta; i++) theta_vec[i] += vx_ith*WTmat_[ith][i];
+        int iith = 0;
+        for (int i = 0; i < len_lam; i++, iith++) theta_vec[iith] += vx_ith*WTmat_[ith][iith];
+        for (int idep = 0; idep < ndep; idep++)
+          for (int ilam = 0; ilam < len_lam; ilam++, iith++)
+          {
+            const double vui_vxi = vx_ith*WTmat_[ith][iith];
+            theta_vec[iith] += vui_vxi;
+            vu_vec[idep] += vui_vxi;
+          }
+        Wnet += vx_ith*vx_ith;
+    }
+    for (int i = 0; i < len_theta; i++) theta_vec[i] /= Wnet; // normalize local parameters
+    for (int i = 0; i < ndep; i++) vu_vec[i] /= Wnet;
+
+    printf("(J_tauxu_eval) computed theta_vec\n");
+    double acc = 0.0;
+    for (int i = 0; i < len_theta; i++)
+    { printf("%.1e ", theta_vec[i]); acc += theta_vec[i]*theta_vec[i]; }
+    printf("\n Wnet = %e, theta norm squared = %e\n", Wnet, acc);
+
+    printf("(J_tauxu_eval) dxu\n");
+    for (int i = 0; i < ndep; i++) printf("%.2e ", vu_vec[i]); printf("\n");
+
+    printf("(J_tauxu_eval) computing Jvu\n");
+    // now accumulate Jacobian contributions
+    double * const J_lam = wkspc_.J_l_chunk;
+    for (int i = 0, len=ndep*nvar; i < len; i++) J_chunk_[i] = 0.0;
+    for (int idep = 0; idep < ndep; idep++)
+    {
+      double  * const J_row_i = J_chunk_ + idep*nvar,
+              * const theta_ui = theta_vec + perm_len*(idep+1);
+      for (int ilam = 0, iJl = 0; ilam < len_lam; ilam++)
+        for (int ivar = 0; ivar < nvar; ivar++, iJl++)
+          J_row_i[ivar] += ( theta_ui[ilam]-(vu_vec[idep]*theta_vec[ilam]) )*J_lam[iJl];
+
+      for (int ivar = 0; ivar < nvar; ivar++) printf("%.3e ", J_row_i[ivar]);
+      printf("\n");
+    }
+
+    getchar();
+  }
+
   inline void J_tauxu_eval(double *J_chunk_, J_vxu_workspace &wkspc_, double **WTmat_, double *xu_)
   {
     printf("(J_tauxu_eval) xu_ :\n");

@@ -25,8 +25,8 @@
 const char dir_name[] = "./denoise_data_directory/Uniform_IC_perturbation/"; // data directory
 // const char dir_name[] = "./denoise_data_directory/Uniform_IC_perturbation/rendering_data/"; // data directory
 // const char dir_name[] = "./denoise_data_directory/Uniform_IC_perturbation/dense_data/"; // data directory
-// const char obs_name[] = "Riccati_xrange0_true_DoP853gen"; // name of observations file
-const char obs_name[] = "Riccati_xrange0_noise0_DoP853gen"; // name of observations file
+const char obs_name[] = "Riccati_xrange0_true_DoP853gen"; // name of observations file
+// const char obs_name[] = "Riccati_xrange0_noise0_DoP853gen"; // name of observations file
 // const char obs_name[] = "Riccati_xrange0_noise1_DoP853gen"; // name of observations file
 // const char obs_name[] = "Riccati_xrange0_noise2_DoP853gen"; // name of observations file
 
@@ -507,23 +507,29 @@ struct global_Rmat_experiment : public global_multinomial_experiment
     printf("creating Jwkspc_t \n");
     J_vxu_workspace Jwkspc_t(nvar,fspace0.perm_len);
 
+    int i_check = 1;
 
-    printf("Printing Jfs_o[0][:] \n");
-    for (int i = 0; i < fspace0.nvar; i++) printf("%e ", solo_[0]->JFs[0][i] );
-    printf("\n");
-
-    fspace0.J_tauxu_eval(solo_[0]->JFs[0],Jwkspc_t,WTmat_t,soli_[0]->pts);
-    printf("done with J_tauxu_eval. \n");
-
-    printf("Printing Jfs_o[0][:] \n");
-    for (int i = 0; i < fspace0.nvar; i++) printf("%e ", solo_[0]->JFs[0][i] );
-    printf("\n");
+    soli_[i_check]->print_sol();
 
     printf("Printing Jfs_i[0][:] \n");
-    for (int i = 0; i < fspace0.nvar; i++) printf("%e ", soli_[0]->JFs[0][i] );
-    printf("\n");
+    for (int i = 0; i < fspace0.nvar; i++) printf("%e ", soli_[i_check]->JFs[0][i] ); printf("\n");
 
+    printf("Printing Jfs_o[0][:] \n");
+    for (int i = 0; i < fspace0.nvar; i++) printf("%e ", solo_[i_check]->JFs[0][i] ); printf("\n");
 
+    fspace0.J_tauxu_eval(solo_[i_check]->JFs[0],Jwkspc_t,WTmat_t,soli_[i_check]->pts);
+    printf("done with J_tauxu_eval. \n");
+    printf("Printing Jfs_o[0][:] \n");
+    for (int i = 0; i < fspace0.nvar; i++) printf("%e ", solo_[i_check]->JFs[0][i] ); printf("\n");
+    printf("Printing Jfs_i[0][:] \n");
+    for (int i = 0; i < fspace0.nvar; i++) printf("%e ", soli_[i_check]->JFs[0][i] );     printf("\n");
+
+    fspace0.J_tauxu_eval_crossfree(solo_[i_check]->JFs[0],Jwkspc_t,WTmat_t,soli_[i_check]->pts);
+    printf("done with J_tauxu_eval_crossfree. \n");
+    printf("Printing Jfs_o[0][:] \n");
+    for (int i = 0; i < fspace0.nvar; i++) printf("%e ", solo_[i_check]->JFs[0][i] ); printf("\n");
+    printf("Printing Jfs_i[0][:] \n");
+    for (int i = 0; i < fspace0.nvar; i++) printf("%e ", soli_[i_check]->JFs[0][i] );     printf("\n");
 
 
     getchar();
