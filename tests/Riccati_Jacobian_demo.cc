@@ -89,6 +89,14 @@ struct cubic_model : public global_multinomial_experiment
                                                       R1enc.ncod, false);
     R1svd_global.print_result("R1svd_global");
 
+    /*
+      computing this singular value decomposition induces a trivial vector field model in the parameter space
+    */
+
+    /*
+      evaluate the image of the data set over its own parameter map.
+      use these local parameters to estimate the n+1'th derivative
+    */
     #pragma omp parallel
     {
       LD_spectral_tvfield &tvf_t = *(tvfields0[LD_threads::thread_id()]);
@@ -100,22 +108,12 @@ struct cubic_model : public global_multinomial_experiment
       }
     }
 
-
-
   }
   ~cubic_model()
   {
     for (int i = 0; i < nthread_wkspc; i++) {delete tvfields0[i]; delete fbases0[i]; }
     delete [] tvfields0; delete [] fbases0;
-
   }
- // int encode_decompose_R_matrix_global(double **VTmg_,LD_svd &Rsvdg_,LD_R_encoder &R1enc_,ode_solution **sols_,int nobs_)
-  // {
-  //   return rank_out;
-  // }
-
-  // int compute_theta_local
-
 
 };
 
