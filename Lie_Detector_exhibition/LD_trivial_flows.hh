@@ -84,10 +84,19 @@ struct ode_trivial_soljet : public ode_soljet
   }
 
   // inline void set_and_solve_Hermite_jets(LD_lu &lu_, ode_solution &sol0_, ode_solution &sol1_,int kor_)
-  inline void set_and_solve_Hermite_jets(LD_lu &lu_, ode_solution &sol0_, ode_solution &sol1_,int kor_=-1)
+  inline void set_and_solve_Hermite_jets(LD_lu &lu_, ode_solution &sol0_, ode_solution &sol1_,int kor_)
   {
     const int kor_use = (kor_>=1)?(kor_):(comp_kor()),
               jor_len = (2*(kor_use+1));
+
+    printf(   "kor_use=%d, "
+              "jor_len=%d, "
+              "\n",
+              kor_use,
+              jor_len);
+
+    getchar();
+
     set_trivial_Amat(lu_.LUmat,0.5*(sol1_.x-sol0_.x),kor_use);
     lu_.decompose_A(jor_len,jor_len);
     for (int i = 0; i < ndep; i++)
@@ -102,10 +111,10 @@ struct ode_trivial_soljet : public ode_soljet
   //   for (int i = 0; i < ndep; i++)
   //     lu_.solve_system(set_trivial_bvec(i,sol0_,sol1_,kor_use),jor_len) ;
   // }
-  inline void set_and_solve_Hermite_jets(ode_solution &solh_, LD_lu &lu_, ode_solution &sol0_, ode_solution &sol1_)
+  inline void set_and_solve_Hermite_jets(ode_solution &solh_, LD_lu &lu_, ode_solution &sol0_, ode_solution &sol1_, int kor_)
   {
-    set_and_solve_Hermite_jets(lu_,sol0_,sol1_);
-    set_sol_h(solh_,0.5*(sol0_.x + sol1_.x));
+    set_and_solve_Hermite_jets(lu_,sol0_,sol1_,kor_);
+    set_sol_h(solh_,0.5*(sol0_.x + sol1_.x),kor_);
   }
   inline void exp_u_trivial(double *u_,double xh_,int jor_use_=0)
   {
@@ -244,10 +253,10 @@ struct ode_trivial_soljet : public ode_soljet
       for (int i = 0; i < ndep; i++, iu++)
         sol_h_.set_dkxui(k,i,dkxui_hat(k,i));
   }
-  inline void set_sol_h(ode_solution &sol_h_, double xh_)
+  inline void set_sol_h(ode_solution &sol_h_, double xh_,int kor_)
   {
     sol_h_.x = xh_;
-    set_sol_h_uk(sol_h_,comp_kor());
+    set_sol_h_uk(sol_h_,kor_);
   }
 
   inline void set_aki_dkxui_hat(int k_, int i_, double dkxui_)

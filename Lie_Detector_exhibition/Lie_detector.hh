@@ -112,14 +112,14 @@ class curve_Lie_detector
       double res_out = 0.0;
 
       // compute deterministic Hermite jet directly from input point solutions
-      (tsoljets[0])->set_and_solve_Hermite_jets( *(sols_h[0]) , lu_, *(solsi_[0]), *(solsi_[1]) );
+      (tsoljets[0])->set_and_solve_Hermite_jets( *(sols_h[0]) , lu_, *(solsi_[0]), *(solsi_[1]), kor);
       // correct 0'th collocation point using input trivial vector field
       tvf_.set_sol_dkxu((tjcharts[0])->solh_alt,kor,*(sols_h[0]));
 
       for (int iobs = 1; iobs < nobs_h; iobs++) // loop over interior points
       {
         // compute deterministic Hermite jet directly from input point solutions
-        (tsoljets[iobs])->set_and_solve_Hermite_jets( *(sols_h[iobs]) , lu_, *(solsi_[iobs]), *(solsi_[iobs+1]) );
+        (tsoljets[iobs])->set_and_solve_Hermite_jets( *(sols_h[iobs]) , lu_, *(solsi_[iobs]), *(solsi_[iobs+1]), kor);
         // correct i'th collocation point using input trivial vector field
         tvf_.set_sol_dkxu((tjcharts[iobs])->solh_alt, kor, *(sols_h[iobs])); // correct i'th collocation point using trivial vector field
 
@@ -414,7 +414,8 @@ class Lie_detector
       meta0(obs_.eor,obs_.ndep),
       eor(obs_.eor), ndep(obs_.ndep), ndim(meta0.ndim),
       ncrv(obs_.ncrv), nobs(obs_.nobs),
-        kor( ((palloc)?(obs_.eor+1):(obs_.eor)) ),
+        // kor( ((palloc)?(obs_.eor+1):(obs_.eor)) ),
+        kor( obs_.eor ), // Fundamentally, a Lie detector only needs to see up to the equation order
       npts_per_crv(obs_.npts_per_crv),
       pts(obs_.pts_in), dnp1xu(obs_.dnp1xu_in),
       JFs_mat((Jalloc)?(Tmatrix_ptrs<double>(obs_.JFs_in,obs_.ndep*obs_.nobs,meta0.ndim)):(NULL)),
@@ -430,11 +431,14 @@ class Lie_detector
         tcrvjets(new ode_trivial_curvejet*[ncrv]),
           tsoljets(new ode_trivial_soljet*[nobs-ncrv])
       {
+        printf("help?\n");
         int net_clcp = 0,
             net_Lmat_rows = 0,
             net_Rmat_rows = 0;
         double t0 = LD_threads::tic();
-        #pragma omp parallel reduction(+:net_clcp,net_Lmat_rows,net_Rmat_rows)
+        printf("go?\n");
+        // #pragma omp parallel reduction(+:net_clcp,net_Lmat_rows,net_Rmat_rows)
+        #pragma omp parallel num_threads(1)
         {
           LD_lu lu_t(jmeta_trivial.jor+1,jmeta_trivial.jor+1);
           double  ** const LUmat_t = lu_t.LUmat;
@@ -452,6 +456,8 @@ class Lie_detector
               curves_h[icrv] = &(cdets[icrv]->crv_h);
               tcrvjets[icrv] = &(cdets[icrv]->tcrvjet);
 
+            printf("curve %d lie detector\n", icrv);
+
             for (int isol = 0, ipts_h=ipts-icrv; isol < cdets[icrv]->nobs_h; isol++,ipts_h++)
             {
               // initializing global point cloud colocation point data
@@ -460,8 +466,11 @@ class Lie_detector
                 sols_h_alt[ipts_h] = &(tjcharts[ipts_h]->solh_alt);
               tsoljets[ipts_h] = cdets[icrv]->tsoljets[isol];
 
+              printf("  hermite jet %d, kor=%d\n", isol, kor);
+
               // solving Hermite jet via LU decomposition, then sets solh accordingly
-              tsoljets[ipts_h]->set_and_solve_Hermite_jets( tjcharts[ipts_h]->solh , lu_t, tjcharts[ipts_h]->sol0, tjcharts[ipts_h]->sol1 );
+              tsoljets[ipts_h]->set_and_solve_Hermite_jets( tjcharts[ipts_h]->solh , lu_t, tjcharts[ipts_h]->sol0, tjcharts[ipts_h]->sol1, kor);
+              printf("    solved hermite jet %d\n", isol);
               tjcharts[ipts_h]->reload_sol_h(); // sync sol_h and sol_h_alt
             }
 
@@ -556,7 +565,7 @@ class Lie_detector
                        &obs1_i = *(crvs_[icrv_t]->sols[isol_t+1]);
           ode_trivial_soljet &tjet_i = *(tcrvjets[icrv_t]->tjets[isol_t]);
 
-          tjet_i.set_and_solve_Hermite_jets(*( sols_h_[iobs]), lu_t, obs0_i,obs1_i );
+          tjet_i.set_and_solve_Hermite_jets(*( sols_h_[iobs]), lu_t, obs0_i,obs1_i, kor );
 
         }
       }
@@ -577,7 +586,7 @@ class Lie_detector
             ode_solution &obs0_i = *(crv_i.sols[isol]),
                          &obs1_i = *(crv_i.sols[isol+1]);
 
-            tcjet_i.tjets[isol]->set_and_solve_Hermite_jets(*(curves_h[icrv]->sols[isol]), lu_t, obs0_i,obs1_i );
+            tcjet_i.tjets[isol]->set_and_solve_Hermite_jets(*(curves_h[icrv]->sols[isol]), lu_t, obs0_i,obs1_i, kor);
             cdets[icrv]->tjcharts[isol]->reload_sol_h();
 
           }
@@ -1015,15 +1024,21 @@ struct Lie_detector_digital_twin
 
   double  * const s_Theta = Theta_SVD.svec,
           ** const V_Theta = Theta_SVD.Vmat,
-          ** const theta_space = Theta_SVD.Umat;
+          ** const theta_space = Theta_SVD.Umat,
+          ** const t_S,
+          *** const Jf_S;
 
   LD_curve_twin ** const ctwins;
 
   Lie_detector_digital_twin(Lie_detector &detector_, ode_solcurve_chunk &S_twin_,orthopolynomial_space &function_space_) :
     det(detector_), Stwn(S_twin_), fspc(function_space_),
     Theta_SVD(detector_.nobs,function_space_.ndof_full),
-    ctwins(new LD_curve_twin*[detector_.ncrv])
+    ctwins(new LD_curve_twin*[detector_.ncrv]),
+    t_S( Tmatrix<double>(detector_.nobs, detector_.ndep*(detector_.eor+1) ) ),
+    Jf_S( T3tensor<double>( detector_.nobs, detector_.ndep, detector_.ndim ) )
     {
+      printf("help\n");
+
       for (int i = 0; i < det.ncrv; i++)
         ctwins[i] = new LD_curve_twin(*(det.cdets[i]),*(Stwn.curves[i]));
     }
@@ -1031,6 +1046,9 @@ struct Lie_detector_digital_twin
     {
       for (int i = 0; i < det.ncrv; i++) delete ctwins[i];
       delete [] ctwins;
+
+      free_Tmatrix<double>(t_S);
+      free_T3tensor<double>(Jf_S);
     }
 
 

@@ -54,6 +54,9 @@ denoise_demo: $(TEST_SRC)denoise_demo.cc $(LDEXHIBCOKOBJS)
 riccati_demo: $(TEST_SRC)Riccati_denoising_demo.cc $(LDEXHIBCOKOBJS)
 	$(CXX) $(IDIR_EXHIB) $(CFLAGS_EXHIB) $(LINK) $^ $(LIBS_EXHIB) -o $@
 
+riccati_Jacobian_demo: $(TEST_SRC)Riccati_Jacobian_demo.cc $(LDEXHIBCOKOBJS)
+	$(CXX) $(IDIR_EXHIB) $(CFLAGS_EXHIB) $(LINK) $^ $(LIBS_EXHIB) -o $@
+
 $(LD_EXHIB_DIR):
 	mkdir -p $@
 

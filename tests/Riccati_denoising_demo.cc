@@ -86,9 +86,9 @@ const int write_sched = 1;
 // const int ndns_max = 1000;
 // const int write_sched = 5;
 
-// ode_curve_observations observations(data_name);
+ode_curve_observations observations(data_name);
   // ode_curve_observations observations(data_name,data_dnp1xu_name);
-  ode_curve_observations observations(data_name,data_dnp1xu_name,data_JFs_name);
+  // ode_curve_observations observations(data_name,data_dnp1xu_name,data_JFs_name);
 
 const int kor_obs = observations.kor_obs();
 
