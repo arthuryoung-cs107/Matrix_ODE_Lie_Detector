@@ -86,19 +86,13 @@ struct ode_trivial_soljet : public ode_soljet
   // inline void set_and_solve_Hermite_jets(LD_lu &lu_, ode_solution &sol0_, ode_solution &sol1_,int kor_)
   inline void set_and_solve_Hermite_jets(LD_lu &lu_, ode_solution &sol0_, ode_solution &sol1_,int kor_)
   {
-    const int kor_use = (kor_>=1)?(kor_):(comp_kor()),
+    const int kor_use = kor_, // (kor_>=1)?(kor_):(comp_kor()),
               jor_len = (2*(kor_use+1));
 
-    printf(   "kor_use=%d, "
-              "jor_len=%d, "
-              "\n",
-              kor_use,
-              jor_len);
-
-    getchar();
-
     set_trivial_Amat(lu_.LUmat,0.5*(sol1_.x-sol0_.x),kor_use);
+
     lu_.decompose_A(jor_len,jor_len);
+
     for (int i = 0; i < ndep; i++)
       lu_.solve_system(set_trivial_bvec(i,sol0_,sol1_,kor_use),jor_len) ;
   }

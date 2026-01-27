@@ -417,7 +417,8 @@ class Lie_detector
         // kor( ((palloc)?(obs_.eor+1):(obs_.eor)) ),
         kor( obs_.eor ), // Fundamentally, a Lie detector only needs to see up to the equation order
       npts_per_crv(obs_.npts_per_crv),
-      pts(obs_.pts_in), dnp1xu(obs_.dnp1xu_in),
+      pts(obs_.pts_in),
+      dnp1xu((obs_.dnp1xu_in==NULL)?( palloc?(new double[obs_.ndep*obs_.nobs]):NULL ):obs_.dnp1xu_in ),
       JFs_mat((Jalloc)?(Tmatrix_ptrs<double>(obs_.JFs_in,obs_.ndep*obs_.nobs,meta0.ndim)):(NULL)),
       Sobs(meta0,obs_.nobs,pts,dnp1xu,JFs_mat),
         sols(Sobs.sols),
@@ -431,14 +432,12 @@ class Lie_detector
         tcrvjets(new ode_trivial_curvejet*[ncrv]),
           tsoljets(new ode_trivial_soljet*[nobs-ncrv])
       {
-        printf("help?\n");
         int net_clcp = 0,
             net_Lmat_rows = 0,
             net_Rmat_rows = 0;
         double t0 = LD_threads::tic();
-        printf("go?\n");
-        // #pragma omp parallel reduction(+:net_clcp,net_Lmat_rows,net_Rmat_rows)
-        #pragma omp parallel num_threads(1)
+        // #pragma omp parallel num_threads(1)
+        #pragma omp parallel reduction(+:net_clcp,net_Lmat_rows,net_Rmat_rows)
         {
           LD_lu lu_t(jmeta_trivial.jor+1,jmeta_trivial.jor+1);
           double  ** const LUmat_t = lu_t.LUmat;
@@ -446,17 +445,15 @@ class Lie_detector
           for (int icrv = 0; icrv < ncrv; icrv++)
           {
             const int ipts = sum_Tvec<int>(npts_per_crv,icrv);
-            curves[icrv] = new ode_solcurve(icrv,meta0,npts_per_crv[icrv],
+            curves[icrv] = new ode_solcurve(  icrv,meta0,npts_per_crv[icrv],
                                               Sobs.pts_mat+ipts,
                                               Sobs.sols+ipts,
-                                              (palloc)?(Sobs.dnp1xu_mat+ipts):(NULL),
-                                              (Jalloc)?(Sobs.JFs_tns+ipts):(NULL)
+                                              Sobs.dnp1xu_mat+ipts,
+                                              Sobs.JFs_tns+ipts
                                             );
             cdets[icrv] = new curve_Lie_detector(*(curves[icrv]),jmeta_trivial,palloc,Jalloc);
               curves_h[icrv] = &(cdets[icrv]->crv_h);
               tcrvjets[icrv] = &(cdets[icrv]->tcrvjet);
-
-            printf("curve %d lie detector\n", icrv);
 
             for (int isol = 0, ipts_h=ipts-icrv; isol < cdets[icrv]->nobs_h; isol++,ipts_h++)
             {
@@ -466,17 +463,15 @@ class Lie_detector
                 sols_h_alt[ipts_h] = &(tjcharts[ipts_h]->solh_alt);
               tsoljets[ipts_h] = cdets[icrv]->tsoljets[isol];
 
-              printf("  hermite jet %d, kor=%d\n", isol, kor);
-
               // solving Hermite jet via LU decomposition, then sets solh accordingly
               tsoljets[ipts_h]->set_and_solve_Hermite_jets( tjcharts[ipts_h]->solh , lu_t, tjcharts[ipts_h]->sol0, tjcharts[ipts_h]->sol1, kor);
-              printf("    solved hermite jet %d\n", isol);
               tjcharts[ipts_h]->reload_sol_h(); // sync sol_h and sol_h_alt
             }
 
             net_clcp += tcrvjets[icrv]->nxh;
             net_Lmat_rows += tcrvjets[icrv]->Lsvd_f1jet.Muse;
             net_Rmat_rows += tcrvjets[icrv]->R1svd_f1jet.Muse;
+
           }
         }
         double work_time = LD_threads::toc(t0);
@@ -1037,8 +1032,6 @@ struct Lie_detector_digital_twin
     t_S( Tmatrix<double>(detector_.nobs, detector_.ndep*(detector_.eor+1) ) ),
     Jf_S( T3tensor<double>( detector_.nobs, detector_.ndep, detector_.ndim ) )
     {
-      printf("help\n");
-
       for (int i = 0; i < det.ncrv; i++)
         ctwins[i] = new LD_curve_twin(*(det.cdets[i]),*(Stwn.curves[i]));
     }
