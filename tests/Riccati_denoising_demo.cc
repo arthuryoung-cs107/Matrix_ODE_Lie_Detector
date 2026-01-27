@@ -507,7 +507,7 @@ struct global_Rmat_experiment : public global_multinomial_experiment
     printf("creating Jwkspc_t \n");
     J_vxu_workspace Jwkspc_t(nvar,fspace0.perm_len);
 
-    int i_check = 1;
+    int i_check = 9;
 
     soli_[i_check]->print_sol();
 
@@ -529,7 +529,7 @@ struct global_Rmat_experiment : public global_multinomial_experiment
     printf("Printing Jfs_o[0][:] \n");
     for (int i = 0; i < fspace0.nvar; i++) printf("%e ", solo_[i_check]->JFs[0][i] ); printf("\n");
     printf("Printing Jfs_i[0][:] \n");
-    for (int i = 0; i < fspace0.nvar; i++) printf("%e ", soli_[i_check]->JFs[0][i] );     printf("\n");
+    for (int i = 0; i < fspace0.nvar; i++) printf("%e ", soli_[i_check]->JFs[0][i] ); printf("\n");
 
 
     getchar();
