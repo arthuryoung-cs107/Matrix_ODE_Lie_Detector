@@ -93,26 +93,56 @@ struct cubic_model : public global_multinomial_experiment
       computing this singular value decomposition induces a trivial vector field model in the parameter space
     */
 
+  }
+  ~cubic_model()
+  {
+    for (int i = 0; i < nthread_wkspc; i++) {delete tvfields0[i]; delete fbases0[i]; }
+    delete [] tvfields0; delete [] fbases0;
+  }
+
+  void evaluate_vartheta_set()
+  {
+
     /*
-      evaluate the image of the data set over its own parameter map.
-      use these local parameters to estimate the n+1'th derivative
+      evaluate the image of the data set over its own parameter map, vartheta
+      use these local parameters to estimate the n+1=2nd derivative
     */
-    #pragma omp parallel
+    #pragma omp parallel num_threads(1)
     {
       LD_spectral_tvfield &tvf_t = *(tvfields0[LD_threads::thread_id()]);
         tvf_t.set_SVD_space(R1svd_global.svec,VTmat_R1_global);
       #pragma omp for
       for (int i = 0; i < nobs; i++)
       {
-        tvf_t.comp_spectral_theta_local(LDtwin.theta_space[i],sols[i]->x,sols[i]->u);
+        ode_solution &sol_i = *(sols[i]),
+                     &sol_i_twin = *(LDtwin.soltwin_i(i));
+        double * const theta_i = LDtwin.theta_space[i];
+
+        sol_i.print_sol(ndim);
+        sol_i_twin.print_sol(ndim);
+
+        // LDtwin.set_soltwin_i(i,sol_i);
+        //
+        // sol_i.print_sol();
+        // sol_i_twin.print_sol();
+
+        getchar();
+
+        // compute vartheta at this value of x and u
+        tvf_t.comp_spectral_theta_local(theta_i,sol_i.x,sol_i.u);
+
+        // // use vartheta alone to estimate dxu, then d2xu
+        // // tvf_t.eval_prn_theta_image(sol_,1,);
+        //
+        // // use vartheta, x, u, and dxu to estimate d2xu
+        // tvf_t.set_theta_local(theta_i);
+        // tvf_t.eval_theta_image();
+
+
+
       }
     }
 
-  }
-  ~cubic_model()
-  {
-    for (int i = 0; i < nthread_wkspc; i++) {delete tvfields0[i]; delete fbases0[i]; }
-    delete [] tvfields0; delete [] fbases0;
   }
 
 };
@@ -121,7 +151,7 @@ cubic_model cube(detector,function_space);
 
 int main()
 {
-
+  cube.evaluate_vartheta_set();
   printf("done.\n");
   return 0;
 }

@@ -124,10 +124,25 @@ struct ode_solution: public ode_solspc_element
     const int ndim_print = (ndim_print_)?( (ndim_print_<=ndim)?(ndim_print_):(ndim) ):(ndim);
     for (int idim = 0; idim < ndim_print; idim++)
       printf("%.2e ", pts[idim]);
+    printf("(dnp1xu?%d, JFs?%d) ", (int)(dnp1xu!=NULL), (int)(JFs!=NULL));
+    printf("%.2e ", *dnp1xu);
     if ((ndim_print_)&&(ndim_print_>ndim))
     {
       const int ndim_extra = ((ndim_print_-ndim) <= ndep )?(ndim_print_-ndim):(ndep);
       for (int idim = 0; idim < ndim_extra; idim++) printf("%.2e ", dnp1xu[idim]);
+      if (JFs!=NULL)
+      {
+        printf("[");
+        for (int idep = 0; idep < ndep; idep++)
+        {
+          printf("(");
+          for (int idim = 0; idim < ndim; idim++)
+            printf("%.2e ", JFs[idep][idim]);
+          printf(")");
+        }
+        printf("]");
+
+      }
     }
     printf("\n");
   }

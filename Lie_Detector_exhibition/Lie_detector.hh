@@ -1044,7 +1044,11 @@ struct Lie_detector_digital_twin
       free_T3tensor<double>(Jf_S);
     }
 
+    inline ode_solution * soltwin_i(int i_)
+    { return Stwn.sols[i_]; }
 
+    inline void set_soltwin_i(int i_, ode_solution &sol_)
+    { Stwn.sols[i_]->copy_sol(sol_); }
 
 };
 

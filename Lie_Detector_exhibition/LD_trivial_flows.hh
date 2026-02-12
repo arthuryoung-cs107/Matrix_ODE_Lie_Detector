@@ -737,6 +737,12 @@ struct LD_trivial_vector_field : public LD_svd_vector_field
      for (int i = ndof_ODE-ndep; i < ndof_ODE; i++) dudx_[i] = vn_local[i+1];
   }
 
+  inline void set_theta_local(double *theta_,int len_=0)
+  {
+    for (int i = 0, len = (len_)?(len_):(fspc.ndof_full); i < len; i++)
+      theta_local[i] = theta_[i];
+  }
+
   protected:
 
     vxu_workspace vxu_wkspc;
