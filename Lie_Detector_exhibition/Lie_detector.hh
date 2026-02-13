@@ -363,6 +363,7 @@ class Lie_detector
     int * const npts_per_crv;
     double * const pts,
            * const dnp1xu,
+           * const JFs_chunk,
            ** const JFs_mat;
 
     ode_solspc_subset Sobs; // raw data set via obs, indexed data structure from file data
@@ -418,8 +419,9 @@ class Lie_detector
         kor( obs_.eor ), // Fundamentally, a Lie detector only needs to see up to the equation order
       npts_per_crv(obs_.npts_per_crv),
       pts(obs_.pts_in),
-      dnp1xu((obs_.dnp1xu_in==NULL)?( palloc?(new double[obs_.ndep*obs_.nobs]):NULL ):obs_.dnp1xu_in ),
-      JFs_mat((Jalloc)?(Tmatrix_ptrs<double>(obs_.JFs_in,obs_.ndep*obs_.nobs,meta0.ndim)):(NULL)),
+      dnp1xu( (obs_.dnp1xu_in==NULL)?( palloc?(new double[nobs*ndep]):NULL ):(obs_.dnp1xu_in) ),
+      JFs_chunk( (obs_.JFs_in==NULL)?( Jalloc?(new double[nobs*ndep*ndim]):(NULL) ):(obs_.JFs_in) ),
+      JFs_mat( (Jalloc)?(Tmatrix_ptrs<double>(JFs_chunk,nobs*ndep,ndim)):(NULL) ),
       Sobs(meta0,obs_.nobs,pts,dnp1xu,JFs_mat),
         sols(Sobs.sols),
         sols_h(new ode_solution*[nobs-ncrv]),
@@ -494,6 +496,7 @@ class Lie_detector
       }
     ~Lie_detector()
     {
+      if ( (JFs_chunk!=NULL)&&( JFs_chunk!=obs.JFs_in ) ) delete [] JFs_chunk;
       if (JFs_mat!=NULL) delete [] JFs_mat;
       for (int i = 0; i < ncrv; i++)
       {

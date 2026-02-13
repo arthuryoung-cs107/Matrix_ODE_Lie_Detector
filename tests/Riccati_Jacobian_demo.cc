@@ -118,11 +118,12 @@ struct cubic_model : public global_multinomial_experiment
                      &sol_i_twin = *(LDtwin.soltwin_i(i));
         double * const theta_i = LDtwin.theta_space[i];
 
-        sol_i.print_sol(ndim);
-        sol_i_twin.print_sol(ndim);
+        sol_i_twin.print_sol();
+        sol_i.print_sol();
+        observations_full.print_sol_i(i);
 
         // LDtwin.set_soltwin_i(i,sol_i);
-        //
+
         // sol_i.print_sol();
         // sol_i_twin.print_sol();
 

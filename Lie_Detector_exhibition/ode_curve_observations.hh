@@ -121,6 +121,33 @@ class ode_curve_observations
 
     inline int kor_obs() {return (palloc())?(eor+1):(eor); }
 
+    inline void print_sol_i(int i_)
+    {
+      const int ndim = 1 + ndep*(eor+1);
+      if (pts_in!=NULL)
+        for (int idim = 0, iidim = i_*ndim; idim < ndim; idim++, iidim++)
+          printf("%.2e ", pts_in[iidim]);
+      printf("(dnp1xu? %s, JFs? %s) ",
+              (dnp1xu_in!=NULL)?("set"):("NOT set"),
+              (JFs_in!=NULL)?("set"):("NOT set")
+            );
+      if (dnp1xu_in!=NULL)
+        for (int i = 0, iidim = i_*ndep; i < ndep; i++, iidim++)
+          printf("%.2e ", dnp1xu_in[iidim]);
+      if (JFs_in!=NULL)
+      {
+        printf("[");
+        for (int idep = 0, iidim = i_*ndep*ndim; idep < ndep; idep++)
+        {
+          printf("( ");
+          for (int idim = 0; idim < ndim; idim++, iidim++) printf("%.2e ", JFs_in[iidim] );
+          printf(");");
+        }
+        printf("]");
+      }
+      printf("\n");
+    }
+
     void read_basic_observations(const char name_addtl_[], bool force_overwrite_=false);
     void read_additional_observations(const char name_addtl_[]);
     void write_observed_solutions(const char name_[])

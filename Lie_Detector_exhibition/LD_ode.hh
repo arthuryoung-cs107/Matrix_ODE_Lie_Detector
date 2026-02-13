@@ -119,30 +119,27 @@ struct ode_solution: public ode_solspc_element
           * dnp1xu = NULL,
           ** JFs = NULL;
 
-  inline void print_sol(int ndim_print_=0)
+  inline void print_sol()
   {
-    const int ndim_print = (ndim_print_)?( (ndim_print_<=ndim)?(ndim_print_):(ndim) ):(ndim);
-    for (int idim = 0; idim < ndim_print; idim++)
+    for (int idim = 0; idim < ndim; idim++)
       printf("%.2e ", pts[idim]);
-    printf("(dnp1xu?%d, JFs?%d) ", (int)(dnp1xu!=NULL), (int)(JFs!=NULL));
-    printf("%.2e ", *dnp1xu);
-    if ((ndim_print_)&&(ndim_print_>ndim))
+    printf("(dnp1xu? %s, JFs? %s) ",
+            (dnp1xu!=NULL)?("set"):("NOT set"),
+            (JFs!=NULL)?("set"):("NOT set")
+          );
+    if (dnp1xu!=NULL)
+      for (int i = 0; i < ndep; i++)
+        printf("%.2e ", dnp1xu[i]);
+    if (JFs!=NULL)
     {
-      const int ndim_extra = ((ndim_print_-ndim) <= ndep )?(ndim_print_-ndim):(ndep);
-      for (int idim = 0; idim < ndim_extra; idim++) printf("%.2e ", dnp1xu[idim]);
-      if (JFs!=NULL)
+      printf("[");
+      for (int idep = 0; idep < ndep; idep++)
       {
-        printf("[");
-        for (int idep = 0; idep < ndep; idep++)
-        {
-          printf("(");
-          for (int idim = 0; idim < ndim; idim++)
-            printf("%.2e ", JFs[idep][idim]);
-          printf(")");
-        }
-        printf("]");
-
+        printf("( ");
+        for (int idim = 0; idim < ndim; idim++) printf("%.2e ", JFs[idep][idim]);
+        printf(");");
       }
+      printf("]");
     }
     printf("\n");
   }
