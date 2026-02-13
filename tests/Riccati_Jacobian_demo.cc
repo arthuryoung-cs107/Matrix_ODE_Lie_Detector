@@ -109,8 +109,22 @@ struct cubic_model : public global_multinomial_experiment
     */
     #pragma omp parallel num_threads(1)
     {
+      double wTvec_t[fspace0.ndof_full*fspace0.ndof_full],
+             * WTmat_t[fspace0.ndof_full],
+             * const sg = R1svd_global.svec,
+             ** const VTg = VTmat_R1_global;
+
+      J_vxu_workspace Jwkspc_t(nvar,fspace0.perm_len);
+      for (int i = 0; i < fspace0.ndof_full; i++)
+      {
+        WTmat_t[i] = wTvec_t + (i*fspace0.ndof_full);
+        for (int j = 0; j < fspace0.ndof_full; j++)
+          WTmat_t[i][j] = VTg[i][j]*(sg[fspace0.ndof_full-1]/sg[i]);
+      }
+
       LD_spectral_tvfield &tvf_t = *(tvfields0[LD_threads::thread_id()]);
-        tvf_t.set_SVD_space(R1svd_global.svec,VTmat_R1_global);
+        tvf_t.set_SVD_space(sg,VTg);
+
       #pragma omp for
       for (int i = 0; i < nobs; i++)
       {
@@ -128,13 +142,19 @@ struct cubic_model : public global_multinomial_experiment
         // compute vartheta at this value of x and u
         tvf_t.comp_spectral_theta_local(theta_i,sol_i_twin.x,sol_i_twin.u);
 
+        // use vartheta, x, u, and dxu to estimate d2xu. (over)Write to minimal observations workspace
+        tvf_t.eval_vdnxu_theta_image(sol_i,theta_i);
+        printf("sol_i_obs: "); sol_i.print_sol();
+
         // use vartheta alone to estimate dxu, then d2xu. Write to twin workspace
         tvf_t.eval_prn_theta_image(sol_i_twin,2,theta_i);
         printf("sol_i_twin: "); sol_i_twin.print_sol();
 
-        // use vartheta, x, u, and dxu to estimate d2xu. (over)Write to minimal observations workspace
-        tvf_t.eval_vdnxu_theta_image(sol_i,theta_i);
-        printf("sol_i_obs: "); sol_i.print_sol();
+        // fspace0.J_tauxu_eval(sol_i_twin.JFs[0],Jwkspc_t,WTmat_t,sol_i.pts);
+        // printf("sol_i_twin: "); sol_i_twin.print_sol();
+
+        fspace0.J_tauxu_eval_crossfree(sol_i_twin.JFs[0],Jwkspc_t,WTmat_t,sol_i.pts);
+        printf("sol_i_twin: "); sol_i_twin.print_sol();
 
         getchar();
 
