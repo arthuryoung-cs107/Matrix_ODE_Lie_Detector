@@ -711,16 +711,38 @@ struct LD_trivial_vector_field : public LD_svd_vector_field
         for (int i = 0; i < sol_.ndep; i++, ipts_dkm1xu++)
           pts_local[ipts_dkm1xu] = vn_local[ipts_dkm1xu-fspc.ndep];
 
-        fbse.v_eval(pts_local,vn_local,theta_local,k); // yields an estimate for k+1 derivatives
+        // fbse.v_eval(pts_local,vn_local,theta_local,k); // yields an estimate for k+1 derivatives
+        fbse.v_eval(pts_local,vn_local,theta_,k); // yields an estimate for k+1 derivatives
 
-        if (k <= sol_.eor)
+        // if (k <= sol_.eor)
+        if (k < sol_.eor)
           for (int i = 0; i < sol_.ndep; i++)
             sol_.pts[ipts_dkm1xu+i] = vn_local[(ipts_dkm1xu+i)-fspc.ndep];
         else
+        {
           for (int i = 0; i < sol_.ndep; i++)
             sol_.dnp1xu[i] = vn_local[(ipts_dkm1xu+i)-fspc.ndep];
+        }
       }
     }
+  }
+  inline void eval_vdnxu_theta_image(ode_solution &sol_, double *theta_)
+  {
+    const int ndim_m_ndep = sol_.ndim-sol_.ndep;
+
+    // load and set first thru n-1 derivative terms
+    for (int i = 0; i < sol_.ndim; i++)
+      pts_local[i] = sol_.pts[i];
+
+    // // pad n'th order terms with zeroes (probably unnecessary with eorcap)
+    // for (int i = 0; i < sol_.ndep; i++) pts_local[ndim_m_ndep+i] = 0.0;
+
+    // evaluate n'th prolongation of vector field parameterized by theta_local
+    fbse.v_eval(pts_local,vn_local,theta_,sol_.eor);
+
+    // unpack n+1 derivative terms via prolongation
+    for (int i = 0; i < sol_.ndep; i++)
+      sol_.dnp1xu[i] = vn_local[ndim_m_ndep + i];
   }
   inline void eval_theta_image(double *u_,double *dudx_)
   {

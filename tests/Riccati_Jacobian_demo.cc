@@ -118,28 +118,25 @@ struct cubic_model : public global_multinomial_experiment
                      &sol_i_twin = *(LDtwin.soltwin_i(i));
         double * const theta_i = LDtwin.theta_space[i];
 
-        sol_i_twin.print_sol();
-        sol_i.print_sol();
-        observations_full.print_sol_i(i);
+        printf("sol_i_twin: "); sol_i_twin.print_sol();
+        printf("sol_i_obs: "); sol_i.print_sol();
+        printf("sol_i_obs_full: "); observations_full.print_sol_i(i);
 
-        // LDtwin.set_soltwin_i(i,sol_i);
-
-        // sol_i.print_sol();
-        // sol_i_twin.print_sol();
-
-        getchar();
+        LDtwin.set_soltwin_i(i,sol_i);
+        printf("sol_i_twin: "); sol_i_twin.print_sol();
 
         // compute vartheta at this value of x and u
-        tvf_t.comp_spectral_theta_local(theta_i,sol_i.x,sol_i.u);
+        tvf_t.comp_spectral_theta_local(theta_i,sol_i_twin.x,sol_i_twin.u);
 
-        // // use vartheta alone to estimate dxu, then d2xu
-        // // tvf_t.eval_prn_theta_image(sol_,1,);
-        //
-        // // use vartheta, x, u, and dxu to estimate d2xu
-        // tvf_t.set_theta_local(theta_i);
-        // tvf_t.eval_theta_image();
+        // use vartheta alone to estimate dxu, then d2xu. Write to twin workspace
+        tvf_t.eval_prn_theta_image(sol_i_twin,2,theta_i);
+        printf("sol_i_twin: "); sol_i_twin.print_sol();
 
+        // use vartheta, x, u, and dxu to estimate d2xu. (over)Write to minimal observations workspace
+        tvf_t.eval_vdnxu_theta_image(sol_i,theta_i);
+        printf("sol_i_obs: "); sol_i.print_sol();
 
+        getchar();
 
       }
     }
