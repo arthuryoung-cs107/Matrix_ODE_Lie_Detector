@@ -1,50 +1,78 @@
 clear
 close all
 
-fcos = @(t_) cos(t_);
-fsin = @(t_) sin(t_);
-
-plt0 = LD_plots('Sdns', ...
+plt0 = LD_plots('S', ...
                 [3 4],...
-                [1 3],[1 1], ...
+                [1 2],[1 1], ...
                 1);
-plt0 = plt0.init_tiles_safe(1,3);
+plt0 = plt0.init_tiles_safe(1,2);
 hold(plt0.axs, 'on');
 box(plt0.axs,'on');
 axs = plt0.axs;
 
-T_domain_plot = [-2*pi, 2*pi]
+%% simple Riccati
+fdxu = @(x_,u_) u_./x_ - u_;
+%% our Riccati
+% fdxu = @(x_,u_) 2.0*u_./x_ - u_.*u_.*x_.*x_;
 
-fplot(axs(1), fcos, T_domain_plot, 'Color', [1 0 0]);
-fplot(axs(2), fsin, T_domain_plot, 'Color', [0 0 1]);
+Fode = ode;
+                        % casted as trivial vector field, e ~ x
+Fode.ODEFcn = @(e_,s_) [ones(size(e_)) ; fdxu(s_(1,:), s_(2,:))];
 
-return
+x0 = 1e-1;
+u0_vals = logspace(-1,1,10);
+ef = 2.0; % epsilon varies from e0 = 0 to ef > 0
+xf = x0 + ef;
 
-% A = rand(30,10);
-% b = rand(30,1);
-%
-% [U,S,V] = svd(A,'econ'); % thin SVD of A
-%
-% %{
-%     Since the entries of A are random, A is almost surely full rank.
-%     Therefore, using S as in the thin SVD of A, S^-1 is well defined.
-% %}
-% A_dagg = V *( inv(S) )*U'; % by definition of the Moore--Penrose pseudoinverse
-%
-% x_hat = A_dagg*b;
-% rsqrd =  sum( (A*x_hat-b).^2 );
-%
-% eps_scl = 1e-2; % scale for small perturbation of x_hat
-% d1 = eps_scl*rand(10,1);
-% d2 = eps_scl*rand(10,1);
-% d3 = eps_scl*rand(10,1);
-%
-% rsqrd1 = sum( (A*(x_hat + d1)-b).^2 );
-% rsqrd2 = sum( (A*(x_hat + d2)-b).^2 );
-% rsqrd3 = sum( (A*(x_hat + d3)-b).^2 );
-%
-% fprintf('Minimum residual is r = %.3e. r1/r = %.3f, r2/r = %.3f, r2/r = %.3f.\n', ...
-% rsqrd, ...
-% rsqrd1 / rsqrd, ...
-% rsqrd2 / rsqrd, ...
-% rsqrd3 / rsqrd );
+% nevl = length(u0_vals);
+nevl = 2*length(u0_vals);
+epsevl = linspace(0.0,ef,nevl);
+x_evl = epsevl+x0;
+u_evl = nan(length(u0_vals),nevl );
+for i = 1:length(u0_vals)
+    Fode.InitialValue = [x0 ; u0_vals(i)];
+
+    % phi_i = solve(Fode,0.0,ef);
+    % phi_xu_i = phi_i.Solution;
+    % phi_x_i = phi_xu_i(1,:);
+    % phi_u_i = phi_xu_i(2,:);
+
+    phi_i = solutionFcn(Fode,0.0,ef);
+    phi_xu_i = phi_i(epsevl);
+    phi_x_i = phi_xu_i(1,:);
+    phi_u_i = phi_xu_i(2,:);
+
+    u_evl(i,:) = phi_u_i;
+
+    plot3(axs(1), phi_x_i, phi_u_i, fdxu(phi_x_i, phi_u_i), ...
+                    'LineStyle', '-', ...
+                    'LineWidth', 2, ...
+                    'Marker', '.', ...
+                    'MarkerSize', 10, ...
+                    'Color', LD_plots.green4);
+    plot(axs(2), phi_x_i, phi_u_i, ...
+                    'LineStyle', '-', ...
+                    'LineWidth', 1, ...
+                    'Marker', '.', ...
+                    'MarkerSize', 15, ...
+                    'Color', LD_plots.green4);
+end
+set(axs, ...
+    'YScale', 'linear',  ...
+    'XScale', 'linear',  ...
+    'TickLabelInterpreter','Latex', ...
+    'FontSize',16 );
+xlabel(axs, '$$ x $$', 'Interpreter','Latex','FontSize',16);
+ylabel(axs, '$$ u $$', 'Interpreter','Latex','FontSize',16);
+zlabel(axs(1), '$$ d_x u $$', 'Interpreter','Latex','FontSize',16);
+view(axs(1), LD_plots.view_mat(6, :));
+
+plt0.show_toolbar()
+
+% pause
+
+%% purely geometric surface representation
+% [Xmesh,Umesh] = meshgrid( x_evl, u0_vals  );
+[Xmesh,Umesh] = meshgrid( x_evl, linspace(min(u_evl(:)),max(u_evl(:)),nevl)  );
+DXUmesh = reshape( fdxu( Xmesh(:),Umesh(:)) , size(Xmesh) );
+surf(axs(1),Xmesh,Umesh,DXUmesh)
