@@ -158,17 +158,51 @@ classdef apv < fspc
     end
     methods (Static)
 
-        function [Rn_encoding,enc_specs] = model_Fode_observations(obj_,obs_,Sobs_)
+        function [Rn_encoding,mod_specs] = model_Fode_observations(obj_,obs_,Sobs_)
 
             [eor,ndep] = deal(obj_.eor,obj_.ndep);
             % ndim = 1 + ndep*(eor+1); % dimension of n'th jet space
 
-            [Rn_encoding,enc_specs] = apv.encode_R( obj_,obs_,Sobs_ );
+            [Rn_encoding,enc_specs] = apv.encode_R( obj_,obs_,Sobs_ )
 
+            nset = enc_specs.nset
+            ntheta = size(Rn_encoding{1},2)
 
+            R1_tns = enc_specs.R1_tns;
+
+            R1_full_tns = nan(ntheta,ntheta,nset);
+            SVD_R1_cell = cell(3,nset);
+            for i = 1:nset
+
+                % concatenated matrix of R1 constraints, all dependent variables together
+                R1mat_i = (reshape( permute(Rn_encoding{1,i},[2 1 3]) ,ntheta,[]))';
+
+                [~,SVD_R1_cell{2,i},SVD_R1_cell{3,i}] = svd(R1mat_i,'econ','vector');
+                SVD_R1_cell{1,i} = rank(R1mat_i);
+
+                R1_full_tns(:,:,i) = SVD_R1_cell{3,i}.*( reshape(SVD_R1_cell{2,i},1,[]) );
+
+            end
+            R1_full_mat = ( reshape(R1_full_tns,ntheta,[]) )';
+            [~,s_R1_full,V_R1_full] = svd( R1_full_mat ,'econ','vector');
+
+            W_mat = V_R1_full.*(1.0./(s_R1_full/s_R1_full(end)))';
+
+            fspc.print_polynomial_theta(W_mat(:,end),obj_.P_mat);
+            fspc.print_polynomial_theta(W_mat(:,end-1),obj_.P_mat);
+            fspc.print_short_polynomial_theta(W_mat(:,end),obj_.P_mat);
+            fspc.print_short_polynomial_theta(W_mat(:,end-1),obj_.P_mat);
+
+            pause
+
+            mod_specs = enc_specs;
+            mod_specs.R1_full_mat = R1_full_mat;
+            mod_specs.s_R1_full = s_R1_full;
+            mod_specs.V_R1_full = V_R1_full;
+            mod_specs.rank_R1_full = rank(R1_full_mat);
 
             fprintf('(model_Fode_observations end)\n');
-            pause
+            % pause
         end
 
 
@@ -212,27 +246,16 @@ classdef apv < fspc
             for i = 1:nobs
                 % check1 = (-d1xumat(:,i)*l_S(i,:)) % also works
                 R1_tns(:,:,i) = [ (-d1xumat(:,i).*l_S(i,:)) , immerse_lambda(l_S(i,:)) ];
-
             end
 
             Renc_out = cell(kor_obs,nset);
-            R1_tns = nan(ndep,ntheta,nobs);
             R_ttns = nan(ndep,ntheta,kor_obs,nobs);
             idel = 0;
             for i = 1:nset
                 nobs_set_i = size(S_{i},2);
                 iinds_i = (1+idel):(nobs_set_i+idel);
 
-                % R1_tns_i = R1_tns( :,:, iinds_i );
-                % Renc_out{1,i} = R1_tns_i;
-                % R_ttns(:,:,1,iinds_i) = R1_tns_i;
-
                 [Renc_out{1,i},R_ttns(:,:,1,iinds_i)] = deal(R1_tns( :,:,iinds_i ));
-
-                R1_tns(:,:,iinds_i) = reshape( ...
-                    R_ttns(:,:,1,iinds_i), ...
-                    ndep, ntheta, nobs_set_i  ...
-                );
 
                 idel = idel+nobs_set_i;
             end

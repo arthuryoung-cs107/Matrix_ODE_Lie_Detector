@@ -110,11 +110,11 @@ Fode_obs.unpack_s_xun = @(s_) unpack_Smat_xun( s_ );
 
 bor = 3;
 % fspace0 = apv.make_polynomial_fspace(1+fode.ndep,bor)
-fspace0 = apv(Fode_obs)
+fspace0 = apv(Fode_obs);
 fspace0 = fspace0.init_polynomial_fspace(bor)
 
 Smat_obs = jspc.Scell_2_Smat(Sobs,jspc.ndim(fspace0));
 
-[Renc,enc_spcs] = apv.model_Fode_observations(fspace0,Fode_obs,Sobs)
+[Renc,specs] = apv.model_Fode_observations(fspace0,Fode_obs,Sobs)
 
-% out_check = apv.model_Fode_observations(Fode_obs,Sobs,fspace0)
+fprintf('(end)\n');
