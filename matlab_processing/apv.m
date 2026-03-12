@@ -279,6 +279,7 @@ classdef apv < fspc
                 l_imm = l_imm_init;
                 l_imm(i_imm_vec) = reshape( (ones_imm.*l_)', len_Lambda_u ,1);
                 l_imm = reshape(l_imm,ndep,ncol_Lambda_u);
+                % l_ -> [l_ 0 ... 0 ; 0 l_ ... 0 ; ...]
             end
 
             R1_tns = nan(ndep,ntheta,nobs);

@@ -87,6 +87,7 @@ classdef apv_plots
                 end
 
                 sys_screens = apv_plots.get_sys_screens();
+                % sys_screens = get(groot,'MonitorPositions');
 
                 if (screen>size(sys_screens,1))
                     screen_specs = sys_screens(1,:); % default to screen 1
@@ -282,39 +283,41 @@ classdef apv_plots
 
         function sys_screens_out = get_sys_screens()
             sys_screens_out = get(groot,'MonitorPositions');
-            arch = getenv('ARCH');
-            [istart,iend] = regexp(arch,'mac');
-            if ( (length(istart)*length(iend)) == 0 ) % works fine if osx
-                [istart,iend] = regexp(arch,'win'); % assume works fine if windows
-                if ( (length(istart)*length(iend)) == 0 ) % assume linux
-                    [~,raw_out] = system('xrandr -q'); % query xrandr for linux displays
-                    [match,nomatch] = regexp(raw_out,'\w*connected\w*','match','split');
-                    nmonitors = length(match);
+            if (~ismac) % works fine if osx
+                arch = getenv('ARCH');
+                [istart,iend] = regexp(arch,'mac');
+                if ( (length(istart)*length(iend)) == 0 ) % works fine if osx
+                    [istart,iend] = regexp(arch,'win'); % assume works fine if windows
+                    if ( (length(istart)*length(iend)) == 0 ) % assume linux
+                        [~,raw_out] = system('xrandr -q'); % query xrandr for linux displays
+                        [match,nomatch] = regexp(raw_out,'\w*connected\w*','match','split');
+                        nmonitors = length(match);
 
-                    screen0 = nomatch{1,1};
-                    i_c = regexp(screen0,'current');
-                    i_m = regexp(screen0,'maximum');
-                    numstrings0 = extract(screen0(i_c:(i_m-1)),digitsPattern);
-                    height0 = str2num(numstrings0{2,1});
+                        screen0 = nomatch{1,1};
+                        i_c = regexp(screen0,'current');
+                        i_m = regexp(screen0,'maximum');
+                        numstrings0 = extract(screen0(i_c:(i_m-1)),digitsPattern);
+                        height0 = str2num(numstrings0{2,1});
 
-                    sys_screens_out = nan(nmonitors,4);
-                    for i = 1:nmonitors
-                        substr_i = nomatch{1,i+1};
-                        i_p = regexp(substr_i,'(');
-                        dimstring = substr_i(2:(i_p-1));
-                        numstrings = extract(dimstring,digitsPattern);
-                        heighti_true = str2num(numstrings{2});
+                        sys_screens_out = nan(nmonitors,4);
+                        for i = 1:nmonitors
+                            substr_i = nomatch{1,i+1};
+                            i_p = regexp(substr_i,'(');
+                            dimstring = substr_i(2:(i_p-1));
+                            numstrings = extract(dimstring,digitsPattern);
+                            heighti_true = str2num(numstrings{2});
 
-                        if (length(regexp(dimstring,'primary')))
-                            heighti = floor(0.9*heighti_true);
-                        else
-                            heighti = heighti_true;
+                            if (length(regexp(dimstring,'primary')))
+                                heighti = floor(0.9*heighti_true);
+                            else
+                                heighti = heighti_true;
+                            end
+
+                            sys_screens_out(i,:) = [    str2num(numstrings{3}), ...
+                                                        height0-str2num(numstrings{4})-heighti, ...
+                                                        str2num(numstrings{1}), ...
+                                                        heighti];
                         end
-
-                        sys_screens_out(i,:) = [    str2num(numstrings{3}), ...
-                                                    height0-str2num(numstrings{4})-heighti, ...
-                                                    str2num(numstrings{1}), ...
-                                                    heighti];
                     end
                 end
             end
