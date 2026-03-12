@@ -92,6 +92,9 @@ ylabel(axs, '$$ u $$', 'Interpreter','Latex','FontSize',16);
 zlabel(axs(1), '$$ d_x u $$', 'Interpreter','Latex','FontSize',16);
 view(axs(1), apv_plots.view_mat(6, :));
 
+
+
+
 %{
     ----------------------------
     model observed ode system
@@ -110,8 +113,8 @@ Fode_obs.unpack_s_xun = @(s_) unpack_Smat_xun( s_ );
 
 bor = 3;
 % fspace0 = apv.make_polynomial_fspace(1+fode.ndep,bor)
-fspace0 = apv(Fode_obs);
-fspace0 = fspace0.init_polynomial_fspace(bor)
+fspace0 = apv(Fode_obs); % Fode_obs must have ndep, eor
+fspace0 = fspace0.init_polynomial_fspace(bor) % initialize to mv polynomial
 
 Smat_obs = jspc.Scell_2_Smat(Sobs,jspc.ndim(fspace0));
 

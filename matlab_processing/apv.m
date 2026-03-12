@@ -24,6 +24,7 @@ classdef apv < fspc
 
     methods
 
+        % automatically prolonging vector
         function obj = apv(obs_)
 
             obj@fspc(obs_);
@@ -34,11 +35,11 @@ classdef apv < fspc
             obj.Omap_b = zeros(1,obj.ndep+1);
 
         end
-        function [Pmat_out,Plen_out] = Pmat_Plen(obj)
-            [Pmat_out,Plen_out] = deal(obj.P_mat,size(obj.P_mat,2));
-        end
         function Plen_out = Plen(obj)
             Plen_out = size(obj.P_mat,2);
+        end
+        function [Pmat_out,Plen_out] = Pmat_Plen(obj)
+            [Pmat_out,Plen_out] = deal(obj.P_mat,size(obj.P_mat,2));
         end
         function obj_out = init_polynomial_fspace(obj, bor_)
 
@@ -63,7 +64,12 @@ classdef apv < fspc
             obj_out.dx_l = @(obj_,xu_,dxu_) obj_.dx_l_polynomial(xu_,dxu_);
 
         end
-
+        function [Vx_,Vu_] = split_Vxu_mat(obj,V_)
+            [Vx_,Vu_] = deal( V_(1:obj.Plen,:) , V_((obj.Plen+1):end,:) );
+        end
+        function [Pmat_out,Plen_out] = unpack_P_fspace(obj)
+            [Pmat_out,Plen_out] = deal(obj.P_mat,size(obj.P_mat,2));
+        end
         function [xu_out,nobs_out,Pmat_out,Plen_out] = unpack_xu_fspace(obj,xu_)
             [Pmat_out,Plen_out] = deal(obj.P_mat,size(obj.P_mat,2));
             xu_out = reshape(xu_,obj.ndep+1,[]);
@@ -160,40 +166,63 @@ classdef apv < fspc
 
         function [Rn_encoding,mod_specs] = model_Fode_observations(obj_,obs_,Sobs_)
 
-            [eor,ndep] = deal(obj_.eor,obj_.ndep);
-            % ndim = 1 + ndep*(eor+1); % dimension of n'th jet space
-
             [Rn_encoding,enc_specs] = apv.encode_R( obj_,obs_,Sobs_ )
 
-            nset = enc_specs.nset
+            [eor,ndep] = deal(obj_.eor,obj_.ndep);
+            % ndim = 1 + ndep*(eor+1); % dimension of n'th jet space
+            [Pmat,Plen] = obj_.Pmat_Plen;
+
             ntheta = size(Rn_encoding{1},2)
 
-            R1_tns = enc_specs.R1_tns;
+            nobs = enc_specs.nobs;
+            nset = enc_specs.nset;
+            kor = enc_specs.kor_obs;
+            ndim = enc_specs.ndim_obs;
 
-            R1_full_tns = nan(ntheta,ntheta,nset);
-            SVD_R1_cell = cell(3,nset);
+            % R1_tns = enc_specs.R1_tns;
+
+            SVD_Rk_cell = cell(3,kor,nset);
+            RRk_full_ttns = nan(ntheta,ntheta,kor,nset);
             for i = 1:nset
+                for k = 1:kor
 
-                % concatenated matrix of R1 constraints, all dependent variables together
-                R1mat_i = (reshape( permute(Rn_encoding{1,i},[2 1 3]) ,ntheta,[]))';
+                    % concatenated matrix of Rk constraints, all dependent variables together
+                    Rkmat_i = reshape( permute(Rn_encoding{k,i},[2 1 3]) ,ntheta,[])';
 
-                [~,SVD_R1_cell{2,i},SVD_R1_cell{3,i}] = svd(R1mat_i,'econ','vector');
-                SVD_R1_cell{1,i} = rank(R1mat_i);
+                    [~,SVD_Rk_cell{2,k,i},SVD_Rk_cell{3,k,i}] = svd(Rkmat_i,'econ','vector');
+                    SVD_Rk_cell{1,k,i} = rank(Rkmat_i);
 
-                R1_full_tns(:,:,i) = SVD_R1_cell{3,i}.*( reshape(SVD_R1_cell{2,i},1,[]) );
+                    % save row space representation of this matrix for full null space problem
+                    RRk_full_ttns(:,:,k,i) = SVD_Rk_cell{3,k,i}.*reshape( SVD_Rk_cell{2,k,i},1,[] );
 
+                end
             end
-            R1_full_mat = ( reshape(R1_full_tns,ntheta,[]) )';
+
+            % Evaluate aggregate R1 svd, always exists, always relevant.
+            R1_full_mat = ( reshape(RRk_full_ttns(:,:,1,:),ntheta,[]) )';
             [~,s_R1_full,V_R1_full] = svd( R1_full_mat ,'econ','vector');
+            rank_R1_full = rank(R1_full_mat)
+            W1_mat = V_R1_full.*(1.0./(s_R1_full/s_R1_full(end)))';
 
-            W_mat = V_R1_full.*(1.0./(s_R1_full/s_R1_full(end)))';
+            fspc.print_short_polynomial_theta(W1_mat(:,end),obj_.P_mat);
+            fspc.print_short_polynomial_theta(W1_mat(:,end-1),obj_.P_mat);
 
-            fspc.print_polynomial_theta(W_mat(:,end),obj_.P_mat);
-            fspc.print_polynomial_theta(W_mat(:,end-1),obj_.P_mat);
-            fspc.print_short_polynomial_theta(W_mat(:,end),obj_.P_mat);
-            fspc.print_short_polynomial_theta(W_mat(:,end-1),obj_.P_mat);
+            % split_Vxu_mat = @(V_) deal( V_(1:Plen,:) , V_((Plen+1):end,:) );
+            [W1x,W1u] = obj_.split_Vxu_mat(W1_mat);
 
-            pause
+            % svd of W1x matrix
+            [~,s_W1x,V_W1x] = svd(W1x','econ','vector');
+            rank_W1x = rank(W1x)
+            s_W1x_row = s_W1x'
+
+            WW1_x = V_W1x.*(s_W1x'); % these are the scaled singular vectors of the Vx submatrix.
+            rank_WW1_x = rank(WW1_x)
+
+            % these are the scaled singular vectors of the Vx submatrix.
+            fspc.print_short_polynomial_theta_z(WW1_x(:,1),obj_.P_mat);
+            fspc.print_short_polynomial_theta_z(WW1_x(:,2),obj_.P_mat);
+
+
 
             mod_specs = enc_specs;
             mod_specs.R1_full_mat = R1_full_mat;

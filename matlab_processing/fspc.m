@@ -17,17 +17,54 @@ classdef fspc < jspc
     end
 
     methods (Static)
+
+        function print_short_polynomial_theta_z(theta_z_,Pmat_)
+            ndep_ = size(Pmat_,1)-1;
+            small_tol = 1e-6;
+
+            fprintf('multivariate (1+Q = %d) polynomials of form\n',1+ndep_);
+            fprintf('   v_z(xu) = Sum_i theta(i,z)*l_i(xu) ');
+            fprintf(' = Sum_i theta(i,z)*(xu)^[k(i,xu)] = Sum_i theta(i,z)*(x^k(i,x)');
+            for i = 1:ndep_
+                fprintf('*u_%d^k(i,u_%d)',i,i);
+            end
+            fprintf(')\n');
+            fprintf('   where theta(i,z) is coeff of mv polynomial l_i(xu)=(xu)^[k(i,xu)], combining into v_z : z = x, u_1, ..., u_Q (Q=%d)\n',ndep_);
+
+            Plen = length(theta_z_);
+
+            theta_z = theta_z_;
+            theta_z_maxmag = ( max(abs( theta_z )) );
+            theta_z_print = theta_z/theta_z_maxmag;
+            fprintf('   v_z (x,u) = (%.1e)( ',theta_z_maxmag);
+            for i = 1:Plen
+                if ( abs(theta_z_print(i)) > small_tol )
+                    fprintf('+ (%.2f)xu^[%d',theta_z_print(i),Pmat_(1,i));
+                    for idep = 1:ndep_
+                        fprintf(',%d',Pmat_(idep+1,i) );
+                    end
+                    fprintf('] ');
+                end
+            end
+            fprintf('), %d/%d largest terms\n', ...
+            sum(double( abs(theta_z_print)>small_tol )),Plen );
+
+            fprintf('(small_tol = %.1e)\n', small_tol);
+
+        end
+
         function print_short_polynomial_theta(theta_,Pmat_)
             ndep_ = size(Pmat_,1)-1;
             small_tol = 1e-6;
 
-            fprintf('multivariate (1+Q = %d) polynomials of form v_z(x,u) = Sum_i theta_z(i)',1+ndep_);
-            fprintf('*x^k(i,x)');
+            fprintf('multivariate (1+Q = %d) polynomials of form\n',1+ndep_);
+            fprintf('   v_z(xu) = Sum_i theta(i,z)*l_i(xu) ');
+            fprintf(' = Sum_i theta(i,z)*(xu)^[k(i,xu)] = Sum_i theta(i,z)*(x^k(i,x)');
             for i = 1:ndep_
                 fprintf('*u_%d^k(i,u_%d)',i,i);
             end
-            fprintf(',\n');
-            fprintf('   where theta_z : z = x, u_1, ..., u_Q, and k(i,z) is an assigned integer value, the exponent of z at i.\n');
+            fprintf(')\n');
+            fprintf('   where theta(i,z) is coeff of mv polynomial l_i(xu)=(xu)^[k(i,xu)], combining into v_z : z = x, u_1, ..., u_Q (Q=%d)\n',ndep_);
 
             theta_maxmag = ( max(abs(theta_(:))) );
             theta_print = theta_/theta_maxmag;
@@ -40,18 +77,19 @@ classdef fspc < jspc
             theta_z = theta_mat(:,1);
             theta_z_maxmag = ( max(abs( theta_z )) );
             theta_z_print = theta_z/theta_z_maxmag;
-            fprintf('   In short,');
-            fprintf('   v_x (x,u) = (%.1f)( ',theta_z_maxmag);
+            fprintf('   v_z (x,u) = (%.1e)( ',theta_z_maxmag);
             for i = 1:Plen
                 if ( abs(theta_z_print(i)) > small_tol )
-                    fprintf('+ (%.1f)xu^[%d',theta_z_print(i),Pmat_(1,i));
+                    fprintf('+ (%.2f)xu^[%d',theta_z_print(i),Pmat_(1,i));
                     for idep = 1:ndep_
                         fprintf(',%d',Pmat_(idep+1,i) );
                     end
                     fprintf('] ');
                 end
             end
-            fprintf('), %d (of %d) largest terms \n', ...
+            % fprintf('), %d/%d largest terms (tol=%1.e) \n', ...
+            % sum(double( abs(theta_z_print)>small_tol )),Plen,small_tol );
+            fprintf('), %d/%d largest terms\n', ...
             sum(double( abs(theta_z_print)>small_tol )),Plen );
 
             for jdep = 1:ndep_
@@ -60,105 +98,20 @@ classdef fspc < jspc
                 theta_z_maxmag = ( max(abs( theta_z )) );
                 theta_z_print = theta_z/theta_z_maxmag;
 
-                fprintf('   In short,');
-                fprintf('   v_u_%d (x,u) = (%.1f)(',jdep,theta_z_maxmag);
+                fprintf('   v_u_%d (x,u) = (%.1e)( ',jdep,theta_z_maxmag);
                 for i = 1:Plen
                     if ( abs(theta_z_print(i)) > small_tol )
-                        fprintf('+ (%.1f)xu^[%d',theta_z_print(i),Pmat_(1,i));
+                        fprintf('+ (%.2f)xu^[%d',theta_z_print(i),Pmat_(1,i));
                         for idep = 1:ndep_
                             fprintf(',%d',Pmat_(idep+1,i) );
                         end
                         fprintf('] ');
                     end
                 end
-                fprintf('), %d (of %d) largest terms \n', ...
+                fprintf('), %d/%d largest terms\n', ...
                 sum(double( abs(theta_z_print)>small_tol )),Plen );
             end
-            fprintf('\n');
-
-        end
-        function print_polynomial_theta(theta_,Pmat_)
-            ndep_ = size(Pmat_,1)-1;
-            small_tol = 1e-6;
-
-            fprintf('multivariate (1+Q = %d) polynomials of form v_z(x,u) = Sum_i theta_z(i)',1+ndep_);
-            fprintf('*x^k(i,x)');
-            for i = 1:ndep_
-                fprintf('*u_%d^k(i,u_%d)',i,i);
-            end
-            fprintf(',\n');
-            fprintf('   where theta_z : z = x, u_1, ..., u_Q,');
-            fprintf('   and k(i,z) is an assigned integer value, the exponent of z at i.\n');
-
-            theta_maxmag = ( max(abs(theta_(:))) );
-            theta_print = theta_/theta_maxmag;
-
-            % fprintf('   In full, theta = (%.2e)( ', theta_maxmag);
-            % fprintf('%.1e ', theta_print);
-            % fprintf(')\n');
-
-            ntheta = length(theta_);
-            Plen = ntheta/(1+ndep_);
-
-            theta_mat = reshape(theta_,[],1+ndep_);
-
-
-            theta_z = theta_mat(:,1);
-            theta_z_maxmag = ( max(abs( theta_z )) );
-            theta_z_print = theta_z/theta_z_maxmag;
-            fprintf('   v_x (x,u) = (%.2e)(\n',theta_z_maxmag);
-            for i = 1:Plen
-                fprintf('(%.2e) x^%d',theta_z_print(i),Pmat_(1,i));
-                for idep = 1:ndep_
-                    fprintf(' u_%d^%d',idep,Pmat_(idep+1,i) );
-                end
-                fprintf('\n');
-            end
-            fprintf(')\n');
-
-            fprintf('   In short,');
-            fprintf('   v_x (x,u) = (%.1f)( ',theta_z_maxmag);
-            for i = 1:Plen
-                if ( abs(theta_z_print(i)) > small_tol )
-                    fprintf('+ (%.1f)xu^[%d',theta_z_print(i),Pmat_(1,i));
-                    for idep = 1:ndep_
-                        fprintf(',%d',Pmat_(idep+1,i) );
-                    end
-                    fprintf('] ');
-                end
-            end
-            fprintf(')\n');
-
-            for jdep = 1:ndep_
-
-                theta_z = theta_mat(:,jdep+1);
-                theta_z_maxmag = ( max(abs( theta_z )) );
-                theta_z_print = theta_z/theta_z_maxmag;
-
-                fprintf('   v_u_%d (x,u) = (%.2e)(\n',jdep,theta_z_maxmag);
-                for i = 1:Plen
-                    fprintf('(%.2e) x^%d',theta_z_print(i),Pmat_(1,i));
-                    for idep = 1:ndep_
-                        fprintf(' u_%d^%d',idep,Pmat_(idep+1,i) );
-                    end
-                    fprintf('\n');
-                end
-                fprintf(')\n');
-
-                fprintf('   In short,');
-                fprintf('   v_u_%d (x,u) = (%.1f)(',jdep,theta_z_maxmag);
-                for i = 1:Plen
-                    if ( abs(theta_z_print(i)) > small_tol )
-                        fprintf('+ (%.1f)xu^[%d',theta_z_print(i),Pmat_(1,i));
-                        for idep = 1:ndep_
-                            fprintf(',%d',Pmat_(idep+1,i) );
-                        end
-                        fprintf('] ');
-                    end
-                end
-                fprintf(')\n');
-            end
-            fprintf('\n');
+            fprintf('(small_tol = %.1e)\n', small_tol);
 
         end
 
