@@ -7,12 +7,14 @@
 clear;
 close all;
 
-sys_screens = apv_plots.get_sys_screens();
+% sys_screens = apv_plots.get_sys_screens();
+sys_screens = get(groot,'MonitorPositions');
+
 screen_specs = sys_screens(1,:);
 [o_screen d_screen] = deal(screen_specs(1:2), screen_specs(3:4)-1)
 
-% scrn_id = 1;
-scrn_id = 3;
+scrn_id = 1;
+% scrn_id = 3;
 
 %{
     ----------------------------
@@ -29,8 +31,9 @@ fode = struct( ...
 2.0*(1.0./x_) - 2.0*(x_.*x_).*u_ ] ...
 );
 
-Fode_sys = ode;
-Fode_sys.ODEFcn = @(e_,s_) [ ones(1,size(s_,2)) ; fode.f( s_(1,:),s_(2:end,:) ) ];
+% Fode_sys = ode;
+% Fode_sys.ODEFcn = @(e_,s_) [ ones(1,size(s_,2)) ; fode.f( s_(1,:),s_(2:end,:) ) ];
+Fode_sys_evl = @(e_,s_) [ ones(1,size(s_,2)) ; fode.f( s_(1,:),s_(2:end,:) ) ];
 
 x0 = 1e-1;
 u0_vals = logspace(-1,1,10);
@@ -45,10 +48,15 @@ x_evl = epsevl+x0;
 u_evl = nan(length(u0_vals),nevl );
 Sobs = cell(ncrv,1);
 for i = 1:length(u0_vals)
-    Fode_sys.InitialValue = [x0 ; u0_vals(i)];
+    % Fode_sys = ode;
+    % Fode_sys.ODEFcn =
 
-    phi_i = solutionFcn(Fode_sys,0.0,ef);
-    phi_xu_i = phi_i(epsevl);
+    Fode_sys = ode45(Fode_sys_evl,[0.0,ef],[x0 ; u0_vals(i)]);
+
+    % phi_i = solutionFcn(Fode_sys,0.0,ef);
+    % phi_xu_i = phi_i(epsevl);
+    phi_xu_i = deval(Fode_sys,epsevl);
+
     u_evl(i,:) = phi_xu_i(2:end,:);
 
     Sobs{i} = [ phi_xu_i ; fode.f( phi_xu_i(1,:),phi_xu_i(2:end,:) ) ]; % sols are the graph of f
