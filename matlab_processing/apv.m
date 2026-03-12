@@ -181,6 +181,12 @@ classdef apv < fspc
 
             % R1_tns = enc_specs.R1_tns;
 
+            function [r_,s_,V_] = svd_unpack(A_)
+                [~,S_,V_] = svd(A_,'econ');
+                r_ = rank(A_);
+                s_ = diag(S_);
+            end
+
             SVD_Rk_cell = cell(3,kor,nset);
             RRk_full_ttns = nan(ntheta,ntheta,kor,nset);
             for i = 1:nset
@@ -189,8 +195,9 @@ classdef apv < fspc
                     % concatenated matrix of Rk constraints, all dependent variables together
                     Rkmat_i = reshape( permute(Rn_encoding{k,i},[2 1 3]) ,ntheta,[])';
 
-                    [~,SVD_Rk_cell{2,k,i},SVD_Rk_cell{3,k,i}] = svd(Rkmat_i,'econ','vector');
-                    SVD_Rk_cell{1,k,i} = rank(Rkmat_i);
+                    % [~,SVD_Rk_cell{2,k,i},SVD_Rk_cell{3,k,i}] = svd(Rkmat_i,'econ','vector');
+                    % SVD_Rk_cell{1,k,i} = rank(Rkmat_i);
+                    [SVD_Rk_cell{1,k,i},SVD_Rk_cell{2,k,i},SVD_Rk_cell{3,k,i}] = svd_unpack(Rkmat_i);
 
                     % save row space representation of this matrix for full null space problem
                     RRk_full_ttns(:,:,k,i) = SVD_Rk_cell{3,k,i}.*reshape( SVD_Rk_cell{2,k,i},1,[] );
@@ -200,8 +207,10 @@ classdef apv < fspc
 
             % Evaluate aggregate R1 svd, always exists, always relevant.
             R1_full_mat = ( reshape(RRk_full_ttns(:,:,1,:),ntheta,[]) )';
-            [~,s_R1_full,V_R1_full] = svd( R1_full_mat ,'econ','vector');
-            rank_R1_full = rank(R1_full_mat)
+            % [~,s_R1_full,V_R1_full] = svd( R1_full_mat ,'econ','vector');
+            % rank_R1_full = rank(R1_full_mat)
+            [rank_R1_full,s_R1_full,V_R1_full] = svd_unpack(R1_full_mat);
+
             W1_mat = V_R1_full.*(1.0./(s_R1_full/s_R1_full(end)))';
 
             fspc.print_short_polynomial_theta(W1_mat(:,end),obj_.P_mat);
@@ -211,8 +220,10 @@ classdef apv < fspc
             [W1x,W1u] = obj_.split_Vxu_mat(W1_mat);
 
             % svd of W1x matrix
-            [~,s_W1x,V_W1x] = svd(W1x','econ','vector');
-            rank_W1x = rank(W1x)
+            % [~,s_W1x,V_W1x] = svd(W1x','econ','vector');
+            % rank_W1x = rank(W1x)
+            [rank_W1x,s_W1x,V_W1x] = svd_unpack(W1x');
+
             s_W1x_row = s_W1x'
 
             WW1_x = V_W1x.*(s_W1x'); % these are the scaled singular vectors of the Vx submatrix.
@@ -221,7 +232,6 @@ classdef apv < fspc
             % these are the scaled singular vectors of the Vx submatrix.
             fspc.print_short_polynomial_theta_z(WW1_x(:,1),obj_.P_mat);
             fspc.print_short_polynomial_theta_z(WW1_x(:,2),obj_.P_mat);
-
 
 
             mod_specs = enc_specs;
