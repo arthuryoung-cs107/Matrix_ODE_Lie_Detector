@@ -18,6 +18,38 @@ classdef fspc < jspc
 
     methods (Static)
 
+        function [s_scaled_pseudo_inverse,s_scl] = s_spi(s_)
+
+            % s_scaled_pseudo_inverse = reshape(1.0./(s_/s_(end)),1,[]);
+            ss = s_;
+            logc_zero = (s_ == 0.0);
+            [s_scl,imin_nzero] = min( s_(~logc_zero) );
+            ss((imin_nzero+1):end) = s_scl;
+
+            s_scaled_pseudo_inverse = reshape(1.0./(ss/s_scl),1,[]);
+            
+        end
+
+        function [WA_,rA_,sA_,VA_,Afull_] = safely_process_net_svd(Atns_)
+
+            Afull_ = ( reshape( Atns_, size(Atns_,1),[] ) )';
+            [rA_,sA_,VA_] = fspc.rsV_unpack( Afull_ );
+
+            ssA = sA_;
+            logc_zero = (sA_ == 0.0);
+            [s_min_nzero,imin_nzero] = min( sA_(~logc_zero) );
+            ssA((imin_nzero+1):end) = s_min_nzero;
+
+            WA_ = VA_.*reshape(1.0./(ssA/s_min_nzero),1,[]);
+
+        end
+
+        function [r_,s_,V_] = rsV_unpack(A_)
+            [~,S_,V_] = svd(A_,'econ');
+            s_ = reshape(diag(S_),[],1); % output s_ is col vector
+            r_ = sum(double(s_ > max(size(A_))*eps(S_(1)))); % default matlab tol
+        end
+
         function print_short_polynomial_theta_z(theta_z_,Pmat_,Zname_,preamble_)
             if (nargin==2)
                 Zname = 'z';

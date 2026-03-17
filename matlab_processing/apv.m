@@ -20,6 +20,9 @@ classdef apv < fspc
         gxu_l;
         dx_l;
 
+        vxu;
+        txu;
+
     end
 
     methods
@@ -63,17 +66,62 @@ classdef apv < fspc
             obj_out.gxu_l = @(obj_,xu_) obj_.gxu_l_polynomial(xu_);
             obj_out.dx_l = @(obj_,xu_,dxu_) obj_.dx_l_polynomial(xu_,dxu_);
 
+            obj_out.vxu = @(obj_,xu_,theta_) obj_.vxu_polynomial(xu_,theta_);
+            obj_out.txu = @(obj_,xu_,W_) obj_.compute_txu(obj_.l_polynomial(xu_),W_);
         end
-        function [Vx_,Vu_] = split_Vxu_mat(obj,V_)
-            [Vx_,Vu_] = deal( V_(1:obj.Plen,:) , V_((obj.Plen+1):end,:) );
+        function [txu_out,vartheta_out] = compute_txu(obj,lmat_,V_,s_)
+            if (nargin==4)
+                W = V_.*fspc.s_spi(s_);
+            else
+                W = V_;
+            end
+            [eor,ndep,ndim,nvar] = jspc.unpack_jetspace_dims(obj);
+            Plen = size(W,1)/nvar;
+            [dlm1,dlm2] = size(lmat_);
+            if (dlm1 == Plen)
+                nobs = dlm2;
+                lmat = lmat_';
+            else
+                nobs = dlm1;
+                lmat = lmat_;
+            end
+            vartheta_evl = @(vx_)  ( W*vx_ )/sum(vx_.*vx_);
+            Wx = W(1:Plen,:);
+            if (nobs==1)
+                vartheta_out = vartheta_evl( (lmat*Wx)' );
+                txu_out = (lmat*reshape(vartheta_out,Plen,nvar))';
+            else
+                txu_out = nan(nvar,nobs);
+                vartheta_out = nan(Plen*nvar,nobs);
+                for i = 1:nobs
+                    vartheta_out(:,i) = vartheta_evl( (lmat(i,:)*Wx)' );
+                    txu_out(:,i) = (lmat(i,:)*reshape(vartheta_out(:,i),Plen,nvar))';
+                end
+            end
         end
-        function [Pmat_out,Plen_out] = unpack_P_fspace(obj)
-            [Pmat_out,Plen_out] = deal(obj.P_mat,size(obj.P_mat,2));
-        end
-        function [xu_out,nobs_out,Pmat_out,Plen_out] = unpack_xu_fspace(obj,xu_)
-            [Pmat_out,Plen_out] = deal(obj.P_mat,size(obj.P_mat,2));
-            xu_out = reshape(xu_,obj.ndep+1,[]);
-            nobs_out = size(xu_out,2);
+        function vxu_out = vxu_polynomial(obj,xu_,theta_)
+            [xu,nobs,Pmat,Plen] = obj.unpack_xu_fspace(xu_);
+            [eor,ndep,ndim,nvar] = jspc.unpack_jetspace_dims(obj);
+
+            vxu_evl = @(s_,t_) ( prod(s_ .^ Pmat,1)*reshape(t_,Plen,[]) )';
+
+            if (nobs==1)
+                vxu_out = vxu_evl(xu,theta_);
+            else
+                ntheta = Plen*nvar;
+                theta_cols = reshape(theta_,ntheta,[]);
+                ncol_theta = size(theta_cols,2);
+                vxu_out = nan(nvar,nobs);
+                if (ncol_theta==1)
+                    for i = 1:nobs
+                        vxu_out(:,i) = vxu_evl(xu(:,i),theta_cols);
+                    end
+                else
+                    for i = 1:nobs
+                        vxu_out(:,i) = vxu_evl(xu(:,i),theta_cols(:,i));
+                    end
+                end
+            end
         end
         function L_out = L_polynomial(obj,xu_)
             [xu,nobs,Pmat,Plen] = obj.unpack_xu_fspace(xu_);
@@ -161,30 +209,208 @@ classdef apv < fspc
                 end
             end
         end
+        function [Vx_,Vu_] = split_Vxu_mat(obj,V_)
+            [Vx_,Vu_] = deal( V_(1:obj.Plen,:) , V_((obj.Plen+1):end,:) );
+        end
+        function [Pmat_out,Plen_out] = unpack_P_fspace(obj)
+            [Pmat_out,Plen_out] = deal(obj.P_mat,size(obj.P_mat,2));
+        end
+        function [xu_out,nobs_out,Pmat_out,Plen_out] = unpack_xu_fspace(obj,xu_)
+            [Pmat_out,Plen_out] = deal(obj.P_mat,size(obj.P_mat,2));
+            xu_out = reshape(xu_,obj.ndep+1,[]);
+            nobs_out = size(xu_out,2);
+        end
     end
     methods (Static)
 
-        function [Rn_encoding,mod_specs] = model_Fode_observations(obj_,obs_,Sobs_)
+        function [Renc_out,enc_specs,coord_specs] = model_trivial_vfield(obj_,obs_,S_)
 
-            [Rn_encoding,enc_specs] = apv.encode_R( obj_,obs_,Sobs_ )
+            [Renc_out,enc_specs] = apv.encode_R( obj_,obs_,S_ )
 
             [eor,ndep] = deal(obj_.eor,obj_.ndep);
-            % ndim = 1 + ndep*(eor+1); % dimension of n'th jet space
+            ndim = 1 + ndep*(eor+1);
+            nvar = ndep+1;
             [Pmat,Plen] = obj_.Pmat_Plen;
 
-            ntheta = size(Rn_encoding{1},2)
+            ntheta = size(Renc_out{1},2);
+
+            nobs = enc_specs.nobs;
+            nset = enc_specs.nset;
+            kor = enc_specs.kor_obs;
+            ndim_obs = enc_specs.ndim_obs;
+            Smat = jspc.Scell_2_Smat(S_,ndim_obs);
+
+            L_S = enc_specs.L_S;
+            l_S = (reshape(prod(L_S,1),Plen,[]))';
+            gxu_l_S = enc_specs.gxu_l_S;
+            dx_l_S = enc_specs.dx_l_S;
+
+            xu = enc_specs.xu;
+            un = enc_specs.un;
+            dxun = enc_specs.dxun;
+            d1xu = enc_specs.d1xu;
+
+            Lam_x_dxu = enc_specs.Lam_x_dxu;
+            Lam_u_dxu = enc_specs.Lam_u_dxu;
+
+            H1_full_tns = nan(Plen,Plen,nset);
+            rsV_H1_cell = cell(3,nset);
+            rsV_Rk_cell = cell(3,kor,nset);
+            RRk_full_ttns = nan(ntheta,ntheta,kor,nset);
+            idel = 0;
+            for i = 1:nset
+
+                npts_i = size(S_{i},2);
+                inds_i = (1+idel):(npts_i+idel);
+                H1_i = dx_l_S(inds_i,:);
+
+                [rsV_H1_cell{1,i},rsV_H1_cell{2,i},rsV_H1_cell{3,i}] = ...
+                    fspc.rsV_unpack(H1_i);
+                H1_full_tns(:,:,i) = rsV_H1_cell{3,i}.*( rsV_H1_cell{2,i}' );
+
+                for k = 1:kor
+
+                    % concatenated matrix of Rk constraints, all dependent variables together
+                    Rkmat_i = reshape( permute(Renc_out{k,i},[2 1 3]) ,ntheta,[])';
+
+                    [rsV_Rk_cell{1,k,i},rsV_Rk_cell{2,k,i},rsV_Rk_cell{3,k,i}] = ...
+                        fspc.rsV_unpack(Rkmat_i);
+
+                    % save row space representation of this Rk matrix for full null space problem
+                    RRk_full_ttns(:,:,k,i) = rsV_Rk_cell{3,k,i}.*( rsV_Rk_cell{2,k,i}' );
+
+                end
+                idel = idel + npts_i;
+            end
+
+            % Evaluate aggregate H1 svd
+            [W_H1_mat,rank_H1_full,s_H1_full,V_H1_full,H1_full_mat] = ...
+                fspc.safely_process_net_svd(H1_full_tns);
+            rank_H1_full
+            s_H1_full_row = s_H1_full'
+
+            fspc.print_short_polynomial_theta_z(W_H1_mat(:,end),obj_.P_mat);
+            fspc.print_short_polynomial_theta_z(W_H1_mat(:,end-1),obj_.P_mat);
+
+            % Evaluate aggregate R1 svd: always exists, always relevant.
+            [W_R1_mat,rank_R1_full,s_R1_full,V_R1_full,R1_full_mat] = ...
+                fspc.safely_process_net_svd(RRk_full_ttns(:,:,1,:));
+            rank_R1_full
+            s_R1_full_row = s_R1_full'
+
+            fspc.print_short_polynomial_theta(W_R1_mat(:,end),obj_.P_mat);
+            fspc.print_short_polynomial_theta(W_R1_mat(:,end-1),obj_.P_mat);
+
+            [WR1x,WR1u] = obj_.split_Vxu_mat(W_R1_mat);
+            [rank_WR1x,s_WR1x,V_WR1x] = fspc.rsV_unpack(WR1x');
+            rank_WR1x
+            s_WR1x_row = s_WR1x'
+
+            YW1_x = V_WR1x.*(s_WR1x'/s_WR1x(1)); % these are the scaled singular vectors of the Vx submatrix.
+            rank_YW1_x = rank(YW1_x)
+
+            % these are the scaled singular vectors of the Vx submatrix.
+            fspc.print_short_polynomial_theta_z(YW1_x(:,1),obj_.P_mat);
+            fspc.print_short_polynomial_theta_z(YW1_x(:,2),obj_.P_mat);
+
+            %% model base space trivial vector field
+            [txu_S,vartheta_S] = obj_.txu(obj_,xu,W_R1_mat);
+
+            [rank_vtheta_S,s_vtheta_S,V_vtheta_S] = fspc.rsV_unpack(vartheta_S');
+            rank_vtheta_S
+            s_vtheta_S_row = s_vtheta_S'
+            Y_vtheta_S = V_vtheta_S.*(s_vtheta_S'/s_vtheta_S(1));
+
+            rstats = @(r_) deal( sqrt(sum(r_)), max(r_(:)), median(r_(:)) );
+
+            [tx_S,tu_S] = deal(txu_S(1,:), txu_S(2:end,:));
+            res_tu_S = sum((tu_S-d1xu).^2,1);
+            [err_tu_S_net,maxr_tu_S,medr_tu_S] = rstats(res_tu_S)
+
+            % these are the scaled singular vectors of the Vx submatrix.
+            fspc.print_short_polynomial_theta(Y_vtheta_S(:,1),obj_.P_mat);
+            fspc.print_short_polynomial_theta(Y_vtheta_S(:,2),obj_.P_mat);
+
+            K_R1 = V_vtheta_S(:,1:rank_vtheta_S); % an orthonormal basis for ker(R1)
+            [txu_K_S,vartheta_K_S] = obj_.txu(obj_,xu,K_R1); % pass back to txu
+
+            [tx_K_S,tu_K_S] = deal(txu_K_S(1,:), txu_K_S(2:end,:));
+            res_tu_K_S = sum((tu_K_S-d1xu).^2,1);
+            [err_tu_K_S_net,maxr_tu_K_S,medr_tu_K_S] = rstats(res_tu_K_S)
+
+            tu_mat_S = reshape(tu_S,ndep,nobs);
+            vartheta_tns_S = reshape(vartheta_K_S,Plen,nvar,nobs);
+
+            G1_full_ttns = zeros(ntheta,ndep,nobs);
+            G1_true_ttns = zeros(ntheta,ndep,nobs);
+            for i = 1:nobs
+                vtx_i = vartheta_tns_S(:,1,i);
+                vtu_i = vartheta_tns_S(:,2:end,i);
+
+                l_i = l_S(i,:)';
+                g_i = gxu_l_S(:,:,i)';
+                Lam1_x_i = reshape(Lam_x_dxu(:,:,1,i),ndep,Plen)';
+                Lam1_u_i = Lam_u_dxu(:,1,i);
+
+                Lam_dxu_T_i = G1_full_ttns(:,:,i);
+                Lam0_xu_T_i = zeros(ntheta,nvar);
+
+                Lam0_xu_T_i(1:Plen,1) = l_i;
+                idel_P = Plen;
+                for idep = 1:ndep
+                    Lam_dxu_T_i(1:Plen,idep) = Lam1_x_i(:,idep);
+
+                    inds_ii = (1+idel_P):(Plen+idel_P);
+                    Lam_dxu_T_i(inds_ii,idep) = Lam1_u_i;
+                    Lam0_xu_T_i(inds_ii,idep+1) = l_i;
+                    idel_P = idel_P + Plen;
+                end
+                G1_full_ttns(:,:,i) = ...
+                ((vtu_i' - (tu_mat_S(:,i).*vtx_i'))*g_i*Lam0_xu_T_i' - Lam_dxu_T_i')';
+                G1_true_ttns(:,:,i) = ...
+                (obj_.obs.gradf(Smat(1,i),Smat(2:nvar,i))'*Lam0_xu_T_i' - Lam_dxu_T_i')';
+            end
+            [W_G1_mat,rank_G1_full,s_G1_full,V_G1_full,G1_full_mat] = ...
+                fspc.safely_process_net_svd( G1_full_ttns );
+            rank_G1_full
+            s_G1_full_row = s_G1_full'
+
+            fspc.print_short_polynomial_theta(W_G1_mat(:,end),obj_.P_mat);
+            fspc.print_short_polynomial_theta(W_G1_mat(:,end-1),obj_.P_mat);
+            fspc.print_short_polynomial_theta(W_G1_mat(:,end-2),obj_.P_mat);
+
+            [W_G1_true,rank_G1_true,s_G1_true,V_G1_true,G1_true_mat] = ...
+                fspc.safely_process_net_svd( G1_true_ttns );
+            rank_G1_true
+            s_G1_true_row = s_G1_true'
+
+            check = sqrt(sum( (G1_true_mat*V_G1_full(:,(end-3):end)).^2 ,1))
+
+            fspc.print_short_polynomial_theta(W_G1_true(:,end),obj_.P_mat);
+            fspc.print_short_polynomial_theta(W_G1_true(:,end-1),obj_.P_mat);
+            fspc.print_short_polynomial_theta(W_G1_true(:,end-2),obj_.P_mat);
+
+            pause
+
+            coord_specs = 0;
+        end
+        function [Rn_encoding,mod_specs] = model_Fode_observations(obj_,obs_,Sobs_)
+
+            % [Rn_encoding,enc_specs] = apv.encode_R( obj_,obs_,Sobs_ )
+            [Rn_encoding,enc_specs,coord_specs] = apv.model_trivial_vfield( obj_,obs_,Sobs_ )
+
+            pause
+
+            [eor,ndep] = deal(obj_.eor,obj_.ndep);
+            [Pmat,Plen] = obj_.Pmat_Plen;
+
+            ntheta = size(Rn_encoding{1},2);
 
             nobs = enc_specs.nobs;
             nset = enc_specs.nset;
             kor = enc_specs.kor_obs;
             ndim = enc_specs.ndim_obs;
 
-            % R1_tns = enc_specs.R1_tns;
-            function [r_,s_,V_] = svd_unpack(A_)
-                [~,S_,V_] = svd(A_,'econ');
-                r_ = rank(A_);
-                s_ = reshape(diag(S_),[],1); % makes sure output is tall vector
-            end
             s_inv_scl = @(s_) reshape(1.0./(s_/s_(end)),1,[]);
 
             SVD_Rk_cell = deal(cell(3,kor,nset));
@@ -198,7 +424,7 @@ classdef apv < fspc
                     % [~,SVD_Rk_cell{2,k,i},SVD_Rk_cell{3,k,i}] = svd(Rkmat_i,'econ','vector');
                     % SVD_Rk_cell{1,k,i} = rank(Rkmat_i);
                     [SVD_Rk_cell{1,k,i},SVD_Rk_cell{2,k,i},SVD_Rk_cell{3,k,i}] = ...
-                        svd_unpack(Rkmat_i);
+                        fspc.rsV_unpack(Rkmat_i);
 
                     % save row space representation of this Rk matrix for full null space problem
                     RRk_full_ttns(:,:,k,i) = SVD_Rk_cell{3,k,i}.*( SVD_Rk_cell{2,k,i}' );
@@ -208,7 +434,7 @@ classdef apv < fspc
 
             function [WA_,rA_,sA_,VA_,Afull_] = process_net_svd(Atns_)
                 Afull_ = ( reshape( Atns_, size(Atns_,1),[] ) )';
-                [rA_,sA_,VA_] = svd_unpack(Afull_);
+                [rA_,sA_,VA_] = fspc.rsV_unpack(Afull_);
                 WA_ = VA_.*s_inv_scl(sA_);
             end
 
@@ -222,7 +448,7 @@ classdef apv < fspc
             fspc.print_short_polynomial_theta(W_R1_mat(:,end-1),obj_.P_mat);
 
             [WR1x,WR1u] = obj_.split_Vxu_mat(W_R1_mat);
-            [rank_WR1x,s_WR1x,V_WR1x] = svd_unpack(WR1x');
+            [rank_WR1x,s_WR1x,V_WR1x] = fspc.rsV_unpack(WR1x');
             rank_WR1x
             s_WR1x'
 
@@ -233,7 +459,7 @@ classdef apv < fspc
             fspc.print_short_polynomial_theta_z(YW1_x(:,1),obj_.P_mat);
             fspc.print_short_polynomial_theta_z(YW1_x(:,2),obj_.P_mat);
 
-            
+
 
             %% set outputs
 
@@ -286,9 +512,13 @@ classdef apv < fspc
             end
 
             R1_tns = nan(ndep,ntheta,nobs);
+            Lam_x_dxu_ttns = nan(ndep,Plen,kor_obs,nobs);
+            Lam_u_dxu_tns = nan(Plen,kor_obs,nobs);
             for i = 1:nobs
                 % check1 = (-d1xumat(:,i)*l_S(i,:)) % also works
                 R1_tns(:,:,i) = [ (-d1xumat(:,i).*l_S(i,:)) , immerse_lambda(l_S(i,:)) ];
+                Lam_x_dxu_ttns(:,:,1,i) = -d1xumat(:,i).*dx_l_S(i,:);
+                Lam_u_dxu_tns(:,1,i) = dx_l_S(i,:);
             end
 
             Renc_out = cell(kor_obs,nset);
@@ -318,7 +548,13 @@ classdef apv < fspc
             'ndim_obs',ndim_obs, ...
             'dx_l_S',dx_l_S, ...
             'gxu_l_S',gxu_l_S, ...
-            'L_S', L_S ...
+            'L_S', L_S, ...
+            'xu', xumat, ...
+            'un', untns, ...
+            'dxun', dxuntns, ...
+            'd1xu', d1xumat, ...
+            'Lam_x_dxu', Lam_x_dxu_ttns, ...
+            'Lam_u_dxu', Lam_u_dxu_tns ...
             );
 
         end
