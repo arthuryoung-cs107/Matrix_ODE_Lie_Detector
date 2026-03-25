@@ -253,6 +253,7 @@ classdef apv < fspc
             Lam_x_dxu = enc_specs.Lam_x_dxu;
             Lam_u_dxu = enc_specs.Lam_u_dxu;
 
+            % T1_full_tns = nan(ntheta,ntheta,nset);
             H1_full_tns = nan(Plen,Plen,nset);
             rsV_H1_cell = cell(3,nset);
             rsV_Rk_cell = cell(3,kor,nset);
@@ -263,6 +264,7 @@ classdef apv < fspc
                 npts_i = size(S_{i},2);
                 inds_i = (1+idel):(npts_i+idel);
                 H1_i = dx_l_S(inds_i,:);
+                % T1_i = fspc.Lambda_xu_immersion( l_S(i        ) );
 
                 [rsV_H1_cell{1,i},rsV_H1_cell{2,i},rsV_H1_cell{3,i}] = ...
                     fspc.rsV_unpack(H1_i);
@@ -341,6 +343,7 @@ classdef apv < fspc
             tu_mat_S = reshape(tu_S,ndep,nobs);
             vartheta_tns_S = reshape(vartheta_K_S,Plen,nvar,nobs);
 
+            T1_full_mat = nan(ntheta,nobs);
             G1_full_ttns = zeros(ntheta,ndep,nobs);
             G1_true_ttns = zeros(ntheta,ndep,nobs);
             for i = 1:nobs
@@ -355,6 +358,7 @@ classdef apv < fspc
                 Lam_dxu_T_i = G1_full_ttns(:,:,i);
                 Lam0_xu_T_i = zeros(ntheta,nvar);
 
+                T1_full_mat(1:Plen,i) = l_i; % tx*vx = 1*vx
                 Lam0_xu_T_i(1:Plen,1) = l_i;
                 idel_P = Plen;
                 for idep = 1:ndep
@@ -363,21 +367,38 @@ classdef apv < fspc
                     inds_ii = (1+idel_P):(Plen+idel_P);
                     Lam_dxu_T_i(inds_ii,idep) = Lam1_u_i;
                     Lam0_xu_T_i(inds_ii,idep+1) = l_i;
+                    T1_full_mat(inds_ii,i) = d1xu(:,idep)*l_i;
                     idel_P = idel_P + Plen;
                 end
                 G1_full_ttns(:,:,i) = ...
                 ((vtu_i' - (tu_mat_S(:,i).*vtx_i'))*g_i*Lam0_xu_T_i' - Lam_dxu_T_i')';
+
+                % oracle verification
                 G1_true_ttns(:,:,i) = ...
                 (obj_.obs.gradf(Smat(1,i),Smat(2:nvar,i))'*Lam0_xu_T_i' - Lam_dxu_T_i')';
             end
+            [W_T1_mat,rank_T1_full,s_T1_full,V_T1_full,T1_full_mat] = ...
+                fspc.safely_process_net_svd( T1_full_mat );
+            rank_T1_full
+            s_T1_full_row = s_T1_full'
+            sum(s_T1_full)
+
+            fspc.print_short_polynomial_theta(V_T1_full(:,end),obj_.P_mat);
+            fspc.print_short_polynomial_theta(V_T1_full(:,end-1),obj_.P_mat);
+            fspc.print_short_polynomial_theta(V_T1_full(:,1),obj_.P_mat);
+            fspc.print_short_polynomial_theta(V_T1_full(:,2),obj_.P_mat);
+
             [W_G1_mat,rank_G1_full,s_G1_full,V_G1_full,G1_full_mat] = ...
                 fspc.safely_process_net_svd( G1_full_ttns );
             rank_G1_full
             s_G1_full_row = s_G1_full'
+            sum(s_G1_full)
 
             fspc.print_short_polynomial_theta(W_G1_mat(:,end),obj_.P_mat);
             fspc.print_short_polynomial_theta(W_G1_mat(:,end-1),obj_.P_mat);
             fspc.print_short_polynomial_theta(W_G1_mat(:,end-2),obj_.P_mat);
+
+            pause
 
             [W_G1_true,rank_G1_true,s_G1_true,V_G1_true,G1_true_mat] = ...
                 fspc.safely_process_net_svd( G1_true_ttns );
@@ -389,6 +410,25 @@ classdef apv < fspc
             fspc.print_short_polynomial_theta(W_G1_true(:,end),obj_.P_mat);
             fspc.print_short_polynomial_theta(W_G1_true(:,end-1),obj_.P_mat);
             fspc.print_short_polynomial_theta(W_G1_true(:,end-2),obj_.P_mat);
+
+            size(s_T1_full)
+            YT1_full = V_T1_full.*(s_T1_full');
+            YG1_full = V_G1_full.*(s_G1_full');
+
+            size(YT1_full)
+            size(YG1_full)
+
+            [W_T1G1,rank_T1G1,s_T1G1,V_T1G1,T1G1_full_mat] = ...
+                fspc.safely_process_net_svd( [ YT1_full, YG1_full ] );
+            size(T1G1_full_mat)
+            rank_T1G1
+            s_T1G1_row = s_T1G1'
+
+            fspc.print_short_polynomial_theta(W_T1G1(:,end),obj_.P_mat);
+            fspc.print_short_polynomial_theta(W_T1G1(:,end-1),obj_.P_mat);
+
+
+            fprintf('(model_trivial_vfield end)\n');
 
             pause
 

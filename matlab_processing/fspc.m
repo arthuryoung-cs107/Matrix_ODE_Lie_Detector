@@ -27,12 +27,16 @@ classdef fspc < jspc
             ss((imin_nzero+1):end) = s_scl;
 
             s_scaled_pseudo_inverse = reshape(1.0./(ss/s_scl),1,[]);
-            
+
         end
 
         function [WA_,rA_,sA_,VA_,Afull_] = safely_process_net_svd(Atns_)
-
-            Afull_ = ( reshape( Atns_, size(Atns_,1),[] ) )';
+            size_A = size(Atns_);
+            if (length(size_A) > 2)
+                Afull_ = ( reshape( Atns_, size(Atns_,1),[] ) )';
+            else
+                Afull_ = Atns_';
+            end
             [rA_,sA_,VA_] = fspc.rsV_unpack( Afull_ );
 
             ssA = sA_;
