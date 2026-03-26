@@ -176,7 +176,7 @@ classdef apv < fspc
                 end
             end
         end
-        function [dx_out,gxu_out,L_out] = dx_l_polynomial(obj,xu_,dxu_)
+        function [dx_out,gxu_out,L_out,l_out] = dx_l_polynomial(obj,xu_,dxu_)
             [xu,nobs,Pmat,Plen] = obj.unpack_xu_fspace(xu_);
             [eor,ndep,ndim,nvar] = jspc.unpack_jetspace_dims(obj);
             dxu = reshape(dxu_,ndep,nobs);
@@ -188,7 +188,6 @@ classdef apv < fspc
             ones_tns = ones(nvar,Plen,nvar);
             len_ones_tns = prod(size(ones_tns));
             len_hot_ip_vec = sum(ip_tns(:));
-
             function [ dx_l_out, gxu_l_out, L_mat_out ] = comp_dx_l(s_,dxu_)
                 L_mat_out = s_ .^ Pmat;
                 L_vec_i = reshape(ones_tns.*L_mat_out, len_ones_tns,1);
@@ -208,6 +207,11 @@ classdef apv < fspc
                      comp_dx_l( xu(:,i),dxu(:,i) );
                 end
             end
+            if (nargout == 4)
+                l_out = (reshape(prod(L_out,1),Plen,nobs))';
+            else
+                l_out = [];
+            end
         end
         function [Vx_,Vu_] = split_Vxu_mat(obj,V_)
             [Vx_,Vu_] = deal( V_(1:obj.Plen,:) , V_((obj.Plen+1):end,:) );
@@ -225,7 +229,7 @@ classdef apv < fspc
 
         function [Renc_out,enc_specs,coord_specs] = model_trivial_vfield(obj_,obs_,S_)
 
-            [Renc_out,enc_specs] = apv.encode_R( obj_,obs_,S_ )
+            [Renc_out,Renc_specs] = apv.encode_R( obj_,obs_,S_ )
 
             [eor,ndep] = deal(obj_.eor,obj_.ndep);
             ndim = 1 + ndep*(eor+1);
@@ -234,24 +238,29 @@ classdef apv < fspc
 
             ntheta = size(Renc_out{1},2);
 
-            nobs = enc_specs.nobs;
-            nset = enc_specs.nset;
-            kor = enc_specs.kor_obs;
-            ndim_obs = enc_specs.ndim_obs;
+            nobs = Renc_specs.nobs;
+            nset = Renc_specs.nset;
+            kor = Renc_specs.kor_obs;
+            ndim_obs = Renc_specs.ndim_obs;
             Smat = jspc.Scell_2_Smat(S_,ndim_obs);
 
-            L_S = enc_specs.L_S;
+            L_S = Renc_specs.L_S;
             l_S = (reshape(prod(L_S,1),Plen,[]))';
-            gxu_l_S = enc_specs.gxu_l_S;
-            dx_l_S = enc_specs.dx_l_S;
+            gxu_l_S = Renc_specs.gxu_l_S;
+            dx_l_S = Renc_specs.dx_l_S;
 
-            xu = enc_specs.xu;
-            un = enc_specs.un;
-            dxun = enc_specs.dxun;
-            d1xu = enc_specs.d1xu;
+            xu = Renc_specs.xu;
+            un = Renc_specs.un;
+            dxun = Renc_specs.dxun;
+            d1xu = Renc_specs.d1xu;
 
-            Lam_x_dxu = enc_specs.Lam_x_dxu;
-            Lam_u_dxu = enc_specs.Lam_u_dxu;
+            Lam_x_dxu = Renc_specs.Lam_x_dxu;
+            Lam_u_dxu = Renc_specs.Lam_u_dxu;
+
+            %{
+                H1 :
+                RRk :
+            %}
 
             % T1_full_tns = nan(ntheta,ntheta,nset);
             H1_full_tns = nan(Plen,Plen,nset);
@@ -263,6 +272,7 @@ classdef apv < fspc
 
                 npts_i = size(S_{i},2);
                 inds_i = (1+idel):(npts_i+idel);
+
                 H1_i = dx_l_S(inds_i,:);
                 % T1_i = fspc.Lambda_xu_immersion( l_S(i        ) );
 
@@ -285,38 +295,25 @@ classdef apv < fspc
                 idel = idel + npts_i;
             end
 
-            % Evaluate aggregate H1 svd
-            [W_H1_mat,rank_H1_full,s_H1_full,V_H1_full,H1_full_mat] = ...
-                fspc.safely_process_net_svd(H1_full_tns);
-            rank_H1_full
-            s_H1_full_row = s_H1_full'
-
-            fspc.print_short_polynomial_theta_z(W_H1_mat(:,end),obj_.P_mat);
-            fspc.print_short_polynomial_theta_z(W_H1_mat(:,end-1),obj_.P_mat);
+            H1_svd = fspc.compute_svd_package(H1_full_tns)
 
             % Evaluate aggregate R1 svd: always exists, always relevant.
-            [W_R1_mat,rank_R1_full,s_R1_full,V_R1_full,R1_full_mat] = ...
-                fspc.safely_process_net_svd(RRk_full_ttns(:,:,1,:));
-            rank_R1_full
-            s_R1_full_row = s_R1_full'
+            R1_svd = fspc.compute_svd_package(RRk_full_ttns(:,:,1,:))
+            % [W_R1_mat,rank_R1_full,s_R1_full,V_R1_full,R1_full_mat] = ...
+            %     fspc.safely_process_net_svd(RRk_full_ttns(:,:,1,:));
 
-            fspc.print_short_polynomial_theta(W_R1_mat(:,end),obj_.P_mat);
-            fspc.print_short_polynomial_theta(W_R1_mat(:,end-1),obj_.P_mat);
+            fspc.print_vshort_polynomial_theta(R1_svd.W(:,end),obj_.P_mat);
+            fspc.print_vshort_polynomial_theta(R1_svd.W(:,end-1),obj_.P_mat);
 
-            [WR1x,WR1u] = obj_.split_Vxu_mat(W_R1_mat);
-            [rank_WR1x,s_WR1x,V_WR1x] = fspc.rsV_unpack(WR1x');
-            rank_WR1x
-            s_WR1x_row = s_WR1x'
-
-            YW1_x = V_WR1x.*(s_WR1x'/s_WR1x(1)); % these are the scaled singular vectors of the Vx submatrix.
-            rank_YW1_x = rank(YW1_x)
+            [R1_svd.Wx,R1_svd.Wu] = obj_.split_Vxu_mat(R1_svd.W);
+            WR1x_svd = fspc.compute_svd_package(R1_svd.Wx)
 
             % these are the scaled singular vectors of the Vx submatrix.
-            fspc.print_short_polynomial_theta_z(YW1_x(:,1),obj_.P_mat);
-            fspc.print_short_polynomial_theta_z(YW1_x(:,2),obj_.P_mat);
+            fspc.print_vshort_polynomial_theta_z(WR1x_svd.Y(:,1),obj_.P_mat);
+            fspc.print_vshort_polynomial_theta_z(WR1x_svd.Y(:,2),obj_.P_mat);
 
             %% model base space trivial vector field
-            [txu_S,vartheta_S] = obj_.txu(obj_,xu,W_R1_mat);
+            [txu_S,vartheta_S] = obj_.txu(obj_,xu,R1_svd.W);
 
             [rank_vtheta_S,s_vtheta_S,V_vtheta_S] = fspc.rsV_unpack(vartheta_S');
             rank_vtheta_S
@@ -330,8 +327,8 @@ classdef apv < fspc
             [err_tu_S_net,maxr_tu_S,medr_tu_S] = rstats(res_tu_S)
 
             % these are the scaled singular vectors of the Vx submatrix.
-            fspc.print_short_polynomial_theta(Y_vtheta_S(:,1),obj_.P_mat);
-            fspc.print_short_polynomial_theta(Y_vtheta_S(:,2),obj_.P_mat);
+            fspc.print_vshort_polynomial_theta(Y_vtheta_S(:,1),obj_.P_mat);
+            fspc.print_vshort_polynomial_theta(Y_vtheta_S(:,2),obj_.P_mat);
 
             K_R1 = V_vtheta_S(:,1:rank_vtheta_S); % an orthonormal basis for ker(R1)
             [txu_K_S,vartheta_K_S] = obj_.txu(obj_,xu,K_R1); % pass back to txu
@@ -367,7 +364,7 @@ classdef apv < fspc
                     inds_ii = (1+idel_P):(Plen+idel_P);
                     Lam_dxu_T_i(inds_ii,idep) = Lam1_u_i;
                     Lam0_xu_T_i(inds_ii,idep+1) = l_i;
-                    T1_full_mat(inds_ii,i) = d1xu(:,idep)*l_i;
+                    T1_full_mat(inds_ii,i) = d1xu(:,idep)*l_i; % tuq*vuq = dxuq*li
                     idel_P = idel_P + Plen;
                 end
                 G1_full_ttns(:,:,i) = ...
@@ -377,28 +374,18 @@ classdef apv < fspc
                 G1_true_ttns(:,:,i) = ...
                 (obj_.obs.gradf(Smat(1,i),Smat(2:nvar,i))'*Lam0_xu_T_i' - Lam_dxu_T_i')';
             end
-            [W_T1_mat,rank_T1_full,s_T1_full,V_T1_full,T1_full_mat] = ...
-                fspc.safely_process_net_svd( T1_full_mat );
-            rank_T1_full
-            s_T1_full_row = s_T1_full'
-            sum(s_T1_full)
+            T1_svd = fspc.compute_svd_package(T1_full_mat)
 
-            fspc.print_short_polynomial_theta(V_T1_full(:,end),obj_.P_mat);
-            fspc.print_short_polynomial_theta(V_T1_full(:,end-1),obj_.P_mat);
-            fspc.print_short_polynomial_theta(V_T1_full(:,1),obj_.P_mat);
-            fspc.print_short_polynomial_theta(V_T1_full(:,2),obj_.P_mat);
+            fspc.print_vshort_polynomial_theta(T1_svd.V(:,end),obj_.P_mat);
+            fspc.print_vshort_polynomial_theta(T1_svd.V(:,end-1),obj_.P_mat);
+            fspc.print_vshort_polynomial_theta(T1_svd.V(:,1),obj_.P_mat);
+            fspc.print_vshort_polynomial_theta(T1_svd.V(:,2),obj_.P_mat);
 
-            [W_G1_mat,rank_G1_full,s_G1_full,V_G1_full,G1_full_mat] = ...
-                fspc.safely_process_net_svd( G1_full_ttns );
-            rank_G1_full
-            s_G1_full_row = s_G1_full'
-            sum(s_G1_full)
+            G1_svd = fspc.compute_svd_package(G1_full_ttns)
 
-            fspc.print_short_polynomial_theta(W_G1_mat(:,end),obj_.P_mat);
-            fspc.print_short_polynomial_theta(W_G1_mat(:,end-1),obj_.P_mat);
-            fspc.print_short_polynomial_theta(W_G1_mat(:,end-2),obj_.P_mat);
-
-            pause
+            fspc.print_vshort_polynomial_theta(G1_svd.W(:,end),obj_.P_mat);
+            fspc.print_vshort_polynomial_theta(G1_svd.W(:,end-1),obj_.P_mat);
+            fspc.print_vshort_polynomial_theta(G1_svd.W(:,end-2),obj_.P_mat);
 
             [W_G1_true,rank_G1_true,s_G1_true,V_G1_true,G1_true_mat] = ...
                 fspc.safely_process_net_svd( G1_true_ttns );
@@ -407,9 +394,9 @@ classdef apv < fspc
 
             check = sqrt(sum( (G1_true_mat*V_G1_full(:,(end-3):end)).^2 ,1))
 
-            fspc.print_short_polynomial_theta(W_G1_true(:,end),obj_.P_mat);
-            fspc.print_short_polynomial_theta(W_G1_true(:,end-1),obj_.P_mat);
-            fspc.print_short_polynomial_theta(W_G1_true(:,end-2),obj_.P_mat);
+            fspc.print_vshort_polynomial_theta(W_G1_true(:,end),obj_.P_mat);
+            fspc.print_vshort_polynomial_theta(W_G1_true(:,end-1),obj_.P_mat);
+            fspc.print_vshort_polynomial_theta(W_G1_true(:,end-2),obj_.P_mat);
 
             size(s_T1_full)
             YT1_full = V_T1_full.*(s_T1_full');
@@ -424,12 +411,11 @@ classdef apv < fspc
             rank_T1G1
             s_T1G1_row = s_T1G1'
 
-            fspc.print_short_polynomial_theta(W_T1G1(:,end),obj_.P_mat);
-            fspc.print_short_polynomial_theta(W_T1G1(:,end-1),obj_.P_mat);
+            fspc.print_vshort_polynomial_theta(W_T1G1(:,end),obj_.P_mat);
+            fspc.print_vshort_polynomial_theta(W_T1G1(:,end-1),obj_.P_mat);
 
 
-            fprintf('(model_trivial_vfield end)\n');
-
+            fprintf('\n(model_trivial_vfield) end\n');
             pause
 
             coord_specs = 0;
@@ -484,8 +470,8 @@ classdef apv < fspc
             rank_R1_full
             s_R1_full'
 
-            fspc.print_short_polynomial_theta(W_R1_mat(:,end),obj_.P_mat);
-            fspc.print_short_polynomial_theta(W_R1_mat(:,end-1),obj_.P_mat);
+            fspc.print_vshort_polynomial_theta(W_R1_mat(:,end),obj_.P_mat);
+            fspc.print_vshort_polynomial_theta(W_R1_mat(:,end-1),obj_.P_mat);
 
             [WR1x,WR1u] = obj_.split_Vxu_mat(W_R1_mat);
             [rank_WR1x,s_WR1x,V_WR1x] = fspc.rsV_unpack(WR1x');
@@ -496,8 +482,8 @@ classdef apv < fspc
             rank_YW1_x = rank(YW1_x)
 
             % these are the scaled singular vectors of the Vx submatrix.
-            fspc.print_short_polynomial_theta_z(YW1_x(:,1),obj_.P_mat);
-            fspc.print_short_polynomial_theta_z(YW1_x(:,2),obj_.P_mat);
+            fspc.print_vshort_polynomial_theta_z(YW1_x(:,1),obj_.P_mat);
+            fspc.print_vshort_polynomial_theta_z(YW1_x(:,2),obj_.P_mat);
 
 
 
@@ -527,8 +513,10 @@ classdef apv < fspc
             dxuntns = reshape(untns(:,2:end,:),ndep,eor,nobs);
             d1xumat = reshape(dxuntns(:,1,:),ndep,nobs);
 
-            [dx_l_S,gxu_l_S,L_S] = obj_.dx_l(obj_,xumat,d1xumat);
-            l_S = (reshape(prod(L_S,1),Plen,nobs))';
+            %{
+                The
+            %}
+            [dx_l_S,gxu_l_S,L_S,l_S] = obj_.dx_l(obj_,xumat,d1xumat);
 
             ntheta = nvar*Plen;
 
@@ -551,6 +539,10 @@ classdef apv < fspc
                 % l_ -> [l_ 0 ... 0 ; 0 l_ ... 0 ; ...]
             end
 
+            %{
+                The first prolongation block of the Lambda matrix is free as
+                soon as one has computed the first total derivative
+            %}
             R1_tns = nan(ndep,ntheta,nobs);
             Lam_x_dxu_ttns = nan(ndep,Plen,kor_obs,nobs);
             Lam_u_dxu_tns = nan(Plen,kor_obs,nobs);
