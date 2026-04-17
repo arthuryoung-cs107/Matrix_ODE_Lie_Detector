@@ -1,5 +1,10 @@
 classdef jspc
 
+    properties (Constant)
+
+
+
+    end
     properties
 
         ndep;
@@ -19,6 +24,8 @@ classdef jspc
     end
 
     methods (Static)
+
+        %% true utility functions
 
         function [Smat,nobs,nset,kor_obs,ndim_obs] = unpack_Scell(Scell_,ndep_)
 

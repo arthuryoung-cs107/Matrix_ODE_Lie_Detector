@@ -732,6 +732,8 @@ end
                 end
                 function Lamu = prk_vx(k_,k_src_,spc_,prkm1_vx_)
 
+                    %% To do. Pending results from operator overloaded autodiff
+
                 end
                 function [Lamx,Lamu,prn_vxu,g_vdxu] = prn_obs_i(spc_,iobs_)
                     spc_.iobs = iobs_;
@@ -810,7 +812,7 @@ end
 
                 norm(Lam_x_dxu_ttns(:)-Lam_x_ttns(:))
                 norm(Lam_u_dxu_tns(:)-Lam_u_tns(:))
-                pause
+                % pause
 
             % end
 

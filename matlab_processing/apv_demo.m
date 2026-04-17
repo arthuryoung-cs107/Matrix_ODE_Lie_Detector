@@ -41,6 +41,30 @@ fode = struct( ...
 'dxf', @(x_,u_) dxf_eqn(x_,u_) ...
 );
 
+xu_check = [ 1e-1 ; 1e1 ]
+xu_ad = adobj(xu_check,eye(length(xu_check)))
+% x_ad = xu_ad(1) % too glitchy, not worth it
+% u_ad = xu_ad(2) % too glitchy, not worth it
+x_ad = xu_ad.qdim(1)
+u_ad = xu_ad.qdim(2)
+
+% xu_ad_check = xu_ad(:)
+% xu_ad_check = xu_ad(1:2)
+
+f_check = fode.f(xu_check(1),xu_check(2))
+g_check = fode.gradf(xu_check(1),xu_check(2))
+
+f_ad = 2.0.*( u_ad ./ x_ad ) - (x_ad.*x_ad).*(u_ad.*u_ad)
+fmap_ad = @(x_,u_) 2.0*( u_ ./ x_ ) - (x_.*x_).*(u_.*u_);
+
+% fm_ad = fmap_ad( xu_ad(1),xu_ad(2) ) % too glitchy, not worth it
+fm_ad = fmap_ad( xu_ad.qdim(1),xu_ad.qdim(2) )
+
+if ( fm_ad.Jac(:) ~= g_check(:) )
+    fprintf('autodiff is broken\n');
+    pause
+end
+
 % Fode_sys = ode;
 % Fode_sys.ODEFcn = @(e_,s_) [ ones(1,size(s_,2)) ; fode.f( s_(1,:),s_(2:end,:) ) ];
 Fode_sys_evl = @(e_,s_) [ ones(1,size(s_,2)) ; f_eqn( s_(1,:),s_(2:end,:) ) ];
@@ -151,6 +175,10 @@ fspace0 = fspace0.init_polynomial_fspace(bor) % initialize to mv polynomial
 
 Smat_obs = jspc.Scell_2_Smat(Sobs,jspc.ndim(fspace0));
 
+N1cubic = ldaux.first_order_ld_ad_cubic_model(Sobs,Fode_obs)
+
+pause
+
 % [tvf,Renc,specs] = apv.model_trivial_vfield( fspace0,Fode_obs,Sobs )
 [mod,tvf,Renc,specs] = apv.model_Fode_observations( fspace0,Fode_obs,Sobs );
 
@@ -188,8 +216,6 @@ fprintf('\nmod.KGnet(:,1)')
 fspc.print_vshort_polynomial_theta( mod.KGnet(:,1) , obj_.P_mat);
 fprintf('mod.KGnet(:,2)')
 fspc.print_vshort_polynomial_theta( mod.KGnet(:,2) , obj_.P_mat);
-fprintf('mod.KGnet(:,3)')
-fspc.print_vshort_polynomial_theta( mod.KGnet(:,3) , obj_.P_mat);
 
 return
 
