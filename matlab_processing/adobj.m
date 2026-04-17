@@ -16,6 +16,7 @@ classdef adobj
             [obj.val,obj.Jac] = deal(val_,Jac_);
         end
 
+        %% overloaded operators
         function obj_o = qdim(obj_,q_)
             [vi,Ji] = adobj.unpack_valJac(obj_);
             obj_o = adobj(vi(q_),Ji(q_,:));

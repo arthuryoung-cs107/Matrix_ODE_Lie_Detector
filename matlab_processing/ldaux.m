@@ -60,6 +60,8 @@ classdef ldaux
             ilv = 1;
             for i = 1:nobs
                 s0(i) = adlam(xumat(:,i),Omap_A,Omap_b);
+                prl(i) = adlam.prolong_mvpolynomial(s0(i),dxuntns(:,:,i),bor);
+
                 s0i = s0(i);
 
                 Lval_cell{1,i} = adlam.trunc_to_adobj(s0i);
@@ -75,7 +77,7 @@ classdef ldaux
                         lvip = lvip.*( Lvals_full_i( Pmat(1+idep,p)+1 ).qdim(1+idep) );
                     end
                     lvals(ilv) = lvip;
-                    pr1l(ilv) = adlam.d1xl(lvip);
+                    % pr1l(ilv) = adlam.d1xl(lvip,d1xumat(:,i));
 
                     ilv = ilv + 1;
                 end
@@ -83,11 +85,10 @@ classdef ldaux
             lvals = reshape(lvals,Plen,nobs)
             levls = adlam.coordgrads2Jac(lvals)
 
-
             dxlmat = nan(Plen,nobs);
             for i = 1:nobs
                 dxlmat(:,i) =  adlam.vevl( levls(i), [1 ; d1xumat(:,i)] );
-                %
+
                 % for p = 1:Plen
                 %
                 % end

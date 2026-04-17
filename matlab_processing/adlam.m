@@ -25,15 +25,93 @@ classdef adlam < adobj
     end
 
     methods (Static)
-        function pr1l_out = pr1(l_)
-            ndep = length(l_.xu)-1;
 
-            vo =
-            Jo =
+        function prn = prolong_mvpolynomial(s0_,dxu_,bor_)
+            bor = double(bor_);
+            nvar = length(s0_.xu);
+            ndep = nvar-1;
+            dxu = reshape(dxu_,ndep,[]);
+            kor = size(dxu,2);
+            kp1 = kor+1;
 
-            pr1l_out = adobj(vo,Jo);
+            xu = s0_.val;
+            Oa = diag(s0_.Jac);
+
+            c_tns = nan(nvar,bor,kor+1);
+            L_cell = cell(nvar,bor,kor+1);
+            for iv = 1:nvar
+                ai = Oa(iv);
+                L_cell{iv,1,1} = adobj( xu(iv) , ai );
+                for ik = 2:kp1
+                    L_cell{iv,1,ik} = adobj(L_cell{iv,1,ik-1}.Jac, 0.0);
+                end
+
+                for ib = 2:bor
+                    % compute L_ib and its first partial
+                    L_cell{iv,ib,1} = L_cell{iv,1,1}.*L_cell{iv,ib-1,1};
+
+                    for ik = 2:kp1
+                        if (ik<ib)
+                            L_cell{iv,ib,ik} = ...
+                                adobj( ...
+                                L_cell{iv,ib,ik-1}.Jac, ...
+                                
+                                 );
+                        elseif (ik==ib)
+
+                        else
+
+                        end
+                    end
+
+                    L_cell{iv,ib,ik} = adobj( pLs(iv,ib,ik-1), pLs(iv,ib,ik) );
+
+
+                    % second partial to ib-1
+                    for ik = 2:(ib-1)
+                        pLs(iv,ib,ik) = ...
+                            pLs(iv,ib,ik-1) ...
+                            *( ai*(ib-ik+1) ) ...
+                            *( L_cell{iv,ib-ik,1}.val );
+                        L_cell{iv,ib,ik} = adobj( pLs(iv,ib,ik-1), pLs(iv,ib,ik) );
+                    end
+
+                    if (ik)
+                    % partial of same order
+                    ik = ib;
+                    pLs(iv,ib,ik) = ...
+                        pLs(iv,ib,ik-1) ...
+                        *( ai*(ib-ik+1) ) ;
+                    L_cell{iv,ib,ik} = adobj( pLs(iv,ib,ik-1), pLs(iv,ib,ik) );
+
+                    for ik = (ib+1):kp1
+                        L_cell{iv,ib,ik} = adobj( L_cell{iv,ib,ik-1}.Jac, 0.0);
+                    end
+
+                end
+            end
+
+
+            Lk_cell{1,1} = adobj(sh.val,eye(nvar));
+            for ik = 1:kor
+                iik = ik+1;
+                Lk_cell{1,}
+            end
+            for ib = 2:bor_
+                Lk_cell{1,ib} = Lk_cell{1,1}.*Lk_cell{1,ib-1};
+                for ik = 1:kor
+
+                end
+            end
 
         end
+
+        % function d1xl_out = d1xl(l_,d1xu_)
+        %     ndep = length(l_.xu)-1;
+        %     vo = adlam.vevl(l_,d1xu_);
+        %     Jo = [,];
+        %     d1xl_out = adobj(vo,Jo);
+        % end
 
         function vec_out = coordgrads2Jac(mat_)
             [M,nobs] = size(mat_);
