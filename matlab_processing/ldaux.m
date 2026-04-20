@@ -3,6 +3,7 @@ classdef ldaux
     properties (Constant)
         %% true utility
         iidiag = @(N_) logical( reshape(eye(N_),[],1) );
+        % iidiag = @(N_) sub2ind( [N_,N_],1:N_,1:N_ );
 
         %% jet space adjacent
 
@@ -56,15 +57,26 @@ classdef ldaux
             dxuntns = reshape(untns(:,2:end,:),ndep,eor,nobs);
             d1xumat = reshape(dxuntns(:,1,:),ndep,nobs);
 
+            poly_lam_spc = struct( ...
+                'Omap_A', Omap_A, ...
+                'Omap_b', Omap_b, ...
+                'bor', bor, ...
+                'Pmat', Pmat ...
+            );
+
             Lval_cell = cell(3,nobs);
             ilv = 1;
             for i = 1:nobs
-                s0(i) = adlam(xumat(:,i),Omap_A,Omap_b);
-                prl(i) = adlam.prolong_mvpolynomial(s0(i),dxuntns(:,:,i),bor);
+                % s0(i) = adlam(xumat(:,i),Omap_A,Omap_b);
+                % s0(i) = adlam(xumat(:,i),poly_lam_spc);
+                lambdas(i) = adlam(xumat(:,i),Smat((nvar+1):end,i),poly_lam_spc);
+                s0(i) = lambdas(i).s0;
+
+                % prl(i) = adlam.prolong_mvpolynomial(s0(i),dxuntns(:,:,i),bor);
 
                 s0i = s0(i);
 
-                Lval_cell{1,i} = adlam.trunc_to_adobj(s0i);
+                Lval_cell{1,i} = s0i;
                 Lval_cell{2,i} = Lval_cell{1,i}.*Lval_cell{1,i};
                 Lval_cell{3,i} = Lval_cell{1,i}.*Lval_cell{2,i};
                 Lvals(:,i) = [Lval_cell{1,i} ; Lval_cell{2,i} ; Lval_cell{3,i}];
@@ -81,6 +93,8 @@ classdef ldaux
 
                     ilv = ilv + 1;
                 end
+
+
             end
             lvals = reshape(lvals,Plen,nobs)
             levls = adlam.coordgrads2Jac(lvals)
@@ -97,6 +111,7 @@ classdef ldaux
             mod_out = obs_;
             mod_out.Omap_A = Omap_A;
             mod_out.Omap_b = Omap_b;
+            mod_out.lambdas = lambdas;
             mod_out.s0 = s0;
             mod_out.Lvals = Lvals;
             mod_out.lvals = lvals;
