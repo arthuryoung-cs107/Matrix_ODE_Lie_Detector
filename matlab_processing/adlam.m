@@ -142,9 +142,7 @@ classdef adlam
                         li_ad = li_ad * adobj( LmatP(iv,ip), [ zeros(1,iv-1) , dL_mat_i_full(iiL(iv)), zeros(1,ndim-iv) ] );
                     end
 
-                    gLi
-                    % HLi = 
-                    gLi .* ones(nvar,ndim,nvar)
+                    % compute grad (d1xl) = grad ( grad l * tau_u )
 
                     pause
 
