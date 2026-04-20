@@ -130,9 +130,9 @@ classdef adlam
                     dL_mat_i_full = zeros(nvar,bor+1);
                     dL_mat_i_full(:,2:end) = dL_tns(:,:,1);
 
-                    gli = LmatP(:,ip)*ones(1,nvar);
-                    gli( iiD_base ) = dL_mat_i_full( iiL );
-                    gli = prod(gli,1);
+                    gLi = LmatP(:,ip)*ones(1,nvar);
+                    gLi( iiD_base ) = dL_mat_i_full( iiL );
+                    gli = prod(gLi,1);
                     J_dkx_ltnsP(ip,1:nvar,1) = gli;
 
                     dkx_lmatP(ip,1) = J_dkx_ltnsP(ip,1:nvar,1) * tau_0;
@@ -141,6 +141,12 @@ classdef adlam
                     for iv = 2:nvar
                         li_ad = li_ad * adobj( LmatP(iv,ip), [ zeros(1,iv-1) , dL_mat_i_full(iiL(iv)), zeros(1,ndim-iv) ] );
                     end
+
+                    gLi
+                    % HLi = 
+                    gLi .* ones(nvar,ndim,nvar)
+
+                    pause
 
                     li_ad.val,li_ad.Jac
                     tau_k_ad.val, tau_k_ad.Jac
