@@ -171,12 +171,47 @@ classdef adlam
             pr0_data = struct( ...
                             'ndep', ndep, ...
                             'Plen', Plen, ...
-                            'Pmat', Pmat, ...
-                            'inds', 1:Plen ... % all indices contribute to base space image
+                            'Pmat', Pmat ...
                             );
             %% if derivatives are provided, prolong observed jet space
             if ( size(dxu,2) )
-                obj = adlam.prolong_mvpolynomial(obj,dxu,pr0_data);
+
+                % obj = adlam.prolong_mvpolynomial(obj,dxu,pr0_data);
+
+                kor = size(dxu,2);
+                ndim = 1+ndep*(kor+1);
+
+                dkLtnsP = nan(nvar,Plen,kor+1);
+                dkLtnsP(:,:,1) = LmatP;
+                for k = 1:kor
+                    dkLtnsP(:,:,k+1) = adlam.dkLmatP(obj,k);
+                end
+                dkLP = @(iv_,k_) dkLtnsP(iv_,:,k_+1);
+
+                pr_data = pr0_data;
+                pr_data.dxu = dxu;
+                pr_data.s = [ xu ; dxu(:) ];
+                pr_data.kor = kor;
+                pr_data.ndim = ndim;
+
+                pr_data.inds = 1:Plen; % all indices contributed to zeroeth prolongation
+                pr_data.LmatP = LmatP;
+                pr_data.dkLtnsP = dkLtnsP;
+                pr_data.nder = zeros(ndim,1); % initialize derivative block
+                pr_data.Pmat_dkxu = zeros(ndep,kor);
+
+                % pr_data.tau_prk = @(o_,k_) [1 ; reshape( o_.dxu(:,1:k_) , [], 1 )];
+
+                pr = struct( ...
+                    'dkxl', zeros(kor,Plen), ...
+                    'Jdkxl', zeros(ndim,Plen,kor), ...
+                    'lkx', zeros(ndep,Plen,kor), ...
+                    'Jlkx', zeros(ndep,Plen,kor,prd_.ndim) ...
+                );
+                for iv = 1:nvar
+                    pr = adlam.prolong_vu_mvpolynomial(obj,1,1,JlT(iv,:),pr_data,pr);
+                end
+
             else
                 obj.dxu = [];
                 obj.pr = [];
@@ -186,6 +221,19 @@ classdef adlam
     end
 
     methods (Static)
+        function pr_out = prolong_vu_mvpolynomial(obj,k_,ivp_,pvl_,prd_,pr_)
+            switch ivp_
+                case 1 %% corresponds to partial w.r.t. x. Chained total derivative is 1
+                    pr_.dkxl(k_,pr_.inds) = pr_.dkxl(k_,pr_.inds) + pvl_;
+                otherwise %% corresponds to a dependent variable or derivative
+                    pr_.dkxl(k_,pr_.inds) = pr_.dkxl(k_,pr_.inds) + pr_.s(ivp_+prd_.ndep)*pvl_;
+                    pr_.Pmat_dkxu(ivp_-1) = pr_.Pmat_dkxu(ivp_-1) + 1;
+            end
+            pr_.nder(ivp_) = pr_.nder(ivp_) + 1;
+
+            
+
+        end
 
         function obj_out = prolong_mvpolynomial(obj,dxu_,pr0d_)
             [ndep, nvar] = adlam.bspc_dims(obj);
@@ -197,47 +245,71 @@ classdef adlam
             ndim = 1+ndep*(kor+1);
 
             LmatP = adlam.LmatP(obj);
-            dkLtnsP = nan(nvar,Plen,kor);
-            dkLtnsP_full = nan(nvar,Plen,kor+1);
-            dkLtnsP_full(:,:,1) = LmatP;
+
+            dkLtnsP = nan(nvar,Plen,kor+1);
+            dkLtnsP(:,:,1) = LmatP;
             for k = 1:kor
                 % dkLtnsP(:,:,k) = adlam.dkLmatP(obj,k);
-                [dkLtnsP(:,:,k),dkLtnsP_full(:,:,k+1)] = deal(adlam.dkLmatP(obj,k));
+                % [dkLtnsP(:,:,k),dkLtnsP_full(:,:,k+1)] = deal(adlam.dkLmatP(obj,k));
+                dkLtnsP(:,:,k+1) = adlam.dkLmatP(obj,k);
             end
+            % dkLtnsP_short = dkLtnsP(:,:,2:end);
 
             pr_data = pr0d_;
 
+            pr_data.inds = 1:Plen; % all indices contributed to zeroeth prolongation
             pr_data.kor = kor;
             pr_data.ndim = 1+ndep*(kor+1);
             pr_data.LmatP = LmatP;
             pr_data.dkLtnsP = dkLtnsP;
-            pr_data.nder = [ ones(nvar,1) ; zeros(ndim-nvar,1) ]; % initialize derivative block
+            pr_data.nder = zeros(ndim,1) ; % initialize derivative block
 
             pr_data.dxu = dxu;
             pr_data.tau_prk = @(o_,k_) [1 ; reshape( o_.dxu(:,1:k_) , [], 1 )];
 
-            dkLP = @(iv_,k_) dkLtnsP_full(iv_,:,k_);
+            dkLP = @(iv_,k_) dkLtnsP(iv_,:,k_+1);
+
+            pr = struct( ...
+                'dkxl', zeros(kor,Plen), ...
+                'Jdkxl', zeros(ndim,Plen,kor), ...
+                'lkx', zeros(ndep,Plen,kor), ...
+                'Jlkx', zeros(ndep,Plen,kor,prd_.ndim) ...
+            );
+            iv = 1;
+            pr.Jdkxl(iv,:,1) = dkLP(iv,1);
+            for iiv = 2:nvar
 
 
-            dkxl = zeros(kor,Plen);
-            Jdkxl = zeros(ndim,Plen,kor);
+                pr.Jdkxl(iv,:,1) = pr.Jdkxl(iv,:,1) .* dkLP(iiv,0);
+            end
 
-            dkxl(1,:) = ( pr_data.tau_prk(pr_data,1)' )*(obj.pr0.l.Jac');
+
+            for iv = 2:nvar % compute gradient of each Jacobian row for flat l
+                pr.Jdkxl(iv,:,1) = 1;
+                for iiv = 1:(iv-1)
+                    pr.Jdkxl(iv,:,1) = pr.Jdkxl(iv,:,1) .* dkLP(iiv,0);
+                end
+                pr.Jdkxl(iv,:,1) = pr.Jdkxl(iv,:,1) .* dkLP(iv,1);
+                for iiv = (iv+1):nvar
+                    pr.Jdkxl(iv,:,1) = pr.Jdkxl(iv,:,1) .* dkLP(iiv,0);
+                end
+            end
+
+            % pass partal x coordinate to first prolongation
+            iv = 1;
+            pr = adlam.prolong_vu_mvpolynomial()
+
+            for iv = 2:nvar % compute gradient of each Jacobian row
+
+            end
+
+            % dkxl(1,:) = ( pr_data.tau_prk(pr_data,1)' )*(obj.pr0.l.Jac');
             % compute Jacobian of resultant dkxl term, pass to second prolongation
 
 
 
 
-            for iv = 1:nvar % compute gradient of each Jacobian row
-                Jdkxl(iv,:,1) = 1;
-                for iiv = 1:(iv-1)
-                    Jdkxl(iv,:,1) = Jdkxl(iv,:,1) .* dkLtnsP(iiv,:,1);
-                end
-                Jdkxl(iv,:,1) = Jdkxl(iv,:,1) .* dkLtnsP(iv,:,2);
-                for iiv = (iv+1):nvar
-                    Jdkxl(iv,:,1) = Jdkxl(iv,:,1) .* LmatP(iiv,:);
-                end
-            end
+
 
 
             pause
@@ -246,23 +318,14 @@ classdef adlam
 
             %
 
-
-            lkx_out = zeros(prd_.ndep,prd_.Plen,prd_.kor);
-            Jlkx_out = zeros(prd_.ndep,prd_.Plen,prd_.kor,prd_.ndim);
-
             % [dkxl,Jdkxl,lkx,Jlkx] = adlam.prolong_vxu_mvpolynomial(obj,pr_data);
 
-            pr = 0;
+            % pr = 0;
             % pause
 
             obj_out = obj;
             % obj_out.dxu = dxu;
             obj_out.pr = pr;
-        end
-        function [dkxl_out,Jdkxl_out] = prolong_vu_mvpolynomial(obj,k_,prd_)
-            dkxl_out = zeros(prd_.kor,prd_.Plen);
-            Jdkxl_out = zeros(prd_.ndim,prd_.Plen,prd_.kor);
-
         end
         function vec_out = coordgrads2Jac(mat_)
             [M,nobs] = size(mat_);
