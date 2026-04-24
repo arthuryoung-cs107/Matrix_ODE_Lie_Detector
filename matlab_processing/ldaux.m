@@ -48,8 +48,15 @@ classdef ldaux
 
             [ndep,eor,nvar,ndim] = ldaux.jspc_dims(obs_);
             [Smat,nobs,nset,kor_obs,ndim_obs] = ldaux.unpack_Scell(S_,ndep);
-            [Plen, Pmat, dim0_lens] = ldaux.count_set_P_len(bor,ndep);
-            Pmat = Pmat';
+            [Plen, Pmat, dim0_lens] = ldaux.count_set_P_len(bor,nvar);
+
+            %{
+                s = (x,u,dxu, ..., dnx u)
+                xu = (x,u)
+                un = (u,dxu, ..., dnx u) \in R^{Q \times (N+1)}
+                dxu = (dxu, ..., dnx u)
+                d1xu = ( dxu )
+            %}
 
             S1mat = Smat(1:(nvar+ndep),:);
             xumat = Smat(1:nvar,:);
@@ -63,13 +70,20 @@ classdef ldaux
                 'bor', bor, ...
                 'Pmat', Pmat ...
             );
+            % poly_lam_spc = 0;
+            % poly_lam_spc = struct( ...
+            %     'Pmat', Pmat ...
+            % );
 
             Lval_cell = cell(3,nobs);
             ilv = 1;
             for i = 1:nobs
                 % s0(i) = adlam(xumat(:,i),Omap_A,Omap_b);
                 % s0(i) = adlam(xumat(:,i),poly_lam_spc);
-                lambdas(i) = adlam(xumat(:,i),Smat((nvar+1):end,i),poly_lam_spc);
+                % lambdas(i) = adlam(xumat(:,i),Smat((nvar+1):end,i),poly_lam_spc);
+
+                lambdas(i) = adlam(poly_lam_spc, xumat(:,i), Smat((nvar+1):end,i));
+
                 s0(i) = lambdas(i).s0;
 
                 % prl(i) = adlam.prolong_mvpolynomial(s0(i),dxuntns(:,:,i),bor);
@@ -93,11 +107,18 @@ classdef ldaux
 
                     ilv = ilv + 1;
                 end
-
-
             end
             lvals = reshape(lvals,Plen,nobs)
             levls = adlam.coordgrads2Jac(lvals)
+
+            icheck = 21
+            l_check = [levls(icheck).val, adlam.lvec(lambdas(icheck))]
+            % lambdas(icheck).dL_tns
+            lambdas(icheck)
+
+            pause
+
+
 
             dxlmat = nan(Plen,nobs);
             for i = 1:nobs
@@ -146,8 +167,9 @@ classdef ldaux
             xu_out = reshape(xu_,jspc.nvar(obj),[]);
             nobs_out = size(xu_out,2);
         end
-        function [P_len_out pow_mat_out dim0_lens_out] = count_set_P_len(bor_,ndep_)
-            d_ = ndep_ + 1;
+        % function [P_len_out pow_mat_out dim0_lens_out] = count_set_P_len(bor_,ndep_)
+        function [P_len_out pow_mat_out dim0_lens_out] = count_set_P_len(bor_,d_)
+            % d_ = ndep_ + 1;1
             P_len_out = (double(bor_+1))^(double(d_));
 
             dim0_lens_out = nan(bor_+1,1);
@@ -162,6 +184,8 @@ classdef ldaux
                 end
                 k_perm = k_perm + delk;
             end
+
+            pow_mat_out = pow_mat_out'; % lambda map as a row is preferred now
 
             function [dk_out pm_out] = set_powmat_full_recursive(mat_, ilevel_, k_perm_)
                 pm_out = mat_;

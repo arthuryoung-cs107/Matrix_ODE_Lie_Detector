@@ -16,11 +16,12 @@ classdef adobj
             [obj.val,obj.Jac] = deal(val_,Jac_);
         end
 
-        %% overloaded operators
         function obj_o = qdim(obj_,q_)
             [vi,Ji] = adobj.unpack_valJac(obj_);
             obj_o = adobj(vi(q_),Ji(q_,:));
         end
+
+        %% overloaded operators
 
         function obj_o = plus(obj_l_,obj_r_)
             [vl,Jl,vr,Jr] = adobj.unpack_valJac_pair(obj_l_,obj_r_);
@@ -71,7 +72,7 @@ classdef adobj
                     vo = obj_l_.^vr;
                     obj_o = adobj( vo , vo.*log(obj_l_).*Jr  );
                 end
-            else
+            else % base is variable
                 [vl,Jl] = deal(obj_l_.val,obj_l_.Jac);
                 if ( isnumeric(obj_r_) ) % exponent is a constant -> true power rule
                     vo = vl.^obj_r_;
