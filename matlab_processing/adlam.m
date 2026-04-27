@@ -212,12 +212,10 @@ classdef adlam
                 obj.Jlkx = zeros(ndep,Plen,kor,ndim);
                 for iv = 1:nvar
                     obj = adlam.prolong_vu_mvpolynomial(obj,1,iv,JlT(iv,:),pr0_data);
-
                     for k = 1:kor
-                        obj = adlam.prolong_vxu_mvpolynomial(obj,k,k,iv,JlT(iv,:),pr0_data);
+                        obj = adlam.prolong_vx_mvpolynomial(obj,k,k,iv,JlT(iv,:),pr0_data);
                     end
                 end
-
                 % obj.pr =pr;
             else
                 obj.dxu = [];
@@ -246,7 +244,13 @@ classdef adlam
             obj_out.lkx(:,prd_k.inds,k_) = obj_out.lkx(:,prd_k.inds,k_) + Ldkxu_k*pvl_; % accumulate total der
             prd_k.nder(ivp_) = prd_k.nder(ivp_) + 1; % increment count of partial derivatives of ivp_ variable
 
+            %% second step: accumulate this term's contribution to the Jacobian of dkxl
+            % prd_.dkLtnsP
             dkLP = @(iv_,ii_,k_) prd_k.dkLtnsP(iv_,ii_,k_+1);
+            % step 2a: accumulate this term's base space partial derivatives
+            % identify base space lambda indices which have nonzero contribution to this order
+            iipnz = ( prd_k.Pmat(:,prd_k.inds) - prd_k.nder(1:nvar) ) > 0;
+            % accumulate partial derivatives over base space variables
 
 
         end
@@ -268,7 +272,7 @@ classdef adlam
             % prd_.dkLtnsP
             dkLP = @(iv_,ii_,k_) prd_k.dkLtnsP(iv_,ii_,k_+1);
 
-            %% step 2a: accumulate this term's base space partial derivatives
+            % step 2a: accumulate this term's base space partial derivatives
             % identify base space lambda indices which have nonzero contribution to this order
             iipnz = ( prd_k.Pmat(:,prd_k.inds) - prd_k.nder(1:nvar) ) > 0;
             % accumulate partial derivatives over base space variables
@@ -296,6 +300,7 @@ classdef adlam
                 end
             end
 
+            % step 2b: accumulate this term's base space partial derivatives
             % identify jet space lambda indices which have nonzero contribution to this order
             iipdxu_nz = prd_k.Pmat_dkxu > 0
             ndep = nvar-1;
