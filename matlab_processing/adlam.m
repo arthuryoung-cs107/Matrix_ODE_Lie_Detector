@@ -49,7 +49,11 @@ classdef adlam
         pr0;
 
         dxu;
-        pr;
+        % pr;
+        dkxl;
+        Jdkxl;
+        lkx;
+        Jlkx;
 
     end
 
@@ -104,8 +108,10 @@ classdef adlam
             xu_O = s0.val;
 
             Lmat = nan(nvar,bor); % matrix of values for each L polynomial
-            c_tns = nan(nvar,bor,kor); % aggregate chain coefficient
-            dL_tns = nan(nvar,bor,kor); % derivatives of ordered single variate monomials
+
+            korp1 = kor+1; % compute L partials up to n+1 for the computation of n'th prolongation Jac
+            c_tns = nan(nvar,bor,korp1); % aggregate chain coefficient
+            dL_tns = nan(nvar,bor,korp1); % derivatives of ordered single variate monomials
 
             Lmat(:,1) = xu_O; % image of xu under diagonal linear map A * [x ; u] + b into O
             c_tns(:,1,1) = Oa; % first derivative chain coefficient
@@ -116,7 +122,7 @@ classdef adlam
                 Lmat(:,ib) = Lmat(:,ib-1) .* xu_O;
                 c_tns(:,ib,1) = ib*Oa;
                 dL_tns(:,ib,1) = c_tns(:,ib,1) .* Lmat(:,ib-1);
-                for ik = 2:kor
+                for ik = 2:korp1
                     if (ik<=ib)
                         c_tns(:,ib,ik) = c_tns(:,ib,ik-1) .* ((ib-ik+1)*Oa);
                         if (ik<ib)
@@ -168,71 +174,154 @@ classdef adlam
             );
             obj.pr0 = pr0;
 
-            pr0_data = struct( ...
-                            'ndep', ndep, ...
-                            'Plen', Plen, ...
-                            'Pmat', Pmat ...
-                            );
             %% if derivatives are provided, prolong observed jet space
             if ( size(dxu,2) )
 
                 % obj = adlam.prolong_mvpolynomial(obj,dxu,pr0_data);
-
+                obj.dxu = dxu;
                 kor = size(dxu,2);
                 ndim = 1+ndep*(kor+1);
 
-                dkLtnsP = nan(nvar,Plen,kor+1);
+                dkLtnsP = nan(nvar,Plen,korp1+1);
+                dkLtnsP = nan(nvar,Plen,korp1+1);
                 dkLtnsP(:,:,1) = LmatP;
-                for k = 1:kor
+                for k = 1:korp1
                     dkLtnsP(:,:,k+1) = adlam.dkLmatP(obj,k);
                 end
                 dkLP = @(iv_,k_) dkLtnsP(iv_,:,k_+1);
 
-                pr_data = pr0_data;
-                pr_data.dxu = dxu;
-                pr_data.s = [ xu ; dxu(:) ];
-                pr_data.kor = kor;
-                pr_data.ndim = ndim;
-
-                pr_data.inds = 1:Plen; % all indices contributed to zeroeth prolongation
-                pr_data.LmatP = LmatP;
-                pr_data.dkLtnsP = dkLtnsP;
-                pr_data.nder = zeros(ndim,1); % initialize derivative block
-                pr_data.Pmat_dkxu = zeros(ndep,kor);
-
-                % pr_data.tau_prk = @(o_,k_) [1 ; reshape( o_.dxu(:,1:k_) , [], 1 )];
-
-                pr = struct( ...
-                    'dkxl', zeros(kor,Plen), ...
-                    'Jdkxl', zeros(ndim,Plen,kor), ...
-                    'lkx', zeros(ndep,Plen,kor), ...
-                    'Jlkx', zeros(ndep,Plen,kor,prd_.ndim) ...
-                );
+                pr0_data = struct( ...
+                    'ndep', ndep, ...
+                    'nvar', nvar, ...
+                    'Plen', Plen, ...
+                    'Pmat', Pmat, ...
+                    's', [xu ; dxu(:) ], ...
+                    'kor', kor, ...
+                    'ndim', ndim, ...
+                    'LmatP', LmatP, ...
+                    'dkLtnsP', dkLtnsP, ...
+                    'nder', zeros(ndim,1), ...
+                    'c_dkxu', 1, ... % power rule coefficient for partials of dkxu
+                    'Pmat_dkxu', zeros(ndep,kor), ... % no derivatives in 0'th prolongation
+                    'inds', 1:Plen, ... % all indices contribute to 0'th prolongation
+                    'Ldkxu', @(o_,dxu_) o_.c_dkxu*prod( reshape((dxu_).^(o_.Pmat_dkxu),[],1) ) ...
+                                );
+                obj.dkxl = zeros(kor,Plen);
+                obj.Jdkxl = zeros(ndim,Plen,kor);
+                obj.lkx = zeros(ndep,Plen,kor);
+                obj.Jlkx = zeros(ndep,Plen,kor,ndim);
                 for iv = 1:nvar
-                    pr = adlam.prolong_vu_mvpolynomial(obj,1,1,JlT(iv,:),pr_data,pr);
+                    obj = adlam.prolong_vu_mvpolynomial(obj,1,iv,JlT(iv,:),pr0_data);
+
+                    for k = 1:kor
+                        obj = adlam.prolong_vxu_mvpolynomial(obj,k,k,iv,JlT(iv,:),pr0_data);
+                    end
                 end
 
+                % obj.pr =pr;
             else
                 obj.dxu = [];
-                obj.pr = [];
+                % obj.pr = [];
+                obj.dkxl = [];
+                obj.Jdkxl = [];
+                obj.lkx = [];
+                obj.Jlkx = [];
             end
         end
 
     end
 
     methods (Static)
-        function pr_out = prolong_vu_mvpolynomial(obj,k_,ivp_,pvl_,prd_,pr_)
-            switch ivp_
-                case 1 %% corresponds to partial w.r.t. x. Chained total derivative is 1
-                    pr_.dkxl(k_,pr_.inds) = pr_.dkxl(k_,pr_.inds) + pvl_;
-                otherwise %% corresponds to a dependent variable or derivative
-                    pr_.dkxl(k_,pr_.inds) = pr_.dkxl(k_,pr_.inds) + pr_.s(ivp_+prd_.ndep)*pvl_;
-                    pr_.Pmat_dkxu(ivp_-1) = pr_.Pmat_dkxu(ivp_-1) + 1;
+        function obj_out = prolong_vx_mvpolynomial(obj,k_,src_,ivp_,pvl_,prd_)
+            obj_out = obj;
+            prd_k = prd_;
+            nvar = prd_k.nvar;
+
+            %% first step: accumulate this input partial derivative term's contribution to dkxl
+            if (ivp_>1) % if the input partial is with respect to a dependent variable
+                prd_k.Pmat_dkxu(ivp_-1) = prd_k.Pmat_dkxu(ivp_-1) + 1; % increment polynomial derivative power
             end
-            pr_.nder(ivp_) = pr_.nder(ivp_) + 1;
+            % evaluate input chained dkxu polynomial
+            Ldkxu_k = obj.dxu(:,src_)*prd_k.Ldkxu(prd_k,obj.dxu); % product of derivative polynomials times src derivatives
+            obj_out.lkx(:,prd_k.inds,k_) = obj_out.lkx(:,prd_k.inds,k_) + Ldkxu_k*pvl_; % accumulate total der
+            prd_k.nder(ivp_) = prd_k.nder(ivp_) + 1; % increment count of partial derivatives of ivp_ variable
 
-            
+            dkLP = @(iv_,ii_,k_) prd_k.dkLtnsP(iv_,ii_,k_+1);
 
+
+        end
+        function obj_out = prolong_vu_mvpolynomial(obj,k_,ivp_,pvl_,prd_)
+            obj_out = obj;
+            prd_k = prd_;
+            nvar = prd_k.nvar;
+
+            %% first step: accumulate this input partial derivative term's contribution to dkxl
+            if (ivp_>1) % if the input partial is with respect to a dependent variable
+                prd_k.Pmat_dkxu(ivp_-1) = prd_k.Pmat_dkxu(ivp_-1) + 1; % increment polynomial derivative power
+            end
+            % evaluate input chained dkxu polynomial
+            Ldkxu_k = prd_k.Ldkxu(prd_k,obj.dxu); % compute the product of derivative polynomials. Scalar valued
+            obj_out.dkxl(k_,prd_k.inds) = obj_out.dkxl(k_,prd_k.inds) + Ldkxu_k*pvl_; % accumulate total der
+            prd_k.nder(ivp_) = prd_k.nder(ivp_) + 1; % increment count of partial derivatives of ivp_ variable
+
+            %% second step: accumulate this term's contribution to the Jacobian of dkxl
+            % prd_.dkLtnsP
+            dkLP = @(iv_,ii_,k_) prd_k.dkLtnsP(iv_,ii_,k_+1);
+
+            %% step 2a: accumulate this term's base space partial derivatives
+            % identify base space lambda indices which have nonzero contribution to this order
+            iipnz = ( prd_k.Pmat(:,prd_k.inds) - prd_k.nder(1:nvar) ) > 0;
+            % accumulate partial derivatives over base space variables
+            for iv = 1:nvar
+                if ( iipnz(iv,:) )
+                    % accumulate partials over the base space
+                    inds_iv = prd_k.inds( iipnz(iv,:) );
+                    pvl_iv = Ldkxu_k*ones( 1,length(inds_iv) );
+                    for iiv = 1:(iv-1)
+                        pvl_iv = pvl_iv .* dkLP(iiv, inds_iv, prd_k.nder(iiv));
+                    end
+                    pvl_iv = pvl_iv .* dkLP(iv, inds_iv, prd_k.nder(iv) + 1);
+                    for iiv = (iv+1):nvar
+                        pvl_iv = pvl_iv .* dkLP(iiv, inds_iv, prd_k.nder(iiv));
+                    end
+                    % pvl_iv
+
+                    % accumulate partial derivative of dkxl wrt to base space iv
+                    obj_out.Jdkxl(iv,inds_iv,k_) = obj_out.Jdkxl(iv,inds_iv,k_) + Ldkxu_k*pvl_iv;
+
+                    if (k_<prd_.kor)
+                        prd_k_piv.inds = inds_iv;
+                        obj_out = prolong_vu_mvpolynomial(obj_out,k_+1,iv,pvl_iv,prd_k_piv);
+                    end
+                end
+            end
+
+            % identify jet space lambda indices which have nonzero contribution to this order
+            iipdxu_nz = prd_k.Pmat_dkxu > 0
+            ndep = nvar-1;
+            iv = nvar;
+            for k = 1:k_
+                for idep = 1:ndep
+                    iv = iv + 1;
+                    if ( iipdxu_nz(idep,k) )
+                        prd_k_pdkxui = prd_k;
+
+                            % accumulate power rule coefficient
+                        prd_k_pdkxui.c_dkxu = prd_k_pdkxui.c_dkxu * prd_k_pdkxui.Pmat_dkxu(idep,k);
+                            % decrement derivative power
+                        prd_k_pdkxui.Pmat_dkxu(idep,k) = prd_k_pdkxui.Pmat_dkxu(idep,k) - 1;
+                            % update derivative polynomial product
+                        pdkxui_Ldkxu_k = prd_k_pdkxui.Ldkxu(prd_k_pdkxui,obj.dxu);
+
+                        % accumulate partial derivative of dkxl wrt to jet space iv
+                        obj_out.Jdkxl(iv,prd_k.inds,k_) = obj_out.Jdkxl(iv,prd_k.inds,k_) + pdkxui_Ldkxu_k*pvl_;
+
+                        if (k_<prd_.kor)
+                            obj_out = prolong_vu_mvpolynomial(obj_out,k_+1,iv,pvl_,prd_k_pdkxui);
+                        end
+                    end
+                end
+            end
         end
 
         function obj_out = prolong_mvpolynomial(obj,dxu_,pr0d_)
