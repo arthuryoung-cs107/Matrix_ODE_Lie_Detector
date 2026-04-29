@@ -177,7 +177,6 @@ classdef adlam
             %% if derivatives are provided, prolong observed jet space
             if ( size(dxu,2) )
 
-                % obj = adlam.prolong_mvpolynomial(obj,dxu,pr0_data);
                 obj.dxu = dxu;
                 kor = size(dxu,2);
                 ndim = 1+ndep*(kor+1);
@@ -273,7 +272,7 @@ classdef adlam
 
                     if (k_<prd_.kor)
                         prd_k_piv.inds = inds_iv;
-                        obj_out = prolong_vu_mvpolynomial(obj_out,k_+1,iv,pvl_iv,prd_k_piv);
+                        obj_out = adlam.prolong_vu_mvpolynomial(obj_out,k_+1,iv,pvl_iv,prd_k_piv);
                     end
                 end
             end
@@ -300,7 +299,7 @@ classdef adlam
                         obj_out.Jdkxl(iv,prd_.inds,k_) = obj_out.Jdkxl(iv,prd_.inds,k_) + pdkxui_Ldkxu_k*pvl_;
 
                         if (k_<prd_.kor)
-                            obj_out = prolong_vu_mvpolynomial(obj_out,k_+1,iv,pvl_,prd_k_pdkxui);
+                            obj_out = adlam.prolong_vu_mvpolynomial(obj_out,k_+1,iv,pvl_,prd_k_pdkxui);
                         end
                     end
                 end
@@ -327,7 +326,7 @@ classdef adlam
             obj_out.Jlkx( :, prd_.inds, k_, inds_src ) = obj_out.Jlkx( :, prd_.inds, k_, inds_src ) ...
                                                         + ones(prd_.ndep,1)*Ldkxu_k0*pvl_;
             if ( k_ < prd_.kor ) % pass identical gradient information to next prolongation. Source incremented by one.
-                obj_out = prolong_vx_mvpolynomials(obj_out,k_+1,src_+1,ivp_,pvl_,prd_);
+                obj_out = adlam.prolong_vx_mvpolynomials(obj_out,k_+1,src_+1,ivp_,pvl_,prd_);
             end
 
             %% second step: accumulate input's contribution to the Jacobian of lkx
@@ -352,7 +351,7 @@ classdef adlam
                     obj_out.Jlkx(:,inds_iv,k_,iv) = obj_out.Jlkx(:,inds_iv,k_,iv) + Ldkxu_k*pvl_iv;
                     if (k_<prd_.kor)
                         prd_k_piv.inds = inds_iv;
-                        obj_out = prolong_vx_mvpolynomials(obj_out,k_+1,src_,iv,pvl_iv,prd_k_piv);
+                        obj_out = adlam.prolong_vx_mvpolynomials(obj_out,k_+1,src_,iv,pvl_iv,prd_k_piv);
                     end
                 end
             end
@@ -375,7 +374,7 @@ classdef adlam
                         obj_out.Jlkx(:,prd_.inds,k_,iv) = obj_out.Jlkx(:,prd_.inds,k_,iv) ...
                                                         + prd_k_pdkxui.Ldkxu(prd_k_pdkxui,obj.dxu)*pvl_;
                         if (k_<prd_.kor)
-                            obj_out = prolong_vx_mvpolynomials(obj_out,k_+1,src_,iv,pvl_,prd_k_pdkxui);
+                            obj_out = adlam.prolong_vx_mvpolynomials(obj_out,k_+1,src_,iv,pvl_,prd_k_pdkxui);
                         end
                     end
                 end
