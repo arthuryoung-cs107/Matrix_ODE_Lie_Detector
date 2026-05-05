@@ -28,6 +28,77 @@ classdef ldaux
 
     methods (Static)
 
+        function [Sobs,dat_out] = generate_Riccati_data()
+            eqn_name = 'Riccati';
+            eor = 1;
+            ndep = 1;
+
+            fprintf('(ldaux::generate_Riccati_data) Generating %s observations (ndep=%d, eor=%d) \n',eqn_name,eor,ndep);
+
+            f_eqn = @(x_,u_) 2.0*( u_ ./ x_ ) - (x_.*x_).*(u_.*u_) ;
+            gradf_eqn = @(x_,u_) [ ...
+                -2.0*(u_ ./ (x_.*x_)) - 2.0*(x_).*(u_.*u_) ; ...
+                2.0*(1.0./x_) - 2.0*(x_.*x_).*u_ ...
+            ];
+            dxf_eqn = @(x_,u_) sum( ...
+                gradf_eqn( x_, u_(1,:) )' ...
+                .* [ ones(size(x_))' , u_(2,:)' ] ...
+                , 2  )';
+
+            fode = struct( ...
+            'name', eqn_name, ...
+            'eor', eor, ...
+            'ndep', ndep, ...
+            'f', @(x_,u_) f_eqn(x_,u_), ...
+            'gradf', @(x_,u_) gradf_eqn(x_,u_), ...
+            'dxf', @(x_,u_) dxf_eqn(x_,u_) ...
+            );
+
+            xu_check = [ 1e-1 ; 1e1 ];
+            xu_ad = adobj(xu_check,eye(length(xu_check)));
+            x_ad = xu_ad.qdim(1);
+            u_ad = xu_ad.qdim(2);
+            f_check = fode.f(xu_check(1),xu_check(2));
+            g_check = fode.gradf(xu_check(1),xu_check(2));
+            f_ad = 2.0.*( u_ad ./ x_ad ) - (x_ad.*x_ad).*(u_ad.*u_ad);
+            fmap_ad = @(x_,u_) 2.0*( u_ ./ x_ ) - (x_.*x_).*(u_.*u_);
+            fm_ad = fmap_ad( xu_ad.qdim(1),xu_ad.qdim(2) );
+            if ( fm_ad.Jac(:) ~= g_check(:) )
+                fprintf('autodiff is broken\n');
+                pause
+            end
+            Fode_sys_evl = @(e_,s_) [ ones(1,size(s_,2)) ; f_eqn( s_(1,:),s_(2:end,:) ) ];
+
+            x0 = 1e-1;
+            u0_vals = logspace(-1,1,10);
+            ef = 2.0; % epsilon varies from e0 = 0 to ef > 0
+            xf = x0 + ef;
+
+            ncrv = length(u0_vals);
+            nevl = 33; % one more than the cubic Rmat curve matrix
+
+            epsevl = linspace(0.0,ef,nevl);
+            x_evl = epsevl+x0;
+            u_evl = nan(length(u0_vals),nevl );
+            Sobs = cell(ncrv,1);
+            for i = 1:length(u0_vals)
+                Fode_sys = ode45(Fode_sys_evl,[0.0,ef],[x0 ; u0_vals(i)]);
+                phi_xu_i = deval(Fode_sys,epsevl);
+
+                u_evl(i,:) = phi_xu_i(2:end,:);
+
+                Sobs{i} = [ phi_xu_i ; fode.f( phi_xu_i(1,:),phi_xu_i(2:end,:) ) ]; % sols are the graph of f
+            end
+
+            % dat_out = struct( ...
+            %     'name', eqn_name, ...
+            %     'eor', eor, ...
+            %     'ndep', ndep ...
+            % );
+            dat_out = fode;
+
+        end
+
         %% simple jet space models
 
         function mod_out = first_order_ld_ad_cubic_model(S_,obs_)

@@ -213,6 +213,140 @@ classdef apv_plots
 
     methods (Static)
 
+        %% apv plots
+        function plt = plot_Sobs(p_,S_,d_)
+            plt = p_;
+
+            pspc = apv_plots.verify_plotspecs(d_);
+
+            eor = d_.eor;
+            ndep = d_.ndep;
+            ndim = 1+ndep*(eor+1);
+
+            if (ndim==3)
+                plt = plt.init_tiles_safe(ndep,eor+2);
+            else
+                plt = plt.init_tiles_safe(ndep,eor+1);
+            end
+            hold(plt.axs, 'on');
+            box(plt.axs,'on');
+            axs = plt.axs;
+            axs_mat = plt.axs_mat;
+            set(axs, ...
+                'YScale', 'linear',  ...
+                'XScale', 'linear',  ...
+                'TickLabelInterpreter','Latex', ...
+                'FontSize',16 );
+            xlabel(axs, '$$ x $$', 'Interpreter','Latex','FontSize',16);
+
+            if (iscell(S_))
+                Smat = ldaux.Scell_2_Smat(S_,ndim);
+
+            elseif ( length(size(S_)) == 2 )
+                Smat = S_;
+
+            else
+                Smat = reshape( S_, ndim, [] );
+            end
+
+            xvec = Smat(1,:);
+            utns = reshape(Smat(2:end,:),ndep,eor+1,[]);
+
+            yname = @(i_,k_) ['$$ d_x^' num2str(k_) 'u_' num2str(i_)  '$$'];
+
+            for k = 1:(eor+1)
+                for i = 1:ndep
+                    plot(axs_mat(i,k), ...
+                    xvec, reshape(utns(i,k,:),size(xvec)), ...
+                    'LineStyle', 'none', ...
+                    'LineWidth', 0.5, ...
+                    'Color', pspc.Color, ...
+                    'Marker', pspc.Marker, ...
+                    'MarkerSize', 6, ...
+                    'MarkerFaceColor', pspc.Color, ...
+                    'MarkerEdgeColor', [0 0 0] ...
+                    );
+                    ylabel(axs_mat(i,k), yname(i,k-1), ...
+                     'Interpreter','Latex','FontSize',16);
+                end
+            end
+
+            %% if eor=ndep=1, plot 3D jetspace surface
+            if (ndim==3)
+                plot3( axs(end), xvec, Smat(2,:), Smat(3,:) , ...
+                    'LineStyle', 'none', ...
+                    'LineWidth', 0.5, ...
+                    'Color', pspc.Color, ...
+                    'Marker', pspc.Marker, ...
+                    'MarkerSize', 6, ...
+                    'MarkerFaceColor', pspc.Color, ...
+                    'MarkerEdgeColor', [0 0 0] ...
+                    );
+                zlabel(axs(end), '$$ d^1_x u_1 $$', 'Interpreter','Latex','FontSize',16);
+                view(axs(end), apv_plots.view_mat(6, :));
+            end
+
+            if ( isfield(d_,'LineStyle') )
+                if ( ~strcmp( d_.LineStyle , 'none' ) )
+
+                    if (iscell(S_))
+                        ncrv = length(S_);
+                        Scell = S_;
+                    elseif ( length(size(S_)) == 2 )
+                        ncrv = 1;
+                        Scell = cell([1,1]);
+                        Scell{1} = S_;
+                    else
+                        ncrv = size(S_,3);
+                        Scell = cell([ncrv,1]);
+                        for j = 1:ncrv
+                            Scell{j} = S_(:,:,j);
+                        end
+                    end
+                    iv = 2;
+                    for k = 1:(eor+1)
+                        for i = 1:ndep
+                            for j = 1:ncrv
+                                plot(axs_mat(i,k), ...
+                                Scell{j}(1,:), Scell{j}(iv,:), ...
+                                'LineStyle', d_.LineStyle, ...
+                                'LineWidth', 0.5, ...
+                                'Color', pspc.Color, ...
+                                'Marker', 'none' ...
+                                );
+                            end
+                            iv = iv+1;
+                        end
+                    end
+                    if (ndim==3)
+                        for j = 1:ncrv
+                            plot3( axs(end), ...
+                            Scell{j}(1,:), Scell{j}(2,:), Scell{j}(3,:), ...
+                            'LineStyle', d_.LineStyle, ...
+                            'LineWidth', 0.5, ...
+                            'Color', pspc.Color, ...
+                            'Marker', 'none' ...
+                            );
+                        end
+                    end
+                end
+            end
+        end
+
+        %% true plotting utilities
+
+        function spc_out = verify_plotspecs(spc_)
+            spc_out = spc_;
+
+            if (~isfield(spc_out,'Color'))
+                spc_out.Color = [0 0 0];
+            end
+            if (~isfield(spc_out,'Marker'))
+                spc_out.Marker = 'o';
+            end
+
+        end
+
         function dim_out = near_squaredim(num_)
 
             root_floor0 = floor(sqrt(double(num_)));
