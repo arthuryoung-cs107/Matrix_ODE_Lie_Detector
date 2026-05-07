@@ -17,6 +17,8 @@ classdef adlam
         Pmat = @(o_) o_.lam.Pmat;
         Plen = @(o_) size(adlam.Pmat(o_),2);
 
+        ntheta = @(o_) adlam.nvar(o_) * adlam.Plen(o_);
+
         %% handles for processed quantities of moderate complexity, still inline fast
         Lmat_full = @(o_) [ ones( adlam.nvar(o_), 1) , o_.Lmat];
         dkL_mat_full = @(o_,k_) [ zeros( adlam.nvar(o_), 1) , o_.dL_tns(:,:,k_) ];
@@ -49,7 +51,6 @@ classdef adlam
         pr0;
 
         dxu;
-        % pr;
         dkxl;
         Jdkxl;
         lkx;
@@ -228,6 +229,51 @@ classdef adlam
         function obj_out = prn_dxu(obj,dxu_)
             obj_out = adlam(obj.lam,obj.xu,dxu_);
         end
+        function i_imm_out = i_imm_data(obj)
+            ndep = adlam.ndep(obj);
+            Plen = adlam.Plen(obj);
+            ntheta = (1+ndep)*Plen;
+            ntheta_u = ntheta - Plen;
+            i_imm = zeros(ntheta_u,ndep);
+            for i = 1:ndep
+                idel = (i-1)*Plen;
+                i_imm( (1+idel):(Plen+idel), i ) = 1;
+            end
+            i_imm_out = struct( ...
+            'ndep', ndep, ...
+            'Plen', ntheta, ...
+            'ntheta_u', ntheta_u, ...
+            'i_imm', i_imm ...
+            );
+        end
+        function Lambda_uk_out = Lambda_u_k(obj,k_)
+            % i_imm_dat = obj.i_imm_data();
+            % ndep = i_imm_dat.ndep;
+            % Plen = i_imm_dat.Plen;
+            % ntheta = i_imm_dat.ntheta;
+            % ntheta_u = i_imm_dat.ntheta_u;
+            % i_imm = i_imm_dat.i_imm;
+
+            ndep = adlam.ndep(obj);
+            Plen = adlam.Plen(obj);
+            i_imm = zeros(ndep*Plen,ndep);
+            for i = 1:ndep
+                idel = (i-1)*Plen;
+                i_imm( (1+idel):(Plen+idel), i ) = 1;
+            end
+            function l_imm = immerse_lambda(l_)
+                l_imm = zeros((ndep*Plen)*ndep,1);
+                l_imm(logical( i_imm(:) )) = reshape( (ones(ndep,1)*l_)', [], 1);
+                l_imm = reshape(l_imm,ndep,ndep*Plen);
+                % l_ -> [l_ 0 ... 0 ; 0 l_ ... 0 ; ...]
+            end
+
+            if (k==0)
+                Lambda_uk_out = [ zeros(ndep,Plen) , l_imm( adlam.lrowP(obj) ) ];
+            else
+                Lambda_uk_out = [ obj.lkx(:,:,k_) , l_imm( obj.dkxl(k_,:) ) ];
+            end
+        end
 
     end
 
@@ -277,7 +323,7 @@ classdef adlam
                 end
             end
 
-            % step 2b: accumulate this term's base space partial derivatives
+            % step 2b: accumulate this term's jet space partial derivatives
             % identify jet space lambda indices which have nonzero contribution to this order
             iipdxu_nz = prd_k.Pmat_dkxu > 0;
             ndep = nvar-1;

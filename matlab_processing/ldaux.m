@@ -12,6 +12,8 @@ classdef ldaux
                                % [ndep_, eor_, nvar_, ndim_]
         jspc_dims = @(o_) deal(o_.ndep, o_.eor, ldaux.nvar(o_), ldaux.ndim(o_));
 
+        Acell_2_Amat = @(Ac_) cell2mat( Ac_(:) );
+
     end
 
     properties
@@ -27,13 +29,76 @@ classdef ldaux
     end
 
     methods (Static)
+        function [Sobs,dat_out] = generate_Brusselator_data()
+            eqn_name = 'Brusselator';
+            eor = 1;
+            ndep = 2;
+            fprintf('(ldaux::generate_Brusselator_data) Generating %s observations (ndep=%d, eor=%d) : ',eqn_name,eor,ndep);
+
+            [c1_a,c1_b,c1_c] = deal(1.0,-4.0,1.0);
+            [c2_a,c2_b,c2_c] = deal(0.0,3.0,-1.0);
+            f_eqn = @(x_,u_) [ ...
+            c1_a+c1_b.*(u_(1,:))+c1_c.*(u_(1,:).*u_(1,:).*u_(2,:)) ; ...
+            c2_a+c2_b.*(u_(1,:))+c2_c.*(u_(1,:).*u_(1,:).*u_(2,:)) ...
+             ];
+
+            fode = struct( ...
+            'name', eqn_name, ...
+            'eor', eor, ...
+            'ndep', ndep, ...
+            'f', @(x_,u_) f_eqn(x_,u_) ...
+            );
+            Fode_sys_evl = @(e_,s_) [ ones(1,size(s_,2)) ; f_eqn( s_(1,:),s_(2:end,:) ) ];
+
+            % x0 = 1e-1;
+            x0 = 0.0;
+
+            % u0_vals = logspace(-1,1,10);
+
+            seed = 34;
+            seed0 = rng(seed);
+            u00_vals = 2*(rand(2,10)-0.5);
+            u0_vals = u00_vals .* (0.75*[ 1.5 ; 3.0 ]) + [ 1.5 ; 3.0 ];
+
+            % ef = 2.0; % epsilon varies from e0 = 0 to ef > 0
+            ef = 20.0; % epsilon varies from e0 = 0 to ef > 0
+            xf = x0 + ef;
+
+            ncrv = length(u0_vals);
+
+            %{
+                Uniform count of observed points per curve.
+                One more than the cubic Rmat curve matrix.
+                Does not actually need to be this many, but convenient.
+            %}
+            % nevl = (ndep+1)*((3+1)^(ndep+1))+1;
+            nevl = ((3+1)^(ndep+1))+1;
+
+            epsevl = linspace(0.0,ef,nevl);
+            x_evl = epsevl+x0;
+            Sobs = cell(ncrv,1);
+            for i = 1:length(u0_vals)
+                Fode_sys = ode45(Fode_sys_evl,[0.0,ef],[x0 ; u0_vals(:,i)]);
+                phi_xu_i = deval(Fode_sys,epsevl);
+
+                Sobs{i} = [ phi_xu_i ; fode.f( ...
+                 phi_xu_i(1,:) , phi_xu_i(2:end,:) ) ...
+                ]; % sols are the graph of f
+            end
+
+            fprintf(' nobs=%d, ncrv=%d \n', ...
+                ncrv*nevl, ncrv );
+
+            dat_out = fode;
+
+        end
 
         function [Sobs,dat_out] = generate_Riccati_data()
             eqn_name = 'Riccati';
             eor = 1;
             ndep = 1;
 
-            fprintf('(ldaux::generate_Riccati_data) Generating %s observations (ndep=%d, eor=%d) \n',eqn_name,eor,ndep);
+            fprintf('(ldaux::generate_Riccati_data) Generating %s observations (ndep=%d, eor=%d) : ',eqn_name,eor,ndep);
 
             f_eqn = @(x_,u_) 2.0*( u_ ./ x_ ) - (x_.*x_).*(u_.*u_) ;
             gradf_eqn = @(x_,u_) [ ...
@@ -89,6 +154,10 @@ classdef ldaux
 
                 Sobs{i} = [ phi_xu_i ; fode.f( phi_xu_i(1,:),phi_xu_i(2:end,:) ) ]; % sols are the graph of f
             end
+
+            fprintf(' nobs=%d, ncrv=%d \n', ...
+                ncrv*nevl, ncrv );
+            
 
             % dat_out = struct( ...
             %     'name', eqn_name, ...
@@ -222,7 +291,7 @@ classdef ldaux
             nset = prod(size(Scell_));
             ndim_obs = size(Scell_{1},1);
             kor_obs = (ndim_obs-1)/ndep_ - 1;
-            Smat = jspc.Scell_2_Smat( Scell_,ndim_obs );
+            Smat = ldaux.Scell_2_Smat( Scell_,ndim_obs );
             nobs = size(Smat,2);
 
         end
@@ -235,7 +304,7 @@ classdef ldaux
             Smat_out = reshape(cell2mat(cellfun( @(s_) s_(:) ,Scell_,'UniformOutput',false )),ndim,[]);
         end
         function [xu_out,nobs_out] = xumat_nobs(obj,xu_)
-            xu_out = reshape(xu_,jspc.nvar(obj),[]);
+            xu_out = reshape(xu_,ldaux.nvar(obj),[]);
             nobs_out = size(xu_out,2);
         end
         % function [P_len_out pow_mat_out dim0_lens_out] = count_set_P_len(bor_,ndep_)

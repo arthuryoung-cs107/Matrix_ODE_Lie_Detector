@@ -589,7 +589,8 @@ end
             ones_imm = ones(ndep,1);
             function l_imm = immerse_lambda(l_)
                 l_imm = l_imm_init;
-                l_imm(i_imm_vec) = reshape( (ones_imm.*l_)', len_Lambda_u ,1);
+                % l_imm(i_imm_vec) = reshape( (ones_imm.*l_)', len_Lambda_u ,1);
+                l_imm(i_imm_vec) = reshape( (ones_imm*l_)', [], 1);
                 l_imm = reshape(l_imm,ndep,ncol_Lambda_u);
                 % l_ -> [l_ 0 ... 0 ; 0 l_ ... 0 ; ...]
             end
