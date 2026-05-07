@@ -64,6 +64,8 @@ mod = mvp_jspc_model(Sobs,dat,fspc)
 toc1 = toc(tic0);
 fprintf('built jet space model in %.3f seconds \n', toc1);
 
+mod = mvp_jspc_model.verify(mod);
+
 dat_plt1 = dat_plt0;
 % dat_plt1.LineStyle = '-';
 % dat_plt1.Color = apv_plots.green4;

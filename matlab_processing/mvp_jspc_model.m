@@ -14,6 +14,8 @@ classdef mvp_jspc_model
         Sdat;
         fdat;
 
+        Smat;
+
         lambdas;
         lvs;
 
@@ -21,6 +23,11 @@ classdef mvp_jspc_model
         Rsvd_cell;
         Rksvds;
         Rk_sub_svds;
+
+        varthetas_k;
+        varthetas_k_sub;
+        tau_uk;
+        tau_uk_sub;
 
     end
 
@@ -167,14 +174,16 @@ classdef mvp_jspc_model
                 end
             end
             R1svd = Rksvds{end,1} % computed by intersecting svds
-            fspc.print_vshort_polynomial_theta(R1svd.W(:,end),Pmat)
-            fspc.print_vshort_polynomial_theta(R1svd.W(:,end-1),Pmat)
+            % fspc.print_vshort_polynomial_theta(R1svd.W(:,end),Pmat)
+            % fspc.print_vshort_polynomial_theta(R1svd.W(:,end-1),Pmat)
 
             %% assignments
 
             obj.Sobs = Sobs_;
             obj.Sdat = Sdat_;
             obj.fdat =  fdat_;
+
+            obj.Smat = Smat;
 
             obj.lambdas = lambdas;
             obj.lvs = lvs;
@@ -183,10 +192,35 @@ classdef mvp_jspc_model
             obj.Rksvds = Rksvds;
             obj.Rk_sub_svds = Rk_sub_svds;
 
+            obj.varthetas_k = varthetas_k;
+            obj.varthetas_k_sub = varthetas_k_sub;
+            obj.tau_uk = tau_uk;
+            obj.tau_uk_sub = tau_uk_sub;
+
         end
     end
 
     methods (Static)
+
+        function obj_out = verify(obj)
+
+            ndep = obj.Sdat.ndep;
+            [ndim_obs,nobs] = size(obj.Smat);
+            kor_obs = (ndim_obs-1)/ndep - 1;
+
+            Smat = obj.Smat;
+            tau_uk = obj.tau_uk;
+            tau_uk_sub = obj.tau_uk_sub;
+
+            xvec = Smat(1,:);
+            unmat = Smat(2:end,:);
+            untns = reshape( unmat, ndep, kor_obs+1, nobs );
+            umat = reshape( untns(:,1,:), ndep, nobs );
+            dxutns = reshape( untns(:,2:end,:), ndep, kor_obs, nobs );
+
+            obj_out = obj;
+
+        end
 
     end
 
