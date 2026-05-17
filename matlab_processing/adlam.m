@@ -256,6 +256,7 @@ classdef adlam
 
             ndep = adlam.ndep(obj);
             Plen = adlam.Plen(obj);
+            %% initialize injection into Lambda column space
             i_imm = zeros(ndep*Plen,ndep);
             for i = 1:ndep
                 idel = (i-1)*Plen;
@@ -263,8 +264,10 @@ classdef adlam
             end
             function l_imm = immerse_lambda(l_)
                 l_imm = zeros((ndep*Plen)*ndep,1);
-                l_imm(logical( i_imm(:) )) = reshape( (ones(ndep,1)*l_)', [], 1);
-                l_imm = reshape(l_imm,ndep,ndep*Plen);
+                % l_imm(logical( i_imm(:) )) = reshape( (ones(ndep,1)*l_)', [], 1);
+                l_imm(logical( i_imm(:) )) = reshape( l_(:) * ones(1,ndep), [], 1);
+                % l_imm = reshape(l_imm,ndep,ndep*Plen);
+                l_imm = (reshape(l_imm,ndep*Plen,ndep))';
                 % l_ -> [l_ 0 ... 0 ; 0 l_ ... 0 ; ...]
             end
 
@@ -402,7 +405,7 @@ classdef adlam
                 end
             end
 
-            % step 2b: accumulate this term's base space partial derivatives
+            % step 2b: accumulate this term's jet space partial derivatives
             % identify jet space lambda indices which have nonzero contribution to this order
             iipdxu_nz = prd_k.Pmat_dkxu > 0;
             ndep = nvar-1;

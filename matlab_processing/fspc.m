@@ -157,20 +157,34 @@ classdef fspc < jspc
             ndim = 1 + ndep*(kor+1);
             ntheta = Plen*nvar;
 
-            ncol_Lambda_u = ntheta-Plen;
-            i_imm = zeros(ncol_Lambda_u,ndep);
+            % ncol_Lambda_u = ntheta-Plen;
+            % i_imm = zeros(ncol_Lambda_u,ndep);
+            % for i = 1:ndep
+            %     idel = (i-1)*Plen;
+            %     i_imm( (1+idel):(Plen+idel), i ) = 1;
+            % end
+            % i_imm_vec = logical( i_imm(:) );
+            % len_Lambda_u = prod(size(i_imm));
+            % l_imm_init = zeros(len_Lambda_u,1);
+            % ones_imm = ones(ndep,1);
+            % function l_imm = immerse_lambda(l_)
+            %     l_imm = l_imm_init;
+            %     l_imm(i_imm_vec) = reshape( (ones_imm.*(l_(:)'))', len_Lambda_u ,1);
+            %     l_imm = reshape(l_imm,ndep,ncol_Lambda_u);
+            %     % l_ -> [l_ 0 ... 0 ; 0 l_ ... 0 ; ...]
+            % end
+            %% initialize injection into Lambda column space
+            i_imm = zeros(ndep*Plen,ndep);
             for i = 1:ndep
                 idel = (i-1)*Plen;
                 i_imm( (1+idel):(Plen+idel), i ) = 1;
             end
-            i_imm_vec = logical( i_imm(:) );
-            len_Lambda_u = prod(size(i_imm));
-            l_imm_init = zeros(len_Lambda_u,1);
-            ones_imm = ones(ndep,1);
             function l_imm = immerse_lambda(l_)
-                l_imm = l_imm_init;
-                l_imm(i_imm_vec) = reshape( (ones_imm.*(l_(:)'))', len_Lambda_u ,1);
-                l_imm = reshape(l_imm,ndep,ncol_Lambda_u);
+                l_imm = zeros((ndep*Plen)*ndep,1);
+                % l_imm(logical( i_imm(:) )) = reshape( (ones(ndep,1)*l_)', [], 1);
+                l_imm(logical( i_imm(:) )) = reshape( l_(:) * ones(1,ndep), [], 1);
+                % l_imm = reshape(l_imm,ndep,ndep*Plen);
+                l_imm = (reshape(l_imm,ndep*Plen,ndep))';
                 % l_ -> [l_ 0 ... 0 ; 0 l_ ... 0 ; ...]
             end
 

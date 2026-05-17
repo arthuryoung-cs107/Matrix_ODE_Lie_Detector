@@ -29,62 +29,59 @@ classdef ldaux
     end
 
     methods (Static)
-        function [Sobs,dat_out] = generate_Brusselator_data()
-            eqn_name = 'Brusselator';
-            eor = 1;
-            ndep = 2;
-            fprintf('(ldaux::generate_Brusselator_data) Generating %s observations (ndep=%d, eor=%d) : ',eqn_name,eor,ndep);
-
-            [c1_a,c1_b,c1_c] = deal(1.0,-4.0,1.0);
-            [c2_a,c2_b,c2_c] = deal(0.0,3.0,-1.0);
-            f_eqn = @(x_,u_) [ ...
-            c1_a+c1_b.*(u_(1,:))+c1_c.*(u_(1,:).*u_(1,:).*u_(2,:)) ; ...
-            c2_a+c2_b.*(u_(1,:))+c2_c.*(u_(1,:).*u_(1,:).*u_(2,:)) ...
-             ];
-
+        function [Sobs,dat_out] = generate_Van_der_Pol_data()
+            % equation specification
+            fcn_name = 'generate_Van_der_Pol_data';
+            eqn_name = 'VanderPol';
+            eor = 2;
+            ndep = 1;
+            fprintf('(ldaux::%s) Generating %s observations (ndep=%d, eor=%d) : ' , ...
+                fcn_name,eqn_name,eor,ndep);
+            mu = 1.0;
+            f_eqn = @(u_,dxu_) mu.*( (1.0-( u_ .* u_ )).*dxu_ ) - u_;
+            Fode_sys_evl = @(e_,s_) [ ...
+                ones(1,size(s_,2)) ; ...
+                s_((ndep+2):end,:) ; ...
+                f_eqn( s_(2,:) , s_(3,:) ) ...
+            ];
             fode = struct( ...
             'name', eqn_name, ...
             'eor', eor, ...
             'ndep', ndep, ...
-            'f', @(x_,u_) f_eqn(x_,u_) ...
+            'f', @(s_) f_eqn( s_(2,:),s_(3,:) ), ...
+            'f_ad', @(s_) f_eqn( adobj(s_(2),[0 1 0]), adobj(s_(2),[0 0 1]) ) ...
             );
-            Fode_sys_evl = @(e_,s_) [ ones(1,size(s_,2)) ; f_eqn( s_(1,:),s_(2:end,:) ) ];
 
-            % x0 = 1e-1;
+            % trajectory specification
             x0 = 0.0;
-
-            % u0_vals = logspace(-1,1,10);
-
-            seed = 34;
-            seed0 = rng(seed);
-            u00_vals = 2*(rand(2,10)-0.5);
-            u0_vals = u00_vals .* (0.75*[ 1.5 ; 3.0 ]) + [ 1.5 ; 3.0 ];
-
-            % ef = 2.0; % epsilon varies from e0 = 0 to ef > 0
             ef = 20.0; % epsilon varies from e0 = 0 to ef > 0
-            xf = x0 + ef;
 
-            ncrv = length(u0_vals);
+            ncrv = 10;
+            seed = 6; % Shay's choice
+            seed0 = rng(seed);
+            u00_vals = 2*(rand(2,ncrv)-0.5);
+            u0_vals = u00_vals .* [ 2 ; 2 ];
+            % u0_vals = u00_vals .* [ 2 ; 0 ];
 
             %{
-                Uniform count of observed points per curve.
-                One more than the cubic Rmat curve matrix.
+                Uniform count of observed points per curve (M)
+                Induces MNQ R matrix constraints per curve,
+                so we'd like M >= ((Q+1)*P)/(NQ) observations
+                for a well defined P = (O+1)^(Q+1) local curve model,
+                where O = 3 (cubic permutation) by default
                 Does not actually need to be this many, but convenient.
             %}
-            % nevl = (ndep+1)*((3+1)^(ndep+1))+1;
-            nevl = ((3+1)^(ndep+1))+1;
+            Odef = 3; % cubic permutation model (default)
+            Pdef = (Odef+1)^(ndep+1);
+            nevl = ceil(5* (ndep+1)*Pdef/(eor*ndep) ) + 1;
 
-            epsevl = linspace(0.0,ef,nevl);
-            x_evl = epsevl+x0;
-            Sobs = cell(ncrv,1);
-            for i = 1:length(u0_vals)
-                Fode_sys = ode45(Fode_sys_evl,[0.0,ef],[x0 ; u0_vals(:,i)]);
-                phi_xu_i = deval(Fode_sys,epsevl);
+            trj_specs = struct( ...
+                's0', [ x0*ones(1,ncrv) ; u0_vals ], ...
+                'epsevl', linspace(0.0,ef,nevl), ...
+                'epsf',  ef ...
+            );
 
-                Sobs{i} = [ phi_xu_i ; fode.f( ...
-                 phi_xu_i(1,:) , phi_xu_i(2:end,:) ) ...
-                ]; % sols are the graph of f
-            end
+            [Sobs,trjs] = ldaux.evaluate_trajectories(Fode_sys_evl,fode,trj_specs);
 
             fprintf(' nobs=%d, ncrv=%d \n', ...
                 ncrv*nevl, ncrv );
@@ -93,13 +90,80 @@ classdef ldaux
 
         end
 
+        function [Sobs,dat_out] = generate_Brusselator_data()
+            % equation specification
+            fcn_name = 'generate_Brusselator_data';
+            eqn_name = 'Brusselator';
+            eor = 1;
+            ndep = 2;
+            fprintf('(ldaux::%s) Generating %s observations (ndep=%d, eor=%d) : \n' , ...
+                fcn_name,eqn_name,eor,ndep);
+            [c1_a,c1_b,c1_c] = deal(1.0,-4.0,1.0);
+            [c2_a,c2_b,c2_c] = deal(0.0,3.0,-1.0);
+            [c_a,c_b,c_c] = deal([c1_a;c2_a],[c1_b;c2_b],[c1_c;c2_c]);
+            % f_eqn = @(x_,u_) [ ...
+            % c1_a+c1_b.*(u_(1,:))+c1_c.*(u_(1,:).*u_(1,:).*u_(2,:)) ; ...
+            % c2_a+c2_b.*(u_(1,:))+c2_c.*(u_(1,:).*u_(1,:).*u_(2,:)) ...
+            % ];
+            % Fode_sys_evl = @(e_,s_) [ ones(1,size(s_,2)) ; f_eqn( s_(1,:),s_(2:end,:) ) ];
+            f_eqn = @(u1_,u2_) c_a + c_b.*u1_ + c_c.*(u1_.*u1_.*u2_);
+            Fode_sys_evl = @(e_,s_) [ ...
+                ones(1,size(s_,2)) ; ...
+                f_eqn( s_(2,:) , s_(3,:) ) ...
+            ];
+            fode = struct( ...
+            'name', eqn_name, ...
+            'eor', eor, ...
+            'ndep', ndep, ...
+            'f', @(s_) f_eqn( s_(2,:),s_(3,:) ), ...
+            'f_ad', @(s_) f_eqn( adobj(s_(2),[0 1 0 ; 0 0 0]), adobj(s_(3),[0 0 0; 0 0 1]) ) ...
+            );
+            x0 = 0.0;
+            ef = 50.0; % epsilon varies from e0 = 0 to ef > 0
+
+            ncrv = 10;
+            seed = 34; % nice to look at
+            seed0 = rng(seed);
+            u00_vals = 2*(rand(2,ncrv)-0.5);
+            % figure
+            % scatter(u00_vals(1,:), u00_vals(2,:))
+            % pause
+            u0_vals = u00_vals .* (0.75*[ 1.5 ; 3.0 ]) + [ 1.5 ; 3.0 ];
+
+            %{
+                Uniform count of observed points per curve (M)
+                Induces MNQ R matrix constraints per curve,
+                so we'd like M >= ((Q+1)*P)/(NQ) observations
+                for a well defined P = (O+1)^(Q+1) local curve model,
+                where O = 3 (cubic permutation) by default
+                Does not actually need to be this many, but convenient.
+            %}
+            Odef = 3; % cubic permutation model (default)
+            Pdef = (Odef+1)^(ndep+1);
+            nevl = ceil( (ndep+1)*Pdef/(eor*ndep) ) + 1;
+
+            trj_specs = struct( ...
+                's0', [ x0*ones(1,ncrv) ; u0_vals ], ...
+                'epsevl', linspace(0.0,ef,nevl), ...
+                'epsf',  ef ...
+            );
+
+            [Sobs,trjs] = ldaux.evaluate_trajectories(Fode_sys_evl,fode,trj_specs)
+
+            fprintf(' nobs=%d, ncrv=%d \n', ...
+                ncrv*nevl, ncrv );
+
+            dat_out = fode;
+
+        end
         function [Sobs,dat_out] = generate_Riccati_data()
+            % equation specification
+            fcn_name = 'generate_Riccati_data';
             eqn_name = 'Riccati';
             eor = 1;
             ndep = 1;
-
-            fprintf('(ldaux::generate_Riccati_data) Generating %s observations (ndep=%d, eor=%d) : ',eqn_name,eor,ndep);
-
+            fprintf('(ldaux::%s) Generating %s observations (ndep=%d, eor=%d) : ' , ...
+                fcn_name,eqn_name,eor,ndep);
             f_eqn = @(x_,u_) 2.0*( u_ ./ x_ ) - (x_.*x_).*(u_.*u_) ;
             gradf_eqn = @(x_,u_) [ ...
                 -2.0*(u_ ./ (x_.*x_)) - 2.0*(x_).*(u_.*u_) ; ...
@@ -135,11 +199,12 @@ classdef ldaux
             Fode_sys_evl = @(e_,s_) [ ones(1,size(s_,2)) ; f_eqn( s_(1,:),s_(2:end,:) ) ];
 
             x0 = 1e-1;
-            u0_vals = logspace(-1,1,10);
+            ncrv = 10;
+
+            u0_vals = logspace(-1,1,ncrv);
             ef = 2.0; % epsilon varies from e0 = 0 to ef > 0
             xf = x0 + ef;
 
-            ncrv = length(u0_vals);
             nevl = 33; % one more than the cubic Rmat curve matrix
 
             epsevl = linspace(0.0,ef,nevl);
@@ -157,7 +222,6 @@ classdef ldaux
 
             fprintf(' nobs=%d, ncrv=%d \n', ...
                 ncrv*nevl, ncrv );
-            
 
             % dat_out = struct( ...
             %     'name', eqn_name, ...
@@ -166,6 +230,51 @@ classdef ldaux
             % );
             dat_out = fode;
 
+        end
+
+        function [Sobs_out, trjs] = evaluate_trajectories(Fevl_,fode_,trjs_)
+            trjs = trjs_;
+            ncrv = size(trjs.s0,2);
+            if (ncrv==1)
+                if ( iscell(trjs.epsevl) )
+                    epsevl = trjs.epsevl{1};
+                else
+                    epsevl = reshape(trjs.epsevl,1,[]);
+                end
+                phi_s_i = deval( ode45(Fevl_,[0.0 trjs.epsf(1)], trjs.s0(:,1) ) , epsevl );
+
+                Sobs_out = [ ...
+                phi_s_i ; ...
+                fode_.f(phi_s_i) ...
+                ]; % sols are the graph of f
+            else
+                if ( prod(size(trjs.epsf)) == 1 ) % provided as a scalar
+                    epsf = trjs.epsf*ones(1,ncrv);
+                else
+                    epsf = trjs.epsf;
+                end
+                if ( iscell(trjs.epsevl) )
+                    epsevl = trjs.epsevl;
+                elseif ( prod(size(trjs.epsevl))==max(size(trjs.epsevl)) ) % if a vector
+                    epsevl = num2cell( ones(ncrv,1)*reshape(trjs.epsevl,1,length(trjs.epsevl)) , 2 );
+                else % otherwise, it should be a matrix
+                    epsevl = num2cell(trjs.epsevl,2);
+                end
+                Sobs_out = cell([ncrv,1]);
+                for i = 1:ncrv
+                    phi_s_i = deval( ode45(Fevl_,[0.0 epsf(i)],trjs.s0(:,i)) , epsevl{i} );
+                    Sobs_out{i} = [ ...
+                    phi_s_i ; ...
+                    fode_.f(phi_s_i) ...
+                    ]; % sols are the graph of f
+                end
+
+                check = fode_.f_ad(Sobs_out{1}(:,2))
+
+                check.Jac
+
+                pause
+            end
         end
 
         %% simple jet space models
@@ -286,14 +395,20 @@ classdef ldaux
         %% jet space adjacent
 
 
-        function [Smat,nobs,nset,kor_obs,ndim_obs] = unpack_Scell(Scell_,ndep_)
+        function [Smat,nobs,nset,kor_obs,ndim_obs,npts_per_crv,ipts_crv] = unpack_Scell(Scell_,ndep_)
 
             nset = prod(size(Scell_));
             ndim_obs = size(Scell_{1},1);
             kor_obs = (ndim_obs-1)/ndep_ - 1;
             Smat = ldaux.Scell_2_Smat( Scell_,ndim_obs );
             nobs = size(Smat,2);
-
+            if (nargout>=6)
+                npts_per_crv = vertcat(cellfun( @(C_) size(C_,2),Scell_(:)));
+                if (nargout>6)
+                    csum_npts_per_crv = cumsum(npts_per_crv);
+                    ipts_crv = [ [ 1 , (csum_npts_per_crv(1:(end-1))'+1) ] ; csum_npts_per_crv' ];
+                end
+            end
         end
         function Smat_out = Scell_2_Smat(Scell_,ndim_)
             if (nargin==1)
