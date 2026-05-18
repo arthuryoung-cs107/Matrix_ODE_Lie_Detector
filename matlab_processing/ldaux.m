@@ -269,11 +269,9 @@ classdef ldaux
                     ]; % sols are the graph of f
                 end
 
-                check = fode_.f_ad(Sobs_out{1}(:,2))
-
-                check.Jac
-
-                pause
+                % check = fode_.f_ad(Sobs_out{1}(:,2))
+                % check.Jac
+                % pause
             end
         end
 
