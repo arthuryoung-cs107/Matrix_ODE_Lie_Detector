@@ -207,8 +207,8 @@ classdef adlam
                 'Ldkxu', @(o_,dxu_) o_.c_net*prod( reshape((dxu_).^(o_.Pmat_dkxu),[],1) ), ...
                 'dkxu_inds', @(o_,k_) o_.nvar+sub2ind([o_.ndep,o_.kor],1:o_.ndep,k_*ones(1,o_.ndep) ) ...
                 );
-                obj.dkxl = zeros(kor,Plen);
-                obj.Jdkxl = zeros(ndim,Plen,kor);
+                obj.dkxl = zeros(kor,Plen); % matrix of total derivatives of lambda row vector
+                obj.Jdkxl = zeros(ndim,Plen,kor); % Jacobian of matrix of total derivatives of lambda row vector
                 obj.lkx = zeros(ndep,Plen,kor);
                 obj.Jlkx = zeros(ndep,Plen,kor,ndim);
                 for iv = 1:nvar
