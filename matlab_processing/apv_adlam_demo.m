@@ -32,7 +32,9 @@ scrn_id = 1;
 tic0 = tic;
 % [Sobs,dat_true] = ldaux.generate_Riccati_data(); % N = 1, Q = 1
 % [Sobs,dat_true] = ldaux.generate_Brusselator_data(); % N = 1, Q = 2
-[Sobs,dat_true] = ldaux.generate_Van_der_Pol_data(); % N = 2, Q = 1
+% [Sobs,dat_true] = ldaux.generate_Van_der_Pol_data(); % N = 2, Q = 1
+% [Sobs,dat_true] = ldaux.generate_oscillator_data(); % N = 2, Q = 1, easier than VanderPol
+[Sobs,dat_true] = ldaux.generate_pendulum_polr_data(); % N = 2, Q = 1
 toc1 = toc(tic0);
 fprintf('generated jet space data in %.3f seconds \n', toc1);
 

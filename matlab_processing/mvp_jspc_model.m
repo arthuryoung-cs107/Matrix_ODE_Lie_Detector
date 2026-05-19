@@ -95,12 +95,15 @@ classdef mvp_jspc_model
 
                 lvs(:,iobs) = lv_i;
 
-                Renc_cell{1,iobs} = [ (-l_i.dxu(:,1).*lv_i) , immerse_lambda(lv_i) ];
+                Renc_cell{1,iobs} = [ -l_i.dxu(:,1)*lv_i , immerse_lambda(lv_i) ];
                 for k = 2:kor_obs
                     Renc_cell{k,iobs} = [ ...
-                    -(l_i.lkx(:,:,k-1)+(l_i.dxu(:,k).*lv_i)),immerse_lambda(l_i.dkxl(k-1,:)) ...
+                    -l_i.lkx(:,:,k-1) - l_i.dxu(:,k)*lv_i , immerse_lambda(l_i.dkxl(k-1,:)) ...
                     ];
                 end
+                % Renc_cell{1,iobs}
+                % Renc_cell{2,iobs}
+                % pause
             end
 
             shape_Rkt_glb = @(RkcT_) permute(reshape( horzcat(RkcT_{:}),ntheta,ndep,nobs),[3 1 2]);

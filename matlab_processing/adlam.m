@@ -221,7 +221,7 @@ classdef adlam
                         obj = adlam.prolong_vx_mvpolynomials(obj,k,k,iv,JlT(iv,:),pr0_data);
                     end
                 end
-                obj = adlam.verify_prolongation(obj);
+                % obj = adlam.verify_prolongation(obj); % debugging
             else
                 obj.dxu = [];
                 obj.dkxl = [];
@@ -308,6 +308,7 @@ classdef adlam
 
             % 1) verify dkp1x l = tau^(k) . grad^(k) dkx l
             dkp1x_l(1,:) = ( tkderset(0) )' * obj.Jl;
+            % 2) verify lkp1x l = tau^(k) . grad^(k) lkp1x + dkp1x u . dxl
             lkp1x(:,:,1) = dxu(:,1) * obj.dkxl(1,:);
             for k = 2:kor
                 iJk = nvar + ((k-1)*ndep);
@@ -324,8 +325,65 @@ classdef adlam
             lkp1x
             obj.lkx
 
-            pause
+            Pmat = adlam.Pmat(obj)
+            d0xl = obj.lrow_vals
+            LmatP = adlam.LmatP(obj)
+            d1LmatP = adlam.dkLmatP(obj,1)
+            Lmat = obj.Lmat
+            dL_tns = obj.dL_tns
 
+            function dkxli_out = dxli_evl(i_)
+                Pvals0 = Pmat(1:2,i_);
+                [Lx,Lu] = deal(LmatP(1,i_), LmatP(2,i_));
+                if (Pvals0(1) > 1)
+                    dxLx = Pvals0(1)*Lmat(1,Pvals0(1)-1);
+                    if (Pvals0(1) > 2)
+                        d2xLx = Pvals0(1)*(Pvals0(1)-1)*Lmat(1,Pvals0(1)-2);
+                    else
+                        d2xLx = Pvals0(1);
+                    end
+                else
+                    dxLx = Pvals0(1);
+                    d2xLx = 0.0;
+                end
+                if (Pvals0(2) > 1)
+                    dxLu = Pvals0(2)*Lmat(2,Pvals0(2)-1)*dxu(1,1);
+                    if (Pvals0(2) > 2)
+                        d2xLu = Pvals0(2)*(Pvals0(2)-1)*Lmat(2,Pvals0(2)-2)*dxu(1,1)*dxu(1,1) ...
+                                + Pvals0(2)*Lmat(2,Pvals0(2)-1)*dxu(1,2);
+                    else
+                        d2xLu = Pvals0(2)*(Pvals0(2)-1)*dxu(1,1)*dxu(1,1) ...
+                                + Pvals0(2)*Lmat(2,Pvals0(2)-1)*dxu(1,2);
+                    end
+                else
+                    dxLu = Pvals0(2)*dxu(1,1);
+                    d2xLu = Pvals0(2)*dxu(1,2);
+                end
+                % d1xli_out = [ Pvals0(1)*LmatP(2,i_) , Pvals0(2)*LmatP(1,i_)*dxu(1,1) ] * [ iele1 ; iele2 ];
+                dkxli_out = [ dxLx*Lu + Lx*dxLu ; d2xLx*Lu + 2*(dxLx*dxLu) + Lx*d2xLu ];
+            end
+
+            dkxli = nan(2,Plen);
+            likx = nan(ndep,Plen,2);
+            for iP = 1:Plen
+                dxli(:,iP) = dxli_evl(iP);
+                likx(:,iP,1) = dxu(:,1) * dxli(1,iP);
+                likx(:,iP,2) = ( dxu(:,1) * dxli(2,iP) ) + 2*dxu(:,2) * dxli(1,iP);
+            end
+            check1 = [ ...
+            Pmat ; ...
+            dxli ; ...
+            dkp1x_l; ...
+            obj.dkxl ...
+            ]
+
+            check2 = [ ...
+            reshape(permute(likx(1,:,1:2),[3 2 1]), 2, Plen) ; ...
+            reshape(permute(lkp1x(1,:,1:2),[3 2 1]), 2, Plen) ; ...
+            reshape(permute(obj.lkx(1,:,1:2),[3 2 1]), 2, Plen)  ...
+            ]
+
+            pause
 
             obj_out = obj;
 
@@ -354,7 +412,7 @@ classdef adlam
             iipnz = ( prd_k.Pmat(:,prd_k.inds) - prd_k.nder(1:nvar) ) > 0;
             % accumulate partial derivatives over base space variables
             for iv = 1:nvar
-                if ( iipnz(iv,:) )
+                if ( sum(iipnz(iv,:)) )
                     % accumulate partials over the base space
                     inds_iv = prd_k.inds( iipnz(iv,:) );
                     pvl_iv = ones( 1,length(inds_iv) );
@@ -370,6 +428,7 @@ classdef adlam
                     obj_out.Jdkxl(iv,inds_iv,k_) = obj_out.Jdkxl(iv,inds_iv,k_) + Ldkxu_k*pvl_iv;
 
                     if (k_<prd_.kor)
+                        prd_k_piv = prd_k;
                         prd_k_piv.inds = inds_iv;
                         obj_out = adlam.prolong_vu_mvpolynomial(obj_out,k_+1,iv,pvl_iv,prd_k_piv);
                     end
@@ -443,7 +502,7 @@ classdef adlam
             iipnz = ( prd_k.Pmat(:,prd_k.inds) - prd_k.nder(1:nvar) ) > 0;
             % accumulate partial derivatives over base space variables
             for iv = 1:nvar
-                if ( iipnz(iv,:) )
+                if ( sum(iipnz(iv,:)) )
                     % accumulate partials over the base space
                     inds_iv = prd_k.inds( iipnz(iv,:) );
                     pvl_iv = ones( 1,length(inds_iv) );
@@ -457,6 +516,7 @@ classdef adlam
                     % accumulate partial derivative of dkxl wrt to base space iv
                     obj_out.Jlkx(:,inds_iv,k_,iv) = obj_out.Jlkx(:,inds_iv,k_,iv) + Ldkxu_k*pvl_iv;
                     if (k_<prd_.kor)
+                        prd_k_piv = prd_k;
                         prd_k_piv.inds = inds_iv;
                         obj_out = adlam.prolong_vx_mvpolynomials(obj_out,k_+1,src_,iv,pvl_iv,prd_k_piv);
                     end

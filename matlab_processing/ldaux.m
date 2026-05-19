@@ -29,6 +29,130 @@ classdef ldaux
     end
 
     methods (Static)
+        function [Sobs,dat_out] = generate_pendulum_polr_data()
+            % equation specification
+            fcn_name = 'generate_pendulum_polr_data';
+            eqn_name = 'pendulum_polr';
+            eor = 2;
+            ndep = 1;
+            fprintf('(ldaux::%s) Generating %s observations (ndep=%d, eor=%d) : ' , ...
+                fcn_name,eqn_name,eor,ndep);
+            mass = 1.0;
+            % [kstiff,cdamp,mmass] = deal(1.0,1.0,1.0);
+            [rrad,mmass,cdamp,ggrav] = deal(2.0,1.0,1.0,-9.81);
+            [c1,c2] = deal(ggrav/rrad,cdamp/(mmass*rrad*rrad));
+            f_eqn = @(u_,dxu_) c1*sin(u_) - c2*dxu_ ;
+            Fode_sys_evl = @(e_,s_) [ ...
+                ones(1,size(s_,2)) ; ...
+                s_((ndep+2):end,:) ; ...
+                f_eqn( s_(2,:) , s_(3,:) ) ...
+            ];
+            fode = struct( ...
+            'name', eqn_name, ...
+            'eor', eor, ...
+            'ndep', ndep, ...
+            'f', @(s_) f_eqn( s_(2,:),s_(3,:) ), ...
+            'f_ad', @(s_) f_eqn( adobj(s_(2),[0 1 0]), adobj(s_(2),[0 0 1]) ) ...
+            );
+
+            % trajectory specification
+            x0 = 0.0;
+            ef = 10.0; % epsilon varies from e0 = 0 to ef > 0
+
+            ncrv = 10;
+            seed = 6; % Shay's choice
+            seed0 = rng(seed);
+            u00_vals = 2*(rand(2,ncrv)-0.5);
+            u0_vals = u00_vals .* [ 2 ; 2 ];
+            % u0_vals = u00_vals .* [ 2 ; 0 ];
+
+            %{
+                Uniform count of observed points per curve (M)
+                Induces MNQ R matrix constraints per curve,
+                so we'd like M >= ((Q+1)*P)/(NQ) observations
+                for a well defined P = (O+1)^(Q+1) local curve model,
+                where O = 3 (cubic permutation) by default
+                Does not actually need to be this many, but convenient.
+            %}
+            Odef = 3; % cubic permutation model (default)
+            Pdef = (Odef+1)^(ndep+1);
+            nevl = ceil(3* (ndep+1)*Pdef/(eor*ndep) ) + 1;
+
+            trj_specs = struct( ...
+                's0', [ x0*ones(1,ncrv) ; u0_vals ], ...
+                'epsevl', linspace(0.0,ef,nevl), ...
+                'epsf',  ef ...
+            );
+
+            [Sobs,trjs] = ldaux.evaluate_trajectories(Fode_sys_evl,fode,trj_specs);
+
+            fprintf(' nobs=%d, ncrv=%d \n', ...
+                ncrv*nevl, ncrv );
+
+            dat_out = fode;
+
+        end
+        function [Sobs,dat_out] = generate_oscillator_data()
+            % equation specification
+            fcn_name = 'generate_oscillator_data';
+            eqn_name = 'oscillator';
+            eor = 2;
+            ndep = 1;
+            fprintf('(ldaux::%s) Generating %s observations (ndep=%d, eor=%d) : ' , ...
+                fcn_name,eqn_name,eor,ndep);
+            mass = 1.0;
+            [kstiff,cdamp,mmass] = deal(1.0,1.0,1.0);
+            f_eqn = @(u_,dxu_) ( kstiff.*u_ + cdamp.*dxu_ )./(-mmass);
+            Fode_sys_evl = @(e_,s_) [ ...
+                ones(1,size(s_,2)) ; ...
+                s_((ndep+2):end,:) ; ...
+                f_eqn( s_(2,:) , s_(3,:) ) ...
+            ];
+            fode = struct( ...
+            'name', eqn_name, ...
+            'eor', eor, ...
+            'ndep', ndep, ...
+            'f', @(s_) f_eqn( s_(2,:),s_(3,:) ), ...
+            'f_ad', @(s_) f_eqn( adobj(s_(2),[0 1 0]), adobj(s_(2),[0 0 1]) ) ...
+            );
+
+            % trajectory specification
+            x0 = 0.0;
+            ef = 10.0; % epsilon varies from e0 = 0 to ef > 0
+
+            ncrv = 10;
+            seed = 6; % Shay's choice
+            seed0 = rng(seed);
+            u00_vals = 2*(rand(2,ncrv)-0.5);
+            u0_vals = u00_vals .* [ 2 ; 2 ];
+            % u0_vals = u00_vals .* [ 2 ; 0 ];
+
+            %{
+                Uniform count of observed points per curve (M)
+                Induces MNQ R matrix constraints per curve,
+                so we'd like M >= ((Q+1)*P)/(NQ) observations
+                for a well defined P = (O+1)^(Q+1) local curve model,
+                where O = 3 (cubic permutation) by default
+                Does not actually need to be this many, but convenient.
+            %}
+            Odef = 3; % cubic permutation model (default)
+            Pdef = (Odef+1)^(ndep+1);
+            nevl = ceil( (ndep+1)*Pdef/(eor*ndep) ) + 1;
+
+            trj_specs = struct( ...
+                's0', [ x0*ones(1,ncrv) ; u0_vals ], ...
+                'epsevl', linspace(0.0,ef,nevl), ...
+                'epsf',  ef ...
+            );
+
+            [Sobs,trjs] = ldaux.evaluate_trajectories(Fode_sys_evl,fode,trj_specs);
+
+            fprintf(' nobs=%d, ncrv=%d \n', ...
+                ncrv*nevl, ncrv );
+
+            dat_out = fode;
+
+        end
         function [Sobs,dat_out] = generate_Van_der_Pol_data()
             % equation specification
             fcn_name = 'generate_Van_der_Pol_data';
@@ -73,7 +197,7 @@ classdef ldaux
             %}
             Odef = 3; % cubic permutation model (default)
             Pdef = (Odef+1)^(ndep+1);
-            nevl = ceil(5* (ndep+1)*Pdef/(eor*ndep) ) + 1;
+            nevl = ceil(3* (ndep+1)*Pdef/(eor*ndep) ) + 1;
 
             trj_specs = struct( ...
                 's0', [ x0*ones(1,ncrv) ; u0_vals ], ...
