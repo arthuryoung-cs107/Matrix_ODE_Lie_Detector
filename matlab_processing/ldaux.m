@@ -29,6 +29,43 @@ classdef ldaux
     end
 
     methods (Static)
+        function [Sobs,dat_out] = generate_pendulum_cart_data()
+            fcn_name = 'generate_pendulum_cart_data';
+            eqn_name = 'pendulum_cart';
+            eor = 2;
+            ndep = 2;
+            fprintf('(ldaux::%s) Generating %s observations (ndep=%d, eor=%d) : ' , ...
+                fcn_name,eqn_name,eor,ndep);
+
+            [Sobs_1D,fode_1D] = ldaux.generate_pendulum_polr_data();
+
+            fode_out = fode_1D;
+            fode_out.name = eqn_name;
+            fode_out.eor = eor;
+            fode_out.ndep = ndep;
+            % fode_out.f =
+
+            rrad = fode_1D.rrad;
+            ncrv = length(Sobs_1D);
+            Sobs = cell([ncrv,1]);
+            for icrv = 1:ncrv
+                npts_i = size(Sobs_1D{icrv},2);
+                Sobs_1D_i = Sobs_1D{icrv};
+                sin_th_i = sin( Sobs_1D_i(2,:) );
+                cos_th_i = cos( Sobs_1D_i(2,:) );
+
+                Sobs{icrv} =  [ ...
+                    Sobs_1D_i(1,:) ; ...
+                    rrad*sin_th_i; ...
+                    -rrad*cos_th_i ; ...
+                    rrad*cos_th_i .* Sobs_1D_i(3,:) ; ...
+                    rrad*sin_th_i .* Sobs_1D_i(3,:) ; ...
+                    rrad*( -sin_th_i.*(Sobs_1D_i(3,:).^2) + cos_th_i.*Sobs_1D_i(4,:) ) ; ...
+                    rrad*( cos_th_i.*(Sobs_1D_i(3,:).^2) + sin_th_i.*Sobs_1D_i(4,:) )  ...
+                ];
+            end
+            dat_out = fode_out;
+        end
         function [Sobs,dat_out] = generate_pendulum_polr_data()
             % equation specification
             fcn_name = 'generate_pendulum_polr_data';
@@ -38,10 +75,10 @@ classdef ldaux
             fprintf('(ldaux::%s) Generating %s observations (ndep=%d, eor=%d) : ' , ...
                 fcn_name,eqn_name,eor,ndep);
             mass = 1.0;
-            % [kstiff,cdamp,mmass] = deal(1.0,1.0,1.0);
-            [rrad,mmass,cdamp,ggrav] = deal(2.0,1.0,1.0,-9.81);
+            % [rrad,mmass,cdamp,ggrav] = deal(2.0,1.0,1.0,9.81);
+            [rrad,mmass,cdamp,ggrav] = deal(2.0,1.0,0.0,9.81);
             [c1,c2] = deal(ggrav/rrad,cdamp/(mmass*rrad*rrad));
-            f_eqn = @(u_,dxu_) c1*sin(u_) - c2*dxu_ ;
+            f_eqn = @(u_,dxu_) -c1*sin(u_) - c2*dxu_ ;
             Fode_sys_evl = @(e_,s_) [ ...
                 ones(1,size(s_,2)) ; ...
                 s_((ndep+2):end,:) ; ...
@@ -51,6 +88,7 @@ classdef ldaux
             'name', eqn_name, ...
             'eor', eor, ...
             'ndep', ndep, ...
+            'rrad', rrad, ...
             'f', @(s_) f_eqn( s_(2,:),s_(3,:) ), ...
             'f_ad', @(s_) f_eqn( adobj(s_(2),[0 1 0]), adobj(s_(2),[0 0 1]) ) ...
             );
@@ -63,7 +101,7 @@ classdef ldaux
             seed = 6; % Shay's choice
             seed0 = rng(seed);
             u00_vals = 2*(rand(2,ncrv)-0.5);
-            u0_vals = u00_vals .* [ 2 ; 2 ];
+            u0_vals = u00_vals .* [ 0.5*pi/2 ; 0.25*pi/2 ];
             % u0_vals = u00_vals .* [ 2 ; 0 ];
 
             %{
@@ -359,13 +397,17 @@ classdef ldaux
         function [Sobs_out, trjs] = evaluate_trajectories(Fevl_,fode_,trjs_)
             trjs = trjs_;
             ncrv = size(trjs.s0,2);
+            sol_opts = odeset( ...
+            'RelTol', 1e-12, ...
+            'AbsTol', 1e-10 ...
+            );
             if (ncrv==1)
                 if ( iscell(trjs.epsevl) )
                     epsevl = trjs.epsevl{1};
                 else
                     epsevl = reshape(trjs.epsevl,1,[]);
                 end
-                phi_s_i = deval( ode45(Fevl_,[0.0 trjs.epsf(1)], trjs.s0(:,1) ) , epsevl );
+                phi_s_i = deval( ode45(Fevl_,[0.0 trjs.epsf(1)], trjs.s0(:,1), sol_opts) , epsevl );
 
                 Sobs_out = [ ...
                 phi_s_i ; ...
@@ -386,7 +428,7 @@ classdef ldaux
                 end
                 Sobs_out = cell([ncrv,1]);
                 for i = 1:ncrv
-                    phi_s_i = deval( ode45(Fevl_,[0.0 epsf(i)],trjs.s0(:,i)) , epsevl{i} );
+                    phi_s_i = deval( ode45(Fevl_,[0.0 epsf(i)],trjs.s0(:,i), sol_opts) , epsevl{i} );
                     Sobs_out{i} = [ ...
                     phi_s_i ; ...
                     fode_.f(phi_s_i) ...
