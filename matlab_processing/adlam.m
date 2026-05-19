@@ -48,6 +48,8 @@ classdef adlam
 
         dL_tns;
 
+        lrow_vals;
+        Jl;
         pr0;
 
         dxu;
@@ -168,6 +170,8 @@ classdef adlam
                 end
             end
 
+            obj.lrow_vals = adlam.lrowP(obj);
+            obj.Jl = JlT;
             % the base space is fully characterized by the lambda vector and its Jacobian
             pr0 = struct( ...
                 'l', adobj( prod( LmatP, 1 )', JlT' ), ...
@@ -217,6 +221,7 @@ classdef adlam
                         obj = adlam.prolong_vx_mvpolynomials(obj,k,k,iv,JlT(iv,:),pr0_data);
                     end
                 end
+                obj = adlam.verify_prolongation(obj);
             else
                 obj.dxu = [];
                 obj.dkxl = [];
@@ -281,7 +286,50 @@ classdef adlam
     end
 
     methods (Static)
+        function obj_out = verify_prolongation(obj)
 
+            [ndep,kor] = deal( adlam.ndep(obj),adlam.kor(obj) );
+            Plen = adlam.Plen(obj);
+
+            nvar = ndep+1;
+            ndim = nvar + kor*ndep;
+
+            xu = obj.xu;
+            dxu = obj.dxu;
+
+            tkderset = @(k_) [ 1 ; reshape( dxu(:,1:(k_+1)), [],1 ) ];
+            tk_N = @(tk_) [ tk_ ; zeros(ndim-length(tk_),1) ];
+            tk_Nthspace = @(k_) tk_N(tkderset(k_));
+
+            %% check adherence to 2 primary prolongation verification quantities
+
+            dkp1x_l = nan(kor,Plen);
+            lkp1x = nan(ndep,Plen,kor);
+
+            % 1) verify dkp1x l = tau^(k) . grad^(k) dkx l
+            dkp1x_l(1,:) = ( tkderset(0) )' * obj.Jl;
+            lkp1x(:,:,1) = dxu(:,1) * obj.dkxl(1,:);
+            for k = 2:kor
+                iJk = nvar + ((k-1)*ndep);
+                dkp1x_l(k,:) = ( tk_Nthspace(k-1) )' * obj.Jdkxl(:,:,k-1);
+                for i = 1:ndep
+                    lkp1x(i,:,k) = dxu(i,k) * obj.dkxl(1,:) ...
+                                   + ( tk_Nthspace(kor-1) )' * reshape( obj.Jlkx(i,:,k-1,:), Plen, ndim )';
+                end
+            end
+
+            dkp1x_l
+            obj.dkxl
+
+            lkp1x
+            obj.lkx
+
+            pause
+
+
+            obj_out = obj;
+
+        end
         function obj_out = prolong_vu_mvpolynomial(obj,k_,ivp_,pvl_,prd_)
             obj_out = obj;
             prd_k = prd_;
@@ -293,7 +341,9 @@ classdef adlam
             end
             % evaluate input chained dkxu polynomial
             Ldkxu_k = prd_k.Ldkxu(prd_k,obj.dxu); % compute the product of derivative polynomials. Scalar valued
+
             obj_out.dkxl(k_,prd_k.inds) = obj_out.dkxl(k_,prd_k.inds) + Ldkxu_k*pvl_; % accumulate total der
+
             prd_k.nder(ivp_) = prd_k.nder(ivp_) + 1; % increment count of partial derivatives of ivp_ variable
 
             %% second step: accumulate this term's contribution to the Jacobian of dkxl
@@ -366,14 +416,22 @@ classdef adlam
             end
             % evaluate input chained dkxu polynomial
             Ldkxu_k0 = prd_k.Ldkxu(prd_k,obj.dxu); % product of derivative polynomials. Scalar
-            Ldkxu_k = obj.dxu(:,src_)*Ldkxu_k0; % aggregate product of derivative polynomials times src derivatives. Vector.
-            obj_out.lkx(:,prd_k.inds,k_) = obj_out.lkx(:,prd_k.inds,k_) + Ldkxu_k*pvl_; % accumulate total der of lkm1x into lkx
+            Ldkxu_k = obj.dxu(:,src_)*Ldkxu_k0; % net product of derivative polynomials times src derivatives. Vector.
+
+            % acc tot der of lkm1x into lkx
+            obj_out.lkx(:,prd_k.inds,k_) = obj_out.lkx(:,prd_k.inds,k_) + Ldkxu_k*pvl_;
+
             prd_k.nder(ivp_) = prd_k.nder(ivp_) + 1; % increment count of partial derivatives of ivp_ variable
 
             % step 1b: accumulate first half of product rule to lkx Jacobian
             inds_src = prd_.dkxu_inds(prd_,src_);
-            obj_out.Jlkx( :, prd_.inds, k_, inds_src ) = obj_out.Jlkx( :, prd_.inds, k_, inds_src ) ...
-                                                        + ones(prd_.ndep,1)*Ldkxu_k0*pvl_;
+            % obj_out.Jlkx( :, prd_.inds, k_, inds_src ) = obj_out.Jlkx( :, prd_.inds, k_, inds_src ) ...
+            %                                             + ones(prd_.ndep,1)*Ldkxu_k0*pvl_;
+            ider_src = (nvar + ( 1:prd_.ndep )) + (src_-1)*prd_.ndep;
+            for idep = 1:prd_.ndep
+                obj_out.Jlkx(idep,prd_.inds,k_,ider_src(idep)) = obj_out.Jlkx(idep,prd_.inds,k_,ider_src(idep)) ...
+                    + Ldkxu_k0*pvl_;
+            end
             if ( k_ < prd_.kor ) % pass identical gradient information to next prolongation. Source incremented by one.
                 obj_out = adlam.prolong_vx_mvpolynomials(obj_out,k_+1,src_+1,ivp_,pvl_,prd_);
             end
@@ -421,7 +479,7 @@ classdef adlam
                         prd_k_pdkxui.Pmat_dkxu(idep,k) = prd_k_pdkxui.Pmat_dkxu(idep,k) - 1;
                         % accumulate partial derivative of lkx wrt to jet space (derivative) iv
                         obj_out.Jlkx(:,prd_.inds,k_,iv) = obj_out.Jlkx(:,prd_.inds,k_,iv) ...
-                                                        + prd_k_pdkxui.Ldkxu(prd_k_pdkxui,obj.dxu)*pvl_;
+                                                        + obj.dxu(:,src_)*prd_k_pdkxui.Ldkxu(prd_k_pdkxui,obj.dxu)*pvl_;
                         if (k_<prd_.kor)
                             obj_out = adlam.prolong_vx_mvpolynomials(obj_out,k_+1,src_,iv,pvl_,prd_k_pdkxui);
                         end
