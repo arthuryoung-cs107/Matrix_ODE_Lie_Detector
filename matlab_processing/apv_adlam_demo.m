@@ -33,9 +33,9 @@ tic0 = tic;
 % [Sobs,dat_true] = ldaux.generate_Riccati_data(); % N = 1, Q = 1
 % [Sobs,dat_true] = ldaux.generate_Brusselator_data(); % N = 1, Q = 2
 % [Sobs,dat_true] = ldaux.generate_Van_der_Pol_data(); % N = 2, Q = 1
-% [Sobs,dat_true] = ldaux.generate_oscillator_data(); % N = 2, Q = 1, easier than VanderPol
+[Sobs,dat_true] = ldaux.generate_oscillator_polr_data(); % N = 2, Q = 1, easier than VanderPol
 % [Sobs,dat_true] = ldaux.generate_pendulum_polr_data(); % N = 2, Q = 1
-[Sobs,dat_true] = ldaux.generate_pendulum_cart_data(); % N = 2, Q = 1
+% [Sobs,dat_true] = ldaux.generate_pendulum_cart_data(); % N = 2, Q = 2
 toc1 = toc(tic0);
 fprintf('generated jet space data in %.3f seconds \n', toc1);
 
@@ -61,11 +61,10 @@ plt0 = apv_plots.plot_Sobs(plt0,Sobs,dat_plt0);
     build jet space model
     ----------------------------
 %}
-% fspc = struct( ...
-% 'bor', 3 ...
-% );
 fspc = struct( ...
-'bor', 3 ...
+'bor', 3, ...
+'Omap_a', ones(1+dat.ndep,1), ...
+'Omap_b', zeros(1+dat.ndep,1) ...
 );
 tic0 = tic;
 mod = mvp_jspc_model(Sobs,dat,fspc)
@@ -103,36 +102,44 @@ tmod_glb = struct('t_uk', tau_uk_glb, 't_uk_sub', tau_uk_glb_sub);
 tmod_crv = struct('t_uk', tau_uN_crv, 't_uk_sub', tau_uN_crv_sub);
 tmodels = [tmod_glb tmod_crv];
 
-abserr_tol = 1e-2;
+% abserr_tol = 1e-2;
+abserr_tol = 1e-5;
 for imod = 1:length(tmodels)
     tmod_i = tmodels(imod);
     [tau_uk_i,tau_uk_i_sub] = deal(tmod_i.t_uk,tmod_i.t_uk_sub);
 
     err_uk = tau_uk_i-dxutns;
-    abserr_uk = abs(err_uk);
+    % abserr_uk = abs(err_uk);
+    abserr_uk = abs( err_uk ./ dxutns );
     [abserr_uk_sorted,i_abserr_uk_sorted] = sort(abserr_uk(:));
     min_abserr_uk = abserr_uk_sorted(1);
     avg_abserr_uk = mean(abserr_uk_sorted);
     med_abserr_uk = median(abserr_uk_sorted);
     max_abserr_uk = abserr_uk_sorted(end);
-    fprintf('(b=%d,full) abserr [min,avg,med,max]=[%.1e,%.1e,%.1e,%.1e]. Success = %d \n', ...
-        fspc.bor, min_abserr_uk,avg_abserr_uk,med_abserr_uk,max_abserr_uk, ...
-        max_abserr_uk<abserr_tol ...
+fprintf( '(b=%d,full) abserr [min,avg,med,max]=[%.1e,%.1e,%.1e,%.1e]. Success = %d ([med,max] = [%d %d]) \n', ...
+        fspc.bor,min_abserr_uk,avg_abserr_uk,med_abserr_uk,max_abserr_uk, ...
+        max_abserr_uk < 1e-5, ...
+        med_abserr_uk < abserr_tol, max_abserr_uk < abserr_tol ...
     );
+    % max_abserr_uk<abserr_tol ...
+    % med_abserr_uk<abserr_tol ...
     err_uk_sub = nan(size(tau_uk_i_sub));
     for b = 1:fspc.bor
         err_uk_sub(:,:,:,b) = tau_uk_i_sub(:,:,:,b)-dxutns;
 
-        abserr_uk_bsub = abs(err_uk_sub(:,:,:,b));
+        % abserr_uk_bsub = abs(err_uk_sub(:,:,:,b));
+        abserr_uk_bsub = abs( err_uk_sub(:,:,:,b) ./ dxutns );
         [abserr_uk_sorted_bsub,i_abserr_uk_sorted_bsub] = sort(abserr_uk_bsub(:));
         min_abserr_uk_bsub = abserr_uk_sorted_bsub(1);
         avg_abserr_uk_bsub = mean(abserr_uk_sorted_bsub);
         med_abserr_uk_bsub = median(abserr_uk_sorted_bsub);
         max_abserr_uk_bsub = abserr_uk_sorted_bsub(end);
-        fprintf('   (b=%d,sub) abserr [min,avg,med,max]=[%.1e,%.1e,%.1e,%.1e]. Success = %d \n', ...
+fprintf( '   (b=%d,sub) abserr [min,avg,med,max]=[%.1e,%.1e,%.1e,%.1e]. Success = %d ([med,max] = [%d %d]) \n', ...
             b, min_abserr_uk_bsub,avg_abserr_uk_bsub,med_abserr_uk_bsub,max_abserr_uk_bsub, ...
-            max_abserr_uk_bsub<abserr_tol ...
+            med_abserr_uk_bsub < 1e-5, ...
+            med_abserr_uk_bsub < abserr_tol, max_abserr_uk_bsub < abserr_tol ...
         );
+        % max_abserr_uk_bsub<abserr_tol ...
     end
 end
 
@@ -141,6 +148,14 @@ end
     plot jet space model data
     ----------------------------
 %}
+% dat_plt1.LineStyle = '-';
+% dat_plt1.Color = apv_plots.green4;
+plt0 = apv_plots('model_summary', ...
+                [1 1],...
+                [1 1],[1 1], ...
+                scrn_id);
+plt0 = apv_plots.plot_model_summary(plt0,mod,dat_plt0);
+
 dat_plt1 = dat_plt0;
 % dat_plt1.LineStyle = '-';
 % dat_plt1.Color = apv_plots.green4;

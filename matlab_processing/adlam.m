@@ -230,7 +230,42 @@ classdef adlam
                 obj.Jlkx = [];
             end
         end
+        function Rtns_out = Renc_tns(obj,ords_)
+            Plen = adlam.Plen(obj);
+            [ndep,kor] = deal( adlam.ndep(obj),adlam.kor(obj) );
+            %% initialize injection into Lambda column space
+            i_imm = zeros(ndep*Plen,ndep);
+            for i = 1:ndep
+                idel = (i-1)*Plen;
+                i_imm( (1+idel):(Plen+idel), i ) = 1;
+            end
+            function l_imm = immerse_lambda(l_)
+                l_imm = zeros((ndep*Plen)*ndep,1);
+                l_imm(logical( i_imm(:) )) = reshape( l_(:) * ones(1,ndep), [], 1);
+                l_imm = (reshape(l_imm,ndep*Plen,ndep))';
+                % l_ -> [l_ 0 ... 0 ; 0 l_ ... 0 ; ...]
+            end
 
+            nords = length(ords_(:));
+            ntheta = (1+ndep)*Plen;
+
+            Rtns_out = nan(ndep,ntheta,nords);
+            for iord = 1:nords
+                if ( ords_(iord)==1 )
+                    Rtns_out(:,:,iord) = [ -obj.dxu(:,1)*obj.lrow_vals, immerse_lambda(obj.lrow_vals) ];
+                else
+                    k_i = ords_(iord);
+                    if ( k_i <= kor )
+                        Rtns_out(:,:,iord) = [  ...
+                        -obj.lkx(:,:,k_i-1)-obj.dxu(:,k_i)*obj.lrow_vals, ...
+                        immerse_lambda(obj.dkxl(k_i-1,:)) ...
+                        ];
+                    else
+                        Rtns_out(:,:,iord) = zeros(ndep,theta);
+                    end
+                end
+            end
+        end
         function obj_out = prn_dxu(obj,dxu_)
             obj_out = adlam(obj.lam,obj.xu,dxu_);
         end

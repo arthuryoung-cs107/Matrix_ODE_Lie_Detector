@@ -31,6 +31,7 @@ classdef mvp_jspc_model
         tau_uk_glb;
         tau_uk_glb_sub;
 
+        Rqksvds_crv_cell;
         RNsvds_crv;
         RN_crv_sub_svds;
         vth_N_crv;
@@ -80,8 +81,13 @@ classdef mvp_jspc_model
                 l_imm = zeros((ndep*Plen)*ndep,1);
                 l_imm(logical( i_imm(:) )) = reshape( l_(:) * ones(1,ndep), [], 1);
                 l_imm = (reshape(l_imm,ndep*Plen,ndep))';
-                % l_ -> [l_ 0 ... 0 ; 0 l_ ... 0 ; ...]
+                % l_ -> [ l_ 0 ... 0 ; 0 l_ ... 0 ; ... ; 0 0 ... l_ ]
             end
+            fspace = fdat_;
+            fspace.Plen = Plen;
+            fspace.ntheta = ntheta;
+            fspace.imm_l = @(lambda_) immerse_lambda(lambda_);
+            fspace
 
             lambdas = adlam.empty(nobs,0);
             lvs = nan(Plen,nobs);
@@ -95,32 +101,36 @@ classdef mvp_jspc_model
 
                 lvs(:,iobs) = lv_i;
 
-                Renc_cell{1,iobs} = [ -l_i.dxu(:,1)*lv_i , immerse_lambda(lv_i) ];
+                Renc_cell{1,iobs} = [ -l_i.dxu(:,1)*lv_i , fspace.imm_l(lv_i) ];
                 for k = 2:kor_obs
                     Renc_cell{k,iobs} = [ ...
-                    -l_i.lkx(:,:,k-1) - l_i.dxu(:,k)*lv_i , immerse_lambda(l_i.dkxl(k-1,:)) ...
+                    -l_i.lkx(:,:,k-1) - l_i.dxu(:,k)*lv_i , fspace.imm_l(l_i.dkxl(k-1,:)) ...
                     ];
                 end
-                % Renc_cell{1,iobs}
-                % Renc_cell{2,iobs}
-                % pause
             end
-
-            shape_Rkt_glb = @(RkcT_) permute(reshape( horzcat(RkcT_{:}),ntheta,ndep,nobs),[3 1 2]);
-            Rkc_2_Rkt_glb = @(Rkc_) shape_Rkt_glb( ...
-            cellfun( @(R_) R_',Rkc_,'UniformOutput', false) ...
+            shape_Rkt_glb =  @(RkcT_) permute(reshape( horzcat(RkcT_{:}),ntheta,ndep,nobs),[3 1 2]);
+            inds_icrv = @(icrv_) ipts_crv(1,icrv_):ipts_crv(2,icrv_);
+            vertcat_cell = @(c_) vertcat(c_{:});
+            Renc = struct( ...
+            'Rkc_2_Rkt_glb', @(Rkc_) shape_Rkt_glb( cellfun( @(R_) R_',Rkc_,'UniformOutput', false) ), ...
+            'Rk_icrv', @(k_,icrv_) vertcat_cell(reshape(Renc_cell(k_,inds_icrv(icrv_)),[],1))  ...
             );
-            function Asvd_out = Asvd_package(Ri_);
-                [r_,s_,V_,U_] = fspc.rsV_unpack(Ri_);
+            function Asvd_out = Asvd_package(A_);
+                % [r_,s_,V_,U_] = mvp_jspc_model.rsV_unpack(Ri_);
+                dim_scl = max(size(A_));
+                [~,S_,V_] = svd(A_,'econ');
+                s_ = reshape(diag(S_),[],1); % output s_ is col vector
+                r_ = sum(double(s_ > dim_scl*eps(S_(1)))); % default matlab tol
+
                 Asvd_out = struct( ...
-                    'A', @(o_) o_.U * ( o_.s(:) .* (o_.V') ), ...
                     'r', r_, ...
                     's', s_, ...
                     'V', V_, ...
-                    'U', U_, ...
-                    'D', ( s_(:)  )' .* V_, ... % rowspace (domain) Y approx. fiber
-                    'W', ( s_(end) ./ s_(:)  )' .* V_ ... % nullspace (kernal) approx. fiber
+                    'D', ( s_(:)  )' .* V_, ... % rowspace (domain) Y approx. basis
+                    'W', ( s_(end) ./ s_(:)  )' .* V_ ... % nullspace (kernal) K approx. basis
                 );
+                % 'A', @(o_) o_.U * ( o_.s(:) .* (o_.V') ), ...
+                % 'U', U_, ...
             end
             function vth_out = comp_vartheta(W_,lvs_)
                 vx_W = (W_(1:( length(W_)/(ndep+1) ),:))' * lvs_;
@@ -160,6 +170,7 @@ classdef mvp_jspc_model
             shape_pPbs = @(pPbs_) reshape(double(pPbs_(:)).*ones( length(pPbs_),ndep+1 ), [],1)';
             is_prjtheta_b_sub = @(b_) logical(shape_pPbs(mvp_jspc_model.is_prjP_b_sub(Pmat,b_)));
 
+            % prepare b'th suborder model indexing
             is_pPbs_mat = zeros(bor,Plen);
             is_pTbs_mat = zeros(bor,ntheta);
             for b = 1:bor
@@ -170,6 +181,7 @@ classdef mvp_jspc_model
             is_pTbs_mat = logical(is_pTbs_mat);
             bor_to_one = flip(1:bor);
 
+            % compute global models
             Rqksvd_glb_cell = cell([ndep,kor_obs]);
             Rksvds_glb = cell([1,kor_obs]);
             Rk_glb_sub_svds = cell([bor,kor_obs]);
@@ -177,9 +189,8 @@ classdef mvp_jspc_model
             vth_k_glb_sub = cell([bor,kor_obs]);
             tau_uk_glb = nan(ndep,nobs,kor_obs+1);
             tau_uk_glb_sub = nan(ndep,nobs,bor,kor_obs+1);
-            % compute global models
             for k = 1:kor_obs
-                Rkt_glb = Rkc_2_Rkt_glb(Renc_cell(k,:));
+                Rkt_glb = Renc.Rkc_2_Rkt_glb(Renc_cell(k,:));
                 [Rk_glb_net,Rk_crv_net] = deal(zeros(ntheta,ntheta,ndep));
                 for idep = 1:ndep
                     Rqksvd_glb_cell{idep,k} = Asvd_package( Rkt_glb(:,:,idep) );
@@ -211,18 +222,53 @@ classdef mvp_jspc_model
             tau_uk_glb = permute(tau_uk_glb, [1 3 2] ); % ndep,kor_obs+1,nobs
             tau_uk_glb_sub = permute(tau_uk_glb_sub, [1 4 2 3] ); % ndep,kor_obs+1,nobs,bor
 
+            % compute local curve models
+            Rqksvds_crv_cell = cell([ndep,kor_obs,ncrv]);
+            % Rk_crv_sub_svds = cell([bor,kor_obs,ncrv]);
             RNsvds_crv = cell([1,ncrv]);
             RN_crv_sub_svds = cell([bor,ncrv]);
             vth_N_crv = nan(ntheta,nobs);
             vth_N_crv_sub = cell([bor,ncrv]);
             tau_uN_crv = nan(ndep,kor_obs+1,nobs);
             tau_uN_crv_sub = nan(ndep,kor_obs+1,nobs,bor);
-            % compute local curve models
             for icrv = 1:ncrv
                 inds_i = ipts_crv(1,icrv):ipts_crv(2,icrv);
-                RN_enc_i = reshape(Renc_cell(:, inds_i), [], 1);
-                RN_mat_i = vertcat( RN_enc_i{:} );
+                Rkenc_cell_i = Renc_cell(:, inds_i);
+                RNmat_agg_i = vertcat( Rkenc_cell_i{:} ); % true aggregate RN matrix
+                RNttns_agg_i = reshape(RNmat_agg_i',ntheta,ndep,kor_obs,[]);
+                for k = 1:kor_obs
+                    % Rk_crv_i = Renc.Rk_icrv(k,icrv);
+                    % RQk_tns_crv_i_alt = reshape(RNttns_agg_i(:,:,k,:),ntheta,ndep,[]);
+                    for idep = 1:ndep
+                        Rqksvds_crv_cell{idep,k,icrv} = Asvd_package( reshape(RNttns_agg_i(:,idep,k,:),ntheta,[])' );
+                    end
+                    % Rksvds_crv{k,icrv} = Asvd_package( Renc.Rk_icrv(k,icrv) );
+                end
 
+                % Rksvds_crv{:,icrv}
+                % pause
+                % RN_svd_i_net = vertcat(Rksvds_crv{:,icrv});
+                % RN_mat_i_net = (horzcat( RN_svd_i_net(:).D ))';
+                % RN_net_svd_i = Asvd_package(RN_mat_i_net)
+                % RN_agg_svd_i = Asvd_package( RNmat_agg_i ) % SVD of true aggregate RN matrix
+
+                % RN_svd_i_net = Rqksvds_crv_cell(:,:,icrv)
+                RN_svd_i_net = reshape(Rqksvds_crv_cell(:,:,icrv),[],1);
+                RN_mat_i_net = horzcat( vertcat(RN_svd_i_net{:}).D )';
+                % RN_svdarray_i_net = vertcat(RN_svd_i_net{:})
+                % RN_mat_i_net_alt = horzcat( RN_svdarray_i_net(:).D );
+                % size(RN_mat_i_net)
+                % size(RN_mat_i_net_alt)
+                % norm(RN_mat_i_net-RN_mat_i_net_alt, 'fro')
+                % pause
+
+                % RN_svdarray_i_net(1).D
+                % RN_mat_i = RNmat_agg_i;
+                RN_mat_i = RN_mat_i_net;
+                % size(RN_mat_i)
+                % pause
+
+                % compute concatenated curve model, all information together
                 % compute P permutation (full) local curve model
                 RNsvds_crv{icrv} = Asvd_package(RN_mat_i);
                 % evaluate local parameters predicted by local curve model
@@ -233,7 +279,6 @@ classdef mvp_jspc_model
                 tau_uN_crv(:,:,inds_i) = comp_tau_uN_crv( ...
                     vth_N_crv(:,inds_i), inds_i, 1:Plen ...
                 );
-
                 % execute the same procedure on ordered subspaces of P permutation model
                 for b = bor_to_one
                     RN_crv_sub_svds{b,icrv} = Asvd_package( ...
@@ -271,6 +316,7 @@ classdef mvp_jspc_model
             obj.tau_uk_glb = tau_uk_glb;
             obj.tau_uk_glb_sub = tau_uk_glb_sub;
 
+            obj.Rqksvds_crv_cell = Rqksvds_crv_cell;
             obj.RNsvds_crv = RNsvds_crv;
             obj.RN_crv_sub_svds = RN_crv_sub_svds;
             obj.vth_N_crv = vth_N_crv;
