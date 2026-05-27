@@ -18,6 +18,7 @@ screen_specs = sys_screens(1,:);
 [o_screen d_screen] = deal(screen_specs(1:2), screen_specs(3:4)-1)
 
 scrn_id = 1;
+% scrn_id = 2;
 % scrn_id = 3;
 
 %{
@@ -33,7 +34,8 @@ tic0 = tic;
 % [Sobs,dat_true] = ldaux.generate_Riccati_data(); % N = 1, Q = 1
 % [Sobs,dat_true] = ldaux.generate_Brusselator_data(); % N = 1, Q = 2
 % [Sobs,dat_true] = ldaux.generate_Van_der_Pol_data(); % N = 2, Q = 1
-[Sobs,dat_true] = ldaux.generate_oscillator_polr_data(); % N = 2, Q = 1, easier than VanderPol
+% [Sobs,dat_true] = ldaux.generate_oscillator_polr_data(); % N = 2, Q = 1, easier than VanderPol
+[Sobs,dat_true] = ldaux.generate_oscillator_cart_data(); % N = 2, Q = 2
 % [Sobs,dat_true] = ldaux.generate_pendulum_polr_data(); % N = 2, Q = 1
 % [Sobs,dat_true] = ldaux.generate_pendulum_cart_data(); % N = 2, Q = 2
 toc1 = toc(tic0);
@@ -88,6 +90,7 @@ unmat = Smat(2:end,:);
 untns = reshape( unmat, ndep, kor_obs+1, nobs );
 umat = reshape( untns(:,1,:), ndep, nobs );
 dxutns = reshape( untns(:,2:end,:), ndep, kor_obs, nobs );
+dNxumat = reshape(dxutns(:,end,:),ndep,nobs);
 % minmag_dxutns = min(abs( dxutns(:) ));
 % maxmag_dxutns = max(abs( dxutns(:) ));
 
@@ -97,20 +100,26 @@ tau_uk_glb_sub = obj.tau_uk_glb_sub(:,1:(end-1),:,:);
 % maxmag_tau_uk_glb = max(abs( tau_uk_glb(:) ));
 tau_uN_crv = obj.tau_uN_crv(:,1:(end-1),:);
 tau_uN_crv_sub = obj.tau_uN_crv_sub(:,1:(end-1),:,:);
+tau_uN_crv_Yvthxglb = obj.tau_uN_crv_Yvthxglb(:,1:(end-1),:);
+tau_dNm1xu_RN_YLdNm1xu_glb = obj.tau_dNm1xu_RN_YLdNm1xu_glb;
 
-tmod_glb = struct('t_uk', tau_uk_glb, 't_uk_sub', tau_uk_glb_sub);
-tmod_crv = struct('t_uk', tau_uN_crv, 't_uk_sub', tau_uN_crv_sub);
-tmodels = [tmod_glb tmod_crv];
+tmod_glb = struct('dxuref', dxutns, 't_uk', tau_uk_glb, 't_uk_sub', tau_uk_glb_sub);
+tmod_crv = struct('dxuref', dxutns, 't_uk', tau_uN_crv, 't_uk_sub', tau_uN_crv_sub);
+tmod_crv_Yvthxglb = struct('dxuref', dxutns,'t_uk', tau_uN_crv_Yvthxglb, 't_uk_sub', []);
+tmod_RN_YLNm1_glb = struct('dxuref', dNxumat, 't_uk', tau_dNm1xu_RN_YLdNm1xu_glb, 't_uk_sub', []);
+tmodels = [tmod_glb tmod_crv tmod_crv_Yvthxglb,tmod_RN_YLNm1_glb];
+% tmodels = [tmod_glb tmod_crv tmod_crv_Yvthxglb];
 
 % abserr_tol = 1e-2;
 abserr_tol = 1e-5;
 for imod = 1:length(tmodels)
     tmod_i = tmodels(imod);
     [tau_uk_i,tau_uk_i_sub] = deal(tmod_i.t_uk,tmod_i.t_uk_sub);
+    dxuref_i = tmod_i.dxuref;
 
-    err_uk = tau_uk_i-dxutns;
+    err_uk = tau_uk_i-dxuref_i;
     % abserr_uk = abs(err_uk);
-    abserr_uk = abs( err_uk ./ dxutns );
+    abserr_uk = abs( err_uk ./ dxuref_i );
     [abserr_uk_sorted,i_abserr_uk_sorted] = sort(abserr_uk(:));
     min_abserr_uk = abserr_uk_sorted(1);
     avg_abserr_uk = mean(abserr_uk_sorted);
@@ -121,25 +130,27 @@ fprintf( '(b=%d,full) abserr [min,avg,med,max]=[%.1e,%.1e,%.1e,%.1e]. Success = 
         max_abserr_uk < 1e-5, ...
         med_abserr_uk < abserr_tol, max_abserr_uk < abserr_tol ...
     );
-    % max_abserr_uk<abserr_tol ...
-    % med_abserr_uk<abserr_tol ...
-    err_uk_sub = nan(size(tau_uk_i_sub));
-    for b = 1:fspc.bor
-        err_uk_sub(:,:,:,b) = tau_uk_i_sub(:,:,:,b)-dxutns;
+    if (~isempty(tau_uk_i_sub))
+        % max_abserr_uk<abserr_tol ...
+        % med_abserr_uk<abserr_tol ...
+        err_uk_sub = nan(size(tau_uk_i_sub));
+        for b = 1:fspc.bor
+            err_uk_sub(:,:,:,b) = tau_uk_i_sub(:,:,:,b)-dxuref_i;
 
-        % abserr_uk_bsub = abs(err_uk_sub(:,:,:,b));
-        abserr_uk_bsub = abs( err_uk_sub(:,:,:,b) ./ dxutns );
-        [abserr_uk_sorted_bsub,i_abserr_uk_sorted_bsub] = sort(abserr_uk_bsub(:));
-        min_abserr_uk_bsub = abserr_uk_sorted_bsub(1);
-        avg_abserr_uk_bsub = mean(abserr_uk_sorted_bsub);
-        med_abserr_uk_bsub = median(abserr_uk_sorted_bsub);
-        max_abserr_uk_bsub = abserr_uk_sorted_bsub(end);
+            % abserr_uk_bsub = abs(err_uk_sub(:,:,:,b));
+            abserr_uk_bsub = abs( err_uk_sub(:,:,:,b) ./ dxutns );
+            [abserr_uk_sorted_bsub,i_abserr_uk_sorted_bsub] = sort(abserr_uk_bsub(:));
+            min_abserr_uk_bsub = abserr_uk_sorted_bsub(1);
+            avg_abserr_uk_bsub = mean(abserr_uk_sorted_bsub);
+            med_abserr_uk_bsub = median(abserr_uk_sorted_bsub);
+            max_abserr_uk_bsub = abserr_uk_sorted_bsub(end);
 fprintf( '   (b=%d,sub) abserr [min,avg,med,max]=[%.1e,%.1e,%.1e,%.1e]. Success = %d ([med,max] = [%d %d]) \n', ...
-            b, min_abserr_uk_bsub,avg_abserr_uk_bsub,med_abserr_uk_bsub,max_abserr_uk_bsub, ...
-            med_abserr_uk_bsub < 1e-5, ...
-            med_abserr_uk_bsub < abserr_tol, max_abserr_uk_bsub < abserr_tol ...
-        );
-        % max_abserr_uk_bsub<abserr_tol ...
+                b, min_abserr_uk_bsub,avg_abserr_uk_bsub,med_abserr_uk_bsub,max_abserr_uk_bsub, ...
+                med_abserr_uk_bsub < 1e-5, ...
+                med_abserr_uk_bsub < abserr_tol, max_abserr_uk_bsub < abserr_tol ...
+            );
+            % max_abserr_uk_bsub<abserr_tol ...
+        end
     end
 end
 
@@ -151,11 +162,12 @@ end
 % dat_plt1.LineStyle = '-';
 % dat_plt1.Color = apv_plots.green4;
 plt0 = apv_plots('model_summary', ...
-                [1 1],...
-                [1 1],[1 1], ...
+                [6 1],...
+                [5 1],[6 1], ...
                 scrn_id);
 plt0 = apv_plots.plot_model_summary(plt0,mod,dat_plt0);
 
+return
 dat_plt1 = dat_plt0;
 % dat_plt1.LineStyle = '-';
 % dat_plt1.Color = apv_plots.green4;

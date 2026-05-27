@@ -242,103 +242,151 @@ classdef apv_plots
             isvd = 1;
             for k = 1:kor_obs
                 for i = 1:ndep
-                    labels{isvd} = ...
-                        ['$$R^{' num2str(k) '}_{' num2str(i) '}, \kappa=' num2str( length(svds_{isvd}.s)-svds_{isvd}.r ) '$$ (glb)'];
+labels{isvd} = ['$$R^{' num2str(k) '}_{' num2str(i) '}, \kappa=' num2str( length(svds_{isvd}.s)-svds_{isvd}.r ) '$$ (glb)'];
                     isvd = isvd+1;
                 end
             end
             for k = 1:kor_obs
-                labels{isvd} = ...
-                    ['$$R^{' num2str(k) '}, \kappa=' num2str( length(svds_{isvd}.s)-svds_{isvd}.r ) '$$ (glb)'];
+labels{isvd} = ['$$R^{' num2str(k) '}, \kappa=' num2str( length(svds_{isvd}.s)-svds_{isvd}.r ) '$$ (glb)'];
                 isvd = isvd+1;
             end
             for k = 1:kor_obs
                 for b = 1:bor
-                    labels{isvd} = ...
-                        ['$$R^{' num2str(k) '}, \kappa=' num2str( length(svds_{isvd}.s)-svds_{isvd}.r ) '$$ (glb,b=' num2str(b) ')'];
+labels{isvd} = ['$$R^{' num2str(k) '}, \kappa=' num2str( length(svds_{isvd}.s)-svds_{isvd}.r ) '$$ (glb,b=' num2str(b) ')'];
                     isvd = isvd+1;
                 end
             end
-            leg_loc = 'NorthEast';
+            leg_loc = 'EastOutside'; % leg_loc = 'NorthEast';
             leg_ncols = min([length(svds_(:)),2]);
             function plot_labelled_svds()
                 nsvd = length(svds_(:));
-                cmat = turbo(nsvd);
-                for i = 1:nsvd
-                    leg_i(i) = plot(axi, ...
-                    1:length(svds_{i}.s), svds_{i}.s, ...
+                cmat = hsv(nsvd);
+                if (nsvd==1)
+                    leg_i(1) = plot(axi, ...
+                    1:length(svds_.s), svds_.s, ...
                     'LineStyle', 'none', ...
                     'LineWidth', 0.5, ...
-                    'Color', cmat(i,:), ...
+                    'Color', cmat(1,:), ...
                     'Marker', 's', ...
                     'MarkerSize', 6, ...
-                    'MarkerFaceColor', cmat(i,:), ...
+                    'MarkerFaceColor', cmat(1,:), ...
                     'MarkerEdgeColor', [0 0 0], ...
-                    'DisplayName', labels{i} ...
+                    'DisplayName', labels{1} ...
                     );
+                else
+                    for i = 1:nsvd
+                        leg_i(i) = plot(axi, ...
+                        1:length(svds_{i}.s), svds_{i}.s, ...
+                        'LineStyle', 'none', ...
+                        'LineWidth', 0.5, ...
+                        'Color', cmat(i,:), ...
+                        'Marker', 's', ...
+                        'MarkerSize', 6, ...
+                        'MarkerFaceColor', cmat(i,:), ...
+                        'MarkerEdgeColor', [0 0 0], ...
+                        'DisplayName', labels{i} ...
+                        );
+                    end
                 end
                 set(axi, ...
                     'YScale', 'log' );
                 ylabel(axi, '$$ \sigma_i $$', 'Interpreter','Latex','FontSize',16);
-                legend(axi, leg_i(1:nsvd),'Location', leg_loc, 'Interpreter', 'Latex', 'NumColumns',leg_ncols);
+                legend(axi, leg_i(1:nsvd),'Location', leg_loc, 'Interpreter', 'Latex', 'NumColumns',leg_ncols,'FontSize',10);
             end
             plot_labelled_svds();
 
-            Rqksvd_crv = mod_.Rqksvds_crv_cell(:,end,:);
+            Rqksvd_crv = mod_.Rqksvds_crv_cell; % mod_.Rqksvds_crv_cell(:,end,:)
             RNsvds_crv = mod_.RNsvds_crv;
-            RNsvds_sub_crv = mod_.RN_crv_sub_svds(end,:);
+            RNsvds_sub_crv = mod_.RN_crv_sub_svds; % mod_.RN_crv_sub_svds(end,:)
             ncrv = length(RNsvds_crv);
             % svds_ = vertcat( Rqksvd_crv(:),RNsvds_crv(:),RNsvds_sub_crv(:) );
 
             axi = axs(2);
-            svds_ = Rqksvd_crv(:);
-            labels = cell([length(svds_),1]);
-            isvd = 1;
-            for j = 1:ncrv
-                % for k = 1:kor_obs
-                for k = kor_obs:kor_obs
-                    for i = 1:ndep
-                        labels{isvd} = ...
-                ['$$R^{' num2str(k) '}_{' num2str(i) '}, \kappa=' num2str( length(svds_{isvd}.s)-svds_{isvd}.r ) '$$ (crv=' num2str(j) ')'];
-                        isvd = isvd+1;
-                    end
-                end
-            end
-            % leg_loc = 'EastOutside';
-            leg_loc = 'NorthEast';
-            leg_ncols = min([length(svds_(:)),2]);
-            plot_labelled_svds();
-
-            axi = axs(3);
             svds_ = RNsvds_crv(:);
             labels = cell([length(svds_),1]);
             isvd = 1;
             for j = 1:ncrv
-                labels{isvd} = ...
-                    ['$$R^N, \kappa=' num2str( length(svds_{isvd}.s)-svds_{isvd}.r ) '$$ (crv=' num2str(j) ')'];
+labels{isvd} = ['$$R^{(N)}, \kappa=' num2str( length(svds_{isvd}.s)-svds_{isvd}.r ) '$$ (crv=' num2str(j) ')'];
                 isvd = isvd+1;
             end
-            % leg_loc = 'EastOutside';
-            leg_loc = 'NorthEast';
+            leg_loc = 'EastOutside'; % leg_loc = 'NorthEast';
             leg_ncols = min([length(svds_(:)),2]);
             plot_labelled_svds();
 
+            vthx_N_glb = mod_.vthx_N_glb_svd;
+            lvs_glb = mod_.lvs_svd;
+            LamN_glb = mod_.LamN_svd;
+            Lam_dkxuq_glb = mod_.Lam_dkxuq_svd_glb_cell;
+            Lam_dkxu_glb = mod_.Lam_dkxu_svd_glb;
+            RN_YLdNm1xu_glb = mod_.RN_YLdNm1xu_glb_svd;
+
+            axi = axs(3);
+            svds_i = { ...
+                vthx_N_glb , '$$\vartheta^x |_{R^N}'; ...
+                lvs_glb , '$$\lambda |_{\{(x,u)_j\}}'; ...
+                LamN_glb , '$$\Lambda^{(N)} |_{\{(x,u^{(N)})_j\}}'; ...
+                RN_YLdNm1xu_glb, '$$ R^N Y_{\Lambda^{N-1}_u} |_{\{(x,u^{(N)})_j\}}'; ...
+            };
+            svds_ = cell([ size(svds_i,1),1 ]);
+            for isvd = 1:size(svds_i,1)
+                labels{isvd} = [ svds_i{isvd,2} ', \rho=' num2str(svds_i{isvd,1}.r) ];
+                svds_{isvd} = svds_i{isvd,1};
+            end
+            isvd = size(svds_i,1)+1;
+            for k = 1:kor_obs
+                for i = 1:ndep
+                    svds_{isvd} = Lam_dkxuq_glb{i,k};
+prefix_i = ['\Lambda_{d_x^{' num2str(k) '} u_{' num2str(i) '}} |_{(x,u^{(' num2str(k) ')})_j}'];
+labels{isvd} = ['$$' prefix_i ', \rho = ' num2str(svds_{isvd}.r)  '$$'];
+                    isvd = isvd + 1;
+                end
+            end
+            for k = 1:kor_obs
+                svds_{isvd} = Lam_dkxu_glb{k};
+prefix_i = ['\Lambda_{d_x^{' num2str(k) '} u} |_{(x,u^{(' num2str(k) ')})_j}'];
+labels{isvd} = ['$$' prefix_i ', \rho = ' num2str(svds_{isvd}.r)  '$$'];
+                isvd = isvd + 1;
+            end
+            leg_loc = 'EastOutside'; % leg_loc = 'NorthEast';
+            leg_ncols = 1;
+            plot_labelled_svds();
+            set(axi, ...
+                'YScale', 'log' ); %'YScale', 'linear' );
+
+            RN_crv_Yvthxglb = mod_.RNsvds_crv_Yvthxglb;
+
             axi = axs(4);
-            svds_ = RNsvds_sub_crv(:);
+            svds_ = RN_crv_Yvthxglb(:);
             labels = cell([length(svds_),1]);
             isvd = 1;
             for j = 1:ncrv
-                % for b = 1:bor
-                for b = bor:bor
-                    labels{isvd} = ...
-                        ['$$R^N, \kappa=' num2str( length(svds_{isvd}.s)-svds_{isvd}.r ) '$$ (crv=' num2str(j) ',b=' num2str(b) ')'];
-                    isvd = isvd+1;
-                end
+labels{isvd} = ['$$R^{(N)}, \kappa=' num2str( length(svds_{isvd}.s)-svds_{isvd}.r ) '$$ (crv=' num2str(j) ')'];
+                isvd = isvd+1;
             end
-            % leg_loc = 'EastOutside';
-            leg_loc = 'NorthEast';
+            leg_loc = 'EastOutside'; % leg_loc = 'NorthEast';
             leg_ncols = min([length(svds_(:)),2]);
             plot_labelled_svds();
+
+            % cmat = cool(vthx_N_glb.r);
+            % % for i = flip(1:(vthx_N_glb.r))
+            % for i = 1:(vthx_N_glb.r)
+            %     leg_i(i) = plot(axi, ...
+            %     1:length(vthx_N_glb.s), vthx_N_glb.V(:,i), ...
+            %     'LineStyle', '-', ...
+            %     'LineWidth', 0.5, ...
+            %     'Color', cmat(i,:), ...
+            %     'Marker', 'none', ...
+            %     'MarkerSize', 6, ...
+            %     'MarkerFaceColor', cmat(i,:), ...
+            %     'MarkerEdgeColor', [0 0 0], ...
+            %     'DisplayName', ['$$ \mathbf{v}_{' num2str(i) '}$$'] ...
+            %     );
+            %     % fspc.print_vshort_polynomial_theta_z(vthx_N_glb.V(:,i),mod_.fdat.Pmat,'x');
+            % end
+            % legend(axi, leg_i(1:vthx_N_glb.r),'Location', 'EastOutside', 'Interpreter', 'Latex', 'NumColumns',leg_ncols,'FontSize',10);
+            % ylabel(axi, '$$ \mathbf v_{i,j} $$', 'Interpreter','Latex','FontSize',16);
+
+            apv_plots.set_containing_axis_lims(axs(:));
 
             % pause
         end
@@ -357,7 +405,7 @@ classdef apv_plots
             xlabel(axs, '$$ i $$', 'Interpreter','Latex','FontSize',16);
 
             nsvd = length(svds_(:));
-            cmat = turbo(nsvd);
+            cmat = hsv(nsvd);
 
             for i = 1:nsvd
                 leg1(i) = plot(axs(1), ...
