@@ -29,6 +29,146 @@ classdef ldaux
     end
 
     methods (Static)
+
+        function [Sobs,dat_out,JF,dNp1xu] = generate_double_pendulum_data()
+            % equation specification
+            fcn_name = 'generate_double_pendulum_data';
+            eqn_name = 'double_pendulum';
+            eor = 2;
+            ndep = 2;
+            fprintf('(ldaux::%s) Generating %s observations (ndep=%d, eor=%d) : \n' , ...
+                fcn_name,eqn_name,eor,ndep);
+            [ggrav,llen] = deal(9.81,2.0);
+            cm = [ ...
+                4.0/3.0 , 0.5 , 0.5 , 1.5 ; ...
+                0.5 , 1.0/3.0 , -0.5 , 0.5  ...
+            ];
+            cm(:,1:3) = llen*cm(:,1:3);
+            cm(:,4) = ggrav*cm(:,4);
+            function d2xu_out = f_eqn(u_,dxu_)
+                udiff_F = u_(1)-u_(2);
+                cos_udiff_F = cos(udiff_F);
+                % A_F = llen.*[    4.0./3.0, 0.5.*cos_udiff_F  ; ...
+                %                 0.5.*cos_udiff_F, 1.0./3.0 ...
+                % ];
+                A_F = [ cm(1,1), cm(1,2)*cos_udiff_F  ; ...
+                        cm(2,1)*cos_udiff_F, cm(2,2) ...
+                ];
+                sin_udiff_F = sin(udiff_F);
+                % b_F = -0.5.*[ llen.*sin_udiff_F.*dxu_(2).*dxu_(2) + 3.0.*ggrav.*sin(u_(1)) ; ...
+                %             -llen.*sin_udiff_F.*dxu_(1).*dxu_(1) + ggrav.*sin(u_(2)) ...
+                % ];
+                b_F = -[ cm(1,3)*sin_udiff_F.*dxu_(2).*dxu_(2) + cm(1,4)*sin(u_(1)) ; ...
+                        cm(2,3)*sin_udiff_F.*dxu_(1).*dxu_(1) + cm(2,4)*sin(u_(2)) ...
+                ];
+                d2xu_out = linsolve(A_F,b_F);
+            end
+            function [JF_out,dNp1xu_out] = JF_dxf_eqn(s_)
+                npts_evl = size(s_,2);
+                JF_out = zeros(2,7,npts_evl);
+                dNp1xu_out = zeros(2,npts_evl);
+                for i = 1:npts_evl
+                    sol_i = adobj.seed_sol(s_(1:7,i));
+                    % x_i = sol_i.qdim(1); % autonomous
+                    u1_i = sol_i.qdim(2);
+                    u2_i = sol_i.qdim(3);
+                    dxu1_i = sol_i.qdim(4);
+                    dxu2_i = sol_i.qdim(5);
+                    d2xu1_i = sol_i.qdim(6);
+                    d2xu2_i = sol_i.qdim(7);
+
+                    udiff_ad = u1_i-u2_i;
+                    cos_udiff_ad = adobj.cosine(udiff_ad);
+                    sin_udiff_ad = adobj.sine(udiff_ad);
+
+                    F1_i = cm(1,1).*d2xu1_i + cm(1,2).*d2xu2_i ...
+                            + cm(1,3).*dxu2_i.*dxu2_i.*sin_udiff_ad ...
+                            + cm(1,4).*adobj.sine(u1_i);
+                    F2_i = cm(2,1).*d2xu1_i + cm(2,2).*d2xu2_i ...
+                            + cm(2,3).*dxu1_i.*sin_udiff_ad ...
+                            + cm(2,4).*adobj.sine(u2_i);
+                    [JF_out(1,:,i),JF_out(2,:,i)] = deal(F1_i.Jac,F2_i.Jac);
+                end
+            end
+            Fode_sys_evl = @(e_,s_) [   1 ; ...
+                                        s_(4:end,1) ; ...
+                                        f_eqn( s_(2:3,1) , s_(3:4,1) ) ...
+            ];
+            function d2xu_out = f_evl(s_)
+                npts_evl = size(s_,2);
+                d2xu_out = nan(2,npts_evl);
+                for i = 1:npts_evl
+                    d2xu_out(:,i) = f_eqn(s_(2:3,i),s_(4:5,i) );
+                end
+            end
+            fode = struct( ...
+            'name', eqn_name, ...
+            'eor', eor, ...
+            'ndep', ndep, ...
+            'llen', llen, ...
+            'f', @(s_) f_evl(s_), ...
+            'JF_dxf', @(s_) JF_dxf_eqn(s_) ....
+            );
+            % 'RelTol', 1e-3, ...
+            % 'AbsTol', 1e-5, ...
+
+            % ncrv = 28;
+            ncrv = 10;
+            seed = 6; % Shay's choice
+            seed0 = rng(seed);
+
+            % trajectory specification
+            x0 = 0.0;
+            % ef = 10.0; % epsilon varies from e0 = 0 to ef > 0
+            ef = 6.0; % epsilon varies from e0 = 0 to ef > 0, but good to have >= 1
+
+            u00_vals = 2*(rand(4,ncrv)-0.5);
+            u0_vals = u00_vals .* ([ pi/4 ; pi/4 ; pi/8 ; pi/8 ]);
+            % u0_vals = u00_vals .* ([ pi/4 ; pi/4 ; 0.0 ; 0.0 ]);
+
+            %{
+                Uniform count of observed points per curve (M)
+                Induces MNQ R matrix constraints per curve,
+                so we'd like M >= ((Q+1)*P)/(NQ) observations
+                for a well defined P = (O+1)^(Q+1) local curve model,
+                where O = 3 (cubic permutation) by default
+                Does not actually need to be this many, but convenient.
+            %}
+            Odef = 3; % cubic permutation model (default)
+            Pdef = (Odef+1)^(ndep+1);
+            % nevl = ceil( (ndep+1)*Pdef/(eor*ndep) ) + 1;
+            nevl = 7*( ceil(1* (ndep+1)*Pdef/(eor*ndep) ) + 1 ); % number of observed solutions per observed integral curve
+
+            % s0 = [ x0*ones(1,ncrv); u0_vals ];
+            s0 = [ x0 + rand(1,ncrv) ; u0_vals ];
+            % epsf =  ef;
+            epsf =  ef + rand(ncrv,1);
+            % epsevl = linspace(0.0,ef,nevl);
+            epsevl = cell([ncrv,1]);
+            del_edge = rand(ncrv,2);
+            for icrv = 1:ncrv
+                epsevl{icrv,1} = linspace(del_edge(icrv,1), ef - del_edge(icrv,1), nevl);
+            end
+            trj_specs = struct( ...
+                's0', s0, ...
+                'epsf',  epsf ...
+            );
+            % 'epsevl', epsevl, ...
+            trj_specs.epsevl = epsevl;
+            % trj_specs = struct( ...
+            %     's0', [ x0*ones(1,ncrv) ; u0_vals ], ...
+            %     'epsevl', linspace(0.0,ef,nevl), ...
+            %     'epsf',  ef ...
+            % );
+
+            [Sobs,trjs,JF,dNp1xu] = ldaux.evaluate_trajectories(Fode_sys_evl,fode,trj_specs);
+
+            fprintf(' nobs=%d, ncrv=%d \n', ...
+                ncrv*nevl, ncrv );
+
+            dat_out = fode;
+
+        end
         function [Sobs,dat_out] = generate_oscillator_cart_data()
             fcn_name = 'generate_oscillator_cart_data';
             eqn_name = 'oscillator_cart';
@@ -64,9 +204,12 @@ classdef ldaux
                     rrad*( -sin_th_i.*Sobs_1D_i(3,:).*Sobs_1D_i(3,:) + cos_th_i.*Sobs_1D_i(4,:) )  ...
                 ];
             end
+
+            % fode_out.f = @(u1_,u2_,dxu1_,dxu2_) rrad*[-1 0; 0 1]*[]
+
             dat_out = fode_out;
         end
-        function [Sobs,dat_out] = generate_oscillator_polr_data()
+        function [Sobs,dat_out,JF,dNp1xu] = generate_oscillator_polr_data()
             % equation specification
             fcn_name = 'generate_oscillator_polr_data';
             eqn_name = 'oscillator_polr';
@@ -75,9 +218,22 @@ classdef ldaux
             fprintf('(ldaux::%s) Generating %s observations (ndep=%d, eor=%d) : \n' , ...
                 fcn_name,eqn_name,eor,ndep);
             % can be viewed as linear or torsional spring
-            [kstiff,cdamp,mmass,rrad] = deal(1.0,0.1,1.25,2.0);
+            % [kstiff,cdamp,mmass,rrad] = deal(1.0,0.1,1.25,2.0);
+            [kstiff,cdamp,mmass,rrad] = deal(1.0,0.0,1.25,2.0);
             inv_Iinrt = (rrad*rrad)/mmass;
-            f_eqn = @(u_,dxu_) ( kstiff.*u_ + cdamp.*dxu_ ).*(-inv_Iinrt);
+            f_eqn = @(u_,dxu_) ( kstiff*u_ + cdamp*dxu_ )*(-inv_Iinrt);
+            % Jf_eqn = @(u_,dxu_) ( kstiff*[0 1 0] + cdamp*[0 0 1] )*(-inv_Iinrt); % constant
+            function Jf_out = Jf_eqn(s_)
+                Jf_out = ((kstiff*[0 1 0] + cdamp*[0 0 1])*(-inv_Iinrt)) ...
+                            .* ones(1,3,size(s_,2));
+            end
+            tau_Nm1_tns = @(s_) reshape( ...
+                [ ones(1,size(s_,2)) ; s_(3,:) ; f_eqn(s_(2,:),s_(3,:)) ], ...
+                3, 1, size(s_,2) ...
+            );
+            dxf_eqn = @(J_,s_) reshape(pagemtimes(J_,tau_Nm1_tns(s_)), 1,size(s_,2));
+            Jf2JF = @(Jf_) reshape([ Jf_ ; -ones(1,size(Jf_,2)) ],4,1,size(Jf_,2));
+            JF_dxf_eqn = @(J_,s_) deal( Jf2JF(reshape(J_,3,[])), dxf_eqn(J_,s_) );
             Fode_sys_evl = @(e_,s_) [ ...
                 ones(1,size(s_,2)) ; ...
                 s_((ndep+2):end,:) ; ...
@@ -89,16 +245,21 @@ classdef ldaux
             'ndep', ndep, ...
             'rrad', rrad, ...
             'f', @(s_) f_eqn( s_(2,:),s_(3,:) ), ...
-            'f_ad', @(s_) f_eqn( adobj(s_(2),[0 1 0]), adobj(s_(2),[0 0 1]) ) ...
+            'Jf', @(s_) Jf_eqn( s_(1:3,:) ), ...
+            'dxf', @(s_) dxf_eqn( Jf_eqn(s_), s_(1:3,:) ), ...
+            'JF_dxf', @(s_) JF_dxf_eqn( Jf_eqn(s_), s_(1:3,:) ), ....
+            'f_ad', @(s_) f_eqn( s_.qdim(2), s_.qdim(3) ) ...
             );
 
-            ncrv = 15;
+            % ncrv = 28;
+            ncrv = 10;
             seed = 6; % Shay's choice
             seed0 = rng(seed);
 
             % trajectory specification
             x0 = 0.0;
-            ef = 10.0; % epsilon varies from e0 = 0 to ef > 0
+            % ef = 10.0; % epsilon varies from e0 = 0 to ef > 0
+            ef = 9.0; % epsilon varies from e0 = 0 to ef > 0
 
             u00_vals = 2*(rand(2,ncrv)-0.5);
             u0_vals = u00_vals .* [ 3*pi/4 ; pi/2 ];
@@ -114,7 +275,7 @@ classdef ldaux
             Odef = 3; % cubic permutation model (default)
             Pdef = (Odef+1)^(ndep+1);
             % nevl = ceil( (ndep+1)*Pdef/(eor*ndep) ) + 1;
-            nevl = 4*( ceil(1* (ndep+1)*Pdef/(eor*ndep) ) + 1 ); % number of observed solutions per observed integral curve
+            nevl = 10*( ceil(1* (ndep+1)*Pdef/(eor*ndep) ) + 1 ); % number of observed solutions per observed integral curve
 
             % s0 = [ x0*ones(1,ncrv); u0_vals ];
             s0 = [ x0 + rand(1,ncrv) ; u0_vals ];
@@ -124,7 +285,8 @@ classdef ldaux
             epsevl = cell([ncrv,1]);
             del_edge = rand(ncrv,2);
             for icrv = 1:ncrv
-                epsevl{icrv,1} = linspace(x0 + del_edge(icrv,1), ef - del_edge(icrv,1), nevl);
+                % epsevl{icrv,1} = linspace(x0 + del_edge(icrv,1), ef - del_edge(icrv,1), nevl);
+                epsevl{icrv,1} = linspace(del_edge(icrv,1), ef - del_edge(icrv,1), nevl);
             end
             trj_specs = struct( ...
                 's0', s0, ...
@@ -138,7 +300,7 @@ classdef ldaux
             %     'epsf',  ef ...
             % );
 
-            [Sobs,trjs] = ldaux.evaluate_trajectories(Fode_sys_evl,fode,trj_specs);
+            [Sobs,trjs,JF,dNp1xu] = ldaux.evaluate_trajectories(Fode_sys_evl,fode,trj_specs);
 
             fprintf(' nobs=%d, ncrv=%d \n', ...
                 ncrv*nevl, ncrv );
@@ -155,14 +317,16 @@ classdef ldaux
                 fcn_name,eqn_name,eor,ndep);
 
             [Sobs_1D,fode_1D] = ldaux.generate_pendulum_polr_data();
+            rrad = fode_1D.rrad;
 
             fode_out = fode_1D;
             fode_out.name = eqn_name;
             fode_out.eor = eor;
             fode_out.ndep = ndep;
             % fode_out.f =
+            fode_out.upolr_2_ucart_ad = @(u_) rrad*[ adobj.sine(u_) -adobj.cosine(u_) ];
 
-            rrad = fode_1D.rrad;
+
             ncrv = length(Sobs_1D);
             Sobs = cell([ncrv,1]);
             for icrv = 1:ncrv
@@ -233,7 +397,7 @@ classdef ldaux
             %}
             Odef = 3; % cubic permutation model (default)
             Pdef = (Odef+1)^(ndep+1);
-            nevl = 6*( ceil(1* (ndep+1)*Pdef/(eor*ndep) ) + 1 ); % number of observed solutions per observed integral curve
+            nevl = 7*( ceil(1* (ndep+1)*Pdef/(eor*ndep) ) + 1 ); % number of observed solutions per observed integral curve
 
             % s0 = [ x0*ones(1,ncrv); u0_vals ];
             s0 = [ x0 + rand(1,ncrv) ; u0_vals ];
@@ -243,7 +407,8 @@ classdef ldaux
             epsevl = cell([ncrv,1]);
             del_edge = rand(ncrv,2);
             for icrv = 1:ncrv
-                epsevl{icrv,1} = linspace(x0 + del_edge(icrv,1), ef - del_edge(icrv,1), nevl);
+                % epsevl{icrv,1} = linspace(x0 + del_edge(icrv,1), ef - del_edge(icrv,1), nevl);
+                epsevl{icrv,1} = linspace(del_edge(icrv,1), ef - del_edge(icrv,1), nevl);
             end
             trj_specs = struct( ...
                 's0', s0, ...
@@ -285,7 +450,7 @@ classdef ldaux
 
             % trajectory specification
             x0 = 0.0;
-            ef = 20.0; % epsilon varies from e0 = 0 to ef > 0
+            ef = 30.0; % epsilon varies from e0 = 0 to ef > 0
 
             ncrv = 10;
             seed = 6; % Shay's choice
@@ -304,13 +469,26 @@ classdef ldaux
             %}
             Odef = 3; % cubic permutation model (default)
             Pdef = (Odef+1)^(ndep+1);
-            nevl = ceil(3* (ndep+1)*Pdef/(eor*ndep) ) + 1;
+            nevl = 15*(ceil(3* (ndep+1)*Pdef/(eor*ndep) ) + 1);
 
+            s0 = [ x0 + rand(1,ncrv) ; u0_vals ];
+            epsf =  ef + rand(ncrv,1);
+            epsevl = cell([ncrv,1]);
+            del_edge = rand(ncrv,2);
+            for icrv = 1:ncrv
+                % epsevl{icrv,1} = linspace(x0 + del_edge(icrv,1), ef - del_edge(icrv,1), nevl);
+                epsevl{icrv,1} = linspace(del_edge(icrv,1), ef - del_edge(icrv,1), nevl);
+            end
             trj_specs = struct( ...
-                's0', [ x0*ones(1,ncrv) ; u0_vals ], ...
-                'epsevl', linspace(0.0,ef,nevl), ...
-                'epsf',  ef ...
+                's0', s0, ...
+                'epsf',  epsf ...
             );
+            trj_specs.epsevl = epsevl;
+            % trj_specs = struct( ...
+            %     's0', [ x0*ones(1,ncrv) ; u0_vals ], ...
+            %     'epsevl', linspace(0.0,ef,nevl), ...
+            %     'epsf',  ef ...
+            % );
 
             [Sobs,trjs] = ldaux.evaluate_trajectories(Fode_sys_evl,fode,trj_specs);
 
@@ -337,7 +515,8 @@ classdef ldaux
             % c2_a+c2_b.*(u_(1,:))+c2_c.*(u_(1,:).*u_(1,:).*u_(2,:)) ...
             % ];
             % Fode_sys_evl = @(e_,s_) [ ones(1,size(s_,2)) ; f_eqn( s_(1,:),s_(2:end,:) ) ];
-            f_eqn = @(u1_,u2_) c_a + c_b.*u1_ + c_c.*(u1_.*u1_.*u2_);
+            f_eqn = @(u1_,u2_) c_a + c_b.*u1_ + c_c.*( u1_.*u1_.*u2_ );
+            Jf_eqn = @(u1_,u2_) c_b.*[0 1 0] + c_c.*( [ 0 2*u1_*u2_ u1_*u1_ ] );
             Fode_sys_evl = @(e_,s_) [ ...
                 ones(1,size(s_,2)) ; ...
                 f_eqn( s_(2,:) , s_(3,:) ) ...
@@ -347,10 +526,11 @@ classdef ldaux
             'eor', eor, ...
             'ndep', ndep, ...
             'f', @(s_) f_eqn( s_(2,:),s_(3,:) ), ...
-            'f_ad', @(s_) f_eqn( adobj(s_(2),[0 1 0 ; 0 0 0]), adobj(s_(3),[0 0 0; 0 0 1]) ) ...
+            'Jf', @(s_) Jf_eqn( s_(2,:),s_(3,:) ), ...
+            'f_ad', @(s_) f_eqn( s_.qdim(2),s_.qdim(3) ) ...
             );
             x0 = 0.0;
-            ef = 50.0; % epsilon varies from e0 = 0 to ef > 0
+            ef = 30.0; % epsilon varies from e0 = 0 to ef > 0
 
             ncrv = 10;
             seed = 34; % nice to look at
@@ -371,7 +551,7 @@ classdef ldaux
             %}
             Odef = 3; % cubic permutation model (default)
             Pdef = (Odef+1)^(ndep+1);
-            nevl = ceil( (ndep+1)*Pdef/(eor*ndep) ) + 1;
+            nevl = 3*ceil( (ndep+1)*Pdef/(eor*ndep) ) + 1;
 
             trj_specs = struct( ...
                 's0', [ x0*ones(1,ncrv) ; u0_vals ], ...
@@ -463,13 +643,19 @@ classdef ldaux
 
         end
 
-        function [Sobs_out, trjs] = evaluate_trajectories(Fevl_,fode_,trjs_)
+        function [Sobs_out, trjs,JF_out,dNp1xu_out] = evaluate_trajectories(Fevl_,fode_,trjs_)
             trjs = trjs_;
             ncrv = size(trjs.s0,2);
             sol_opts = odeset( ...
             'RelTol', 1e-12, ...
             'AbsTol', 1e-10 ...
             );
+            if (isfield(fode_,'RelTol'))
+                sol_opts.RelTol = fode_.RelTol;
+            end
+            if (isfield(fode_,'AbsTol'))
+                sol_opts.AbsTol = fode_.AbsTol;
+            end
             if (ncrv==1)
                 if ( iscell(trjs.epsevl) )
                     epsevl = trjs.epsevl{1};
@@ -497,16 +683,21 @@ classdef ldaux
                 end
                 Sobs_out = cell([ncrv,1]);
                 for i = 1:ncrv
+                    % trjs.s0(:,i)
                     phi_s_i = deval( ode45(Fevl_,[0.0 epsf(i)],trjs.s0(:,i), sol_opts) , epsevl{i} );
                     Sobs_out{i} = [ ...
                     phi_s_i ; ...
                     fode_.f(phi_s_i) ...
                     ]; % sols are the graph of f
                 end
-
-                % check = fode_.f_ad(Sobs_out{1}(:,2))
-                % check.Jac
-                % pause
+            end
+            if (isfield(fode_,'JF_dxf'))
+                [JF_out,dNp1xu_out] = deal(cell([ncrv,1]));
+                for i = 1:ncrv
+                    [JF_out{i},dNp1xu_out{i}] = fode_.JF_dxf(Sobs_out{i});
+                end
+            else
+                [JF_out,dNp1xu_out] = deal([]);
             end
         end
 

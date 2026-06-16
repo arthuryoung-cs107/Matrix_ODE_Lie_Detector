@@ -1,7 +1,7 @@
 classdef adobj
 
     properties (Constant)
-        
+
     end
 
     properties
@@ -15,7 +15,6 @@ classdef adobj
         function obj = adobj(val_,Jac_)
             [obj.val,obj.Jac] = deal(val_,Jac_);
         end
-
         function obj_o = qdim(obj_,q_)
             [vi,Ji] = adobj.unpack_valJac(obj_);
             obj_o = adobj(vi(q_),Ji(q_,:));
@@ -160,12 +159,24 @@ classdef adobj
             obj_o = adobj(val_(:),1.0);
         end
         % "ad identity": use this to seed automatic differentiation, enforcing native coords
-        function obj_o = ad_identity(val_)
-            obj_o = adobj(val_(:),eye(length(val_(:))));
+        % function obj_o = ad_identity(val_)
+        %     obj_o = adobj(val_(:),eye(length(val_(:))));
+        % end
+        function obj_o = seed_sol(s_)
+            obj_o = adobj( s_(:), eye(length(s_(:))) );
         end
-
-
-
+        function obj_o = f_ad(s_,f_)
+            s_ad = adobj.seed_sol(s_);
+            obj_o = f_(s_ad);
+        end
+        function obj_o = sine(s_)
+            [vi,Ji] = adobj.unpack_valJac(s_);
+            obj_o = adobj( sin(vi) , cos(vi) .* Ji );
+        end
+        function obj_o = cosine(s_)
+            [vi,Ji] = adobj.unpack_valJac(s_);
+            obj_o = adobj( cos(vi) , -sin(vi) .* Ji );
+        end
 
         function [vl,Jl,vr,Jr] = unpack_valJac_pair(obj_l_,obj_r_)
             if ( isnumeric(obj_l_) )

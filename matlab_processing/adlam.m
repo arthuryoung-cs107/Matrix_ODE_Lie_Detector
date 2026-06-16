@@ -23,9 +23,11 @@ classdef adlam
         Lmat_full = @(o_) [ ones( adlam.nvar(o_), 1) , o_.Lmat];
         dkL_mat_full = @(o_,k_) [ zeros( adlam.nvar(o_), 1) , o_.dL_tns(:,:,k_) ];
 
+        % functions for indexing into (nvar)x(bor+1) Lmat, yielding permutation Lmat values
         iLmatP = @(sz_,Pl_,Pm_) sub2ind(sz_,reshape((1:sz_(1))' .* ones(sz_(1),Pl_),1,[]), Pm_(:)'+1 ) ;
         LmPf_vec = @(o_,Lmf_) Lmf_(adlam.iLmatP(size(Lmf_),adlam.Plen(o_),adlam.Pmat(o_)));
 
+        % permutation Lmat, multiplicatively accumulated down columns for lambda rows
         LmatP = @(o_) reshape( adlam.LmPf_vec(o_,adlam.Lmat_full(o_)), adlam.nvar(o_), adlam.Plen(o_) );
         dkLmatP = @(o_,k_) reshape( adlam.LmPf_vec(o_,adlam.dkL_mat_full(o_,k_)), adlam.nvar(o_), adlam.Plen(o_) );
 
@@ -110,35 +112,42 @@ classdef adlam
             Oa = diag(A);
             xu_O = s0.val;
 
-            Lmat = nan(nvar,bor); % matrix of values for each L polynomial
+            Lmat_raw = nan(nvar,bor); % matrix of values for each L monomial
 
             korp1 = kor+1; % compute L partials up to n+1 for the computation of n'th prolongation Jac
             c_tns = nan(nvar,bor,korp1); % aggregate chain coefficient
             dL_tns = nan(nvar,bor,korp1); % derivatives of ordered single variate monomials
 
-            Lmat(:,1) = xu_O; % image of xu under diagonal linear map A * [x ; u] + b into O
+            Lmat_raw(:,1) = xu_O; % image of xu under diagonal linear map A * [x ; u] + b into O
             c_tns(:,1,1) = Oa; % first derivative chain coefficient
-            dL_tns(:,1,1) = c_tns(:,1,1); % first order derivatives of linear map are just chain coefficients
+            dL_tns_raw(:,1,1) = c_tns(:,1,1); % first order derivatives of linear map are just chain coefficients
             c_tns(:,1,2:end) = 0; % onward chain coefficients are zero
-            dL_tns(:,1,2:end) = 0; % onward dL value is zero
+            dL_tns_raw(:,1,2:end) = 0; % onward dL value is zero
             for ib = 2:bor
-                Lmat(:,ib) = Lmat(:,ib-1) .* xu_O;
+                Lmat_raw(:,ib) = Lmat_raw(:,ib-1) .* xu_O;
                 c_tns(:,ib,1) = ib*Oa;
-                dL_tns(:,ib,1) = c_tns(:,ib,1) .* Lmat(:,ib-1);
+                dL_tns_raw(:,ib,1) = c_tns(:,ib,1) .* Lmat_raw(:,ib-1);
                 for ik = 2:korp1
                     if (ik<=ib)
                         c_tns(:,ib,ik) = c_tns(:,ib,ik-1) .* ((ib-ik+1)*Oa);
                         if (ik<ib)
-                            dL_tns(:,ib,ik) = c_tns(:,ib,ik) .* Lmat(:,ib-ik);
+                            dL_tns_raw(:,ib,ik) = c_tns(:,ib,ik) .* Lmat_raw(:,ib-ik);
                         else
-                            dL_tns(:,ib,ik) = c_tns(:,ib,ik);
+                            dL_tns_raw(:,ib,ik) = c_tns(:,ib,ik);
                         end
                     else
                         c_tns(:,ib,ik) = 0;
-                        dL_tns(:,ib,ik) = 0;
+                        dL_tns_raw(:,ib,ik) = 0;
                     end
                 end
             end
+            % use monomial values and derivatives to compute image in polynomial family space
+            if (isfield(lam,'poly_coeffs'))
+                [Lmat,dL_tns] = adlam.compute_Lmat_family(lam.poly_coeffs,Lmat_raw,dL_tns_raw);
+            else
+                [Lmat,dL_tns] = deal(Lmat_raw,dL_tns_raw);
+            end
+
 
             %% core initializations
             obj.xu = xu;
@@ -230,6 +239,65 @@ classdef adlam
                 obj.Jlkx = [];
             end
         end
+        function J_out = J_tau_dNm1xu(obj,th_,tdNm1xu_)
+            tdNm1xu = tdNm1xu_(:);
+            nvar = length(obj.xu(:));
+            ndep = nvar-1;
+            kor = max([1,size(obj.dxu,2)]);
+            ndim = 1 + ndep*(kor+1);
+
+            Th = reshape(th_,[],nvar);
+            th_x = Th(:,1);
+            Th_u = Th(:,2:end);
+
+            if (kor==1)
+                J_out = [(obj.Jl*( Th_u - th_x * tdNm1xu'))',zeros(ndep,ndim-nvar)];
+            else
+                Plen = length(th_x(:));
+                J_out = ( Th_u' * obj.Jdkxl(:,:,kor-1)' ) ...
+                    - (reshape(pagemtimes(reshape(obj.Jlkx(:,:,kor-1,:),ndep,Plen,ndim),th_x),ndep,ndim) ...
+                        + tdNm1xu*([ obj.Jl ; zeros(ndim-nvar,Plen) ]*th_x)');
+            end
+        end
+        function [J_out,tau_uN_out] = J_tau_uN(obj,th_)
+            lv = obj.lrow_vals; % 1 by Plen
+            dkxlv = obj.dkxl; % kor by Plen
+            lkx = obj.lkx; % ndep by Plen by kor
+            Jlv0 = obj.Jl; % nvar by Plen
+            Jdkxlv = obj.Jdkxl; % ndim by Plen by kor
+            Jlkx = obj.Jlkx; % ndep by Plen by kor by ndim
+
+            [ndep,Plen,kor,ndim]  = size(Jlkx);
+            nvar = ndep+1;
+            korp1 = kor+1;
+
+            Jlv = [ Jlv0 ; zeros(ndim-nvar,Plen) ];
+
+            Th = reshape(th_,Plen,nvar);
+            th_x = Th(:,1);
+            Th_u = Th(:,2:end);
+
+            J_out = zeros(ndep,ndim,korp1);
+            tau_uN_out = nan(ndep,korp1); % free (and necessary) evaluation of tau_uN
+
+            thx_comp = @(J_) reshape(pagemtimes(reshape(J_,ndep,Plen,ndim),th_x),ndep,ndim);
+
+            % base space
+            tau_uN_out(:,1) = ( lv * Th_u )'; % tau_ukm1 = dxu = tau_u
+            J_out(:,1:nvar,1) = (Jlv0*( Th_u - th_x * tau_uN_out(:,1)' ))'; % J tau_u = J dxu
+            gl_thx = (Jlv*th_x)';
+            for k = 2:kor % first thru N-1'th jet space
+                tau_uN_out(:,k) = ( dkxlv(k-1,:) * Th_u )' ...
+                    - lkx(:,:,k-1)*th_x; % tau_ukm1 = dkxu
+                J_out(:,:,k) = ( Th_u' * Jdkxlv(:,:,k-1)' ) ...
+                    - ( thx_comp( Jlkx(:,:,k-1,:) ) + tau_uN_out(:,k)*gl_thx ); % J dkxu
+            end
+            % N'th jet space
+            tau_uN_out(:,korp1) = ( dkxlv(kor,:) * Th_u )' ...
+                - lkx(:,:,kor)*th_x; % tau_uN = dNp1xu
+            J_out(:,:,korp1) = ( Th_u' * Jdkxlv(:,:,kor)' ) ...
+                - ( thx_comp( Jlkx(:,:,kor,:) ) + tau_uN_out(:,korp1)*gl_thx ); % J dkxu
+        end
         function Rtns_out = Renc_tns(obj,ords_)
             Plen = adlam.Plen(obj);
             [ndep,kor] = deal( adlam.ndep(obj),adlam.kor(obj) );
@@ -317,10 +385,126 @@ classdef adlam
                 Lambda_uk_out = [ obj.lkx(:,:,k_) , l_imm( obj.dkxl(k_,:) ) ];
             end
         end
-
     end
 
     methods (Static)
+        function fspace_out = init_fspace_family(fspace_)
+            nvar = size(fspace_.Pmat,1);
+            bor = fspace_.bor;
+            borp1 = bor+1;
+
+            poly_coeffs = zeros(borp1,borp1);
+            function c_out = get_coeff(j_,i_)
+                if ( (0<=j_)&&(j_<=i_) )
+                    c_out = poly_coeffs(j_+1,i_+1);
+                else
+                    c_out = 0.0;
+                end
+            end
+            function comp_Legendre_coeffs()
+                poly_coeffs(1,1) = 1.0;
+                if (bor > 0)
+                    [poly_coeffs(1,2),poly_coeffs(2,2)] = deal(0.0,1.0);
+                    for ib = 2:bor
+                        k = ib;
+                        k2_m1 = 2*k - 1;
+                        k_m1 = k - 1;
+                        for jb = 0:ib
+                            poly_coeffs(jb+1,ib+1) = ( k2_m1*(get_coeff(jb-1,ib-1)) - k_m1*(get_coeff(jb,ib-2)) )/k;
+                        end
+                    end
+                end
+            end
+            function comp_Hermite1_coeffs() % physicist's Hermite polynomials
+                poly_coeffs(1,1) = 1.0;
+                if (bor > 0)
+                    [poly_coeffs(1,2),poly_coeffs(2,2)] = deal(0.0,2.0);
+                    for ib = 2:bor
+                        poly_coeffs(1,ib+1) = -poly_coeffs(2,ib);
+                        for jb = 1:ib
+                            poly_coeffs(jb+1,ib+1) = 2.0*get_coeff(jb-1,ib-1) - (jb+1)*get_coeff(jb+1,ib-1);
+                        end
+                    end
+                end
+            end
+            function comp_Hermite2_coeffs() % probabilist's Hermite polynomials
+                poly_coeffs(1,1) = 1.0;
+                if (bor > 0)
+                    [poly_coeffs(1,2),poly_coeffs(2,2)] = deal(0.0,1.0);
+                    for ib = 2:bor
+                        poly_coeffs(1,ib+1) = -poly_coeffs(2,ib);
+                        for jb = 1:ib
+                            poly_coeffs(jb+1,ib+1) = get_coeff(jb-1,ib-1) - (jb+1)*get_coeff(jb+1,ib-1);
+                        end
+                    end
+                end
+            end
+            function comp_Chebyshev_coeffs()
+                for ib = 2:bor
+                    poly_coeffs(1,ib+1) = -poly_coeffs(1,ib-1);
+                    for jb = 1:ib
+                        poly_coeffs(jb+1,ib+1) = 2.0*get_coeff(jb-1,ib-1) - get_coeff(jb,ib-2);
+                    end
+                end
+            end
+            function comp_Chebyshev1_coeffs()
+                poly_coeffs(1,1) = 1.0;
+                if (bor > 0)
+                    [poly_coeffs(1,2),poly_coeffs(2,2)] = deal(0.0,1.0);
+                    comp_Chebyshev_coeffs()
+                end
+            end
+            function comp_Chebyshev2_coeffs()
+                poly_coeffs(1,1) = 1.0;
+                if (bor > 0)
+                    [poly_coeffs(1,2),poly_coeffs(2,2)] = deal(0.0,2.0);
+                    comp_Chebyshev_coeffs()
+                end
+            end
+
+            fspace_out = fspace_;
+            if (isfield(fspace_,'fam'))
+                switch (fspace_.fam)
+                    case 'Legendre'
+                        comp_Legendre_coeffs();
+                        fspace_out.poly_coeffs = poly_coeffs;
+                    case 'Hermite1'
+                        comp_Hermite1_coeffs();
+                        fspace_out.poly_coeffs = poly_coeffs;
+                    case 'Hermite2'
+                        comp_Hermite2_coeffs();
+                        fspace_out.poly_coeffs = poly_coeffs;
+                    case 'Chebyshev1'
+                        comp_Chebyshev1_coeffs();
+                        fspace_out.poly_coeffs = poly_coeffs;
+                    case 'Chebyshev2'
+                        comp_Chebyshev2_coeffs();
+                        fspace_out.poly_coeffs = poly_coeffs;
+                end
+            end
+        end
+        function [Lmat_fam, dL_tns_fam] = compute_Lmat_family(poly_coeffs_,Lmat_,dL_tns_)
+            [nvar,bor] = size(Lmat_);
+            korp1 = size(dL_tns_,3);
+            borp1 = bor+1;
+            Lmat_all = [ ones(nvar,1) , Lmat_ ];
+
+            Lmat_fam = nan(size(Lmat_)); % only need to compute (1+ndep)x(bor) terms
+            dL_tns_fam = nan(size(dL_tns_));
+
+            Lmat_fam(:,1) = Lmat_all(:,1)*poly_coeffs_(1,1);
+            dL_tns_fam(:,1,1) = dL_tns_(:,1,1);
+            dL_tns_fam(:,1,2:end) = 0;
+            for ib = 2:bor
+                iib = 1:(ib+1);
+                Lmat_fam(:,ib) = Lmat_all(:,iib)*poly_coeffs_(iib,ib);
+                iiib = 1:ib;
+                pcoeff_ib = poly_coeffs_(2:(ib+1),ib);
+                for ik = 1:korp1
+                    dL_tns_fam(:,ib,ik) = dL_tns_(:,iiib,ik)*pcoeff_ib;
+                end
+            end
+        end
         function obj_out = verify_prolongation(obj)
 
             [ndep,kor] = deal( adlam.ndep(obj),adlam.kor(obj) );

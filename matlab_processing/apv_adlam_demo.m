@@ -34,12 +34,40 @@ tic0 = tic;
 % [Sobs,dat_true] = ldaux.generate_Riccati_data(); % N = 1, Q = 1
 % [Sobs,dat_true] = ldaux.generate_Brusselator_data(); % N = 1, Q = 2
 % [Sobs,dat_true] = ldaux.generate_Van_der_Pol_data(); % N = 2, Q = 1
-% [Sobs,dat_true] = ldaux.generate_oscillator_polr_data(); % N = 2, Q = 1, easier than VanderPol
-[Sobs,dat_true] = ldaux.generate_oscillator_cart_data(); % N = 2, Q = 2
+[Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_oscillator_polr_data(); % N = 2, Q = 1, easier than VanderPol
+% [Sobs,dat_true] = ldaux.generate_oscillator_cart_data(); % N = 2, Q = 2 via map
 % [Sobs,dat_true] = ldaux.generate_pendulum_polr_data(); % N = 2, Q = 1
 % [Sobs,dat_true] = ldaux.generate_pendulum_cart_data(); % N = 2, Q = 2
+% [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_double_pendulum_data(); % N = 2, genuinely Q = 2
 toc1 = toc(tic0);
 fprintf('generated jet space data in %.3f seconds \n', toc1);
+s0 = Sobs{1}(:,1);
+
+% JF_obs
+% dNp1xu_obs
+
+icrv_check = 1;
+isol_check = 1;
+s_check = Sobs{icrv_check}(:,isol_check);
+sNm1 = s_check(1:(end-dat_true.ndep));
+
+% f_sNm1 = dat_true.f(sNm1);
+% Jf_sNm1 = dat_true.Jf(sNm1);
+% s_check
+% sNm1
+% f_sNm1
+% Jf_sNm1
+
+ndim = 1+dat_true.ndep*(dat_true.eor + 1)
+% sNm1_ad = adfcn.seed_sol(s_check(1:(end-dat_true.ndep)));
+sNm1_ad = adobj.seed_sol(sNm1);
+% sNm1_ad
+% f_ad_sNm1 = adobj.f_ad( sNm1 , dat_true.f_ad );
+% f_ad_sNm1
+% f_ad_sNm1.Jac
+
+% return
+% f_ad_sNm1 = adfcn.f_ad( s_check( 1:(end-dat_true.ndep+1) ) , dat_true.f_ad );
 
 % dat = dat_true; % oracle information, debugging purposes
 dat = struct('ndep',dat_true.ndep,'eor',dat_true.eor);
@@ -63,13 +91,27 @@ plt0 = apv_plots.plot_Sobs(plt0,Sobs,dat_plt0);
     build jet space model
     ----------------------------
 %}
-fspc = struct( ...
+fspace0 = struct( ...
 'bor', 3, ...
 'Omap_a', ones(1+dat.ndep,1), ...
 'Omap_b', zeros(1+dat.ndep,1) ...
 );
+fspace = fspace0;
+% fspace.Omap_b = -s0(1:(dat.ndep+1)); % set origin to first observed solution, w.l.o.g.
+% fspace.fam = 'Legendre';
+% fspace.fam = 'Hermite1';
+% fspace.fam = 'Hermite2';
+% fspace.fam = 'Chebyshev1';
+% fspace.fam = 'Chebyshev2';
+% fspace = mvp_jspc_model.Omap_solutions(fspace,Sobs,[-1,1]);
+% fspace = mvp_jspc_model.Omap_solutions(fspace,Sobs,[0,1]);
+% fspace = struct( ...
+% 'bor', 3, ...
+% 'Omap_a', [ 0.1 ; [ 1.1 ; 1.2 ].*ones(dat.ndep,1) ], ...
+% 'Omap_b', zeros(1+dat.ndep,1) + [1.0 ; 2.0; 3.0] ...
+% ); % debugging
 tic0 = tic;
-mod = mvp_jspc_model(Sobs,dat,fspc)
+mod = mvp_jspc_model(Sobs,dat,fspace)
 toc1 = toc(tic0);
 fprintf('built jet space model in %.3f seconds \n', toc1);
 
@@ -79,6 +121,33 @@ fprintf('built jet space model in %.3f seconds \n', toc1);
     ----------------------------
 %}
 mod = mvp_jspc_model.verify(mod);
+
+%{
+    ----------------------------
+    plot jet space model data
+    ----------------------------
+%}
+% dat_plt1.LineStyle = '-';
+% dat_plt1.Color = apv_plots.green4;
+plt0 = apv_plots('model_summary', ...
+                [6 1],...
+                [5 1],[6 1], ...
+                scrn_id);
+plt0 = apv_plots.plot_model_summary(plt0,mod,dat_plt0);
+
+return
+
+dat_plt1 = dat_plt0;
+% dat_plt1.LineStyle = '-';
+% dat_plt1.Color = apv_plots.green4;
+plt1 = apv_plots('svds', ...
+                [3 4],...
+                [1 3],[3 1], ...
+                scrn_id);
+plt1 = apv_plots.plot_SVDs(plt1, mvp_jspc_model.vertcat_glb_SVDs(mod), dat_plt1);
+
+return
+
 obj = mod;
 ndep = obj.Sdat.ndep;
 [ndim_obs,nobs] = size(obj.Smat);
@@ -106,9 +175,9 @@ tau_dNm1xu_RN_YLdNm1xu_glb = obj.tau_dNm1xu_RN_YLdNm1xu_glb;
 tmod_glb = struct('dxuref', dxutns, 't_uk', tau_uk_glb, 't_uk_sub', tau_uk_glb_sub);
 tmod_crv = struct('dxuref', dxutns, 't_uk', tau_uN_crv, 't_uk_sub', tau_uN_crv_sub);
 tmod_crv_Yvthxglb = struct('dxuref', dxutns,'t_uk', tau_uN_crv_Yvthxglb, 't_uk_sub', []);
-tmod_RN_YLNm1_glb = struct('dxuref', dNxumat, 't_uk', tau_dNm1xu_RN_YLdNm1xu_glb, 't_uk_sub', []);
-tmodels = [tmod_glb tmod_crv tmod_crv_Yvthxglb,tmod_RN_YLNm1_glb];
-% tmodels = [tmod_glb tmod_crv tmod_crv_Yvthxglb];
+% tmod_RN_YLNm1_glb = struct('dxuref', dNxumat, 't_uk', tau_dNm1xu_RN_YLdNm1xu_glb, 't_uk_sub', []);
+% tmodels = [tmod_glb tmod_crv tmod_crv_Yvthxglb,tmod_RN_YLNm1_glb];
+tmodels = [tmod_glb tmod_crv tmod_crv_Yvthxglb];
 
 % abserr_tol = 1e-2;
 abserr_tol = 1e-5;
@@ -126,7 +195,7 @@ for imod = 1:length(tmodels)
     med_abserr_uk = median(abserr_uk_sorted);
     max_abserr_uk = abserr_uk_sorted(end);
 fprintf( '(b=%d,full) abserr [min,avg,med,max]=[%.1e,%.1e,%.1e,%.1e]. Success = %d ([med,max] = [%d %d]) \n', ...
-        fspc.bor,min_abserr_uk,avg_abserr_uk,med_abserr_uk,max_abserr_uk, ...
+        fspace.bor,min_abserr_uk,avg_abserr_uk,med_abserr_uk,max_abserr_uk, ...
         max_abserr_uk < 1e-5, ...
         med_abserr_uk < abserr_tol, max_abserr_uk < abserr_tol ...
     );
@@ -134,7 +203,7 @@ fprintf( '(b=%d,full) abserr [min,avg,med,max]=[%.1e,%.1e,%.1e,%.1e]. Success = 
         % max_abserr_uk<abserr_tol ...
         % med_abserr_uk<abserr_tol ...
         err_uk_sub = nan(size(tau_uk_i_sub));
-        for b = 1:fspc.bor
+        for b = 1:fspace.bor
             err_uk_sub(:,:,:,b) = tau_uk_i_sub(:,:,:,b)-dxuref_i;
 
             % abserr_uk_bsub = abs(err_uk_sub(:,:,:,b));
@@ -153,26 +222,3 @@ fprintf( '   (b=%d,sub) abserr [min,avg,med,max]=[%.1e,%.1e,%.1e,%.1e]. Success 
         end
     end
 end
-
-%{
-    ----------------------------
-    plot jet space model data
-    ----------------------------
-%}
-% dat_plt1.LineStyle = '-';
-% dat_plt1.Color = apv_plots.green4;
-plt0 = apv_plots('model_summary', ...
-                [6 1],...
-                [5 1],[6 1], ...
-                scrn_id);
-plt0 = apv_plots.plot_model_summary(plt0,mod,dat_plt0);
-
-return
-dat_plt1 = dat_plt0;
-% dat_plt1.LineStyle = '-';
-% dat_plt1.Color = apv_plots.green4;
-plt1 = apv_plots('svds', ...
-                [3 4],...
-                [1 3],[3 1], ...
-                scrn_id);
-plt1 = apv_plots.plot_SVDs(plt1, mvp_jspc_model.vertcat_glb_SVDs(mod), dat_plt1);
