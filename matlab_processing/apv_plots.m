@@ -218,6 +218,10 @@ classdef apv_plots
             plt = p1_;
             plt_svds = p2_;
 
+            % plt.show_menubar
+            plt.show_toolbar
+            plt_svds.show_toolbar
+
             mods_1D = mod_.jspc_1Dmods;
             ndep = length( mods_1D(:) );
             kor_obs = size(mods_1D{1}.Smat,1) - 2;
@@ -261,7 +265,7 @@ classdef apv_plots
 
                 Rk_i_name = @(k_) ['R^{' num2str(k_) '}_{' num2str(i) '}'];
                 rank_k_name = @(k_) ['\rho=' num2str(glb_svds_i{k_}.r) '/' num2str(glb_svds_i{k_}.dim)];
-                svd_name_glb_k = @(k_) ['$$' Rk_i_name(k_) ',' rank_k_name(k_) '$$ (glb)'];
+                svd_name_glb_k = @(k_) ['$$' Rk_i_name(k_) ',' rank_k_name(k_) ' \textrm{ (glb) } $$'];
 
                 tau_k_i = @(k_) reshape(mod_i.tau_uN_crv(k_,:),size(xvec));
                 % bsub = min([10,bor_i])
@@ -272,26 +276,29 @@ classdef apv_plots
 
                 % xvec, reshape(mod_i.tau_uN_crv(k-1,:),size(xvec)), ...
                 for k = 2:(kor_obs+1)
-                    plot(axs_mat(i,k), ...
-                    xvec, tau_k_i(k-1), ...
-                    'LineStyle', 'none', ...
-                    'LineWidth', 0.5, ...
-                    'Color', pspc.Color, ...
-                    'Marker', pspc.Marker, ...
-                    'MarkerSize', ceil(0.75*pspc.MarkerSize), ...
-                    'MarkerFaceColor', [1 0 0], ...
-                    'MarkerEdgeColor', [0 0 0] ...
-                    );
-                    plot(axs_mat(i,k), ...
-                    xvec, tau_k_i_alt(k-1), ...
-                    'LineStyle', 'none', ...
-                    'LineWidth', 0.5, ...
-                    'Color', pspc.Color, ...
-                    'Marker', pspc.Marker, ...
-                    'MarkerSize', ceil(0.5*pspc.MarkerSize), ...
-                    'MarkerFaceColor', [0 0 1], ...
-                    'MarkerEdgeColor', [0 0 0] ...
-                    );
+
+                    if (ndep == 1)
+                        plot(axs_mat(i,k), ...
+                        xvec, tau_k_i(k-1), ...
+                        'LineStyle', 'none', ...
+                        'LineWidth', 0.5, ...
+                        'Color', pspc.Color, ...
+                        'Marker', pspc.Marker, ...
+                        'MarkerSize', ceil(0.75*pspc.MarkerSize), ...
+                        'MarkerFaceColor', [1 0 0], ...
+                        'MarkerEdgeColor', [0 0 0] ...
+                        );
+                        plot(axs_mat(i,k), ...
+                        xvec, tau_k_i_alt(k-1), ...
+                        'LineStyle', 'none', ...
+                        'LineWidth', 0.5, ...
+                        'Color', pspc.Color, ...
+                        'Marker', pspc.Marker, ...
+                        'MarkerSize', ceil(0.5*pspc.MarkerSize), ...
+                        'MarkerFaceColor', [0 0 1], ...
+                        'MarkerEdgeColor', [0 0 0] ...
+                        );
+                    end
 
                     leg_glb_k(k-1) = plot(axs_svds_mat(i,1), ...
                     1:length(mod_i.Rksvds_glb{k-1}.s), mod_i.Rksvds_glb{k-1}.s, ...
@@ -304,7 +311,7 @@ classdef apv_plots
                     'DisplayName', svd_name_glb_k(k-1) ...
                     );
                 end
-                legend(axs_svds_mat(i,1), leg_glb_k(1:kor_obs),'Location', 'SouthWest', 'Interpreter', 'Latex', 'NumColumns',1,'FontSize',8);
+                legend(axs_svds_mat(i,1), leg_glb_k(1:kor_obs),'Location', 'EastOutside', 'Interpreter', 'Latex', 'NumColumns',1,'FontSize',12);
                 % plot(axs_mat(i,end), ...
                 % xvec, mod_i.tau_uk_glb(end,:), ...
                 % 'LineStyle', 'none', ...
@@ -345,8 +352,8 @@ classdef apv_plots
                     'Interpreter','Latex','FontSize',12 );
                 title(axs_svds_mat(i,3), ['$$' RN_i_name ' \textrm{ (sub, } b=' num2str(bsub) ') $$'], ...
                     'Interpreter','Latex','FontSize',12 );
-                legend(axs_svds_mat(i,2), leg_crv_i(1:ncrv),'Location', 'EastOutside', 'Interpreter', 'Latex', 'NumColumns',1,'FontSize',8);
-                legend(axs_svds_mat(i,3), leg_sub_crv_i(bsub,:),'Location', 'EastOutside', 'Interpreter', 'Latex', 'NumColumns',1,'FontSize',8);
+                legend(axs_svds_mat(i,2), leg_crv_i(1:ncrv),'Location', 'EastOutside', 'Interpreter', 'Latex', 'NumColumns',1,'FontSize',12);
+                legend(axs_svds_mat(i,3), leg_sub_crv_i(bsub,:),'Location', 'EastOutside', 'Interpreter', 'Latex', 'NumColumns',1,'FontSize',12);
             end
             set(axs_svds_mat(:), ...
                 'XScale', 'linear',  ...
@@ -372,7 +379,7 @@ classdef apv_plots
             plt = plt_1D;
             axs = plt.axs;
             axs_mat = plt.axs_mat;
-            tau_uN_tns = reshape(mod_.jspc_N1mod.tau_uN_glb(:,1,:),size(axs_mat,1),size(axs_mat,2)-1,[]);
+            tau_uN_tns = reshape(mod_.jspc_N1mod.tau_uN_net(:,1,:),size(axs_mat,1),size(axs_mat,2)-1,[]);
             for i = 1:size(axs_mat,1)
                 % tau_uiN = reshape(mod_.tau_uN_crv(i,:,:),size(axs_mat,2),[]);
                 tau_uiN = reshape(tau_uN_tns(i,:,:),size(axs_mat,2)-1,[]);
@@ -401,37 +408,43 @@ classdef apv_plots
                 'TickLabelInterpreter','Latex', ...
                 'FontSize',16 );
             xlabel(axs, '$$ i $$', 'Interpreter','Latex','FontSize',16);
+            % plt.show_menubar
+            plt.show_toolbar
 
-            axi = axs(1);
+    axi = axs(1);
             % svds_ = mvp_jspc_model.vertcat_glb_SVDs(mod_);
             Rqksvd_glb = mod_.Rqksvd_glb_cell;
             Rksvd_glb = mod_.Rksvds_glb;
             Rksvd_sub_glb = mod_.Rk_glb_sub_svds;
-            svds_ = vertcat( Rqksvd_glb(:),Rksvd_glb(:),Rksvd_sub_glb(:) );
 
             [ndep,kor_obs] = size(Rqksvd_glb);
             bor = size(Rksvd_sub_glb,1);
 
+            % svds_ = vertcat( Rqksvd_glb(:),Rksvd_glb(:),Rksvd_sub_glb(:) );
+            svds_ = vertcat( Rqksvd_glb(:),Rksvd_glb(:) );
+            klbl = @(s_) [ ', \kappa=' num2str( s_.dim-s_.r ) '/' num2str(s_.dim) ];
             labels = cell([length(svds_),1]);
             isvd = 1;
             for k = 1:kor_obs
                 for i = 1:ndep
-labels{isvd} = ['$$R^{' num2str(k) '}_{' num2str(i) '}, \kappa=' num2str( svds_{isvd}.dim-svds_{isvd}.r ) '/' num2str(svds_{isvd}.dim) '$$ (glb)'];
+                    labels{isvd} = ['$R^{' num2str(k) '}_{' num2str(i) '}' klbl(svds_{isvd}) '\textrm{ (glb) } $'] ;
                     isvd = isvd+1;
                 end
             end
             for k = 1:kor_obs
-labels{isvd} = ['$$R^{' num2str(k) '}, \kappa=' num2str( svds_{isvd}.dim-svds_{isvd}.r ) '/' num2str(svds_{isvd}.dim) '$$ (glb)'];
+                labels{isvd} = ['$R^{' num2str(k) '}' klbl(svds_{isvd}) '\textrm{ (glb) } $'] ;
                 isvd = isvd+1;
             end
-            for k = 1:kor_obs
-                for b = 1:bor
-labels{isvd} = ['$$R^{' num2str(k) '}, \kappa=' num2str( svds_{isvd}.dim-svds_{isvd}.r ) '/' num2str(svds_{isvd}.dim) '$$ (glb,b=' num2str(b) ')'];
-                    isvd = isvd+1;
-                end
-            end
+            % for k = 1:kor_obs
+            %     for b = 1:bor
+            %     % for b = [1, bor]
+            %         labels{isvd} = ['$R^{' num2str(k) '}' klbl(svds_{isvd}) '\textrm{ (glb,b=' num2str(b) ') $'];
+            %         isvd = isvd+1;
+            %     end
+            % end
             leg_loc = 'EastOutside'; % leg_loc = 'NorthEast';
-            leg_ncols = min([length(svds_(:)),2]);
+            % leg_ncols = min([length(svds_(:)),2]);
+            leg_ncols = 1;
             function plot_labelled_svds()
                 nsvd = length(svds_(:));
                 cmat = hsv(nsvd);
@@ -444,9 +457,10 @@ labels{isvd} = ['$$R^{' num2str(k) '}, \kappa=' num2str( svds_{isvd}.dim-svds_{i
                     'Marker', 's', ...
                     'MarkerSize', 6, ...
                     'MarkerFaceColor', cmat(1,:), ...
-                    'MarkerEdgeColor', [0 0 0], ...
+                    'MarkerEdgeColor', cmat(1,:), ...
                     'DisplayName', labels{1} ...
                     );
+                    % 'MarkerEdgeColor', [0 0 0], ...
                 else
                     for i = 1:nsvd
                         leg_i(i) = plot(axi, ...
@@ -457,15 +471,16 @@ labels{isvd} = ['$$R^{' num2str(k) '}, \kappa=' num2str( svds_{isvd}.dim-svds_{i
                         'Marker', 's', ...
                         'MarkerSize', 6, ...
                         'MarkerFaceColor', cmat(i,:), ...
-                        'MarkerEdgeColor', [0 0 0], ...
+                        'MarkerEdgeColor', cmat(i,:), ...
                         'DisplayName', labels{i} ...
                         );
+                        % 'MarkerEdgeColor', [0 0 0], ...
                     end
                 end
                 set(axi, ...
                     'YScale', 'log' );
                 ylabel(axi, '$$ \sigma_i $$', 'Interpreter','Latex','FontSize',16);
-                legend(axi, leg_i(1:nsvd),'Location', leg_loc, 'Interpreter', 'Latex', 'NumColumns',leg_ncols,'FontSize',10);
+                legend(axi, leg_i(1:nsvd),'Location', leg_loc, 'Interpreter', 'Latex', 'NumColumns',leg_ncols,'FontSize',14);
             end
             plot_labelled_svds();
 
@@ -475,35 +490,46 @@ labels{isvd} = ['$$R^{' num2str(k) '}, \kappa=' num2str( svds_{isvd}.dim-svds_{i
             ncrv = length(RNsvds_crv);
             % svds_ = vertcat( Rqksvd_crv(:),RNsvds_crv(:),RNsvds_sub_crv(:) );
 
-            axi = axs(2);
+    axi = axs(2);
             svds_ = RNsvds_crv(:);
             labels = cell([length(svds_),1]);
+
+            klbl = @(s_) [ ', \kappa=' num2str( s_.dim-s_.r ) '/' num2str(s_.dim) ];
             isvd = 1;
             for j = 1:ncrv
-labels{isvd} = ['$$R^{(N)}, \kappa=' num2str( svds_{isvd}.dim-svds_{isvd}.r ) '/' num2str(svds_{isvd}.dim) '$$ (crv=' num2str(j) ')'];
+                labels{isvd} = ['$$R^{(N)}' klbl(svds_{isvd}) '\textrm{ (crv=' num2str(j) ') } $$'] ;
                 isvd = isvd+1;
             end
-            leg_loc = 'EastOutside'; % leg_loc = 'NorthEast';
-            leg_ncols = min([length(svds_(:)),2]);
+            leg_loc = 'EastOutside'; % leg_loc = 'EastOutside';
+            % leg_ncols = min([length(svds_(:)),2]);
+            leg_ncols = 1;
             plot_labelled_svds();
 
             vthx_N_glb = mod_.vthx_N_glb_svd;
             lvs_glb = mod_.lvs_svd;
             LamN_glb = mod_.LamN_svd;
+            Gsvd = mod_.Gsvd;
+            RN1_glb_svd = mod_.jspc_N1mod.Rsvd_glb;
+            DprN_svd = mod_.jspc_N1mod.DprN_svd;
+            RN1_net_svd = mod_.jspc_N1mod.Rsvd_net;
+            vth_RN1_net_svd = mod_.jspc_N1mod.vth_net_svd;
             Lam_dkxuq_glb = mod_.Lam_dkxuq_svd_glb_cell;
             Lam_dkxu_glb = mod_.Lam_dkxu_svd_glb;
             RN_YLdNm1xu_glb = mod_.RN_YLdNm1xu_glb_svd;
 
-            axi = axs(3);
+    axi = axs(3);
             svds_i = { ...
-                vthx_N_glb , '$$\vartheta^x |_{R^N}'; ...
-                lvs_glb , '$$\lambda |_{\{(x,u)_j\}}'; ...
-                LamN_glb , '$$\Lambda^{(N)} |_{\{(x,u^{(N)})_j\}}'; ...
+                vthx_N_glb , '$\vartheta^x |_{R^N}'; ...
+                lvs_glb , '$\lambda |_{\{(x,u)_j\}}'; ...
+                LamN_glb , '$\Lambda^{(N)} |_{\{(x,u^{(N)})_j\}}'; ...
+                Gsvd , '$G'; ...
             };
+            rlbl = @(s_) [ ', \rho=' num2str(s_.r) '/' num2str(s_.dim) ];
+            nlbl = @(s_) [ ', \| \cdot \|_* =' num2str(sum(s_.s/s_.s(1)),'%.1f') '/' num2str(s_.dim) ];
+
             svds_ = cell([ size(svds_i,1),1 ]);
             for isvd = 1:size(svds_i,1)
-                labels{isvd} = [ svds_i{isvd,2} ', \rho=' num2str(svds_i{isvd,1}.r) '/' num2str(svds_i{isvd,1}.dim) ];
-                % num2str(svds_i{isvd,1}.r) '/' num2str(svds_{isvd,1}.dim) ];
+                labels{isvd} = [ svds_i{isvd,2} rlbl(svds_i{isvd,1}) nlbl(svds_i{isvd,1}) '$'];
                 svds_{isvd} = svds_i{isvd,1};
             end
 %             isvd = size(svds_i,1)+1;
@@ -515,28 +541,32 @@ labels{isvd} = ['$$R^{(N)}, \kappa=' num2str( svds_{isvd}.dim-svds_{isvd}.r ) '/
 %                     isvd = isvd + 1;
 %                 end
 %             end
-            leg_loc = 'EastOutside'; % leg_loc = 'NorthEast';
+            leg_loc = 'EastOutside'; % leg_loc = 'EastOutside';
             leg_ncols = 1;
             plot_labelled_svds();
             set(axi, ...
                 'YScale', 'log' ); %'YScale', 'linear' );
-            % plt.show_menubar
-            plt.show_toolbar
 
+    axi = axs(4);
+            svds_i = { ...
+                RN1_glb_svd , '$R^{(N)}_{\textrm{glb}}' ; ...
+                DprN_svd , '$D^{(N)}_{\textrm{glb}}' ; ...
+                RN1_net_svd , '$R^{(N)}_{\textrm{net}}' ; ...
+                vth_RN1_net_svd , '$\vartheta_{R^{(N)}_{\textrm{net}}}' ; ...
+            };
+            rlbl = @(s_) [ ', \rho=' num2str(s_.r) '/' num2str(s_.dim) ];
+            nlbl = @(s_) [ ', \| \cdot \|_* =' num2str(sum(s_.s/s_.s(1)),'%.1f') '/' num2str(s_.dim) ];
+
+            svds_ = cell([ size(svds_i,1),1 ]);
+            for isvd = 1:size(svds_i,1)
+                labels{isvd} = [ svds_i{isvd,2} rlbl(svds_i{isvd,1}) nlbl(svds_i{isvd,1}) '$'];
+                svds_{isvd} = svds_i{isvd,1};
+            end
+            leg_loc = 'EastOutside'; % leg_loc = 'EastOutside';
+            leg_ncols = 1;
+            plot_labelled_svds();
 
             RN_crv_Yvthxglb = mod_.RNsvds_crv_Yvthxglb;
-
-            axi = axs(4);
-            svds_ = RN_crv_Yvthxglb(:);
-            labels = cell([length(svds_),1]);
-            isvd = 1;
-            for j = 1:ncrv
-labels{isvd} = ['$$R^{(N)}, \kappa=' num2str( svds_{isvd}.dim-svds_{isvd}.r ) '/' num2str(svds_{isvd}.dim) '$$ (crv=' num2str(j) ')'];
-                isvd = isvd+1;
-            end
-            leg_loc = 'EastOutside'; % leg_loc = 'NorthEast';
-            leg_ncols = min([length(svds_(:)),2]);
-            plot_labelled_svds();
 
             % cmat = cool(vthx_N_glb.r);
             % % for i = flip(1:(vthx_N_glb.r))
@@ -557,7 +587,7 @@ labels{isvd} = ['$$R^{(N)}, \kappa=' num2str( svds_{isvd}.dim-svds_{isvd}.r ) '/
             % legend(axi, leg_i(1:vthx_N_glb.r),'Location', 'EastOutside', 'Interpreter', 'Latex', 'NumColumns',leg_ncols,'FontSize',10);
             % ylabel(axi, '$$ \mathbf v_{i,j} $$', 'Interpreter','Latex','FontSize',16);
 
-            apv_plots.set_containing_axis_lims(axs(:));
+            % apv_plots.set_containing_axis_lims(axs(:));
 
             % pause
         end

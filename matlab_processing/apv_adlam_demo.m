@@ -33,12 +33,13 @@ scrn_id = 1;
 tic0 = tic;
 % [Sobs,dat_true] = ldaux.generate_Riccati_data(); % N = 1, Q = 1
 % [Sobs,dat_true] = ldaux.generate_Brusselator_data(); % N = 1, Q = 2
-% [Sobs,dat_true] = ldaux.generate_Van_der_Pol_data(); % N = 2, Q = 1
-[Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_oscillator_polr_data(); % N = 2, Q = 1, easier than VanderPol
-% [Sobs,dat_true] = ldaux.generate_oscillator_cart_data(); % N = 2, Q = 2 via map
-% [Sobs,dat_true] = ldaux.generate_pendulum_polr_data(); % N = 2, Q = 1
+% [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_Van_der_Pol_data(); % N = 2, Q = 1
+% [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_oscillator_polr_data(); % N = 2, Q = 1, easier than VanderPol
+% [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_oscillator_cart_data(); % N = 2, Q = 2 via map
+% [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_pendulum_polr_data(); % N = 2, Q = 1
 % [Sobs,dat_true] = ldaux.generate_pendulum_cart_data(); % N = 2, Q = 2
-% [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_double_pendulum_data(); % N = 2, genuinely Q = 2
+[Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_double_oscillator_data(); % N = 2, Q = 2
+% [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_double_pendulum_data(); % N = 2, Q = 2, would be pretty wild to learn anything
 toc1 = toc(tic0);
 fprintf('generated jet space data in %.3f seconds \n', toc1);
 s0 = Sobs{1}(:,1);
@@ -50,6 +51,7 @@ icrv_check = 1;
 isol_check = 1;
 s_check = Sobs{icrv_check}(:,isol_check);
 sNm1 = s_check(1:(end-dat_true.ndep));
+JF_tru_check = JF_obs{icrv_check}(:,:,isol_check)
 
 % f_sNm1 = dat_true.f(sNm1);
 % Jf_sNm1 = dat_true.Jf(sNm1);
@@ -81,10 +83,15 @@ dat_plt0 = dat;
 dat_plt0.LineStyle = '-';
 dat_plt0.Color = apv_plots.green4;
 plt0 = apv_plots('jetspace', ...
-                [3 4],...
-                [1 3],[1 1], ...
+                [3 6],...
+                [1 4],[2 2], ...
                 scrn_id);
+% [3 4],...
+% [1 3],[1 1], ...
+% [2 1],...
+% [1 1],[1 1], ...
 plt0 = apv_plots.plot_Sobs(plt0,Sobs,dat_plt0);
+
 
 %{
     ----------------------------
@@ -121,6 +128,8 @@ fprintf('built jet space model in %.3f seconds \n', toc1);
     ----------------------------
 %}
 mod = mvp_jspc_model.verify(mod);
+JF_tru_check = JF_obs{icrv_check}( :,:,isol_check)
+JF_N1mod_check = mod.jspc_N1mod.JF_glb( :,:, sum(mod.npts_per_crv(1:(icrv_check-1))) + isol_check )
 
 %{
     ----------------------------
@@ -130,95 +139,9 @@ mod = mvp_jspc_model.verify(mod);
 % dat_plt1.LineStyle = '-';
 % dat_plt1.Color = apv_plots.green4;
 plt0 = apv_plots('model_summary', ...
-                [6 1],...
-                [5 1],[6 1], ...
+                [1 1],...
+                [1 1],[1 1], ...
                 scrn_id);
 plt0 = apv_plots.plot_model_summary(plt0,mod,dat_plt0);
 
 return
-
-dat_plt1 = dat_plt0;
-% dat_plt1.LineStyle = '-';
-% dat_plt1.Color = apv_plots.green4;
-plt1 = apv_plots('svds', ...
-                [3 4],...
-                [1 3],[3 1], ...
-                scrn_id);
-plt1 = apv_plots.plot_SVDs(plt1, mvp_jspc_model.vertcat_glb_SVDs(mod), dat_plt1);
-
-return
-
-obj = mod;
-ndep = obj.Sdat.ndep;
-[ndim_obs,nobs] = size(obj.Smat);
-kor_obs = (ndim_obs-1)/ndep - 1;
-
-Smat = obj.Smat;
-xvec = Smat(1,:);
-unmat = Smat(2:end,:);
-untns = reshape( unmat, ndep, kor_obs+1, nobs );
-umat = reshape( untns(:,1,:), ndep, nobs );
-dxutns = reshape( untns(:,2:end,:), ndep, kor_obs, nobs );
-dNxumat = reshape(dxutns(:,end,:),ndep,nobs);
-% minmag_dxutns = min(abs( dxutns(:) ));
-% maxmag_dxutns = max(abs( dxutns(:) ));
-
-tau_uk_glb = obj.tau_uk_glb(:,1:(end-1),:);
-tau_uk_glb_sub = obj.tau_uk_glb_sub(:,1:(end-1),:,:);
-% minmag_tau_uk_glb = min(abs( tau_uk_glb(:) ));
-% maxmag_tau_uk_glb = max(abs( tau_uk_glb(:) ));
-tau_uN_crv = obj.tau_uN_crv(:,1:(end-1),:);
-tau_uN_crv_sub = obj.tau_uN_crv_sub(:,1:(end-1),:,:);
-tau_uN_crv_Yvthxglb = obj.tau_uN_crv_Yvthxglb(:,1:(end-1),:);
-tau_dNm1xu_RN_YLdNm1xu_glb = obj.tau_dNm1xu_RN_YLdNm1xu_glb;
-
-tmod_glb = struct('dxuref', dxutns, 't_uk', tau_uk_glb, 't_uk_sub', tau_uk_glb_sub);
-tmod_crv = struct('dxuref', dxutns, 't_uk', tau_uN_crv, 't_uk_sub', tau_uN_crv_sub);
-tmod_crv_Yvthxglb = struct('dxuref', dxutns,'t_uk', tau_uN_crv_Yvthxglb, 't_uk_sub', []);
-% tmod_RN_YLNm1_glb = struct('dxuref', dNxumat, 't_uk', tau_dNm1xu_RN_YLdNm1xu_glb, 't_uk_sub', []);
-% tmodels = [tmod_glb tmod_crv tmod_crv_Yvthxglb,tmod_RN_YLNm1_glb];
-tmodels = [tmod_glb tmod_crv tmod_crv_Yvthxglb];
-
-% abserr_tol = 1e-2;
-abserr_tol = 1e-5;
-for imod = 1:length(tmodels)
-    tmod_i = tmodels(imod);
-    [tau_uk_i,tau_uk_i_sub] = deal(tmod_i.t_uk,tmod_i.t_uk_sub);
-    dxuref_i = tmod_i.dxuref;
-
-    err_uk = tau_uk_i-dxuref_i;
-    % abserr_uk = abs(err_uk);
-    abserr_uk = abs( err_uk ./ dxuref_i );
-    [abserr_uk_sorted,i_abserr_uk_sorted] = sort(abserr_uk(:));
-    min_abserr_uk = abserr_uk_sorted(1);
-    avg_abserr_uk = mean(abserr_uk_sorted);
-    med_abserr_uk = median(abserr_uk_sorted);
-    max_abserr_uk = abserr_uk_sorted(end);
-fprintf( '(b=%d,full) abserr [min,avg,med,max]=[%.1e,%.1e,%.1e,%.1e]. Success = %d ([med,max] = [%d %d]) \n', ...
-        fspace.bor,min_abserr_uk,avg_abserr_uk,med_abserr_uk,max_abserr_uk, ...
-        max_abserr_uk < 1e-5, ...
-        med_abserr_uk < abserr_tol, max_abserr_uk < abserr_tol ...
-    );
-    if (~isempty(tau_uk_i_sub))
-        % max_abserr_uk<abserr_tol ...
-        % med_abserr_uk<abserr_tol ...
-        err_uk_sub = nan(size(tau_uk_i_sub));
-        for b = 1:fspace.bor
-            err_uk_sub(:,:,:,b) = tau_uk_i_sub(:,:,:,b)-dxuref_i;
-
-            % abserr_uk_bsub = abs(err_uk_sub(:,:,:,b));
-            abserr_uk_bsub = abs( err_uk_sub(:,:,:,b) ./ dxutns );
-            [abserr_uk_sorted_bsub,i_abserr_uk_sorted_bsub] = sort(abserr_uk_bsub(:));
-            min_abserr_uk_bsub = abserr_uk_sorted_bsub(1);
-            avg_abserr_uk_bsub = mean(abserr_uk_sorted_bsub);
-            med_abserr_uk_bsub = median(abserr_uk_sorted_bsub);
-            max_abserr_uk_bsub = abserr_uk_sorted_bsub(end);
-fprintf( '   (b=%d,sub) abserr [min,avg,med,max]=[%.1e,%.1e,%.1e,%.1e]. Success = %d ([med,max] = [%d %d]) \n', ...
-                b, min_abserr_uk_bsub,avg_abserr_uk_bsub,med_abserr_uk_bsub,max_abserr_uk_bsub, ...
-                med_abserr_uk_bsub < 1e-5, ...
-                med_abserr_uk_bsub < abserr_tol, max_abserr_uk_bsub < abserr_tol ...
-            );
-            % max_abserr_uk_bsub<abserr_tol ...
-        end
-    end
-end

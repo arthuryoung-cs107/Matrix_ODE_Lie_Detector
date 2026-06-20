@@ -125,8 +125,8 @@ classdef mvp_1D_jspc_model
                     'W', ( s_(end) ./ s_(:)  )' .* V_ ... % nullspace (kernal) K approx. basis
                 );
             end
-
-            normalize_Renc = @(r_) r_/norm(r_);
+            normalize_Renc = @(r_) r_/norm(r_); % unit length Rmat rows
+            % normalize_Renc = @(r_) r_; % unnormalized Rmat rows
 
             lambdas = cell([nobs,1]);
             lvs = nan(Plen,nobs);
@@ -329,7 +329,7 @@ classdef mvp_1D_jspc_model
             obj.vth_N_crv = vth_N_crv;
             obj.tau_uN_crv = tau_uN_crv;
             obj.g_tau_uN_crv = g_tau_uN_crv;
-            
+
             obj.RN_crv_sub_svds = RN_crv_sub_svds;
             obj.vth_N_crv_sub = vth_N_crv_sub;
             obj.tau_uN_crv_sub = tau_uN_crv_sub;

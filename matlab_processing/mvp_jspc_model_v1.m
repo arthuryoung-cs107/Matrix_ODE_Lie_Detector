@@ -22,15 +22,11 @@ classdef mvp_jspc_model
         jspc_N1mod;
 
         Smat;
-        npts_per_crv;
-        ipts_crv;
 
         lambdas;
         lvs;
         LamN_tns;
         Renc_cell;
-
-        Gsvd;
 
         lvs_svd;
         LamN_svd;
@@ -138,7 +134,6 @@ classdef mvp_jspc_model
 
             jspc_1Dmods = mvp_1D_jspc_model.compute_models(Sobs_,fspace);
             jspc_N1mod = mvp_N1_jspc_model(Sobs_,fspace);
-            JF_N1mod = jspc_N1mod.JF_glb;
 
             [Smat,nobs,nset,kor_obs,ndim_obs,npts_per_crv,ipts_crv] = ldaux.unpack_Scell(Sobs_,ndep);
             ncrv = length(npts_per_crv);
@@ -152,7 +147,6 @@ classdef mvp_jspc_model
             lvs = nan(Plen,nobs);
             LamN_T_tns = nan(ntheta,1 + ndep*(kor_obs+1), nobs);
             Renc_cell = cell(kor_obs,nobs);
-            Genc_tns = nan(ndep,ntheta,nobs);
             tic_prN = tic;
             for iobs = 1:nobs
 
@@ -178,15 +172,11 @@ classdef mvp_jspc_model
                     iLam_km1 = iLam_km1 + ndep;
                     LamN_T_tns(:,iLam_km1,iobs) = [ -l_i.lkx(:,:,k) , fspace.imm_l(l_i.dkxl(k,:)) ]';
                 end
-                Genc_tns(:,:,iobs) = JF_N1mod(:,:,iobs)*LamN_T_tns(:,:,iobs)';
             end
             toc_prN = toc(tic_prN);
             fprintf('(mvp_jspc_model) Prolonged %d observations over Q=%d, N=%d (B=%d) jet space with order O=%d mvpolynomials (C=%d) in %.3f seconds \n', ...
             nobs, ndep, kor_obs, ndim_obs, fspace.bor, ntheta, ...
             toc_prN);
-
-            Gmat = (reshape(permute(Genc_tns,[2 1 3]),ntheta,ndep*nobs))';
-            Gsvd = Asvd_package(Gmat);
 
             % debug_script
             Lam_dkxu_ttns = reshape(LamN_T_tns(:,(nvar+1):end,:),ntheta,ndep,kor_obs,nobs);
@@ -431,9 +421,6 @@ classdef mvp_jspc_model
 
             obj.Smat = Smat;
 
-            obj.npts_per_crv = npts_per_crv;
-            obj.ipts_crv = ipts_crv;
-
             obj.jspc_1Dmods = jspc_1Dmods;
             obj.jspc_N1mod = jspc_N1mod;
 
@@ -441,8 +428,6 @@ classdef mvp_jspc_model
             obj.lvs = lvs;
             obj.LamN_tns = LamN_tns;
             obj.Renc_cell = Renc_cell;
-
-            obj.Gsvd = Gsvd;
 
             obj.lvs_svd = lvs_svd;
             obj.LamN_svd = LamN_svd;
@@ -536,7 +521,7 @@ fprintf( '(%s err) [min,med,avg,max]=[%.1e,%.1e,%.1e,%.1e]. Success: [med,max] =
             for i = 1:ndep
                 tau_uN_crv_1Dmod(i,:,:) = mods_1D{i}.tau_uN_crv(1:(end-1),:);
             end
-            tau_uN_glb_N1mod = reshape(obj.jspc_N1mod.tau_uN_net(:,1,:),ndep,kor_obs,[]);
+            tau_uN_glb_N1mod = reshape(obj.jspc_N1mod.tau_uN_glb(:,1,:),ndep,kor_obs,[]);
 
             size(dxuntns);
             size(tau_uqk_glb);
@@ -550,14 +535,6 @@ fprintf( '(%s err) [min,med,avg,max]=[%.1e,%.1e,%.1e,%.1e]. Success: [med,max] =
             err_stats( 'tau_uN_crv_Yvthxglb', comp_err_msr(tau_uN_crv_Yvthxglb) );
             err_stats( 'tau_uN_crv_1D', comp_err_msr(tau_uN_crv_1Dmod) );
             err_stats( 'tau_uN_crv_N1', comp_err_msr(tau_uN_glb_N1mod) );
-
-            Gsvd = obj.Gsvd;
-            if ( Gsvd.r < Gsvd.dim )
-                r_start = Gsvd.dim - min([5,Gsvd.dim-Gsvd.r]) + 1;
-                for r = r_start:(Gsvd.dim)
-                    fspc.print_vshort_polynomial_theta( Gsvd.V(:,r), obj.fspace.Pmat, ['\n K_G ' num2str(r) '/' num2str(Gsvd.dim) ' : '] )
-                end
-            end
 
             % err_dkxuq_tns_glb = nan(size(dxuntns));
 

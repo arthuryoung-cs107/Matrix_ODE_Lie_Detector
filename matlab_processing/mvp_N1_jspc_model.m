@@ -5,16 +5,26 @@ classdef mvp_N1_jspc_model
     properties
 
         Sobs;
+        Pmat_full;
         fspace;
 
         lambdas;
         LamN_tns;
         Renc_cell;
 
+        DprN_T_ttns;
+
         Rmat_glb;
         Rsvd_glb;
-        vth_glb;
-        tau_uN_glb;
+        DprN_svd;
+        Rsvd_net;
+        vth_net;
+        tau_uN_net;
+
+        vth_net_svd;
+
+        J_tau_u_glb;
+        JF_glb;
     end
     methods
         function obj = mvp_N1_jspc_model(Sobs_,fspace_)
@@ -35,8 +45,10 @@ classdef mvp_N1_jspc_model
                     'W', ( s_(end) ./ s_(:)  )' .* V_ ... % nullspace (kernal) K approx. basis
                 );
             end
-            % normalize_Renc = @(r_) r_./sqrt(sum(r_.*r_,2));
-            normalize_Renc = @(r_) r_;
+            % normalize_Renc = @(r_) r_./sqrt(sum(r_.*r_,2)); % unit length Rmat rows
+            normalize_Renc = @(r_) r_; % unnormalized Rmat rows
+            % normalize_DprN = @(d_) d_./sqrt( sum(d_.*d_,1) ); % unit length DprN cols (rows after transposition)
+            normalize_DprN = @(d_) d_; % unnormalized DprN cols (rows after transposition)
 
             % get original jet space specs
             ncrv = length(Sobs_(:));
@@ -62,10 +74,10 @@ classdef mvp_N1_jspc_model
             xumat = Smat(1:nvar,:);
 
             bor = fspace_.bor;
-            [~, Pmat, ~] = ldaux.count_set_P_len(bor,ndep+1);
+            [~, Pmat_full, ~] = ldaux.count_set_P_len(bor,ndep+1);
 
             %% restrict new function space to first order in all derivative coordinates
-            Pmat = Pmat(:, sum(Pmat((nvar0+1):end,:),1)<=1 );
+            Pmat = Pmat_full(:, sum(Pmat_full((nvar0+1):end,:),1)<=1 );
             Plen = size(Pmat,2);
             ntheta = nvar*Plen;
             %% initialize injection into Lambda column space
@@ -101,6 +113,7 @@ classdef mvp_N1_jspc_model
             LamN_T_tns = nan(ntheta,1 + ndep*(kor_obs+1), nobs);
             Renc_cell = cell(1,nobs);
             Renc_tns = nan(ntheta,ndep,nobs);
+            DprN_T_ttns = zeros(ntheta,ndep0,kor0-1,nobs);
             tic_prN = tic;
             for iobs = 1:nobs
 
@@ -112,11 +125,17 @@ classdef mvp_N1_jspc_model
                 l_imm_i = fspace.imm_l(lv_i);
 
                 LamN_T_tns(:,1:nvar,iobs) = [ [lv_i(:) ; zeros(ntheta-Plen,1) ] , [ zeros(Plen,ndep) ; l_imm_i' ] ];
-                % Renc_cell{1,iobs} = [ -l_i.dxu(:,1)*lv_i , l_imm_i ];
                 Renc_cell{1,iobs} = normalize_Renc([ -l_i.dxu(:,1)*lv_i , l_imm_i ]);
                 Renc_tns(:,:,iobs) = Renc_cell{1,iobs}';
-                LamN_T_tns(:,(nvar+1):(nvar+ndep),iobs) = [ -l_i.lkx(:,:,1) , fspace.imm_l(l_i.dkxl(1,:)) ]';
 
+                LamN_T_tns(:,(nvar+1):(nvar+ndep),iobs) = [ -l_i.lkx(:,:,1) , fspace.imm_l(l_i.dkxl(1,:)) ]';
+                iiLam0 = nvar0 + (1:ndep0);
+                iiLam1 = iiLam0-nvar0+nvar;
+                for k = 2:kor0
+                    DprN_T_ttns(:,:,k-1,iobs) = normalize_DprN(LamN_T_tns(:,iiLam1,iobs) - LamN_T_tns(:,iiLam0,iobs));
+                    iiLam0 = iiLam0 + ndep0;
+                    iiLam1 = iiLam1 + ndep0;
+                end
             end
             toc_prN = toc(tic_prN);
             fprintf('(mvp_N1_jspc_model) Prolonged %d observations over Q=%d, N=%d (B=%d) jet space with order O=%d mvpolynomials (C=%d) in %.3f seconds \n', ...
@@ -130,8 +149,8 @@ classdef mvp_N1_jspc_model
                 Deltas_W = sum(vx_W.*vx_W,1);
                 vth_out = W_ * (vx_W./Deltas_W);
             end
-            function tuN_out = comp_tau_uN_crv(th_,inds_,iP_)
-                Plen_b = size(th_,1)/(ndep+1);
+            function tuN_out = comp_tau_uN_crv(th_,inds_,iP_) % global N1 same as crv Nfull
+                Plen_b = size(th_,1)/nvar;
                 nobs_crv = size(th_,2);
                 tuN_out = nan(ndep,2,nobs_crv);
                 for i = 1:nobs_crv
@@ -143,24 +162,53 @@ classdef mvp_N1_jspc_model
                 end
             end
 
-            Rmat_glb = (reshape(Renc_tns,ntheta,ndep*nobs))';
-            Rsvd_glb = Asvd_package(Rmat_glb);
-            vth_glb = comp_vartheta( Rsvd_glb.W, lvs );
-            tau_uN_glb = comp_tau_uN_crv( vth_glb, 1:nobs, 1:Plen );
+            Rmat_glb = (reshape(Renc_tns,ntheta,ndep*nobs))'; % nobs*Qhat by ntheta, where Qhat = kor*Q
+            Rsvd_glb = Asvd_package(Rmat_glb); % global R1 svd
+            if (kor0>1)
+                DprN_svd = Asvd_package( reshape(DprN_T_ttns,ntheta,ndep0*(kor0-1)*nobs)' );
+                Rsvd_net = Asvd_package( [ Rsvd_glb.D , DprN_svd.D ]' );
+            else
+                [Rsvd_net,DprN_svd] = deal(Rsvd_glb);
+            end
+            vth_net = comp_vartheta( Rsvd_net.W , lvs ); % ntheta by nobs
+            tau_uN_net = comp_tau_uN_crv( vth_net , 1:nobs , 1:Plen ); % ndep by 2 by nobs
+
+            vth_net_svd = Asvd_package( vth_net' );
+
+            J_tau_u_glb = nan(ndep,ndim,nobs);
+            JF_glb = nan(ndep0,ndim0,nobs);
+            for iobs = 1:nobs
+                J_tau_u_glb(:,:,iobs) = lambdas(iobs).J_tau_dNm1xu( ...
+                    vth_net(:,iobs), ...
+                    tau_uN_net(:,1,iobs) ...
+                );
+                JF_glb(:,:,iobs) = [ J_tau_u_glb((end-ndep0+1):end,1:nvar,iobs) , -eye(ndep0) ]; % holds due to first order enforcement
+            end
 
             %% core initializations
 
             obj.Sobs = Sobs;
+            obj.Pmat_full = Pmat_full;
             obj.fspace = fspace;
 
             obj.lambdas = lambdas;
             obj.LamN_tns = LamN_tns;
             obj.Renc_cell = Renc_cell;
 
+            obj.DprN_T_ttns = DprN_T_ttns;
+
             obj.Rmat_glb = Rmat_glb;
             obj.Rsvd_glb = Rsvd_glb;
-            obj.vth_glb = vth_glb;
-            obj.tau_uN_glb = tau_uN_glb;
+            obj.DprN_svd = DprN_svd;
+            obj.Rsvd_net = Rsvd_net;
+
+            obj.vth_net = vth_net;
+            obj.tau_uN_net = tau_uN_net;
+
+            obj.vth_net_svd = vth_net_svd;
+
+            obj.J_tau_u_glb = J_tau_u_glb;
+            obj.JF_glb = JF_glb;
         end
     end
 end
