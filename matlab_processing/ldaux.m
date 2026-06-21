@@ -49,8 +49,8 @@ classdef ldaux
             ];
             function [JF_out,dNp1xu_out] = JF_dxf_eqn(s_)
                 npts_evl = size(s_,2);
-                JF_out = zeros(2,7,npts_evl);
-                dNp1xu_out = zeros(2,npts_evl);
+                JF_out = zeros(ndep,ndim,npts_evl);
+                dNp1xu_out = zeros(ndep,npts_evl);
                 for i = 1:npts_evl
                     sol_i = adobj.seed_sol(s_(1:7,i));
                     % x_i = sol_i.qdim(1); % autonomous
@@ -63,12 +63,14 @@ classdef ldaux
 
                     udiff_ad = u2_i-u1_i;
 
-                    f1_i = cm(1,1).*u1_i + cm(1,2).*udiff_ad ; ...
+                    f1_i = cm(1,1).*u1_i + cm(1,2).*udiff_ad ;
                     f2_i = cm(2,1).*udiff_ad + cm(2,2).*u2_i ;
                     F1_i = f1_i - d2xu1_i;
                     F2_i = f2_i - d2xu2_i;
 
                     [JF_out(1,:,i),JF_out(2,:,i)] = deal(F1_i.Jac,F2_i.Jac);
+
+                    dNp1xu_out(:,i) = linsolve(JF_out(:,(end-ndep+1):end,i),-JF_out(:,1:(end-ndep),i)*[1;s_((2+ndep):end,i)]);
                 end
             end
             Fode_sys_evl = @(e_,s_) [ ...
@@ -143,6 +145,7 @@ classdef ldaux
             eqn_name = 'double_pendulum';
             eor = 2;
             ndep = 2;
+            ndim = 1 + ndep*(eor+1);
             fprintf('(ldaux::%s) Generating %s observations (ndep=%d, eor=%d) : \n' , ...
                 fcn_name,eqn_name,eor,ndep);
             [ggrav,llen] = deal(9.81,2.0);
@@ -155,16 +158,12 @@ classdef ldaux
             function d2xu_out = f_eqn(u_,dxu_)
                 udiff_F = u_(1)-u_(2);
                 cos_udiff_F = cos(udiff_F);
-                % A_F = llen.*[    4.0./3.0, 0.5.*cos_udiff_F  ; ...
-                %                 0.5.*cos_udiff_F, 1.0./3.0 ...
-                % ];
                 A_F = [ cm(1,1), cm(1,2)*cos_udiff_F  ; ...
                         cm(2,1)*cos_udiff_F, cm(2,2) ...
                 ];
+
                 sin_udiff_F = sin(udiff_F);
-                % b_F = -0.5.*[ llen.*sin_udiff_F.*dxu_(2).*dxu_(2) + 3.0.*ggrav.*sin(u_(1)) ; ...
-                %             -llen.*sin_udiff_F.*dxu_(1).*dxu_(1) + ggrav.*sin(u_(2)) ...
-                % ];
+                
                 b_F = -[ cm(1,3)*sin_udiff_F.*dxu_(2).*dxu_(2) + cm(1,4)*sin(u_(1)) ; ...
                         cm(2,3)*sin_udiff_F.*dxu_(1).*dxu_(1) + cm(2,4)*sin(u_(2)) ...
                 ];
@@ -172,10 +171,10 @@ classdef ldaux
             end
             function [JF_out,dNp1xu_out] = JF_dxf_eqn(s_)
                 npts_evl = size(s_,2);
-                JF_out = zeros(2,7,npts_evl);
-                dNp1xu_out = zeros(2,npts_evl);
+                JF_out = zeros(ndep,ndim,npts_evl);
+                dNp1xu_out = zeros(ndep,npts_evl);
                 for i = 1:npts_evl
-                    sol_i = adobj.seed_sol(s_(1:7,i));
+                    sol_i = adobj.seed_sol(s_(1:ndim,i));
                     % x_i = sol_i.qdim(1); % autonomous
                     u1_i = sol_i.qdim(2);
                     u2_i = sol_i.qdim(3);
@@ -188,13 +187,15 @@ classdef ldaux
                     cos_udiff_ad = adobj.cosine(udiff_ad);
                     sin_udiff_ad = adobj.sine(udiff_ad);
 
-                    F1_i = cm(1,1).*d2xu1_i + cm(1,2).*d2xu2_i ...
+                    F1_i = cm(1,1).*d2xu1_i + cm(1,2).*d2xu2_i.*cos_udiff_ad ...
                             + cm(1,3).*dxu2_i.*dxu2_i.*sin_udiff_ad ...
                             + cm(1,4).*adobj.sine(u1_i);
-                    F2_i = cm(2,1).*d2xu1_i + cm(2,2).*d2xu2_i ...
-                            + cm(2,3).*dxu1_i.*sin_udiff_ad ...
+                    F2_i = cm(2,1).*d2xu1_i.*cos_udiff_ad + cm(2,2).*d2xu2_i ...
+                            + cm(2,3).*dxu1_i.*dxu1_i.*sin_udiff_ad ...
                             + cm(2,4).*adobj.sine(u2_i);
                     [JF_out(1,:,i),JF_out(2,:,i)] = deal(F1_i.Jac,F2_i.Jac);
+
+                    dNp1xu_out(:,i) = linsolve(JF_out(:,(end-ndep+1):end,i),-JF_out(:,1:(end-ndep),i)*[1;s_((2+ndep):end,i)]);
                 end
             end
             Fode_sys_evl = @(e_,s_) [   1 ; ...
@@ -585,6 +586,7 @@ classdef ldaux
                     F1_i = f1_i - d2xu1_i;
 
                     JF_out(1,:,i) = F1_i.Jac;
+                    dNp1xu_out(:,i) = linsolve(JF_out(:,(end-ndep+1):end,i),-JF_out(:,1:(end-ndep),i)*[1;s_((2+ndep):end,i)]);
                 end
             end
             fode = struct( ...
@@ -650,24 +652,44 @@ classdef ldaux
 
         end
 
-        function [Sobs,dat_out] = generate_Brusselator_data()
+        function [Sobs,dat_out,JF,dNp1xu] = generate_Brusselator_data()
             % equation specification
             fcn_name = 'generate_Brusselator_data';
             eqn_name = 'Brusselator';
             eor = 1;
             ndep = 2;
+            ndim = 1 + ndep*(eor+1);
             fprintf('(ldaux::%s) Generating %s observations (ndep=%d, eor=%d) : \n' , ...
                 fcn_name,eqn_name,eor,ndep);
-            [c1_a,c1_b,c1_c] = deal(1.0,-4.0,1.0);
-            [c2_a,c2_b,c2_c] = deal(0.0,3.0,-1.0);
-            [c_a,c_b,c_c] = deal([c1_a;c2_a],[c1_b;c2_b],[c1_c;c2_c]);
-            % f_eqn = @(x_,u_) [ ...
-            % c1_a+c1_b.*(u_(1,:))+c1_c.*(u_(1,:).*u_(1,:).*u_(2,:)) ; ...
-            % c2_a+c2_b.*(u_(1,:))+c2_c.*(u_(1,:).*u_(1,:).*u_(2,:)) ...
-            % ];
-            % Fode_sys_evl = @(e_,s_) [ ones(1,size(s_,2)) ; f_eqn( s_(1,:),s_(2:end,:) ) ];
-            f_eqn = @(u1_,u2_) c_a + c_b.*u1_ + c_c.*( u1_.*u1_.*u2_ );
-            Jf_eqn = @(u1_,u2_) c_b.*[0 1 0] + c_c.*( [ 0 2*u1_*u2_ u1_*u1_ ] );
+            cm = [ ...
+                1.0,-4.0,1.0; ...
+                0.0,3.0,-1.0 ...
+            ];
+            f_eqn = @(u1_,u2_) cm(:,1) + cm(:,2).*u1_ + cm(:,3).*( u1_.*u1_.*u2_ );
+            function [JF_out,dNp1xu_out] = JF_dxf_eqn(s_)
+                npts_evl = size(s_,2);
+                JF_out = zeros(ndep,ndim,npts_evl);
+                dNp1xu_out = zeros(ndep,npts_evl);
+                for i = 1:npts_evl
+                    sol_i = adobj.seed_sol(s_(1:ndim,i));
+                    % x_i = sol_i.qdim(1); % autonomous
+                    u1_i = sol_i.qdim(2);
+                    u2_i = sol_i.qdim(3);
+                    dxu1_i = sol_i.qdim(4);
+                    dxu2_i = sol_i.qdim(5);
+
+                    u1u1u2_i = u1_i.*u1_i.*u2_i;
+
+                    f1_i = cm(1,1) + cm(1,2).*u1_i + cm(1,3).*( u1u1u2_i );
+                    f2_i = cm(2,1) + cm(2,2).*u1_i + cm(2,3).*( u1u1u2_i );
+                    F1_i = f1_i - dxu1_i;
+                    F2_i = f2_i - dxu2_i;
+
+                    [JF_out(1,:,i),JF_out(2,:,i)] = deal(F1_i.Jac,F2_i.Jac);
+
+                    dNp1xu_out(:,i) = linsolve(JF_out(:,(end-ndep+1):end,i),-JF_out(:,1:(end-ndep),i)*[1;s_((2+ndep):end,i)]);
+                end
+            end
             Fode_sys_evl = @(e_,s_) [ ...
                 ones(1,size(s_,2)) ; ...
                 f_eqn( s_(2,:) , s_(3,:) ) ...
@@ -677,11 +699,10 @@ classdef ldaux
             'eor', eor, ...
             'ndep', ndep, ...
             'f', @(s_) f_eqn( s_(2,:),s_(3,:) ), ...
-            'Jf', @(s_) Jf_eqn( s_(2,:),s_(3,:) ), ...
-            'f_ad', @(s_) f_eqn( s_.qdim(2),s_.qdim(3) ) ...
+            'JF_dxf', @(s_) JF_dxf_eqn(s_) ...
             );
             x0 = 0.0;
-            ef = 30.0; % epsilon varies from e0 = 0 to ef > 0
+            ef = 9.5; % epsilon varies from e0 = 0 to ef > 0
 
             ncrv = 10;
             seed = 34; % nice to look at
@@ -710,7 +731,7 @@ classdef ldaux
                 'epsf',  ef ...
             );
 
-            [Sobs,trjs] = ldaux.evaluate_trajectories(Fode_sys_evl,fode,trj_specs)
+            [Sobs,trjs,JF,dNp1xu] = ldaux.evaluate_trajectories(Fode_sys_evl,fode,trj_specs)
 
             fprintf(' nobs=%d, ncrv=%d \n', ...
                 ncrv*nevl, ncrv );
@@ -718,69 +739,78 @@ classdef ldaux
             dat_out = fode;
 
         end
-        function [Sobs,dat_out] = generate_Riccati_data_2()
+        function [Sobs,dat_out,JF,dNp1xu] = generate_Riccati_data_2()
             % equation specification
             fcn_name = 'generate_Riccati_data';
             eqn_name = 'Riccati';
             eor = 1;
             ndep = 1;
+            ndim = 1 + ndep*(eor+1);
             fprintf('(ldaux::%s) Generating %s observations (ndep=%d, eor=%d) : \n' , ...
                 fcn_name,eqn_name,eor,ndep);
-            f_eqn = @(x_,u_) 2.0*( u_ ./ x_ ) - (x_.*x_).*(u_.*u_) ;
-            gradf_eqn = @(x_,u_) [ ...
-                -2.0*(u_ ./ (x_.*x_)) - 2.0*(x_).*(u_.*u_) ; ...
-                2.0*(1.0./x_) - 2.0*(x_.*x_).*u_ ...
+            cm = [ ...
+                2.0,-1.0 ...
             ];
-            dxf_eqn = @(x_,u_) sum( ...
-                gradf_eqn( x_, u_(1,:) )' ...
-                .* [ ones(size(x_))' , u_(2,:)' ] ...
-                , 2  )';
+            f_eqn = @(x_,u_) cm(1,1).*( u_ ./ x_ ) + cm(1,2).*(x_.*x_).*(u_.*u_) ;
+            function [JF_out,dNp1xu_out] = JF_dxf_eqn(s_)
+                npts_evl = size(s_,2);
+                JF_out = zeros(ndep,ndim,npts_evl);
+                dNp1xu_out = zeros(ndep,npts_evl);
+                for i = 1:npts_evl
+                    sol_i = adobj.seed_sol(s_(1:ndim,i));
+                    x_i = sol_i.qdim(1);
+                    u1_i = sol_i.qdim(2);
+                    dxu1_i = sol_i.qdim(3);
 
+                    f1_i = cm(1,1).*(u1_i./x_i) + cm(1,2).*x_i.*x_i.*u1_i.*u1_i;
+                    F1_i = f1_i - dxu1_i;
+
+                    JF_out(1,:,i) = F1_i.Jac;
+
+                    dNp1xu_out(:,i) = linsolve(JF_out(:,(end-ndep+1):end,i),-JF_out(:,1:(end-ndep),i)*[1;s_((2+ndep):end,i)]);
+                end
+            end
+            Fode_sys_evl = @(e_,s_) [ ...
+                ones(1,size(s_,2)) ; ...
+                f_eqn( s_(1,:) , s_(2,:) ) ...
+            ];
             fode = struct( ...
             'name', eqn_name, ...
             'eor', eor, ...
             'ndep', ndep, ...
-            'f', @(x_,u_) f_eqn(x_,u_), ...
-            'gradf', @(x_,u_) gradf_eqn(x_,u_), ...
-            'dxf', @(x_,u_) dxf_eqn(x_,u_) ...
+            'f', @(s_) f_eqn(s_(1,:),s_(2,:)), ...
+            'JF_dxf', @(s_) JF_dxf_eqn(s_) ...
             );
 
-            xu_check = [ 1e-1 ; 1e1 ];
-            xu_ad = adobj(xu_check,eye(length(xu_check)));
-            x_ad = xu_ad.qdim(1);
-            u_ad = xu_ad.qdim(2);
-            f_check = fode.f(xu_check(1),xu_check(2));
-            g_check = fode.gradf(xu_check(1),xu_check(2));
-            f_ad = 2.0.*( u_ad ./ x_ad ) - (x_ad.*x_ad).*(u_ad.*u_ad);
-            fmap_ad = @(x_,u_) 2.0*( u_ ./ x_ ) - (x_.*x_).*(u_.*u_);
-            fm_ad = fmap_ad( xu_ad.qdim(1),xu_ad.qdim(2) );
-            if ( fm_ad.Jac(:) ~= g_check(:) )
-                fprintf('autodiff is broken\n');
-                pause
-            end
-            Fode_sys_evl = @(e_,s_) [ ones(1,size(s_,2)) ; f_eqn( s_(1,:),s_(2:end,:) ) ];
-
             x0 = 1e-1;
+            ef = 10;
+
             ncrv = 10;
-
+            % seed = 34; % nice to look at
+            % seed0 = rng(seed);
+            % u00_vals = rand(1,ncrv);
+            % u0_vals = u00_vals .* (1e1);
             u0_vals = logspace(-1,1,ncrv);
-            ef = 2.0; % epsilon varies from e0 = 0 to ef > 0
-            xf = x0 + ef;
 
-            nevl = 33; % one more than the cubic Rmat curve matrix
+            % nevl = 33; % one more than the cubic Rmat curve matrix
+            Odef = 3; % cubic permutation model (default)
+            Pdef = (Odef+1)^(ndep+1);
+            nevl = 2*(ceil(1* (ndep+1)*Pdef/(eor*ndep) ) + 1);
 
-            epsevl = linspace(0.0,ef,nevl);
-            x_evl = epsevl+x0;
-            u_evl = nan(length(u0_vals),nevl );
-            Sobs = cell(ncrv,1);
-            for i = 1:length(u0_vals)
-                Fode_sys = ode45(Fode_sys_evl,[0.0,ef],[x0 ; u0_vals(i)]);
-                phi_xu_i = deval(Fode_sys,epsevl);
-
-                u_evl(i,:) = phi_xu_i(2:end,:);
-
-                Sobs{i} = [ phi_xu_i ; fode.f( phi_xu_i(1,:),phi_xu_i(2:end,:) ) ]; % sols are the graph of f
+            s0 = [ x0 + rand(1,ncrv) ; u0_vals ];
+            epsf =  ef + rand(ncrv,1);
+            epsevl = cell([ncrv,1]);
+            del_edge = rand(ncrv,2);
+            for icrv = 1:ncrv
+                epsevl{icrv,1} = linspace(del_edge(icrv,1), ef - del_edge(icrv,1), nevl);
             end
+            trj_specs = struct( ...
+                's0', s0, ...
+                'epsf',  epsf ...
+            );
+            trj_specs.epsevl = epsevl;
+
+            [Sobs,trjs,JF,dNp1xu] = ldaux.evaluate_trajectories(Fode_sys_evl,fode,trj_specs);
 
             fprintf(' nobs=%d, ncrv=%d \n', ...
                 ncrv*nevl, ncrv );

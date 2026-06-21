@@ -24,7 +24,12 @@ classdef mvp_N1_jspc_model
         vth_net_svd;
 
         J_tau_u_glb;
+        J_tau_dxu_glb;
         JF_glb;
+
+        GNm1;
+        GNm1_glb_svd;
+        GNm1_net_svd;
     end
     methods
         function obj = mvp_N1_jspc_model(Sobs_,fspace_)
@@ -142,7 +147,7 @@ classdef mvp_N1_jspc_model
             nobs, ndep, kor_obs, ndim_obs, fspace.bor, ntheta, ...
             toc_prN);
 
-            LamN_tns = permute(LamN_T_tns,[2 1 3]);
+            LamN_tns = permute(LamN_T_tns,[2 1 3]); % --> ndim (N1), ntheta, nobs
 
             function vth_out = comp_vartheta(W_,lvs_)
                 vx_W = (W_(1:(size(W_,1)/nvar),:))' * lvs_;
@@ -175,14 +180,29 @@ classdef mvp_N1_jspc_model
 
             vth_net_svd = Asvd_package( vth_net' );
 
+            %% assuming Rsvd_net captures trivial vector field, compute its Jacobian, seek all possible differential invariances
             J_tau_u_glb = nan(ndep,ndim,nobs);
+            J_tau_dxu_glb = nan(ndep,ndim,nobs);
             JF_glb = nan(ndep0,ndim0,nobs);
+            GNm1_tns = nan(ndep0,ntheta,nobs);
             for iobs = 1:nobs
-                J_tau_u_glb(:,:,iobs) = lambdas(iobs).J_tau_dNm1xu( ...
-                    vth_net(:,iobs), ...
-                    tau_uN_net(:,1,iobs) ...
-                );
+                % J_tau_u_glb(:,:,iobs) = lambdas(iobs).J_tau_dNm1xu( ...
+                %     vth_net(:,iobs), ...
+                %     tau_uN_net(:,1,iobs) ...
+                % );
+                J_tau_uN_i = lambdas(iobs).J_tau_uN( vth_net(:,iobs) );
+                J_tau_u_glb(:,:,iobs) = J_tau_uN_i(:,:,1);
+                J_tau_dxu_glb(:,:,iobs) = J_tau_uN_i(:,:,2);
+
                 JF_glb(:,:,iobs) = [ J_tau_u_glb((end-ndep0+1):end,1:nvar,iobs) , -eye(ndep0) ]; % holds due to first order enforcement
+                GNm1_tns(:,:,iobs) = JF_glb(:,:,iobs) * [ LamN_tns(1:nvar,:,iobs) ; LamN_tns((end-ndep0+1):end,:,iobs) ]; % induced inf criterion
+            end
+            GNm1 = (reshape(permute(GNm1_tns,[2 1 3]),ntheta,ndep0*nobs))';
+            GNm1_glb_svd = Asvd_package(GNm1);
+            if (kor0>1)
+                GNm1_net_svd = Asvd_package( [ GNm1_glb_svd.D , DprN_svd.D ]' );
+            else
+                GNm1_net_svd = GNm1_glb_svd;
             end
 
             %% core initializations
@@ -208,7 +228,12 @@ classdef mvp_N1_jspc_model
             obj.vth_net_svd = vth_net_svd;
 
             obj.J_tau_u_glb = J_tau_u_glb;
+            obj.J_tau_dxu_glb = J_tau_dxu_glb;
             obj.JF_glb = JF_glb;
+
+            obj.GNm1 = GNm1;
+            obj.GNm1_glb_svd = GNm1_glb_svd;
+            obj.GNm1_net_svd = GNm1_net_svd;
         end
     end
 end

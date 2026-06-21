@@ -190,7 +190,7 @@ classdef mvp_jspc_model
 
             % debug_script
             Lam_dkxu_ttns = reshape(LamN_T_tns(:,(nvar+1):end,:),ntheta,ndep,kor_obs,nobs);
-            LamN_tns = permute(LamN_T_tns,[2 1 3]);
+            LamN_tns = permute(LamN_T_tns,[2 1 3]); % --> ndim, ntheta, nobs
 
             %% prepare local utility functions
             inds_icrv = @(icrv_) ipts_crv(1,icrv_):ipts_crv(2,icrv_);
