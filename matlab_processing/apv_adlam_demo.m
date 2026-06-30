@@ -138,8 +138,8 @@ mod = mvp_jspc_model.verify(mod);
 
 iisol_check = sum(mod.npts_per_crv(1:(icrv_check-1))) + isol_check
 
-Jf_N1mod_check = mod.jspc_N1mod.J_tau_u_glb(:,:,iisol_check)
-Jdxf_N1mod_check = mod.jspc_N1mod.J_tau_dxu_glb(:,:,iisol_check)
+Jf_N1mod_check = mod.jspc_N1mod.J_tau_u_glb(:,:,1,iisol_check)
+Jdxf_N1mod_check = mod.jspc_N1mod.J_tau_u_glb(:,:,2,iisol_check)
 JF_tru_check = JF_obs{icrv_check}( :,:,isol_check)
 JF_N1mod_check = mod.jspc_N1mod.JF_glb( :,:, iisol_check )
 

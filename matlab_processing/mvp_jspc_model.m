@@ -26,6 +26,8 @@ classdef mvp_jspc_model
         ipts_crv;
 
         lambdas;
+        Hmat_0;
+        Hsvd_0;
         lvs;
         LamN_tns;
         Renc_cell;
@@ -82,7 +84,7 @@ classdef mvp_jspc_model
                 end
             end
             if ( ~isfield(fdat_,'Omap_b') )
-                Omap_b = zeros(1+ndep,1);
+                fdat_.Omap_b = zeros(1+ndep,1);
             end
             if ( ~isfield(fdat_,'Pmat') )
                 [Plen, Pmat, ~] = ldaux.count_set_P_len(bor,ndep+1);
@@ -149,6 +151,7 @@ classdef mvp_jspc_model
 
             %% Process observations point by point. Compute prolongation quantities of function space
             lambdas = adlam.empty(nobs,0);
+            Hmat_0 = nan(nobs,Plen);
             lvs = nan(Plen,nobs);
             LamN_T_tns = nan(ntheta,1 + ndep*(kor_obs+1), nobs);
             Renc_cell = cell(kor_obs,nobs);
@@ -159,6 +162,9 @@ classdef mvp_jspc_model
                 lambdas(iobs) = adlam(fdat_, xumat(:,iobs), Smat((nvar+1):end,iobs) );
 
                 l_i = lambdas(iobs);
+
+                Hmat_0(iobs,:) = [ 1.0 , dxuntns(:,1,iobs)' ]*(l_i.Jl);
+
                 % lv_i = adlam.lrowP(l_i);
                 lv_i = l_i.lrow_vals;
 
@@ -184,6 +190,8 @@ classdef mvp_jspc_model
             fprintf('(mvp_jspc_model) Prolonged %d observations over Q=%d, N=%d (B=%d) jet space with order O=%d mvpolynomials (C=%d) in %.3f seconds \n', ...
             nobs, ndep, kor_obs, ndim_obs, fspace.bor, ntheta, ...
             toc_prN);
+
+            Hsvd_0 = Asvd_package(Hmat_0);
 
             Gmat = (reshape(permute(Genc_tns,[2 1 3]),ntheta,ndep*nobs))';
             Gsvd = Asvd_package(Gmat);
@@ -366,17 +374,10 @@ classdef mvp_jspc_model
                     end
                 end
 
-                % RN_svd_i_net = Rqksvds_crv_cell(:,:,icrv)
                 RN_svd_i_net = reshape(Rqksvds_crv_cell(:,:,icrv),[],1);
                 RN_mat_i_net = horzcat( vertcat(RN_svd_i_net{:}).D )';
-                % RN_net_svd_i = Asvd_package(RN_mat_i_net)
-                % RN_agg_svd_i = Asvd_package( RNmat_agg_i ) % SVD of true aggregate RN matrix
 
-                % RN_svdarray_i_net(1).D
-                % RN_mat_i = RNmat_agg_i;
                 RN_mat_i = RN_mat_i_net;
-                % size(RN_mat_i)
-                % pause
 
                 % compute concatenated curve model, all information together
                 RNsvds_crv{icrv} = Asvd_package(RN_mat_i); % compute P permutation (full) local curve model
@@ -438,6 +439,9 @@ classdef mvp_jspc_model
             obj.jspc_N1mod = jspc_N1mod;
 
             obj.lambdas = lambdas;
+            obj.Hmat_0 = Hmat_0;
+            obj.Hsvd_0 = Hsvd_0;
+
             obj.lvs = lvs;
             obj.LamN_tns = LamN_tns;
             obj.Renc_cell = Renc_cell;
@@ -549,7 +553,7 @@ fprintf( '(%s err) [min,med,avg,max]=[%.1e,%.1e,%.1e,%.1e]. Success: [med,max] =
             err_stats( 'tau_uN_crv', comp_err_msr(tau_uN_crv) );
             err_stats( 'tau_uN_crv_Yvthxglb', comp_err_msr(tau_uN_crv_Yvthxglb) );
             err_stats( 'tau_uN_crv_1D', comp_err_msr(tau_uN_crv_1Dmod) );
-            err_stats( 'tau_uN_crv_N1', comp_err_msr(tau_uN_glb_N1mod) );
+            err_stats( 'tau_uN_glb_N1', comp_err_msr(tau_uN_glb_N1mod) );
 
             Gsvd = obj.Gsvd;
             if ( Gsvd.r < Gsvd.dim )
@@ -557,6 +561,9 @@ fprintf( '(%s err) [min,med,avg,max]=[%.1e,%.1e,%.1e,%.1e]. Success: [med,max] =
                 for r = r_start:(Gsvd.dim)
                     fspc.print_vshort_polynomial_theta( Gsvd.V(:,r), obj.fspace.Pmat, ['\n K_G ' num2str(r) '/' num2str(Gsvd.dim) ' : '] )
                 end
+            else
+                r = Gsvd.dim;
+                fspc.print_vshort_polynomial_theta( Gsvd.V(:,r), obj.fspace.Pmat, ['\n K_G ' num2str(r) '/' num2str(Gsvd.dim) ' : '] )
             end
 
             % err_dkxuq_tns_glb = nan(size(dxuntns));

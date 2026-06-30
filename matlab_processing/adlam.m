@@ -103,8 +103,6 @@ classdef adlam
             s0 = adobj( A*xu + b, A );
 
             %% stage prolongation workspace
-            % bor = double(lam_.bor);
-            % Pmat = double(lam_.Pmat);
             Plen = size(Pmat,2);
 
             nvar = size(Pmat,1);
@@ -112,11 +110,10 @@ classdef adlam
             Oa = diag(A);
             xu_O = s0.val;
 
-            Lmat_raw = nan(nvar,bor); % matrix of values for each L monomial
+            [Lmat,Lmat_raw] = deal(nan(nvar,bor)); % matrix of values for each L univariate polynomial
 
             korp1 = kor+1; % compute L partials up to n+1 for the computation of n'th prolongation Jac
-            c_tns = nan(nvar,bor,korp1); % aggregate chain coefficient
-            dL_tns = nan(nvar,bor,korp1); % derivatives of ordered single variate monomials
+            [c_tns,dL_tns,dL_tns_raw] = deal(nan(nvar,bor,korp1)); % aggregate chain coefficient and derivatives of ordered univariate polynomial
 
             Lmat_raw(:,1) = xu_O; % image of xu under diagonal linear map A * [x ; u] + b into O
             c_tns(:,1,1) = Oa; % first derivative chain coefficient
@@ -141,7 +138,7 @@ classdef adlam
                     end
                 end
             end
-            % use monomial values and derivatives to compute image in polynomial family space
+            % use univariate values and derivatives to compute image in polynomial family space
             if (isfield(lam,'poly_coeffs'))
                 [Lmat,dL_tns] = adlam.compute_Lmat_family(lam.poly_coeffs,Lmat_raw,dL_tns_raw);
             else
@@ -159,7 +156,6 @@ classdef adlam
             obj.s0 = s0;
 
             obj.Lmat = Lmat;
-            % obj.c_tns = c_tns;
             obj.dL_tns = dL_tns;
 
             %% prologation initializations
@@ -238,6 +234,152 @@ classdef adlam
                 obj.lkx = [];
                 obj.Jlkx = [];
             end
+        end
+        function obj_out = prolong_jet_space(obj_in,dxu_) % for updating initially unprolonged instances
+            xu = obj_in.xu(:);
+            nvar = length(xu(:));
+            ndep = nvar-1;
+
+            lam = obj_in.lam;
+            b =  obj_in.b;
+            A =  obj_in.A;
+            s0 = obj_in.s0;
+
+            Pmat = lam.Pmat;
+            bor = max(Pmat(:));
+            Plen = size(Pmat,2);
+
+            if ( (size(obj_in.dL_tns,3)-1) == length(dxu_(:))/ndep ) % nothing to do for N=1
+                dL_tns = obj_in.dL_tns;
+                korp1 = size(dL_tns,3);
+                kor = korp1-1;
+                dxu = reshape(dxu_,ndep,kor); % enforce shape to correspond with N'th jet space
+
+                [Lmat,dL_tns] = deal(obj_in.Lmat,obj_in.dL_tns);
+
+            else % recompute base space partial derivatives
+                dxu = reshape(dxu_,ndep,[]);
+                kor = size(dxu,2);
+                korp1 = kor+1;
+
+                Oa = diag(A);
+                xu_O = s0.val;
+
+                [Lmat,Lmat_raw] = nan(nvar,bor); % matrix of values for each L univariate polynomial
+                [c_tns,dL_tns,dL_tns_raw] = deal(nan(nvar,bor,korp1)); % aggregate chain coefficient and derivatives of ordered univariate polynomial
+
+                Lmat_raw(:,1) = xu_O; % image of xu under diagonal linear map A * [x ; u] + b into O
+                c_tns(:,1,1) = Oa; % first derivative chain coefficient
+                dL_tns_raw(:,1,1) = c_tns(:,1,1); % first order derivatives of linear map are just chain coefficients
+                c_tns(:,1,2:end) = 0; % onward chain coefficients are zero
+                dL_tns_raw(:,1,2:end) = 0; % onward dL value is zero
+                for ib = 2:bor
+                    Lmat_raw(:,ib) = Lmat_raw(:,ib-1) .* xu_O;
+                    c_tns(:,ib,1) = ib*Oa;
+                    dL_tns_raw(:,ib,1) = c_tns(:,ib,1) .* Lmat_raw(:,ib-1);
+                    for ik = 2:korp1
+                        if (ik<=ib)
+                            c_tns(:,ib,ik) = c_tns(:,ib,ik-1) .* ((ib-ik+1)*Oa);
+                            if (ik<ib)
+                                dL_tns_raw(:,ib,ik) = c_tns(:,ib,ik) .* Lmat_raw(:,ib-ik);
+                            else
+                                dL_tns_raw(:,ib,ik) = c_tns(:,ib,ik);
+                            end
+                        else
+                            c_tns(:,ib,ik) = 0;
+                            dL_tns_raw(:,ib,ik) = 0;
+                        end
+                    end
+                end
+                % use univariate values and derivatives to compute image in polynomial family space
+                if (isfield(lam,'poly_coeffs'))
+                    [Lmat,dL_tns] = adlam.compute_Lmat_family(lam.poly_coeffs,Lmat_raw,dL_tns_raw);
+                else
+                    [Lmat,dL_tns] = deal(Lmat_raw,dL_tns_raw);
+                end
+            end
+
+            %% core initializations
+            obj_out = obj_in;
+
+            obj_out.xu = xu;
+            obj_out.lam = lam;
+
+            obj_out.A =  A;
+            obj_out.b =  b;
+
+            obj_out.s0 = s0;
+
+            obj_out.Lmat = Lmat;
+            obj_out.dL_tns = dL_tns;
+
+            %% prologation initializations
+            LmatP = adlam.LmatP(obj_out);
+            d1LmatP = adlam.dkLmatP(obj_out,1);
+
+            % (transposed) Jacobian of l over the base space
+            JlT = zeros( nvar,Plen );
+            for iv = 1:nvar
+                JlT(iv,:) = 1;
+                for iiv = 1:(iv-1)
+                    JlT(iv,:) = JlT(iv,:) .* LmatP(iiv,:);
+                end
+                JlT(iv,:) = JlT(iv,:) .* d1LmatP(iv,:);
+                for iiv = (iv+1):nvar
+                    JlT(iv,:) = JlT(iv,:) .* LmatP(iiv,:);
+                end
+            end
+
+            obj_out.lrow_vals = adlam.lrowP(obj_out);
+            obj_out.Jl = JlT;
+            % the base space is fully characterized by the lambda vector and its Jacobian
+            pr0 = struct( ...
+                'l', adobj( prod( LmatP, 1 )', JlT' ), ...
+                'v', @(o_,th_) (reshape( th_, length( o_.l.val ), [] ))' * o_.l.val ...
+            );
+            obj_out.pr0 = pr0;
+
+            %% derivatives are provided, prolong observed jet space
+            obj_out.dxu = dxu;
+            ndim = 1+ndep*(kor+1);
+
+            dkLtnsP = nan(nvar,Plen,korp1+1);
+            dkLtnsP = nan(nvar,Plen,korp1+1);
+            dkLtnsP(:,:,1) = LmatP;
+            for k = 1:korp1
+                dkLtnsP(:,:,k+1) = adlam.dkLmatP(obj_out,k);
+            end
+            dkLP = @(iv_,k_) dkLtnsP(iv_,:,k_+1);
+
+            pr0_data = struct( ...
+            'ndep', ndep, ...
+            'nvar', nvar, ...
+            'Plen', Plen, ...
+            'Pmat', Pmat, ...
+            's', [xu ; dxu(:) ], ...
+            'kor', kor, ...
+            'ndim', ndim, ...
+            'LmatP', LmatP, ...
+            'dkLtnsP', dkLtnsP, ...
+            'nder', zeros(ndim,1), ...
+            'c_net', 1, ... % power rule coefficient for partials of L_dkxu
+            'Pmat_dkxu', zeros(ndep,kor), ... % no derivatives in 0'th prolongation
+            'inds', 1:Plen, ... % all indices contribute to 0'th prolongation
+            'Ldkxu', @(o_,dxu_) o_.c_net*prod( reshape((dxu_).^(o_.Pmat_dkxu),[],1) ), ...
+            'dkxu_inds', @(o_,k_) o_.nvar+sub2ind([o_.ndep,o_.kor],1:o_.ndep,k_*ones(1,o_.ndep) ) ...
+            );
+            obj_out.dkxl = zeros(kor,Plen); % matrix of total derivatives of lambda row vector
+            obj_out.Jdkxl = zeros(ndim,Plen,kor); % Jacobian of matrix of total derivatives of lambda row vector
+            obj_out.lkx = zeros(ndep,Plen,kor);
+            obj_out.Jlkx = zeros(ndep,Plen,kor,ndim);
+            for iv = 1:nvar
+                obj_out = adlam.prolong_vu_mvpolynomial(obj_out,1,iv,JlT(iv,:),pr0_data);
+                for k = 1:kor
+                    obj_out = adlam.prolong_vx_mvpolynomials(obj_out,k,k,iv,JlT(iv,:),pr0_data);
+                end
+            end
+            % obj_out = adlam.verify_prolongation(obj_out); % debugging
+
         end
         function J_out = J_tau_dNm1xu(obj,th_,tdNm1xu_)
             tdNm1xu = tdNm1xu_(:);

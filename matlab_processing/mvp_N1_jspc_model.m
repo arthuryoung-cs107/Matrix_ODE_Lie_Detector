@@ -9,6 +9,8 @@ classdef mvp_N1_jspc_model
         fspace;
 
         lambdas;
+        Hmat_Nm1;
+        Hsvd_Nm1;
         LamN_tns;
         Renc_cell;
 
@@ -24,7 +26,6 @@ classdef mvp_N1_jspc_model
         vth_net_svd;
 
         J_tau_u_glb;
-        J_tau_dxu_glb;
         JF_glb;
 
         GNm1;
@@ -114,6 +115,7 @@ classdef mvp_N1_jspc_model
             fspace = adlam.init_fspace_family(fspace);
 
             lambdas = adlam.empty(nobs,0);
+            Hmat_Nm1 = nan(nobs,Plen);
             lvs = nan(Plen,nobs);
             LamN_T_tns = nan(ntheta,1 + ndep*(kor_obs+1), nobs);
             Renc_cell = cell(1,nobs);
@@ -125,6 +127,9 @@ classdef mvp_N1_jspc_model
                 lambdas(iobs) = adlam(fspace, xumat(:,iobs), Smat((nvar+1):end,iobs) );
 
                 l_i = lambdas(iobs);
+
+                Hmat_Nm1(iobs,:) = [ 1.0 , Smat((nvar+1):end,iobs)' ]*(l_i.Jl);
+
                 lv_i = l_i.lrow_vals;
                 lvs(:,iobs) = lv_i;
                 l_imm_i = fspace.imm_l(lv_i);
@@ -148,6 +153,8 @@ classdef mvp_N1_jspc_model
             toc_prN);
 
             LamN_tns = permute(LamN_T_tns,[2 1 3]); % --> ndim (N1), ntheta, nobs
+
+            Hsvd_Nm1 = Asvd_package(Hmat_Nm1);
 
             function vth_out = comp_vartheta(W_,lvs_)
                 vx_W = (W_(1:(size(W_,1)/nvar),:))' * lvs_;
@@ -181,8 +188,7 @@ classdef mvp_N1_jspc_model
             vth_net_svd = Asvd_package( vth_net' );
 
             %% assuming Rsvd_net captures trivial vector field, compute its Jacobian, seek all possible differential invariances
-            J_tau_u_glb = nan(ndep,ndim,nobs);
-            J_tau_dxu_glb = nan(ndep,ndim,nobs);
+            J_tau_u_glb = nan(ndep,ndim,2,nobs);
             JF_glb = nan(ndep0,ndim0,nobs);
             GNm1_tns = nan(ndep0,ntheta,nobs);
             for iobs = 1:nobs
@@ -190,11 +196,9 @@ classdef mvp_N1_jspc_model
                 %     vth_net(:,iobs), ...
                 %     tau_uN_net(:,1,iobs) ...
                 % );
-                J_tau_uN_i = lambdas(iobs).J_tau_uN( vth_net(:,iobs) );
-                J_tau_u_glb(:,:,iobs) = J_tau_uN_i(:,:,1);
-                J_tau_dxu_glb(:,:,iobs) = J_tau_uN_i(:,:,2);
+                J_tau_u_glb(:,:,:,iobs) = lambdas(iobs).J_tau_uN( vth_net(:,iobs) );
 
-                JF_glb(:,:,iobs) = [ J_tau_u_glb((end-ndep0+1):end,1:nvar,iobs) , -eye(ndep0) ]; % holds due to first order enforcement
+                JF_glb(:,:,iobs) = [ J_tau_u_glb((end-ndep0+1):end,1:nvar,1,iobs) , -eye(ndep0) ]; % holds due to first order enforcement
                 GNm1_tns(:,:,iobs) = JF_glb(:,:,iobs) * [ LamN_tns(1:nvar,:,iobs) ; LamN_tns((end-ndep0+1):end,:,iobs) ]; % induced inf criterion
             end
             GNm1 = (reshape(permute(GNm1_tns,[2 1 3]),ntheta,ndep0*nobs))';
@@ -212,6 +216,8 @@ classdef mvp_N1_jspc_model
             obj.fspace = fspace;
 
             obj.lambdas = lambdas;
+            obj.Hmat_Nm1 = Hmat_Nm1;
+            obj.Hsvd_Nm1 = Hsvd_Nm1;
             obj.LamN_tns = LamN_tns;
             obj.Renc_cell = Renc_cell;
 
@@ -228,7 +234,6 @@ classdef mvp_N1_jspc_model
             obj.vth_net_svd = vth_net_svd;
 
             obj.J_tau_u_glb = J_tau_u_glb;
-            obj.J_tau_dxu_glb = J_tau_dxu_glb;
             obj.JF_glb = JF_glb;
 
             obj.GNm1 = GNm1;

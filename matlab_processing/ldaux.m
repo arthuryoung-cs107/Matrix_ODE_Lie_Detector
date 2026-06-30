@@ -113,17 +113,15 @@ classdef ldaux
             Odef = 3; % cubic permutation model (default)
             Pdef = (Odef+1)^(ndep+1);
             % nevl = ceil( (ndep+1)*Pdef/(eor*ndep) ) + 1;
-            nevl = 3*(ceil(1* (ndep+1)*Pdef/(eor*ndep) ) + 1 ); % number of observed solutions per observed integral curve
+            nevl = 2*(ceil(1* (ndep+1)*Pdef/(eor*ndep) ) + 1 ); % number of observed solutions per observed integral curve
 
-            % s0 = [ x0*ones(1,ncrv); u0_vals ];
+            xscl = 0.1*ef;
             s0 = [ x0 + rand(1,ncrv) ; u0_vals ];
-            % epsf =  ef;
-            epsf =  ef + rand(ncrv,1);
-            % epsevl = linspace(0.0,ef,nevl);
+            epsf =  ef + xscl*rand(ncrv,1);
             epsevl = cell([ncrv,1]);
-            del_edge = rand(ncrv,2);
+            del_edge =  xscl.*rand(ncrv,2);
             for icrv = 1:ncrv
-                epsevl{icrv,1} = linspace(del_edge(icrv,1), ef - del_edge(icrv,1), nevl);
+                epsevl{icrv,1} = linspace(del_edge(icrv,1), ef - del_edge(icrv,2), nevl);
             end
             trj_specs = struct( ...
                 's0', s0, ...
@@ -163,7 +161,7 @@ classdef ldaux
                 ];
 
                 sin_udiff_F = sin(udiff_F);
-                
+
                 b_F = -[ cm(1,3)*sin_udiff_F.*dxu_(2).*dxu_(2) + cm(1,4)*sin(u_(1)) ; ...
                         cm(2,3)*sin_udiff_F.*dxu_(1).*dxu_(1) + cm(2,4)*sin(u_(2)) ...
                 ];
@@ -245,29 +243,22 @@ classdef ldaux
             Odef = 3; % cubic permutation model (default)
             Pdef = (Odef+1)^(ndep+1);
             % nevl = ceil( (ndep+1)*Pdef/(eor*ndep) ) + 1;
-            nevl = 7*(ceil(1* (ndep+1)*Pdef/(eor*ndep) ) + 1 ); % number of observed solutions per observed integral curve
+            % nevl = 7*(ceil(1* (ndep+1)*Pdef/(eor*ndep) ) + 1 ); % number of observed solutions per observed integral curve
+            nevl = 2*(ceil(1* (ndep+1)*Pdef/(eor*ndep) ) + 1 ); % number of observed solutions per observed integral curve
 
-            % s0 = [ x0*ones(1,ncrv); u0_vals ];
+            xscl = 0.1*ef;
             s0 = [ x0 + rand(1,ncrv) ; u0_vals ];
-            % epsf =  ef;
-            epsf =  ef + rand(ncrv,1);
-            % epsevl = linspace(0.0,ef,nevl);
+            epsf =  ef + xscl*rand(ncrv,1);
             epsevl = cell([ncrv,1]);
-            del_edge = rand(ncrv,2);
+            del_edge =  xscl.*rand(ncrv,2);
             for icrv = 1:ncrv
-                epsevl{icrv,1} = linspace(del_edge(icrv,1), ef - del_edge(icrv,1), nevl);
+                epsevl{icrv,1} = linspace(del_edge(icrv,1), ef - del_edge(icrv,2), nevl);
             end
             trj_specs = struct( ...
                 's0', s0, ...
                 'epsf',  epsf ...
             );
-            % 'epsevl', epsevl, ...
             trj_specs.epsevl = epsevl;
-            % trj_specs = struct( ...
-            %     's0', [ x0*ones(1,ncrv) ; u0_vals ], ...
-            %     'epsevl', linspace(0.0,ef,nevl), ...
-            %     'epsf',  ef ...
-            % );
 
             [Sobs,trjs,JF,dNp1xu] = ldaux.evaluate_trajectories(Fode_sys_evl,fode,trj_specs);
 
@@ -386,28 +377,19 @@ classdef ldaux
             % nevl = ceil( (ndep+1)*Pdef/(eor*ndep) ) + 1;
             nevl = 10*( ceil(1* (ndep+1)*Pdef/(eor*ndep) ) + 1 ); % number of observed solutions per observed integral curve
 
-            % s0 = [ x0*ones(1,ncrv); u0_vals ];
+            xscl = 0.1*ef;
             s0 = [ x0 + rand(1,ncrv) ; u0_vals ];
-            % epsf =  ef;
-            epsf =  ef + rand(ncrv,1);
-            % epsevl = linspace(0.0,ef,nevl);
+            epsf =  ef + xscl*rand(ncrv,1);
             epsevl = cell([ncrv,1]);
-            del_edge = rand(ncrv,2);
+            del_edge =  xscl.*rand(ncrv,2);
             for icrv = 1:ncrv
-                % epsevl{icrv,1} = linspace(x0 + del_edge(icrv,1), ef - del_edge(icrv,1), nevl);
-                epsevl{icrv,1} = linspace(del_edge(icrv,1), ef - del_edge(icrv,1), nevl);
+                epsevl{icrv,1} = linspace(del_edge(icrv,1), ef - del_edge(icrv,2), nevl);
             end
             trj_specs = struct( ...
                 's0', s0, ...
                 'epsf',  epsf ...
             );
-            % 'epsevl', epsevl, ...
             trj_specs.epsevl = epsevl;
-            % trj_specs = struct( ...
-            %     's0', [ x0*ones(1,ncrv) ; u0_vals ], ...
-            %     'epsevl', linspace(0.0,ef,nevl), ...
-            %     'epsf',  ef ...
-            % );
 
             [Sobs,trjs,JF,dNp1xu] = ldaux.evaluate_trajectories(Fode_sys_evl,fode,trj_specs);
 
@@ -528,22 +510,18 @@ classdef ldaux
             Pdef = (Odef+1)^(ndep+1);
             nevl = 7*( ceil(1* (ndep+1)*Pdef/(eor*ndep) ) + 1 ); % number of observed solutions per observed integral curve
 
-            % s0 = [ x0*ones(1,ncrv); u0_vals ];
+            xscl = 0.1*ef;
             s0 = [ x0 + rand(1,ncrv) ; u0_vals ];
-            % epsf =  ef;
-            epsf =  ef + rand(ncrv,1);
-            % epsevl = linspace(0.0,ef,nevl);
+            epsf =  ef + xscl*rand(ncrv,1);
             epsevl = cell([ncrv,1]);
-            del_edge = rand(ncrv,2);
+            del_edge =  xscl.*rand(ncrv,2);
             for icrv = 1:ncrv
-                % epsevl{icrv,1} = linspace(x0 + del_edge(icrv,1), ef - del_edge(icrv,1), nevl);
-                epsevl{icrv,1} = linspace(del_edge(icrv,1), ef - del_edge(icrv,1), nevl);
+                epsevl{icrv,1} = linspace(del_edge(icrv,1), ef - del_edge(icrv,2), nevl);
             end
             trj_specs = struct( ...
                 's0', s0, ...
                 'epsf',  epsf ...
             );
-            % 'epsevl', epsevl, ...
             trj_specs.epsevl = epsevl;
 
             % [Sobs,trjs] = ldaux.evaluate_trajectories(Fode_sys_evl,fode,trj_specs);
@@ -621,26 +599,22 @@ classdef ldaux
             %}
             Odef = 3; % cubic permutation model (default)
             Pdef = (Odef+1)^(ndep+1);
-            nevl = 10*(ceil(1* (ndep+1)*Pdef/(eor*ndep) ) + 1);
+            % nevl = 10*(ceil(1* (ndep+1)*Pdef/(eor*ndep) ) + 1);
+            nevl = 5*(ceil(1* (ndep+1)*Pdef/(eor*ndep) ) + 1);
 
+            xscl = 0.1*ef;
             s0 = [ x0 + rand(1,ncrv) ; u0_vals ];
-            epsf =  ef + rand(ncrv,1);
+            epsf =  ef + xscl*rand(ncrv,1);
             epsevl = cell([ncrv,1]);
-            del_edge = rand(ncrv,2);
+            del_edge =  xscl.*rand(ncrv,2);
             for icrv = 1:ncrv
-                % epsevl{icrv,1} = linspace(x0 + del_edge(icrv,1), ef - del_edge(icrv,1), nevl);
-                epsevl{icrv,1} = linspace(del_edge(icrv,1), ef - del_edge(icrv,1), nevl);
+                epsevl{icrv,1} = linspace(del_edge(icrv,1), ef - del_edge(icrv,2), nevl);
             end
             trj_specs = struct( ...
                 's0', s0, ...
                 'epsf',  epsf ...
             );
             trj_specs.epsevl = epsevl;
-            % trj_specs = struct( ...
-            %     's0', [ x0*ones(1,ncrv) ; u0_vals ], ...
-            %     'epsevl', linspace(0.0,ef,nevl), ...
-            %     'epsf',  ef ...
-            % );
 
             % [Sobs,trjs] = ldaux.evaluate_trajectories(Fode_sys_evl,fode,trj_specs);
             [Sobs,trjs,JF,dNp1xu] = ldaux.evaluate_trajectories(Fode_sys_evl,fode,trj_specs);
@@ -723,7 +697,7 @@ classdef ldaux
             %}
             Odef = 3; % cubic permutation model (default)
             Pdef = (Odef+1)^(ndep+1);
-            nevl = 3*ceil( (ndep+1)*Pdef/(eor*ndep) ) + 1;
+            nevl = 2*ceil( (ndep+1)*Pdef/(eor*ndep) ) + 1;
 
             trj_specs = struct( ...
                 's0', [ x0*ones(1,ncrv) ; u0_vals ], ...
@@ -731,7 +705,7 @@ classdef ldaux
                 'epsf',  ef ...
             );
 
-            [Sobs,trjs,JF,dNp1xu] = ldaux.evaluate_trajectories(Fode_sys_evl,fode,trj_specs)
+            [Sobs,trjs,JF,dNp1xu] = ldaux.evaluate_trajectories(Fode_sys_evl,fode,trj_specs);
 
             fprintf(' nobs=%d, ncrv=%d \n', ...
                 ncrv*nevl, ncrv );
@@ -782,27 +756,30 @@ classdef ldaux
             'JF_dxf', @(s_) JF_dxf_eqn(s_) ...
             );
 
-            x0 = 1e-1;
-            ef = 10;
+            ncrv = 30;
+            seed = 6; % Shay's choice
+            seed0 = rng(seed);
 
-            ncrv = 10;
-            % seed = 34; % nice to look at
-            % seed0 = rng(seed);
-            % u00_vals = rand(1,ncrv);
-            % u0_vals = u00_vals .* (1e1);
-            u0_vals = logspace(-1,1,ncrv);
+            x0 = 1e-1; % lower bound for starting x
+            % ef = 10.0; % epsilon varies from e0 = 0 to ef > 0
+            ef = 1.75;
+
+            % trajectory specification
+            % u0_vals = logspace(-1,1,ncrv);
+            u0_vals = 10*rand(1,ncrv);
 
             % nevl = 33; % one more than the cubic Rmat curve matrix
             Odef = 3; % cubic permutation model (default)
             Pdef = (Odef+1)^(ndep+1);
             nevl = 2*(ceil(1* (ndep+1)*Pdef/(eor*ndep) ) + 1);
 
+            xscl = 0.05*ef;
             s0 = [ x0 + rand(1,ncrv) ; u0_vals ];
-            epsf =  ef + rand(ncrv,1);
+            epsf =  ef + xscl*rand(ncrv,1);
             epsevl = cell([ncrv,1]);
-            del_edge = rand(ncrv,2);
+            del_edge =  xscl.*rand(ncrv,2);
             for icrv = 1:ncrv
-                epsevl{icrv,1} = linspace(del_edge(icrv,1), ef - del_edge(icrv,1), nevl);
+                epsevl{icrv,1} = linspace(del_edge(icrv,1), ef - del_edge(icrv,2), nevl);
             end
             trj_specs = struct( ...
                 's0', s0, ...
