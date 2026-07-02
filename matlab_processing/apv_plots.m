@@ -291,10 +291,16 @@ classdef apv_plots
                 end
                 set(axi_, ...
                     'YScale', 'log' );
-                ylabel(axi_, '$$ \sigma_i $$', 'Interpreter','Latex','FontSize',16);
+                ylabel(axi_, '$ \sigma_i $', 'Interpreter','Latex','FontSize',16);
                 legend(axi_, leg_i(1:nsvd),'Location', leg_loc_, 'Interpreter', 'Latex', 'NumColumns',1,'FontSize',14);
             end
+            rlbl = @(s_) [ ', \rho=' num2str(s_.r) '/' num2str(s_.dim) ];
+            nlbl = @(s_) [ ', \| \cdot \|_* =' num2str(sum(s_.s/s_.s(1)),'%.1f') '/' num2str(s_.dim) ];
 
+            % title(axi, '$$ \textrm{SVDs over parameter space, } \mathbb{R}^C $$', ...
+            axi = axs(1);
+            title(axi, ['SVDs over parameter space '], ...
+                'Interpreter','Latex','FontSize',12 );
             svds_i = { ...
                 mod_.H_N1_svd , '$H^N'; ...
                 mod_.DprN_svd, '$D^N'; ...
@@ -306,15 +312,29 @@ classdef apv_plots
                 mod_.Gsvd_N1_TV, '$G^N \textrm{ (non-trivial) }'; ...
                 mod_.Gsvd_N1_TV_net, '$G^N_{\mathrm{net}} \textrm{ (non-trivial) }'; ...
             };
-            rlbl = @(s_) [ ', \rho=' num2str(s_.r) '/' num2str(s_.dim) ];
-            nlbl = @(s_) [ ', \| \cdot \|_* =' num2str(sum(s_.s/s_.s(1)),'%.1f') '/' num2str(s_.dim) ];
             svds = cell([ size(svds_i,1),1 ]);
             labels = cell([length(svds),1]);
             for isvd = 1:size(svds_i,1)
                 labels{isvd} = [ svds_i{isvd,2} rlbl(svds_i{isvd,1}) nlbl(svds_i{isvd,1}) '$'];
                 svds{isvd} = svds_i{isvd,1};
             end
-            plot_labelled_svds(axs(1),svds,labels,'EastOutside');
+            plot_labelled_svds(axi,svds,labels,'EastOutside');
+
+            % title(axi, '$$ \textrm{SVDs over jet space, } \mathbb{R}^B $$', ...
+            axi = axs(2);
+            title(axi, ['SVDs over jet space '], ...
+                'Interpreter','Latex','FontSize',12 );
+            svds_i = { ...
+                mod_.GN1_sO_basis , '$\Lambda^{(0)} |_{s_O} W_G '; ...
+                mod_.GN1_sNO_basis, '$\Lambda^{(N)} |_{s_O} W_G'; ...
+            };
+            svds = cell([ size(svds_i,1),1 ]);
+            labels = cell([length(svds),1]);
+            for isvd = 1:size(svds_i,1)
+                labels{isvd} = [ svds_i{isvd,2} rlbl(svds_i{isvd,1}) nlbl(svds_i{isvd,1}) '$'];
+                svds{isvd} = svds_i{isvd,1};
+            end
+            plot_labelled_svds(axi,svds,labels,'EastOutside');
 
         end
         %% apv plots
