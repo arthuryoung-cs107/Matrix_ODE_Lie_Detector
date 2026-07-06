@@ -126,7 +126,7 @@ classdef LDsol
                 end
             else
                 [bor_0,Plen_0,Pmat_0] = deal(bor_N1,Plen_N1,Pmat_N1);
-                [fspace_0,fspace_RN1] = deal(fspace_N1); % all identical in the case of N = 1
+                [fspace_0,fspace_RN1] = deal(fspace_N1);
             end
             Pmat_RN1_full = fspace_RN1.Pmat;
             Plen_RN1 = fspace_RN1.Plen;
@@ -145,7 +145,7 @@ classdef LDsol
             end
             fspace_RN1.imm_l = @(lambda_) immerse_lambda_RN1(lambda_);
 
-            Jltns_N1 = nan(nvar_N1,Plen_N1,nobs);
+            Jltns_N1 = nan(nvar_N1,Plen_b,nobs);
             Hmat_N1 = nan(nobs,Plen_N1);
             Hmat_0 = nan(nobs,Plen_0);
             Hmat_RN1 = nan(nobs,Plen_N1);
@@ -158,7 +158,7 @@ classdef LDsol
                 sols(iobs) = LDsol(Smat(:,iobs));
 
                 sols(iobs).lamN1 = adlam( fspace_N1, xumat_N1(:,iobs) );
-                Jltns_N1(:,:,iobs) = sols(iobs).lamN1.Jl;
+                Jltns_N1(:,:,iobs) = sols(iobs).lamN1.Jl
                 Hmat_N1(iobs,:) = [ 1.0 , dxumat(:,iobs)' ]*Jltns_N1(:,:,iobs);
 
                 sols(iobs).lam0 = adlam( fspace_0, xumat(:,iobs), Smat((nvar+1):end,iobs) );
@@ -215,16 +215,15 @@ classdef LDsol
                                         - (sols(i).lamRN1.lkx(:,iP_,1) * th_(1:Plen_b,i) );
                 end
             end
-            function [f_s0_out, dxf_s0_out, vth_out, lam_out] = comp_f_s0(s0_,fspc_,W_,iP_)
+            function [f_s0_out, vth_out, lam_out] = comp_f_s0(s0_,fspc_,W_,iP_)
                 nvar_ = length(s0_(:));
                 Plen_b = size(fspc_.Pmat(:,iP_),2);
                 lam_out = adlam( fspc_, s0_ );
                 vx_W = ( W_(1:Plen_b,:) )' * reshape( lam_out.lrow_vals(iP_) , [], 1 );
                 vth_out = W_ * (vx_W./sum(vx_W.*vx_W,1));
-                [vTh_x,vTh_u] = deal( vth_out(1:Plen_b) , reshape(vth_out((Plen_b+1):end),Plen_b,[]) );
-                f_s0_out = vTh_u' * (lam_out.lrow_vals(iP_))';
+                f_s0_out = reshape(vth_out((Plen_b+1):end),Plen_b,[])' * (lam_out.lrow_vals(iP_))';
+
                 lam_out = lam_out.prolong_jet_space( reshape(f_s0_out,[],1) );
-                dxf_s0_out = vTh_u'*lam_out.dkxl(1,iP_)' + lam_out.lkx(:,iP_,1)*vTh_x;
             end
             function [sO_basis_out,sNO_basis_out] = compute_sO_basis(sO_,Pmat_,W_,iP_,lvs_,lam_sO_)
                 nvar_ = size(Pmat_,1);
@@ -234,57 +233,43 @@ classdef LDsol
                 % nvar x Plen x ntheta, pages multiply column lambda vecs
                 Wtns = permute(reshape(W_,Plen_b,nvar_,ntheta_b) , [2 1 3]);
 
-                %% V0W_sO is nvar x ntheta, cols are base space vector coefficients, span T_sO S0
+                %% V0W_sO is an nvar x ntheta, cols are base space vector coefficients, span T_sO S0
                 V0W_sO = reshape(pagemtimes( Wtns , lam_sO_.lrow_vals(iP_)' ), nvar_, ntheta_b);
                 % VdNxuW_sNO is ndep x ntheta, cols are N'th derivative vector field coefficients in N'th jet space
                 VdNxuW_sNO = ...
                     reshape( pagemtimes( Wtns((end-ndep+1):end,:,:), lam_sO_.dkxl(1,iP_)' ), ndep, ntheta_b )  ...
                     - ( lam_sO_.lkx((end-ndep+1):end,iP_,1) * W_(1:Plen_b,:) );
 
-                %% V is an orthonormal basis for parameters of all vfields over base space, U an orthogonal basis for T_sO S0
-                [sO_basis_out,U_V0_sO] = Asvd_package(V0W_sO); % V is ntheta x nvar, linearly combine W columns, yield phi
-                sO_basis_out.U = U_V0_sO; % nvar x nvar, orthogonal basis for T_sO S0
+                %% V is an orthonormal basis for parameters of all vfields over base space, U an orthogonal basis for T_0 S
+                [sO_basis_out,U_V0W_sO] = Asvd_package(V0W_sO);
+                sO_basis_out.U = U_V0W_sO;
+                % nvar x Plen x ntheta, pages multiply column lambda vecs
+                VV0W_tns = permute(reshape(sO_basis_out.V,Plen_b,nvar_,nvar_) , [2 1 3]);
+                % nvar x nobs x nvar, evaluated vector field basis over base space at each observed solution
+                VV0W_S0 = reshape(pagemtimes( VV0W_tns , lvs_ ), nvar_, nobs, nvar_);
+                % directional derivatives wrt chosen vector field basis over N1 base space
+                H_VV0W_S0 = permute(pagemtimes( permute(VV0W_S0,[3 1 2]), Jltns_N1 ), [3 2 1]);
+                sO_basis_out.H_VVW = H_VV0W_S0;
+
                 %% VN is an orthonormal basis for parameters of all vfields over SN, U an orthogonal basis for T_O SN
-                [sNO_basis_out,U_VN_sNO] = Asvd_package([V0W_sO ; VdNxuW_sNO]);
-                sNO_basis_out.U = U_VN_sNO;
-                % theta_mat_WV_s0O is ntheta x nvar parameter matrix, cols lincom lambda fcns, yield vfield coeffs
-                theta_mat_WV_s0O = W_*sO_basis_out.V;
-                % theta_tns_WV_s0O is nvar x Plen x nvar parameter tensor, pages act on lambda col vecs, yield vfield coeffs
-                theta_tns_WV_s0O = permute(reshape(theta_mat_WV_s0O,Plen_b,nvar_,nvar_),[2 1 3]);
-
-                % V0spc_s0O is nvar x nvar matrix basis, columns span tangent space of S0 at s0O, should be equal to U Sigma (perpendicular columns)
-                V0spc_s0O = reshape( pagemtimes( theta_tns_WV_s0O, lam_sO_.lrow_vals(iP_)' ) , nvar_,nvar_);
-                % VdNxuspc_s0O is ndep x nvar matrix, columns are vfield coeffs of dNxu in jet space
-                VdNxuspc_s0O = reshape( pagemtimes( theta_tns_WV_s0O((end-ndep+1):end,:,:) , lam_sO_.dkxl(1,iP_)' ) , [], nvar_ ) ...
-                                - lam_sO_.lkx((end-ndep+1):end,iP_,1) * theta_mat_WV_s0O(1:Plen_b,:) ;
-                % VNspc_s0O is B x nvar matrix, columns are vfield coeffs, span tangent space of SN at sNO, lie algebra at origin
-                VNspc_s0O = [ V0spc_s0O ; VdNxuspc_s0O ];
-
-                % nvar x nobs x nvar, evaluated vector field basis (pages) over base space at each observed solution
-                LamTheta_S0 = reshape(pagemtimes( theta_tns_WV_s0O , lvs_ ), nvar_, nobs, nvar_);
-
-
-                %% primary assignments (on top of being an SVD of the tangent space at the origin)
-                sO_basis_out.theta_WV_sO = theta_mat_WV_s0O; % Theta = W V, ntheta by ntheta, vector field parameters
-                sO_basis_out.Vspc_sO = VNspc_s0O; % V = Lam^(N) |_sO Theta, B by (1+Q), tangent vector basis at the origin
-                sO_basis_out.LamTheta_S = LamTheta_S0; % Lam |_S Theta, nvar x nobs x nvar, tangent vectors by Theta pars
-
+                [sNO_basis_out,U_VNW_sNO] = Asvd_package([V0W_sO ; VdNxuW_sNO]);
+                sNO_basis_out.U = U_VNW_sNO;
 
                 %% get tangent space of observed point solutions
-                % dsO = ( Smat(1:nvar_,:) - sO_(1:nvar_) ); % nvar x nobs
-                % V0W = pagemtimes( Wtns, lvs_ ); % nvar x nobs x ntheta, spans the base space tangent space at each s
-                % V0W_dsO = reshape( sum( dsO.*V0W ,1) , nobs,ntheta_b )'; % ntheta x nobs, col vectors of inner product values
-                % phi_O_W = W_*(V0W_dsO./sum(V0W_dsO.*V0W_dsO, 1)); % ntheta x nobs, col vectors of local parameters in the range of W
-                % v0O_W = reshape( ...
-                %     pagemtimes(permute(reshape(phi_O_W,Plen_b,nvar_,nobs),[2 1 3]),reshape(lvs_,Plen_b,1,nobs)), ...
-                % nvar_,nobs ...
-                % ); % nvar x nobs, tangent space vectors with some component in the direction of displacement from origin
+                dsO = ( Smat(1:nvar_,:) - sO_(1:nvar_) ); % nvar x nobs
+                V0W = pagemtimes( Wtns, lvs_ ); % nvar x nobs x ntheta, spans the base space tangent space at each s
+                V0W_dsO = reshape( sum( dsO.*V0W ,1) , nobs,ntheta_b )'; % ntheta x nobs, col vectors of inner product values
+                phi_O_W = W_*(V0W_dsO./sum(V0W_dsO.*V0W_dsO, 1)); % ntheta x nobs, col vectors of local parameters in the range of W
+                v0O_W = reshape( ...
+                    pagemtimes(permute(reshape(phi_O_W,Plen_b,nvar_,nobs),[2 1 3]),reshape(lvs_,Plen_b,1,nobs)), ...
+                nvar_,nobs ...
+                ); % nvar x nobs, tangent space vectors with some component in the direction of displacement from origin
 
-                % sO_basis_out.V0W = V0W;
-                % sO_basis_out.V0W_dsO = V0W_dsO;
-                % sO_basis_out.phi_O_W = phi_O_W;
-                % sO_basis_out.v0O_W = v0O_W;
-                % sO_basis_out.V0W_sO = V0W_sO;
+                sO_basis_out.V0W = V0W;
+                sO_basis_out.V0W_dsO = V0W_dsO;
+                sO_basis_out.phi_O_W = phi_O_W;
+                sO_basis_out.v0O_W = v0O_W;
+                sO_basis_out.V0W_sO = V0W_sO;
             end
 
             tic0 = tic;
@@ -422,9 +407,8 @@ fprintf('(LDsol::model_solspace) Decomposed %d R + DprN matrices in %.2f seconds
                 ndep ...
             );
             s_O0 = [ jt_O.xh ; reshape( jt_O.Amat(1:kor,:)', ndep*(kor), 1 ) ]; % extract fitted base space origin, s_O0
-            [f_O0,dxf_O0,vth_sO,lamRN1_sO] = comp_f_s0(s_O0,fspace_RN1,Rsvd_N1_net.W,inds_P_RN1); % pass s_O0 to tvf model
+            [f_O0,vth_sO,lamRN1_sO] = comp_f_s0( s_O0 , fspace_RN1, Rsvd_N1_net.W, inds_P_RN1 ); % pass s_O0 to tvf model
             s_O = [ s_O0 ; f_O0((end-ndep+1):end) ]; % set the jet space origin as the graph of tvf on s_O0
-            sNp1_O = [ s_O ; dxf_O0((end-ndep+1):end) ];
 
             %% if R was found to be rank deficient over a subspace, lift vth back into full space
             if ( size(vth_RN1_net,1) ~= ntheta_RN1 )
@@ -483,23 +467,21 @@ fprintf('(LDsol::model_solspace) encoded G+T, %dx%dx%d + %dx%d, in %.2f seconds,
 
                 Gtns_T_net = reshape(Gmat_N1_net',Plen_GN1,nvar_N1,mrow_GN1_net);
                 nsvd = 2;
-                % if (Gsvd_N1_net.r < Gsvd_N1_net.dim)
-                if (Gsvd_N1_net.r < (Gsvd_N1_net.dim - (ndim-ndep)))
+                if (Gsvd_N1_net.r < Gsvd_N1_net.dim)
                     Pmat_GN1_full = Pmat_RN1_full;
                     inds_P_GN1_full = inds_P_GN1;
                     logc_P_GN1_full = ones(1,length(inds_P_GN1(:)));
 
                     %% pare down order of coordinate functions for derivatives
                     ord_i = max(sum(Pmat_GN1_full((nvar+1):end,inds_P_GN1),1))-1;
-                    % while ( (Gsvd_N1_net.r < Gsvd_N1_net.dim)&&(ord_i>0) )
-                    while ( (Gsvd_N1_net.r < (Gsvd_N1_net.dim - (ndim-ndep)))&&(ord_i>0) )
+                    while ( (Gsvd_N1_net.r < Gsvd_N1_net.dim)&&(ord_i>0) )
                         logc_P_i = logc_P_GN1_full&(sum(Pmat_GN1_full((nvar+1):end,:),1) <= ord_i);
                         inds_P_i = inds_P_GN1_full(logc_P_i);
                         % inds_P_i = inds_P_GN1_full(sum(Pmat_GN1_full((nvar+1):end,:),1) <= ord_i);
                         Plen_i = length(inds_P_i(:));
                         nsvd = nsvd + 1;
                         Gsvd_i = Asvd_package(reshape(Gtns_T_net(inds_P_i,:,:),nvar_N1*Plen_i,mrow_GN1_net)');
-                        if (Gsvd_i.r < (Gsvd_i.dim - (ndim-ndep))) % Accept sub svd if rank deficient. Decrement ord_i
+                        if (Gsvd_i.r < Gsvd_i.dim) % accept sub svd if rank deficient
                             logc_P_GN1_full = logc_P_i;
                             inds_P_GN1 = inds_P_i;
                             Gsvd_N1_net = Gsvd_i;
@@ -510,14 +492,14 @@ fprintf('(LDsol::model_solspace) encoded G+T, %dx%dx%d + %dx%d, in %.2f seconds,
                     end
                     %% pare down order of coordinate functions over base space
                     ord_i = max(sum(Pmat_GN1_full(1:nvar,inds_P_GN1),1))-1;
-                    while ( (Gsvd_N1_net.r < (Gsvd_N1_net.dim - (ndim-ndep)))&&(ord_i>0) )
+                    while ( (Gsvd_N1_net.r < Gsvd_N1_net.dim)&&(ord_i>0) )
                         logc_P_i = logc_P_GN1_full&(sum(Pmat_GN1_full(1:nvar,:),1) <= ord_i);
                         inds_P_i = inds_P_GN1_full(logc_P_i);
                         % inds_P_i = inds_P_GN1_full(sum(Pmat_GN1_full(1:nvar,:),1) <= ord_i);
                         Plen_i = length(inds_P_i(:));
                         nsvd = nsvd + 1;
                         Gsvd_i = Asvd_package(reshape(Gtns_T_net(inds_P_i,:,:),nvar_N1*Plen_i,mrow_GN1_net)');
-                        if (Gsvd_i.r < (Gsvd_i.dim - (ndim-ndep))) % Accept sub svd if rank deficient. Decrement ord_i
+                        if (Gsvd_i.r < Gsvd_i.dim) % accept sub svd if rank deficient
                             logc_P_GN1_full = logc_P_i;
                             inds_P_GN1 = inds_P_i;
                             Gsvd_N1_net = Gsvd_i;
@@ -529,13 +511,13 @@ fprintf('(LDsol::model_solspace) encoded G+T, %dx%dx%d + %dx%d, in %.2f seconds,
 
                     %% finally, pare down net order of coordinate function basis
                     ord_i = max(sum(Pmat_GN1_full(:,inds_P_GN1),1))-1;
-                    while ( (Gsvd_N1_net.r < (Gsvd_N1_net.dim - (ndim-ndep)))&&(ord_i>0) )
+                    while ( (Gsvd_N1_net.r < Gsvd_N1_net.dim)&&(ord_i>0) )
                         logc_P_i = logc_P_GN1_full&(sum(Pmat_GN1_full,1) <= ord_i);
                         inds_P_i = inds_P_GN1_full(logc_P_i);
                         Plen_i = length(inds_P_i(:));
                         nsvd = nsvd + 1;
                         Gsvd_i = Asvd_package(reshape(Gtns_T_net(inds_P_i,:,:),nvar_N1*Plen_i,mrow_GN1_net)');
-                        if (Gsvd_i.r < (Gsvd_i.dim - (ndim-ndep))) % Accept sub svd if rank deficient. Decrement ord_i
+                        if (Gsvd_i.r < Gsvd_i.dim) % accept sub svd if rank deficient
                             logc_P_GN1_full = logc_P_i;
                             inds_P_GN1 = inds_P_i;
                             Gsvd_N1_net = Gsvd_i;
@@ -548,22 +530,20 @@ fprintf('(LDsol::model_solspace) encoded G+T, %dx%dx%d + %dx%d, in %.2f seconds,
             else
                 Gsvd_N1_net = Gsvd_N1;
 
-                % if (Gsvd_N1_net.r < Gsvd_N1_net.dim)
-                if (Gsvd_N1_net.r < (Gsvd_N1_net.dim - (ndim-ndep)))
+                if (Gsvd_N1_net.r < Gsvd_N1_net.dim)
                     Gtns_T_net = reshape(Gmat_N1',Plen_GN1,nvar_N1,mrow_GN1_net);
 
                     inds_P_GN1_full = inds_P_GN1;
                     logc_P_GN1_full = ones(1,length(inds_P_GN1(:)));
                     %% pare down order of coordinate functions over base space
                     ord_i = max(sum(Pmat_GN1_full,1))-1;
-                    while ( (Gsvd_N1_net.r < (Gsvd_N1_net.dim - (ndim-ndep)))&&(ord_i>0) )
+                    while ( (Gsvd_N1_net.r < Gsvd_N1_net.dim)&&(ord_i>0) )
                         logc_P_i = logc_P_GN1_full&(sum(Pmat_GN1_full,1) <= ord_i);
                         inds_P_i = inds_P_GN1_full(logc_P_i);
                         Plen_i = length(inds_P_i(:));
                         nsvd = nsvd + 1;
                         Gsvd_i = Asvd_package(reshape(Gtns_T_net(inds_P_i,:,:),nvar_N1*Plen_i,mrow_GN1_net)');
-                        % if (Gsvd_i.r < Gsvd_i.dim) % Accept sub svd if rank deficient. Decrement ord_i
-                        if (Gsvd_i.r < (Gsvd_i.dim - (ndim-ndep))) % Accept sub svd if rank deficient. Decrement ord_i
+                        if (Gsvd_i.r < Gsvd_i.dim) % Accept sub svd if rank deficient. Decrement ord_i
                             logc_P_GN1_full = logc_P_i;
                             inds_P_GN1 = inds_P_i;
                             Gsvd_N1_net = Gsvd_i;
@@ -585,18 +565,116 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
             %% identify tangent space basis with respect to chosen origin
             [GN1_sO_basis,GN1_sNO_basis] = compute_sO_basis( s_O(:), fspace_RN1.Pmat, Gsvd_N1_net.W, inds_P_GN1, lvs_RN1(inds_P_GN1,:), lamRN1_sO );
 
-            Gbse_sO = GN1_sO_basis;
-            Vspc_G_S0 = permute(Gbse_sO.LamTheta_S,[3 1 2]); % nvar x nvar x nobs, rows are transversal tangent vectors
-            H_LamTheta_S0 = permute(pagemtimes( Vspc_G_S0 , Jltns_N1 ), [3 2 1]); % nobs x Plen x nvar, pages are Hmats
-            for i = 1:nvar_N1
-                %% H = U Sigma V^T : V = [Y K], kernel vectors are constant functions over each coordinate vfield.
-                Hsvd_LamTheta_S0(i) = Asvd_package( H_LamTheta_S0(:,:,i) );
-            end
-            GN1_sO_basis.Hsvd_LamTheta_S = Hsvd_LamTheta_S0;
+            tic0 = tic;
+            inds_P_G_N1_TV = 1:Plen_GN1;
+            Gmat_N1_TV = [ Gsvd_N1.D , Tsvd_N1.D ]'; % kernal contains non-trivial vector fields, unrestricted by prolongation
+            Gsvd_N1_TV = Asvd_package( Gmat_N1_TV );
+            mrow_G_TV_net = size(Gmat_N1_TV,1);
+            nsvd = 1;
+            if (kor>1)
+                Gmat_N1_TV_net = [ Gsvd_N1_TV.D , DprN_svd.D ]';  % kernal contains non-trivial vector fields obeying prolongation
+                Gsvd_N1_TV_net = Asvd_package( Gmat_N1_TV_net );
+                mrow_G_TV_net = size(Gmat_N1_TV_net,1); % redefine column space dimension to that of concatenated, transposed row space
 
-            % nvar x nobs x nvar, directional derivatives wrt chosen vector field basis (pages) over N1 base space
-            % H_VV0W_S0 = permute(pagemtimes( permute(GN1_sO_basis.VVW_S,[3 1 2]), Jltns_N1 ), [3 2 1]);
-            % GN1_sO_basis.H_VV0W_S0 = H_VV0W_S0;
+                Gtns_T_net = reshape(Gmat_N1_TV_net',Plen_GN1,nvar_N1,mrow_G_TV_net);
+                nsvd = 2;
+                if (Gsvd_N1_TV_net.r < Gsvd_N1_TV_net.dim)
+                    Pmat_GN1_full = Pmat_RN1_full;
+                    inds_P_GN1_full = inds_P_G_N1_TV;
+                    logc_P_GN1_full = ones(1,length(inds_P_G_N1_TV(:)));
+
+                    %% pare down order of coordinate functions for derivatives
+                    ord_i = max(sum(Pmat_GN1_full((nvar+1):end,inds_P_G_N1_TV),1))-1;
+                    while ( (Gsvd_N1_TV_net.r < Gsvd_N1_TV_net.dim)&&(ord_i>0) )
+                        logc_P_i = logc_P_GN1_full&(sum(Pmat_GN1_full((nvar+1):end,:),1) <= ord_i);
+                        inds_P_i = inds_P_GN1_full(logc_P_i);
+                        % inds_P_i = inds_P_GN1_full(sum(Pmat_GN1_full((nvar+1):end,:),1) <= ord_i);
+                        Plen_i = length(inds_P_i(:));
+                        nsvd = nsvd + 1;
+                        Gsvd_i = Asvd_package(reshape(Gtns_T_net(inds_P_i,:,:),nvar_N1*Plen_i,mrow_G_TV_net)');
+                        if (Gsvd_i.r < Gsvd_i.dim) % accept sub svd if rank deficient
+                            logc_P_GN1_full = logc_P_i;
+                            inds_P_G_N1_TV = inds_P_i;
+                            Gsvd_N1_TV_net = Gsvd_i;
+                            ord_i = ord_i - 1;
+                        else % reject, maintain previous svd, break
+                            break;
+                        end
+                    end
+                    %% pare down order of coordinate functions over base space
+                    % ord_i = max(reshape(Pmat_GN1_full(1:nvar,:),[],1));
+                    ord_i = max(sum(Pmat_GN1_full(1:nvar,inds_P_G_N1_TV),1))-1;
+                    while ( (Gsvd_N1_TV_net.r < Gsvd_N1_TV_net.dim)&&(ord_i>0) )
+                        logc_P_i = logc_P_GN1_full&(sum(Pmat_GN1_full(1:nvar,:),1) <= ord_i);
+                        inds_P_i = inds_P_GN1_full(logc_P_i);
+                        % inds_P_i = inds_P_GN1_full(sum(Pmat_GN1_full(1:nvar,:),0) <= ord_i);
+                        Plen_i = length(inds_P_i(:));
+                        nsvd = nsvd + 1;
+                        Gsvd_i = Asvd_package(reshape(Gtns_T_net(inds_P_i,:,:),nvar_N1*Plen_i,mrow_G_TV_net)');
+                        if (Gsvd_i.r < Gsvd_i.dim) % accept sub svd if rank deficient
+                            logc_P_GN1_full = logc_P_i;
+                            inds_P_G_N1_TV = inds_P_i;
+                            Gsvd_N1_TV_net = Gsvd_i;
+                            ord_i = ord_i - 1;
+                        else % reject, maintain previous svd, break
+                            break;
+                        end
+                    end
+
+                    %% finally, pare down net order of coordinate function basis
+                    ord_i = max(sum(Pmat_GN1_full(:,inds_P_G_N1_TV),1))-1;
+                    while ( (Gsvd_N1_TV_net.r < Gsvd_N1_TV_net.dim)&&(ord_i>0) )
+                        logc_P_i = logc_P_GN1_full&(sum(Pmat_GN1_full,1) <= ord_i);
+                        inds_P_i = inds_P_GN1_full(logc_P_i);
+                        Plen_i = length(inds_P_i(:));
+                        nsvd = nsvd + 1;
+                        Gsvd_i = Asvd_package(reshape(Gtns_T_net(inds_P_i,:,:),nvar_N1*Plen_i,mrow_G_TV_net)');
+                        if (Gsvd_i.r < Gsvd_i.dim) % accept sub svd if rank deficient
+                            logc_P_GN1_full = logc_P_i;
+                            inds_P_G_N1_TV = inds_P_i;
+                            Gsvd_N1_TV_net = Gsvd_i;
+                            ord_i = ord_i - 1;
+                        else % reject, maintain previous svd, break
+                            break;
+                        end
+                    end
+                end
+            else
+                Gsvd_N1_TV_net = Gsvd_N1_TV;
+
+                if (Gsvd_N1_net.r < Gsvd_N1_net.dim)
+                    Gtns_T_net = reshape(Gmat_N1_TV',Plen_GN1,nvar_N1,mrow_G_TV_net);
+
+                    inds_P_GN1_full = inds_P_G_N1_TV;
+                    logc_P_GN1_full = ones(1,length(inds_P_G_N1_TV(:)));
+                    %% pare down order of coordinate functions over base space
+                    ord_i = max(sum(Pmat_GN1_full,1))-1;
+                    while ( (Gsvd_N1_TV_net.r < Gsvd_N1_TV_net.dim)&&(ord_i>0) )
+                        logc_P_i = logc_P_GN1_full&(sum(Pmat_GN1_full,1) <= ord_i);
+                        inds_P_i = inds_P_GN1_full(logc_P_i);
+                        Plen_i = length(inds_P_i(:));
+                        nsvd = nsvd + 1;
+                        Gsvd_i = Asvd_package(reshape(Gtns_T_net(inds_P_i,:,:),nvar_N1*Plen_i,mrow_G_TV_net)');
+                        if (Gsvd_i.r < Gsvd_i.dim) % Accept sub svd if rank deficient. Decrement ord_i
+                            logc_P_GN1_full = logc_P_i;
+                            inds_P_G_N1_TV = inds_P_i;
+                            Gsvd_N1_TV_net = Gsvd_i;
+                            ord_i = ord_i - 1;
+                        else % reject, maintain previous svd, break
+                            break;
+                        end
+                    end
+                end
+            end
+            toc1 = toc(tic0);
+fprintf('(LDsol::model_solspace) Decomposed %d G+DprN+T matrices in %.2f seconds: %dx%d (r=%d,k=%d) -> %dx%d (r=%d,k=%d,o0=%d,oN=%d,o=%d) \n', ...
+            nsvd, toc1, ...
+            size(Gmat_N1_TV,1), size(Gmat_N1_TV,2), Gsvd_N1_TV.r, Gsvd_N1_TV.dim-Gsvd_N1_TV.r, ...
+            mrow_G_TV_net, Gsvd_N1_TV_net.dim, Gsvd_N1_TV_net.r, Gsvd_N1_TV_net.dim-Gsvd_N1_TV_net.r, ...
+            max(sum(fspace_RN1.Pmat(1:nvar,inds_P_G_N1_TV),1)), max(sum(fspace_RN1.Pmat((nvar+1):end,inds_P_G_N1_TV),1)), ...
+            max(sum(fspace_RN1.Pmat(:,inds_P_G_N1_TV),1)) );
+
+            % [GN1_TV_sO_basis,GN1_TV_sNO_basis] = compute_sO_basis( s_O(:), fspace_RN1.Pmat, Gsvd_N1_TV_net.W, inds_P_G_N1_TV, lvs_RN1(inds_P_G_N1_TV,:), lamRN1_sO );
 
             function err_stats(prefix_,err_)
                 err_tol = 1e-3;
@@ -641,6 +719,8 @@ fprintf( '(%s err) [min,med,avg,max]=[%.1e,%.1e,%.1e,%.1e]. Success: [med,max] =
                 'Rmat_N1', Rmat_N1, ...
                 'inds_P_GN1', inds_P_GN1, ...
                 'Gmat_N1', Gmat_N1, ...
+                'inds_P_G_N1_TV', inds_P_G_N1_TV, ...
+                'Gmat_N1_TV', Gmat_N1_TV, ...
                 'vth_RN1_net', vth_RN1_net, ...
                 'tau_uN_RN1_net', tau_uN_RN1_net, ...
                 'J_tau_u_RN1', J_tau_u_RN1, ...
@@ -667,7 +747,6 @@ fprintf( '(%s err) [min,med,avg,max]=[%.1e,%.1e,%.1e,%.1e]. Success: [med,max] =
             mod_out.lamRN1_sO = lamRN1_sO;
 
             mod_out.s_O = s_O;
-            mod_out.sNp1_O = sNp1_O;
 
             mod_out.Tsvd_N1 = Tsvd_N1;
 
@@ -677,6 +756,11 @@ fprintf( '(%s err) [min,med,avg,max]=[%.1e,%.1e,%.1e,%.1e]. Success: [med,max] =
             mod_out.GN1_sO_basis = GN1_sO_basis;
             mod_out.GN1_sNO_basis = GN1_sNO_basis;
 
+            mod_out.Gsvd_N1_TV = Gsvd_N1_TV;
+            mod_out.Gsvd_N1_TV_net = Gsvd_N1_TV_net;
+
+            % mod_out.GN1_TV_sO_basis = GN1_TV_sO_basis;
+            % mod_out.GN1_TV_sNO_basis = GN1_TV_sNO_basis;
         end
         function jt_out = compute_trivial_Hermite_jet(s0_,s1_,ndep_)
             if (s0_(1) > s1_(1)) % enforce trivial flow in the positive direction

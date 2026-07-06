@@ -29,12 +29,12 @@ scrn_id = 1;
 %}
 % % generate a data set
 tic0 = tic;
-[Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_Riccati_data_2(); % N = 1, Q = 1
+% [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_Riccati_data_2(); % N = 1, Q = 1
 % [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_Brusselator_data(); % N = 1, Q = 2
 % [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_Van_der_Pol_data(); % N = 2, Q = 1
 % [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_oscillator_polr_data(); % N = 2, Q = 1, easier than VanderPol
 % [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_pendulum_polr_data(); % N = 2, Q = 1
-% [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_double_oscillator_data(); % N = 2, Q = 2, linear homogenous
+[Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_double_oscillator_data(); % N = 2, Q = 2, linear homogenous
 % [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_double_pendulum_data(); % N = 2, Q = 2, would be wild to learn anything
 toc1 = toc(tic0);
 fprintf('generated jet space data in %.3f seconds \n', toc1);
@@ -94,9 +94,9 @@ fprintf('built jet space model in %.3f seconds \n', toc1);
 mod
 mod.s_O
 
-dat_plt0.Color = apv_plots.orange1;
-plt0 = apv_plots.plot_Sobs(plt0, mod.s_O ,dat_plt0);
-dat_plt0.Color = apv_plots.green4;
+% dat_plt0.Color = apv_plots.orange1;
+% plt0 = apv_plots.plot_Sobs(plt0, mod.s_O ,dat_plt0);
+% dat_plt0.Color = apv_plots.green4;
 
 Jf_RN1_check = mod.J_tau_u_RN1(:,:,1,iisol_check)
 Jdxf_RN1_check = mod.J_tau_u_RN1(:,:,2,iisol_check)
