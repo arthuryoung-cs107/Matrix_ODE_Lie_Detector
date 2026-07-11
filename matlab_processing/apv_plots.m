@@ -212,6 +212,7 @@ classdef apv_plots
     end
 
     methods (Static)
+
         function [plt,plt_1D] = plot_LDsol_model_summary(p_,mod_,d_)
             plt_jspc = apv_plots('jspc_model_summary', ...
                 [2 1],...
@@ -219,72 +220,153 @@ classdef apv_plots
                 1);
             plt_jspc.show_toolbar
 
-            function out = plot_tvector(axi_,sx_,su_,vx_,vu_,color_)
-                plot(axi_, ...
-                sx_, su_, ...
-                'LineStyle', '-', ...
-                'LineWidth', 1, ...
-                'Color', color_, ...
-                'Marker', 'o', ...
-                'MarkerSize', ceil(0.5*pspc.MarkerSize), ...
-                'MarkerFaceColor', color_, ...
-                'MarkerEdgeColor', [0 0 0] ...
-                );
-                plot(axi_, ...
+            plot_tvector = @(axi_,sx_,su_,vx_,vu_,clr_,LS_,mrkr_) plot(axi_, ...
                 [sx_ , sx_+vx_], [su_ , su_+vu_], ...
-                'LineStyle', '-', ...
+                'LineStyle', LS_, ...
                 'LineWidth', 1, ...
-                'Color', color_, ...
-                'Marker', 'none', ...
-                'MarkerSize', 1, ...
-                'MarkerFaceColor', color_, ...
-                'MarkerEdgeColor', [0 0 0] ...
-                );
-            end
+                'Color', clr_, ...
+                'Marker', mrkr_, ...
+                'MarkerSize', 3, ...
+                'MarkerFaceColor', clr_, ...
+                'MarkerEdgeColor', clr_ ...
+            );
+            plot2D = @(axi_,x_,y_,LS_,clr_,mrkr_,MS_) plot(axi_, ...
+                x_, y_, ...
+                'LineStyle', LS_, ...
+                'LineWidth', 0.5, ...
+                'Color', clr_, ...
+                'Marker', mrkr_, ...
+                'MarkerSize', MS_, ...
+                'MarkerFaceColor', clr_, ...
+                'MarkerEdgeColor', clr_ ...
+            );
 
+            nobs = size(mod_.Smat,2);
             ndep = length(mod_.fspace_0.Omap_b(:))-1;
             ndim = size(mod_.Smat,1);
             kor = ((ndim-1)/ndep) - 1;
+            nvar_N1 = 1 + ndep*kor; % 1 + QN, the N1 base space dimension
+
             [plt_jspc,pspc] = apv_plots.plot_Sobs(plt_jspc,mod_.Sobs,d_);
+            lims0 = plt_jspc.get_axis_lims();
+
+            pspc_i = pspc;
+            pspc_i.Color = apv_plots.blue1;
+            [plt_jspc,pspc_i] = apv_plots.plot_Sobs(plt_jspc, mod_.Sobs{mod_.isrtmags_dXi_S_sO(1)},pspc_i);
+            pspc_i.Color = apv_plots.red1;
+            [plt_jspc,pspc_i] = apv_plots.plot_Sobs(plt_jspc, mod_.Sobs{mod_.isrtmags_dXi_S_sO(2)},pspc_i);
+
             plt = plt_jspc;
             axs = plt.axs;
             axs_mat = plt.axs_mat;
             tau_uN_RN1_tns = reshape(mod_.tau_uN_RN1_net(:,1,:),ndep,kor,[]);
             sO = mod_.s_O;
             [xO,uO] = deal( mod_.s_O(1),reshape(mod_.sNp1_O(2:end),ndep,kor+2) );
-            Vspc_O = mod_.GN1_sO_basis.Vspc_sO;
+            t_sO = [ 1 ; reshape( uO(:,2:end), [],1 ) ];
+            G_sO_basis = mod_.GN1_sO_basis;
+            Vspc_O = G_sO_basis.Vspc_sO;
+            Vspc_O = Vspc_O*( norm(t_sO(1:ndim)) / sqrt(max(sum(Vspc_O.*Vspc_O,1))) ); % rescale wrt tvf
             Vspc_O_x = Vspc_O(1,:);
             Vspc_O_u = reshape( Vspc_O(2:end,:), ndep,kor+1,[] );
-            Vspc_O_u = Vspc_O_u*( norm([ 1 ; reshape( uO(:,2:end), [],1 ) ]) / sqrt(max(sum(Vspc_O.*Vspc_O,1))) ); % rescale wrt tvf
-            nVspc = length(Vspc_O_x(:));
-            cmat_i = hsv(nVspc);
+            J_xi_sO = [ G_sO_basis.J_xi_sO ; zeros( ndep,nvar_N1 ) ];
+            J_xi_sO = J_xi_sO*( norm(t_sO(1:ndim)) / sqrt(max(sum(J_xi_sO.*J_xi_sO,1))) ); % rescale wrt tvf
+            J_xi_O_x = J_xi_sO(1,:);
+            J_xi_O_u = reshape( J_xi_sO(2:end,:), ndep,kor+1,[] );
+            cmat_i = hsv(nvar_N1);
             for i = 1:ndep
                 tau_uiN = reshape(tau_uN_RN1_tns(i,:,:),kor,[]);
-
-                plot_tvector(axs_mat(i,1),xO,uO(i,1),1,uO(i,2),apv_plots.orange1);
-                for iq = 1:nVspc
-                    plot_tvector(axs_mat(i,1),xO,uO(i,1),Vspc_O_x(iq),Vspc_O_u(i,1,iq),cmat_i(iq,:));
+                plot2D(axs_mat(i,1),xO,uO(i,1),'none',[1 1 1],'o',pspc.MarkerSize);
+                plot_tvector(axs_mat(i,1),xO,uO(i,1),1,uO(i,2),[1 1 1],'-','none');
+                for iq = 1:nvar_N1
+                    plot_tvector(axs_mat(i,1),xO,uO(i,1),Vspc_O_x(iq),Vspc_O_u(i,1,iq),cmat_i(iq,:),'-','none');
+                    plot_tvector(axs_mat(i,1),xO,uO(i,1),J_xi_O_x(iq),J_xi_O_u(i,1,iq),cmat_i(iq,:),':','d');
                 end
                 for k = 2:(kor+1)
-                    plot(axs_mat(i,k), ...
-                    mod_.Smat(1,:), tau_uiN(k-1,:), ...
-                    'LineStyle', 'none', ...
-                    'LineWidth', 0.5, ...
-                    'Color', pspc.Color, ...
-                    'Marker', pspc.Marker, ...
-                    'MarkerSize', ceil(0.25*pspc.MarkerSize), ...
-                    'MarkerFaceColor', [0 1 0], ...
-                    'MarkerEdgeColor', [0 0 0] ...
-                    );
-                    plot_tvector(axs_mat(i,k),xO,uO(i,k),1,uO(i,k+1),apv_plots.orange1);
-                    for iq = 1:nVspc
-                        plot_tvector(axs_mat(i,k),xO,uO(i,k),Vspc_O_x(iq),Vspc_O_u(i,k,iq),cmat_i(iq,:));
+                    plot2D(axs_mat(i,k),mod_.Smat(1,:),tau_uiN(k-1,:),'none',[0 1 0],'o',ceil(0.25*pspc.MarkerSize));
+                    plot2D(axs_mat(i,k),xO,uO(i,k),'none',[1 1 1],'o',pspc.MarkerSize);
+                    plot_tvector(axs_mat(i,k),xO,uO(i,k),1,uO(i,k+1),[1 1 1],'-','none');
+                    for iq = 1:nvar_N1
+                        plot_tvector(axs_mat(i,k),xO,uO(i,k),Vspc_O_x(iq),Vspc_O_u(i,k,iq),cmat_i(iq,:),'-','none');
+                        plot_tvector(axs_mat(i,k),xO,uO(i,k),J_xi_O_x(iq),J_xi_O_u(i,k,iq),cmat_i(iq,:),':','d');
                     end
                 end
             end
+            if ( (ndep==kor)&&(kor==1) )
+                sO_11 = reshape(sO(1:3),[],1);
+                plt3D_i = @(s_,mrkr_,c_,LS_) plot3(axs_mat(1,end), ...
+                    s_(1,:), s_(2,:), s_(3,:), ...
+                    'LineStyle', LS_, ...
+                    'LineWidth', 1, ...
+                    'Color', c_, ...
+                    'Marker', mrkr_, ...
+                    'MarkerSize', pspc.MarkerSize, ...
+                    'MarkerFaceColor', c_, ...
+                    'MarkerEdgeColor', [0 0 0] ...
+                );
+                plt3D_i(sO_11,'o',[1 1 1],'none')
+                plt3D_i([ sO_11, sO_11+[ 1 ; uO(2:3)' ] ],'none',[1 1 1],'-')
+                plt3D_i([ sO_11, sO_11+[ Vspc_O_x(1) ; Vspc_O_u(1,1:2,1)' ] ],'none',cmat_i(1,:),'-')
+                plt3D_i([ sO_11, sO_11+[ Vspc_O_x(2) ; Vspc_O_u(1,1:2,2)' ] ],'none',cmat_i(2,:),'-')
+                plt3D_i([ sO_11, sO_11+[ J_xi_O_x(1) ; J_xi_O_u(1,1:2,1)' ] ],'d',cmat_i(1,:),':')
+                plt3D_i([ sO_11, sO_11+[ J_xi_O_x(2) ; J_xi_O_u(1,1:2,2)' ] ],'d',cmat_i(2,:),':')
+            end
+            %% visualize Sobs over canonical coordinates
+            plt_xi_spc = apv_plots('Xi_spc', ...
+                [ndim 2],...
+                [nvar_N1 1],[ndim 1], ...
+                1);
+            plt_xi_spc.show_toolbar
+            d_xi = pspc;
+            % d_xi.ndep = nvar_N1-1;
+            d_xi.ndep = nvar_N1;
+            d_xi.eor = 0;
+            d_xi.LineStyle = 'none';
+            Sobs_Xi = mod_.dXi_S_sO_cell;
+            for i = 1:length(mod_.Sobs)
+                Sobs_Xi{i} = [mod_.Sobs{i}(1,:) ; Sobs_Xi{i}];
+            end
+            [plt_xi_spc,pspc_xi] = apv_plots.plot_Sobs(plt_xi_spc,Sobs_Xi,d_xi);
+            pspc_xi.Color = apv_plots.blue1;
+            [plt_xi_spc,pspc_xi] = apv_plots.plot_Sobs(plt_xi_spc,Sobs_Xi{mod_.isrtmags_dXi_S_sO(1)},pspc_xi);
+            pspc_xi.Color = apv_plots.red1;
+            [plt_xi_spc,pspc_xi] = apv_plots.plot_Sobs(plt_xi_spc,Sobs_Xi{mod_.isrtmags_dXi_S_sO(2)},pspc_xi);
 
+            plt_xi_sec = apv_plots('Xi_spc_sections', ...
+                [ndim 1],...
+                [nvar_N1 1],[ndim 1], ...
+                1);
+            plt = plt_xi_sec;
+            plt = plt.init_tiles_safe(nvar_N1,nvar_N1);
+            hold(plt.axs, 'on');
+            box(plt.axs,'on');
+            axs = plt.axs;
+            axs_mat = plt.axs_mat;
+            set(axs, ...
+                'YScale', 'linear',  ...
+                'XScale', 'linear',  ...
+                'TickLabelInterpreter','Latex', ...
+                'FontSize',16 );
+            plt.show_toolbar
+            Smat_xi = G_sO_basis.Xi_S - G_sO_basis.Xi_sO;
+            for i = 1:nvar_N1
+                for j = 1:(i-1)
+                    plot2D(axs_mat(i,j),Smat_xi(j,:),Smat_xi(i,:),'none',cmat_i(i,:),'o',pspc.MarkerSize);
+                    fplot(axs_mat(i,j), @(x_) x_ , [min(Smat_xi(j,:)),max(Smat_xi(j,:))], ':', 'Color', [1 1 1])
+                    xlabel(axs_mat(i,j), ['$ \xi_' num2str(j) ' $'], 'Interpreter','Latex','FontSize',16);
+                end
+                plot2D(axs_mat(i,i),mod_.Smat(1,:),Smat_xi(i,:),'none',cmat_i(i,:),'o',pspc.MarkerSize);
+                xlabel(axs_mat(i,i), '$ x $', 'Interpreter','Latex','FontSize',16);
+                for j = (i+1):nvar_N1
+                    plot2D(axs_mat(i,j),Smat_xi(j,:),Smat_xi(i,:),'none',cmat_i(i,:),'o',pspc.MarkerSize);
+                    fplot(axs_mat(i,j), @(x_) x_ , [min(Smat_xi(j,:)),max(Smat_xi(j,:))], ':', 'Color', [1 1 1])
+                    xlabel(axs_mat(i,j), ['$ \xi_' num2str(j) ' $'], 'Interpreter','Latex','FontSize',16);
+                end
+                ylabel(axs_mat(i,:), ['$ \xi_' num2str(i) ' $'], 'Interpreter','Latex','FontSize',16);
+            end
+
+            %% visualize model diagnostics
             plt = p_;
-            plt = plt.init_tiles_safe(1,2);
+            plt = plt.init_tiles_safe(2,2);
             hold(plt.axs, 'on');
             box(plt.axs,'on');
             axs = plt.axs;
@@ -293,7 +375,6 @@ classdef apv_plots
                 'XScale', 'linear',  ...
                 'TickLabelInterpreter','Latex', ...
                 'FontSize',16 );
-            xlabel(axs, '$$ i $$', 'Interpreter','Latex','FontSize',16);
             % plt.show_menubar
             plt.show_toolbar
 
@@ -331,14 +412,14 @@ classdef apv_plots
                 end
                 set(axi_, ...
                     'YScale', 'log' );
+                xlabel(axi_, '$$ i $$', 'Interpreter','Latex','FontSize',16);
                 ylabel(axi_, '$ \sigma_i $', 'Interpreter','Latex','FontSize',16);
                 legend(axi_, leg_i(1:nsvd),'Location', leg_loc_, 'Interpreter', 'Latex', 'NumColumns',1,'FontSize',14);
             end
             rlbl = @(s_) [ ', \rho=' num2str(s_.r) '/' num2str(s_.dim) ];
             nlbl = @(s_) [ ', \| \cdot \|_* =' num2str(sum(s_.s/s_.s(1)),'%.1f') '/' num2str(s_.dim) ];
 
-            % title(axi, '$$ \textrm{SVDs over parameter space, } \mathbb{R}^C $$', ...
-            axi = axs(1);
+            axi = axs_mat(1,1);
             title(axi, ['SVDs over parameter space '], ...
                 'Interpreter','Latex','FontSize',12 );
             svds_i = { ...
@@ -349,6 +430,31 @@ classdef apv_plots
                 mod_.Tsvd_N1,  '$T^N'; ...
                 mod_.Gsvd_N1,  '$G^N'; ...
                 mod_.Gsvd_N1_net,  '$G^N_{\mathrm{net}}'; ...
+                G_sO_basis.Hsvd_LamTheta_S_net, '$H_{\mathrm{net}}'; ...
+                G_sO_basis.Hsvd_tvf_YHnet_S, '$H_{\mathrm{tvf}} Y_{H_{\mathrm{net}}} '; ...
+            };
+            nsvd_i = size(svds_i,1);
+            Hsvds_i = G_sO_basis.Hsvd_LamTheta_S;
+            for isvd = 1:length(Hsvds_i(:))
+                svds_i{isvd+nsvd_i,1} = Hsvds_i(isvd);
+                svds_i{isvd+nsvd_i,2} = ['$H_{' num2str(isvd) '}'];
+            end
+            svds = cell([ size(svds_i,1),1 ]);
+            labels = cell([length(svds),1]);
+            for isvd = 1:size(svds_i,1)
+                labels{isvd} = [ svds_i{isvd,2} rlbl(svds_i{isvd,1}) nlbl(svds_i{isvd,1}) '$'];
+                svds{isvd} = svds_i{isvd,1};
+            end
+            plot_labelled_svds(axi,svds,labels,'EastOutside');
+
+            axi = axs_mat(1,2);
+            title(axi, ['SVDs over jet space '], ...
+                'Interpreter','Latex','FontSize',12 );
+            svds_i = { ...
+                mod_.GN1_s0O_basis , '$\Lambda^{(0)} |_{s_O} W_G'; ...
+                mod_.GN1_sNO_basis, '$\Lambda^{(N)} |_{s_O} W_G'; ...
+                G_sO_basis.Th_xi_svd, '$ \Theta^{\xi} '; ...
+                G_sO_basis.Jsvd_xi_sO, '$J \Xi |_{s_O}'; ...
             };
             svds = cell([ size(svds_i,1),1 ]);
             labels = cell([length(svds),1]);
@@ -358,21 +464,21 @@ classdef apv_plots
             end
             plot_labelled_svds(axi,svds,labels,'EastOutside');
 
-            % title(axi, '$$ \textrm{SVDs over jet space, } \mathbb{R}^B $$', ...
-            axi = axs(2);
-            title(axi, ['SVDs over jet space '], ...
-                'Interpreter','Latex','FontSize',12 );
-            svds_i = { ...
-                mod_.GN1_sO_basis , '$\Lambda^{(0)} |_{s_O} W_G '; ...
-                mod_.GN1_sNO_basis, '$\Lambda^{(N)} |_{s_O} W_G'; ...
-            };
-            svds = cell([ size(svds_i,1),1 ]);
-            labels = cell([length(svds),1]);
-            for isvd = 1:size(svds_i,1)
-                labels{isvd} = [ svds_i{isvd,2} rlbl(svds_i{isvd,1}) nlbl(svds_i{isvd,1}) '$'];
-                svds{isvd} = svds_i{isvd,1};
-            end
-            plot_labelled_svds(axi,svds,labels,'EastOutside');
+            axi = axs_mat(2,1);
+            % title(axi, ['SVDs over jet space '], ...
+            %     'Interpreter','Latex','FontSize',12 );
+            plot2D(axi, ...
+                reshape(ones(ndep*kor,1)*mod_.Smat(1,:),[],1),mod_.err_tau_u_tvf(:), ...
+                'none',[1 0 0],'o',pspc.MarkerSize);
+
+            axi = axs_mat(2,2);
+            % title(axi, ['SVDs over jet space '], ...
+            %     'Interpreter','Latex','FontSize',12 );
+            plot2D(axi, ...
+                mod_.Smat(1,:),G_sO_basis.eta_tvf_S, ...
+                'none',[0 1 0],'o',pspc.MarkerSize);
+
+            plt_jspc.set_axis_lims(lims0);
 
         end
         %% apv plots
@@ -823,8 +929,6 @@ classdef apv_plots
             plt = p_;
 
             pspc = apv_plots.verify_plotspecs(d_);
-            pspc.MarkerSize = 8;
-            % pspc.MarkerSize = 4;
 
             eor = d_.eor;
             ndep = d_.ndep;
@@ -832,7 +936,7 @@ classdef apv_plots
 
             if (isempty(plt.axs))
                 if (ndim==3)
-                    plt = plt.init_tiles_safe(ndep,eor+2);
+                    plt = plt.init_tiles_safe(1,3);
                 else
                     plt = plt.init_tiles_safe(ndep,eor+1);
                 end
@@ -841,20 +945,40 @@ classdef apv_plots
             box(plt.axs,'on');
             axs = plt.axs;
             axs_mat = plt.axs_mat;
-            axs_set = axs_mat(:,1:(eor+1));
-            set(axs_set, ...
-                'YScale', 'linear',  ...
-                'XScale', 'linear',  ...
-                'TickLabelInterpreter','Latex', ...
-                'FontSize',16 );
-            xlabel(axs_set, '$$ x $$', 'Interpreter','Latex','FontSize',16);
+            if (eor==0) % canonical coordinate plot
+                xlabel(axs(1:ndep), '$$ x $$', 'Interpreter','Latex','FontSize',16);
+                yname = @(i_,k_) ['$$ \xi_' num2str(i_) '$$'];
+                xname_3D = '$$ \xi_1 $$';
+                yname_3D = '$$ \xi_2 $$';
+                zname_3D = '$$ \xi_3 $$';
+            else
+                axs_set = axs_mat(:,1:(eor+1));
+                set(axs_set, ...
+                    'YScale', 'linear',  ...
+                    'XScale', 'linear',  ...
+                    'TickLabelInterpreter','Latex', ...
+                    'FontSize',16 );
+                xlabel(axs_set, '$$ x $$', 'Interpreter','Latex','FontSize',16);
+                yname = @(i_,k_) ['$$ d_x^' num2str(k_) 'u_' num2str(i_)  '$$'];
+                xname_3D = '$$ x $$';
+                yname_3D = '$$ u $$';
+                zname_3D = '$$ d_x u $$';
+            end
+
+            if (ndim==3)
+                axik = @(i_,k_) axs(max([i_,k_]));
+            else
+                if ((size(axs_mat,1)==1)||(size(axs_mat,2)==1))
+                    axik = @(i_,k_) axs(max([i_,k_]));
+                else
+                    axik = @(i_,k_) axs_mat(i_,k_);
+                end
+            end
 
             if (iscell(S_))
                 Smat = ldaux.Scell_2_Smat(S_,ndim);
-
             elseif ( length(size(S_)) == 2 )
                 Smat = S_;
-
             else
                 Smat = reshape( S_, ndim, [] );
             end
@@ -862,11 +986,9 @@ classdef apv_plots
             xvec = Smat(1,:);
             utns = reshape(Smat(2:end,:),ndep,eor+1,[]);
 
-            yname = @(i_,k_) ['$$ d_x^' num2str(k_) 'u_' num2str(i_)  '$$'];
-
             for k = 1:(eor+1)
                 for i = 1:ndep
-                    plot(axs_mat(i,k), ...
+                    plot( axik(i,k), ...
                     xvec, reshape(utns(i,k,:),size(xvec)), ...
                     'LineStyle', 'none', ...
                     'LineWidth', 0.5, ...
@@ -876,7 +998,7 @@ classdef apv_plots
                     'MarkerFaceColor', pspc.Color, ...
                     'MarkerEdgeColor', [0 0 0] ...
                     );
-                    ylabel(axs_mat(i,k), yname(i,k-1), ...
+                    ylabel(axik(i,k), yname(i,k-1), ...
                      'Interpreter','Latex','FontSize',16);
                 end
             end
@@ -892,7 +1014,9 @@ classdef apv_plots
                     'MarkerFaceColor', pspc.Color, ...
                     'MarkerEdgeColor', [0 0 0] ...
                     );
-                zlabel(axs(3), '$$ d^1_x u_1 $$', 'Interpreter','Latex','FontSize',16);
+                xlabel(axs(3), xname_3D, 'Interpreter','Latex','FontSize',16);
+                ylabel(axs(3), yname_3D, 'Interpreter','Latex','FontSize',16);
+                zlabel(axs(3), zname_3D, 'Interpreter','Latex','FontSize',16);
                 view(axs(3), apv_plots.view_mat(6, :));
             end
 
@@ -917,7 +1041,7 @@ classdef apv_plots
                     for k = 1:(eor+1)
                         for i = 1:ndep
                             for j = 1:ncrv
-                                plot(axs_mat(i,k), ...
+                                plot(axik(i,k), ...
                                 Scell{j}(1,:), Scell{j}(iv,:), ...
                                 'LineStyle', d_.LineStyle, ...
                                 'LineWidth', 0.5, ...
@@ -954,8 +1078,11 @@ classdef apv_plots
             if (~isfield(spc_out,'Marker'))
                 spc_out.Marker = 'o';
             end
+            if (~isfield(spc_out,'MarkerSize'))
+                spc_out.MarkerSize = 8;
+            end
             if (~isfield(spc_out,'LineStyle'))
-                spc_out.Color = [0 0 0];
+                spc_out.LineStyle = '-';
             end
 
         end

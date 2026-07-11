@@ -34,8 +34,9 @@ tic0 = tic;
 % [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_Van_der_Pol_data(); % N = 2, Q = 1
 % [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_oscillator_polr_data(); % N = 2, Q = 1, easier than VanderPol
 % [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_pendulum_polr_data(); % N = 2, Q = 1
-[Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_double_oscillator_data(); % N = 2, Q = 2, linear homogenous
+% [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_double_oscillator_data(); % N = 2, Q = 2, linear homogenous
 % [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_double_pendulum_data(); % N = 2, Q = 2, would be wild to learn anything
+[Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_Linden_bouyancy_data(); % N = 2, Q = 2, linear homogenous
 toc1 = toc(tic0);
 fprintf('generated jet space data in %.3f seconds \n', toc1);
 
@@ -74,29 +75,36 @@ dat_plt0.Color = apv_plots.blue5;
 plt0 = apv_plots.plot_Sobs(plt0,Sobs{icrv_check}(:,isol_check) ,dat_plt0);
 dat_plt0.Color = apv_plots.green4;
 plt0.show_toolbar
+
+% return
 %{
     ----------------------------
     specify function space
     ----------------------------
 %}
-
 fmap0 = struct( ...
 'Omap_a', ones(nvar,1), ...
 'Omap_b', zeros(nvar,1) ...
 );
 fmap = fmap0;
 
+%{
+    ----------------------------
+    model solution space
+    ----------------------------
+%}
 tic0 = tic;
 mod = LDsol.model_solspace(Sobs,dat,fmap);
 toc1 = toc(tic0);
 fprintf('built jet space model in %.3f seconds \n', toc1);
 
 mod
-mod.s_O
-
-% dat_plt0.Color = apv_plots.orange1;
-% plt0 = apv_plots.plot_Sobs(plt0, mod.s_O ,dat_plt0);
-% dat_plt0.Color = apv_plots.green4;
+sO = mod.s_O
+dat_plt0.Color = apv_plots.red1;
+plt0 = apv_plots.plot_Sobs(plt0, Sobs{mod.isrtmags_dXi_S_sO(2)},dat_plt0);
+dat_plt0.Color = [1 1 1];
+plt0 = apv_plots.plot_Sobs(plt0, sO ,dat_plt0);
+dat_plt0.Color = apv_plots.green4;
 
 Jf_RN1_check = mod.J_tau_u_RN1(:,:,1,iisol_check)
 Jdxf_RN1_check = mod.J_tau_u_RN1(:,:,2,iisol_check)
@@ -108,8 +116,8 @@ dNp1xu_N1mod_check = mod.tau_uN_RN1_net((end-ndep+1):end,2,iisol_check)
 
 dat_plt1 = dat_plt0;
 plt1 = apv_plots('model_summary', ...
-                [2 1],...
-                [1 1],[2 1], ...
+                [1 1],...
+                [1 1],[1 1], ...
                 scrn_id);
 % [1 1],...
 % [1 1],[1 1], ...

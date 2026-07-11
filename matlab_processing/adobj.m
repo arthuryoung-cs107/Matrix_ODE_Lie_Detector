@@ -169,6 +169,11 @@ classdef adobj
             s_ad = adobj.seed_sol(s_);
             obj_o = f_(s_ad);
         end
+        function obj_o = exponential(s_)
+            [vi,Ji] = adobj.unpack_valJac(s_);
+            exp_vi = exp(vi);
+            obj_o = adobj( exp_vi , exp_vi .* Ji );
+        end
         function obj_o = sine(s_)
             [vi,Ji] = adobj.unpack_valJac(s_);
             obj_o = adobj( sin(vi) , cos(vi) .* Ji );
