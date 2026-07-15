@@ -121,4 +121,8 @@ plt1 = apv_plots('model_summary', ...
                 scrn_id);
 % [1 1],...
 % [1 1],[1 1], ...
-plt1 = apv_plots.plot_LDsol_model_summary(plt1,mod,dat_plt1);
+[plt1,plt2,plt3,plt4] = apv_plots.plot_LDsol_model_summary(plt1,mod,dat_plt1);
+% plt1.write_figure('png',[getenv('HOME') '/Desktop/MATLAB_OUTPUT/'])
+% plt2.write_figure('png',[getenv('HOME') '/Desktop/MATLAB_OUTPUT/'])
+% plt3.write_figure('png',[getenv('HOME') '/Desktop/MATLAB_OUTPUT/'])
+% plt4.write_figure('png',[getenv('HOME') '/Desktop/MATLAB_OUTPUT/'])

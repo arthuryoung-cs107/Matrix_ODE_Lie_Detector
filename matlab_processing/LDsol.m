@@ -317,7 +317,7 @@ classdef LDsol
 
                     %% pare down order of coordinate functions for derivatives
                     ord_i = max(sum(Pmat_RN1_full((nvar+1):end,inds_P_RN1),1))-1;
-                    while ( (Rsvd_N1_net.r < Rsvd_N1_net.dim)&&(ord_i>0) )
+                    while ( (Rsvd_N1_net.r < (Rsvd_N1_net.dim-nvar_N1))&&(ord_i>0) )
                         logc_P_i = logc_P_RN1_full&(sum(Pmat_RN1_full((nvar+1):end,:),1) <= ord_i);
                         inds_P_i = inds_P_RN1_full(logc_P_i);
                         Plen_i = length(inds_P_i(:));
@@ -325,7 +325,7 @@ classdef LDsol
                         Rsvd_i = Asvd_package( ...
                         normalize_Renc(reshape(Rtns_T_net(inds_P_i,:,:),nvar_N1*Plen_i,mrow_R_net)') ...
                         );
-                        if (Rsvd_i.r < Rsvd_i.dim) % accept sub svd if rank deficient
+                        if (Rsvd_i.r < (Rsvd_i.dim-nvar_N1)) % accept sub svd if rank deficient
                             logc_P_RN1_full = logc_P_i;
                             inds_P_RN1 = inds_P_i;
                             Rsvd_N1_net = Rsvd_i;
@@ -337,7 +337,7 @@ classdef LDsol
 
                     %% pare down order of coordinate functions over base space
                     ord_i = max(sum(Pmat_RN1_full(1:nvar,inds_P_RN1),1))-1;
-                    while ( (Rsvd_N1_net.r < Rsvd_N1_net.dim)&&(ord_i>0) )
+                    while ( (Rsvd_N1_net.r < (Rsvd_N1_net.dim-nvar_N1))&&(ord_i>0) )
                         logc_P_i = logc_P_RN1_full&(sum(Pmat_RN1_full(1:nvar,:),1) <= ord_i);
                         inds_P_i = inds_P_RN1_full(logc_P_i);
                         Plen_i = length(inds_P_i(:));
@@ -345,7 +345,7 @@ classdef LDsol
                         Rsvd_i = Asvd_package( ...
                         normalize_Renc(reshape(Rtns_T_net(inds_P_i,:,:),nvar_N1*Plen_i,mrow_R_net)') ...
                         );
-                        if (Rsvd_i.r < Rsvd_i.dim) % accept sub svd if rank deficient
+                        if (Rsvd_i.r < (Rsvd_i.dim-nvar_N1)) % accept sub svd if rank deficient
                             logc_P_RN1_full = logc_P_i;
                             inds_P_RN1 = inds_P_i;
                             Rsvd_N1_net = Rsvd_i;
@@ -357,7 +357,7 @@ classdef LDsol
 
                     %% finally, pare down net order of coordinate function basis
                     ord_i = max(sum(Pmat_RN1_full(:,inds_P_RN1),1))-1;
-                    while ( (Rsvd_N1_net.r < Rsvd_N1_net.dim)&&(ord_i>1) )
+                    while ( (Rsvd_N1_net.r < (Rsvd_N1_net.dim-nvar_N1))&&(ord_i>1) )
                         logc_P_i = logc_P_RN1_full&(sum(Pmat_RN1_full,1) <= ord_i);
                         inds_P_i = inds_P_RN1_full(logc_P_i);
                         Plen_i = length(inds_P_i(:));
@@ -365,7 +365,7 @@ classdef LDsol
                         Rsvd_i = Asvd_package( ...
                         normalize_Renc(reshape(Rtns_T_net(inds_P_i,:,:),nvar_N1*Plen_i,mrow_R_net)') ...
                         );
-                        if (Rsvd_i.r < Rsvd_i.dim) % accept sub svd if rank deficient
+                        if (Rsvd_i.r < (Rsvd_i.dim-nvar_N1)) % accept sub svd if rank deficient
                             logc_P_RN1_full = logc_P_i;
                             inds_P_RN1 = inds_P_i;
                             Rsvd_N1_net = Rsvd_i;
@@ -382,7 +382,7 @@ classdef LDsol
                 Rtns_T_net = reshape(Rmat_N1_DprN',Plen_RN1,nvar_N1,mrow_R_net);
 
                 %% further pare down jet space model to smallest rank deficient R1 space
-                if (Rsvd_N1_net.r < Rsvd_N1_net.dim)
+                if (Rsvd_N1_net.r < (Rsvd_N1_net.dim-nvar_N1))
                     inds_P_RN1_full = inds_P_RN1;
                     logc_P_RN1_full = ones(1,length(inds_P_RN1(:)));
                     %% pare down order of coordinate functions over base space
@@ -395,7 +395,7 @@ classdef LDsol
                         Rsvd_i = Asvd_package( ...
                         normalize_Renc(reshape(Rtns_T_net(inds_P_i,:,:),nvar_N1*Plen_i,mrow_R_net)') ...
                         );
-                        if (Rsvd_i.r < Rsvd_i.dim) % Accept sub svd if rank deficient. Decrement ord_i
+                        if (Rsvd_i.r < (Rsvd_i.dim-nvar_N1)) % Accept sub svd if rank deficient. Decrement ord_i
                             logc_P_RN1_full = logc_P_i;
                             inds_P_RN1 = inds_P_i;
                             Rsvd_N1_net = Rsvd_i;
@@ -597,33 +597,49 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
             %% identify tangent space basis with respect to chosen origin
             [GN1_sO_basis,GN1_s0O_basis,GN1_sNO_basis] = compute_sO_basis( s_O(:), fspace_RN1.Pmat, Gsvd_N1_net.W, inds_P_GN1, lvs_RN1(inds_P_GN1,:), lamRN1_sO );
 
-            % nvar x nvar x nobs, page rows are transversal tangent vectors
-            Vspc_G_S0 = permute(GN1_sO_basis.LamTheta_S,[3 1 2]);
+            % nvar x ndim x nobs, page rows are transversal tangent vectors
+            Vspc_G_S = permute(GN1_sO_basis.LamTheta_S,[3 1 2]);
             % nvar x Plen x nobs, pages are directional derivatives wrt coordinate vfields at s^(N-1) |_j
-            H_LamTheta_S0 = pagemtimes( Vspc_G_S0 , Jltns_N1 );
+            H_LamTheta_S = pagemtimes( Vspc_G_S , Jltns_N1 );
             % svd of nvar*nobs x Plen net H matrix. Kernel consists of globally constant functions
-            Hsvd_LamTheta_S0_net = Asvd_package( ...
-                normalize_Henc(reshape(permute(H_LamTheta_S0,[2 1 3]),Plen_N1,nvar_N1*nobs)') ...
+            Hsvd_LamTheta_S_net = Asvd_package( ...
+                normalize_Henc(reshape(permute(H_LamTheta_S,[2 1 3]),Plen_N1,nvar_N1*nobs)') ...
             );
-            YHnet = Hsvd_LamTheta_S0_net.V(:,1:Hsvd_LamTheta_S0_net.r);
+            YHnet = Hsvd_LamTheta_S_net.V(:,1:Hsvd_LamTheta_S_net.r);
 
             %% find canonical coordinates associated with TVF, eschewing globally constant functions
             GN1_sO_basis.Hsvd_tvf_YHnet_S = Asvd_package( normalize_Henc(Hmat_N1*YHnet) );
-            %% evaluate image of trivial independent coordinate
-            GN1_sO_basis.eta_tvf_S = (YHnet*(GN1_sO_basis.Hsvd_tvf_YHnet_S.V(:, end)))'*lvs_N1;
+            % P x kappa+1, non globally constant function parameters w gradient orthogonal to tvf
+            % Theta_Eta_tvf_N1_full = YHnet*GN1_sO_basis.Hsvd_tvf_YHnet_S.V(:,(GN1_sO_basis.Hsvd_tvf_YHnet_S.r):end);
+            Theta_Eta_tvf_N1_full = YHnet*GN1_sO_basis.Hsvd_tvf_YHnet_S.W;
+            % nvar x kappa+1, gradients of all candidate independent coordinate functions at the origin
+            gEta_N1_tvf_full = lamN1_sO.Jl*Theta_Eta_tvf_N1_full;
+            % find functionally independent orthogonal basis at the origin
+            [gEta_svd_tvf_N1,U_g_Eta] = Asvd_package(gEta_N1_tvf_full);
+            gEta_svd_tvf_N1.U = U_g_Eta;
+            % P x nvar, parameters of canonical independent coordinates with orthogonal gradients at the origin
+            gEta_svd_tvf_N1.Theta_Eta_tvf = Theta_Eta_tvf_N1_full*gEta_svd_tvf_N1.V(:,1:(min([nvar_N1-1,gEta_svd_tvf_N1.dim])));
+
+            GN1_sO_basis.gEta_svd_tvf = gEta_svd_tvf_N1;
+
+            % 1 x nvar, image of tvf independent coordinates over sO (includes near null space solution)
+            GN1_sO_basis.Eta_tvf_sO = lamN1_sO.lrow_vals*(gEta_svd_tvf_N1.Theta_Eta_tvf);
+            % nobs x nvar, image of tvf independent coordinates over S (includes near null space solution)
+            GN1_sO_basis.Eta_tvf_S = lvs_N1'*(gEta_svd_tvf_N1.Theta_Eta_tvf);
+
 
             % nobs x Plen x nvar, pages are Hmats over S = { s|_j } of each coordinate vfield
-            H_LamTheta_S0 = permute(H_LamTheta_S0, [3 2 1]);
+            H_LamTheta_S = permute(H_LamTheta_S, [3 2 1]);
             Th_xi = nan( Plen_N1,nvar_N1 );
             for i = 1:nvar_N1
                 %% H = U Sigma V^T : V = [Y K], kernel vectors are constant functions over each coordinate vfield
-                [Hsvd_i,Usvd_i] = Asvd_package( normalize_Henc(H_LamTheta_S0(:,:,i)*YHnet) );
+                [Hsvd_i,Usvd_i] = Asvd_package( normalize_Henc(H_LamTheta_S(:,:,i)*YHnet) );
                 Hslv_i = Usvd_i(:,1:Hsvd_i.r)*( Hsvd_i.s(1:Hsvd_i.r) .* ( Hsvd_i.V(:,1:Hsvd_i.r)' ));
                 Th_xi(:,i) = YHnet * lsqminnorm(Hslv_i, ones(size(Hslv_i,1),1)) ;
-                Hsvd_LamTheta_S0(i) = Hsvd_i;
+                Hsvd_LamTheta_S(i) = Hsvd_i;
             end
-            GN1_sO_basis.Hsvd_LamTheta_S_net = Hsvd_LamTheta_S0_net;
-            GN1_sO_basis.Hsvd_LamTheta_S = Hsvd_LamTheta_S0;
+            GN1_sO_basis.Hsvd_LamTheta_S_net = Hsvd_LamTheta_S_net;
+            GN1_sO_basis.Hsvd_LamTheta_S = Hsvd_LamTheta_S;
 
             GN1_sO_basis.Th_xi = Th_xi; % Plen x nvar, column vector parameters of canonical coordinate system
             GN1_sO_basis.Th_xi_svd = Asvd_package( Th_xi' );
