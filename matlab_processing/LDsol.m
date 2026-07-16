@@ -263,25 +263,26 @@ classdef LDsol
                 % sO_basis_out = sNO_basis_out;
 
                 % theta_mat_WV_s0O is ntheta x nvar parameter matrix, cols lincom lambda fcns, yield vfield coeffs
-                theta_mat_WV_s0O = W_*sO_basis_out.V(:,1:nvar_);
+                % theta_mat_WV_sO = W_*sO_basis_out.V(:,1:nvar_);
+                theta_mat_WV_sO = W_*( (sO_basis_out.s(1:nvar_)/sO_basis_out.s(1))' .* sO_basis_out.V(:,1:nvar_) );
                 % theta_tns_WV_s0O is nvar x Plen x nvar parameter tensor, pages act on lambda col vecs, yield vfield coeffs
-                theta_tns_WV_s0O = permute(reshape(theta_mat_WV_s0O,Plen_b,nvar_,nvar_),[2 1 3]);
+                theta_tns_WV_sO = permute(reshape(theta_mat_WV_sO,Plen_b,nvar_,nvar_),[2 1 3]);
 
-                % V0spc_s0O is nvar x nvar matrix basis, columns span tangent space of S0 at s0O, should be equal to U Sigma (perpendicular columns)
-                V0spc_s0O = reshape( pagemtimes( theta_tns_WV_s0O, lam_sO_.lrow_vals(iP_)' ) , nvar_,nvar_);
-                % VdNxuspc_s0O is ndep x nvar matrix, columns are vfield coeffs of dNxu in jet space
-                VdNxuspc_s0O = reshape( pagemtimes( theta_tns_WV_s0O((end-ndep+1):end,:,:) , lam_sO_.dkxl(1,iP_)' ) , [], nvar_ ) ...
-                                - lam_sO_.lkx((end-ndep+1):end,iP_,1) * theta_mat_WV_s0O(1:Plen_b,:) ;
-                % VNspc_s0O is B x nvar matrix, columns are vfield coeffs, span tangent space of SN at sNO, lie algebra at origin
-                VNspc_s0O = [ V0spc_s0O ; VdNxuspc_s0O ];
+                % V0spc_sO is nvar x nvar matrix basis, columns span tangent space of S0 at s0O, should be equal to U Sigma (perpendicular columns)
+                V0spc_sO = reshape( pagemtimes( theta_tns_WV_sO, lam_sO_.lrow_vals(iP_)' ) , nvar_,nvar_);
+                % VdNxuspc_sO is ndep x nvar matrix, columns are vfield coeffs of dNxu in jet space
+                VdNxuspc_sO = reshape( pagemtimes( theta_tns_WV_sO((end-ndep+1):end,:,:) , lam_sO_.dkxl(1,iP_)' ) , [], nvar_ ) ...
+                                - lam_sO_.lkx((end-ndep+1):end,iP_,1) * theta_mat_WV_sO(1:Plen_b,:) ;
+                % VNspc_sO is B x nvar matrix, columns are vfield coeffs, span tangent space of SN at sNO, lie algebra at origin
+                VNspc_sO = [ V0spc_sO ; VdNxuspc_sO ];
 
                 % nvar x nobs x nvar, evaluated vector field basis (pages) over base space at each observed solution
-                LamTheta_S0 = reshape(pagemtimes( theta_tns_WV_s0O , lvs_ ), nvar_, nobs, nvar_);
+                LamTheta_S0 = reshape(pagemtimes( theta_tns_WV_sO , lvs_ ), nvar_, nobs, nvar_);
 
 
                 %% primary assignments (on top of being an SVD of the tangent space at the origin)
-                sO_basis_out.theta_WV_sO = theta_mat_WV_s0O; % Theta = W V, ntheta by ntheta, vector field parameters
-                sO_basis_out.Vspc_sO = VNspc_s0O; % V = Lam^(N) |_sO Theta, B by (1+Q), tangent vector basis at the origin
+                sO_basis_out.theta_WV_sO = theta_mat_WV_sO; % Theta = W V, ntheta by ntheta, vector field parameters
+                sO_basis_out.Vspc_sO = VNspc_sO; % V = Lam^(N) |_sO Theta, B by (1+Q), tangent vector basis at the origin
                 sO_basis_out.LamTheta_S = LamTheta_S0; % Lam |_S Theta, nvar x nobs x nvar, tangent vectors by Theta pars
 
             end
