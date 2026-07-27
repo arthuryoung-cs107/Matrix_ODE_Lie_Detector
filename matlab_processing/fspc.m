@@ -218,7 +218,7 @@ classdef fspc < jspc
                 end
             end
             ndep_ = size(Pmat_,1)-1;
-            small_tol = 1e-6;
+            small_tol = 1e-4;
 
             fprintf(preamble);
             fprintf('multivariate (1+Q = %d) polynomial of form\n',1+ndep_);
