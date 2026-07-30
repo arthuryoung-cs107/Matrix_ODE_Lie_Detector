@@ -185,7 +185,8 @@ classdef ldaux
             % nevl = 33; % one more than the cubic Rmat curve matrix
             Odef = 3; % cubic permutation model (default)
             Pdef = (Odef+1)^(ndep+1);
-            nevl = 2*(ceil(1* (ndep+1)*Pdef/(eor*ndep) ) + 1);
+            % nevl = 2*(ceil(1* (ndep+1)*Pdef/(eor*ndep) ) + 1);
+            nevl = 1*(ceil(1* (ndep+1)*Pdef/(eor*ndep) ) + 1);
 
             xscl = 0.05*ef;
             s0 = [ x0 + xscl*rand(1,ncrv) ; u0_vals ];
@@ -293,7 +294,8 @@ classdef ldaux
             Odef = 3; % cubic permutation model (default)
             Pdef = (Odef+1)^(ndep+1);
             % nevl = ceil( (ndep+1)*Pdef/(eor*ndep) ) + 1;
-            nevl = 2*(ceil(1* (ndep+1)*Pdef/(eor*ndep) ) + 1 ); % number of observed solutions per observed integral curve
+            % nevl = 2*(ceil(1* (ndep+1)*Pdef/(eor*ndep) ) + 1 ); % number of observed solutions per observed integral curve
+            nevl = 1*(ceil(1* (ndep+1)*Pdef/(eor*ndep) ) + 1 ); % number of observed solutions per observed integral curve
 
             xscl = 0.1*ef;
             s0 = [ x0 + xscl*rand(1,ncrv) ; u0_vals ];
@@ -628,8 +630,8 @@ classdef ldaux
             fprintf('(ldaux::%s) Generating %s observations (ndep=%d, eor=%d) : \n' , ...
                 fcn_name,eqn_name,eor,ndep);
             mass = 1.0;
-            % [rrad,mmass,cdamp,ggrav] = deal(2.0,1.0,1.0,9.81);
-            [rrad,mmass,cdamp,ggrav] = deal(2.0,1.0,0.0,9.81);
+            [rrad,mmass,cdamp,ggrav] = deal(2.0,1.0,1.0,9.81);
+            % [rrad,mmass,cdamp,ggrav] = deal(2.0,1.0,0.0,9.81);
             [c1,c2] = deal(ggrav/rrad,cdamp/(mmass*rrad*rrad));
             f_eqn = @(u_,dxu_) -c1*sin(u_) - c2*dxu_ ;
             Fode_sys_evl = @(e_,s_) [ ...
@@ -688,7 +690,8 @@ classdef ldaux
             %}
             Odef = 3; % cubic permutation model (default)
             Pdef = (Odef+1)^(ndep+1);
-            nevl = 7*( ceil(1* (ndep+1)*Pdef/(eor*ndep) ) + 1 ); % number of observed solutions per observed integral curve
+            % nevl = 7*( ceil(1* (ndep+1)*Pdef/(eor*ndep) ) + 1 ); % number of observed solutions per observed integral curve
+            nevl = 3*( ceil(1* (ndep+1)*Pdef/(eor*ndep) ) + 1 ); % number of observed solutions per observed integral curve
 
             xscl = 0.1*ef;
             s0 = [ x0 + xscl*rand(1,ncrv) ; u0_vals ];
