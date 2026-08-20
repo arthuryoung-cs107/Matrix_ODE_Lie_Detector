@@ -189,8 +189,14 @@ classdef apv_plots
         end
         function set_axis_lims(obj,lims_)
             naxes = length(obj.axs);
-            for i = 1:naxes
-                axis(obj.axs(i),lims_{i});
+            if (iscell(lims_))
+                for i = 1:naxes
+                    axis(obj.axs(i),lims_{i});
+                end
+            else
+                for i = 1:naxes
+                    axis(obj.axs(i),lims_);
+                end
             end
         end
 
@@ -650,15 +656,23 @@ classdef apv_plots
                 mod_.Gsvd_N1,  '$G'; ...
                 mod_.Gsvd_N1_com,  '$G_{\mathrm{com}}'; ...
                 mod_.Gsvd_N1_net,  '$G_{\mathrm{net}}'; ...
-                mod_.tauT_LamWG_svd, '$\tau^{\top} \Lambda W_G'; ...
                 G_sO_basis.Hsvd_LamTheta_S_net, '$H^{(0)}_{\mathrm{net}}'; ...
                 G_sO_basis.Hsvd_tvf_YHnet_S, '$H^{(0)}_{\mathrm{tvf}} Y_{H^{(0)}_{\mathrm{net}}} '; ...
             };
+            % mod_.tauT_LamWG_svd, '$\tau^{\top} \Lambda W_G'; ...
+            % mod_.LamWG_svd,  '$\Lambda |_{\{ s \}} W_G'; ...
             nsvd_i = size(svds_i,1);
-            Hsvds_i = G_sO_basis.Hsvd_LamTheta_S;
+            % Hsvds_i = G_sO_basis.Hsvd_LamTheta_S;
+            Hsvds_i = mod_.Hxi_svds;
             for isvd = 1:length(Hsvds_i(:))
                 svds_i{isvd+nsvd_i,1} = Hsvds_i(isvd);
                 svds_i{isvd+nsvd_i,2} = ['$H_{' num2str(isvd) '}'];
+            end
+            nsvd_i = size(svds_i,1);
+            Gsvds_i = mod_.GnetXi_svds;
+            for isvd = 1:length(Hsvds_i(:))
+                svds_i{isvd+nsvd_i,1} = Gsvds_i(isvd);
+                svds_i{isvd+nsvd_i,2} = ['$G_{' num2str(isvd) '}'];
             end
             svds = cell([ size(svds_i,1),1 ]);
             labels = cell([length(svds),1]);
@@ -675,6 +689,7 @@ classdef apv_plots
                 mod_.GN1_s0O_basis , '$\Lambda^{(0)} |_{s_O} W_G'; ...
                 mod_.GN1_sNO_basis, '$\Lambda^{(1)} |_{s_O} W_G'; ...
                 mod_.GN1_sO_basis , '$\Lambda |_{s_O} W_G'; ...
+                mod_.GN1_s1_basis , '$\Lambda |_{s_1} W_G'; ...
                 mod_.SXi_sO_svd , '$ \Delta \Xi_S/ \| \Delta \Xi_S \| '; ...
                 G_sO_basis.Th_xi_svd, '$ \Theta^{\xi} '; ...
                 G_sO_basis.Jsvd_xi_sO, '$J \Xi |_{s_O}'; ...

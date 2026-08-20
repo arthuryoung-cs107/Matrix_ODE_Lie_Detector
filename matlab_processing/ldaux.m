@@ -186,7 +186,8 @@ classdef ldaux
             Odef = 3; % cubic permutation model (default)
             Pdef = (Odef+1)^(ndep+1);
             % nevl = 2*(ceil(1* (ndep+1)*Pdef/(eor*ndep) ) + 1);
-            nevl = 1*(ceil(1* (ndep+1)*Pdef/(eor*ndep) ) + 1);
+            % nevl = 1*(ceil(1* (ndep+1)*Pdef/(eor*ndep) ) + 1);
+            nevl = 1*(ceil(0.5* (ndep+1)*Pdef/(eor*ndep) ) + 1);
 
             xscl = 0.05*ef;
             s0 = [ x0 + xscl*rand(1,ncrv) ; u0_vals ];
@@ -557,7 +558,8 @@ classdef ldaux
             Odef = 3; % cubic permutation model (default)
             Pdef = (Odef+1)^(ndep+1);
             % nevl = ceil( (ndep+1)*Pdef/(eor*ndep) ) + 1;
-            nevl = 10*( ceil(1* (ndep+1)*Pdef/(eor*ndep) ) + 1 ); % number of observed solutions per observed integral curve
+            % nevl = 10*( ceil(1* (ndep+1)*Pdef/(eor*ndep) ) + 1 ); % number of observed solutions per observed integral curve
+            nevl = 2*( ceil(1* (ndep+1)*Pdef/(eor*ndep) ) + 1 ); % number of observed solutions per observed integral curve
 
             xscl = 0.1*ef;
             s0 = [ x0 + xscl*rand(1,ncrv) ; u0_vals ];
@@ -783,7 +785,8 @@ classdef ldaux
             Odef = 3; % cubic permutation model (default)
             Pdef = (Odef+1)^(ndep+1);
             % nevl = 10*(ceil(1* (ndep+1)*Pdef/(eor*ndep) ) + 1);
-            nevl = 5*(ceil(1* (ndep+1)*Pdef/(eor*ndep) ) + 1);
+            % nevl = 5*(ceil(1* (ndep+1)*Pdef/(eor*ndep) ) + 1);
+            nevl = 1*(ceil(1* (ndep+1)*Pdef/(eor*ndep) ) + 1);
 
             xscl = 0.1*ef;
             s0 = [ x0 + xscl*rand(1,ncrv) ; u0_vals ];
