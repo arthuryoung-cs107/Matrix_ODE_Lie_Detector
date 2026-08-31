@@ -187,7 +187,7 @@ classdef ldaux
             Pdef = (Odef+1)^(ndep+1);
             % nevl = 2*(ceil(1* (ndep+1)*Pdef/(eor*ndep) ) + 1);
             % nevl = 1*(ceil(1* (ndep+1)*Pdef/(eor*ndep) ) + 1);
-            nevl = 1*(ceil(0.5* (ndep+1)*Pdef/(eor*ndep) ) + 1);
+            nevl = 1*(ceil(0.75* (ndep+1)*Pdef/(eor*ndep) ) + 1);
 
             xscl = 0.05*ef;
             s0 = [ x0 + xscl*rand(1,ncrv) ; u0_vals ];

@@ -110,6 +110,12 @@ JF_N1_check = mod.JF_N1( :,:, iisol_check )
 dNp1xu_tru_check = dNp1xu_obs{icrv_check}( :,isol_check )
 dNp1xu_N1mod_check = mod.tau_uN_RN1_net((end-ndep+1):end,2,iisol_check)
 
+[JF_sO_tru,dNp1xu_sO_tru] = dat_true.JF_dxf(mod.s_O);
+
+dNp1xu_sO_tru
+dNp1xu_sO_check = mod.t_O((end-ndep+1):end)
+err_dNp1xu_sO = abs((dNp1xu_sO_check-dNp1xu_sO_tru)./dNp1xu_sO_tru)
+
 dat_plt1 = dat_plt0;
 plt1 = apv_plots('model_summary', ...
                 [1 1],...
