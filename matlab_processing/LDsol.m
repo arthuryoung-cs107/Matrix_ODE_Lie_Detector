@@ -680,7 +680,7 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
             Plen_GN1_com = ntheta_GN1_com / nvar_N1;
             % LamN0_tns_GN1_com = permute(reshape(LamN_T_ttns_RN1(inds_P_GN1_com,:,1:nvar_N1,:),ntheta_GN1_com,nvar_N1,nobs),[2 1 3]);
 
-            permute(pagemtimes(Gsvd_N1_com.W',reshape(LamN1_T_ttns(inds_P_GN1_net,:,:,:),ntheta_GN1_net,ndim,nobs)),[2 1 3]);
+            % permute(pagemtimes(Gsvd_N1_com.W',reshape(LamN1_T_ttns(inds_P_GN1_net,:,:,:),ntheta_GN1_net,ndim,nobs)),[2 1 3]);
 
             %{
                 SVDs of Gnet and Gcom reveal kernal vfields of S. The latter are guaranteed to commute with the TVF.
