@@ -53,18 +53,18 @@ classdef apv_plots
             obj.name = name_;
             if (nargin == 2)
                 posdim_specs_ = grid_dim_;
-                obj = obj.set_screen_posdim(posdim_specs_);
+                obj = apv_plots.set_screen_posdim(obj,posdim_specs_);
             elseif (nargin == 4)
-                obj = obj.set_screen_posdim(grid_dim_,tile_dim_,origin_tile_);
+                obj = apv_plots.set_screen_posdim(obj,grid_dim_,tile_dim_,origin_tile_);
             elseif (nargin == 5)
-                obj = obj.set_screen_posdim(grid_dim_,tile_dim_,origin_tile_,screen_);
+                obj = apv_plots.set_screen_posdim(obj,grid_dim_,tile_dim_,origin_tile_,screen_);
             end
         end
         function axs_mat_out = axs_mat(obj)
             [tdim1,tdim2] = deal(obj.tile.GridSize(1),obj.tile.GridSize(2));
             axs_mat_out = (reshape(obj.axs,tdim2,tdim1))';
         end
-        function obj_out = set_screen_posdim(obj,grid_dim_,tile_dim_,origin_tile_,screen_)
+        function obj_out = set_screen_posdim_old(obj,grid_dim_,tile_dim_,origin_tile_,screen_)
             if (nargin==2)
                 % specs = grid_dim_;
                 % grid_dim = specs.grid_dim;
@@ -1527,6 +1527,64 @@ classdef apv_plots
         end
 
         %% meta
+        function obj_out = set_screen_posdim(obj,grid_dim_,plot_dim_,origin_tile_,screen_)
+            if (nargin==2)
+                posdim_use = grid_dim_;
+                obj_out = obj;
+                obj_out.fig = figure( ...
+                'Name',obj.name, ...
+                'WindowStyle','normal', ...
+                'MenuBar', 'none', ...
+                'ToolBar', 'none', ...
+                'Theme', 'dark', ...
+                'Position', grid_dim_ ...
+                );
+            else
+                if (nargin==5)
+                    grid_dim = grid_dim_;
+                    plot_dim = plot_dim_;
+                    origin_tile = origin_tile_;
+                    screen = screen_;
+                else (nargin == 4)
+                    grid_dim = grid_dim_;
+                    plot_dim = plot_dim_;
+                    origin_tile = origin_tile_;
+                    screen = 1;
+                end
+
+                sys_screens = apv_plots.get_sys_screens();
+
+                if (screen>size(sys_screens,1))
+                    screen_i = sys_screens(1,:); % default to screen 1
+                else
+                    screen_i = sys_screens(screen,:);
+                end
+
+                o_screen_i = screen_i(1:2); d_screen_i = screen_i(3:4)-1;
+                dels_grid_i = (d_screen_i)./[grid_dim(2) grid_dim(1)];
+                dels_plot_i = dels_grid_i.*[plot_dim(2) plot_dim(1)];
+
+                plt_lpos = floor( o_screen_i(1) + dels_grid_i(1)*( origin_tile(2)-1 ) );
+                plt_bpos = floor( o_screen_i(2) + dels_grid_i(2)*( grid_dim(1) - origin_tile(1) ) );
+                plt_wlen = floor(dels_plot_i(1));
+                plt_hlen = floor(dels_plot_i(2));
+
+                pos_set = [plt_lpos plt_bpos plt_wlen plt_hlen]
+
+                fig_out = figure( ...
+                'Name',obj.name, ...
+                'WindowStyle','normal', ...
+                'MenuBar', 'none', ...
+                'ToolBar', 'none', ...
+                'Theme', 'dark', ...
+                'Units', 'pixels', ...
+                'AutoResizeChildren', 'on' ...
+                );
+                set(fig_out,'OuterPosition',pos_set);
+                obj_out = obj;
+                obj_out.fig = fig_out;
+            end
+        end
 
         function sys_screens_out = get_sys_screens()
             sys_screens_out = get(groot,'MonitorPositions');
@@ -1536,35 +1594,46 @@ classdef apv_plots
                 if ( (length(istart)*length(iend)) == 0 ) % works fine if osx
                     [istart,iend] = regexp(arch,'win'); % assume works fine if windows
                     if ( (length(istart)*length(iend)) == 0 ) % assume linux
-                        [~,raw_out] = system('xrandr -q'); % query xrandr for linux displays
-                        [match,nomatch] = regexp(raw_out,'\w*connected\w*','match','split');
-                        nmonitors = length(match);
-
-                        screen0 = nomatch{1,1};
-                        i_c = regexp(screen0,'current');
-                        i_m = regexp(screen0,'maximum');
-                        numstrings0 = extract(screen0(i_c:(i_m-1)),digitsPattern);
-                        height0 = str2num(numstrings0{2,1});
-
-                        sys_screens_out = nan(nmonitors,4);
-                        for i = 1:nmonitors
-                            substr_i = nomatch{1,i+1};
-                            i_p = regexp(substr_i,'(');
-                            dimstring = substr_i(2:(i_p-1));
-                            numstrings = extract(dimstring,digitsPattern);
-                            heighti_true = str2num(numstrings{2});
-
-                            if (length(regexp(dimstring,'primary')))
-                                heighti = floor(0.9*heighti_true);
-                            else
-                                heighti = heighti_true;
-                            end
-
-                            sys_screens_out(i,:) = [    str2num(numstrings{3}), ...
-                                                        height0-str2num(numstrings{4})-heighti, ...
-                                                        str2num(numstrings{1}), ...
-                                                        heighti];
+                        % ScreenPixelsPerInch = java.awt.Toolkit.getDefaultToolkit().getScreenResolution()
+                        ScreenDevices = java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices();
+                        MainScreen = java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice().getScreen()+1;
+                        MainBounds = ScreenDevices(MainScreen).getDefaultConfiguration().getBounds();
+                        MonitorPositions = zeros(numel(ScreenDevices),4);
+                        for n = 1:numel(ScreenDevices)
+                            Bounds = ScreenDevices(n).getDefaultConfiguration().getBounds();
+                            MonitorPositions(n,:) = [Bounds.getLocation().getX() + 1,-Bounds.getLocation().getY() + 1 - Bounds.getHeight() + MainBounds.getHeight(),Bounds.getWidth(),Bounds.getHeight()];
                         end
+                        sys_screens_out = MonitorPositions;
+
+                        % [~,raw_out] = system('xrandr -q'); % query xrandr for linux displays
+                        % [match,nomatch] = regexp(raw_out,'\w*connected\w*','match','split');
+                        % nmonitors = length(match);
+                        %
+                        % screen0 = nomatch{1,1};
+                        % i_c = regexp(screen0,'current');
+                        % i_m = regexp(screen0,'maximum');
+                        % numstrings0 = extract(screen0(i_c:(i_m-1)),digitsPattern);
+                        % height0 = str2num(numstrings0{2,1});
+                        %
+                        % sys_screens_out = nan(nmonitors,4);
+                        % for i = 1:nmonitors
+                        %     substr_i = nomatch{1,i+1};
+                        %     i_p = regexp(substr_i,'(');
+                        %     dimstring = substr_i(2:(i_p-1));
+                        %     numstrings = extract(dimstring,digitsPattern);
+                        %     heighti_true = str2num(numstrings{2});
+                        %
+                        %     if (length(regexp(dimstring,'primary')))
+                        %         heighti = floor(0.9*heighti_true);
+                        %     else
+                        %         heighti = heighti_true;
+                        %     end
+                        %
+                        %     sys_screens_out(i,:) = [    str2num(numstrings{3}), ...
+                        %                                 height0-str2num(numstrings{4})-heighti, ...
+                        %                                 str2num(numstrings{1}), ...
+                        %                                 heighti];
+                        % end
                     end
                 end
             end
