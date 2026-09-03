@@ -585,6 +585,7 @@ fprintf('(LDsol::model_solspace) Decomposed %d R + DprN matrices in %.2f seconds
             vth_RN1_net = comp_vartheta_RN1( Rsvd_N1_net.W , lvs_RN1(inds_P_RN1,:) ); % ntheta by nobs
             tau_uN_RN1_net = comp_tau_uN_RN1( vth_RN1_net , inds_P_RN1 ); % ndep by 2 by nobs
             uNp1_tvf_mat = reshape(cat(1, tau_uN_RN1_net(:,1,:), tau_uN_RN1_net((end-ndep+1):end,2,:)),ndim-1,nobs);
+            tauN_S_mat = [ ones(1, nobs) ; uNp1_tvf_mat ];
 
             %% prepare function space for representation of G kernal
             Pmat_GN1_full = fspace_RN1.Pmat;
@@ -680,8 +681,17 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
             Plen_GN1_com = ntheta_GN1_com / nvar_N1;
             % LamN0_tns_GN1_com = permute(reshape(LamN_T_ttns_RN1(inds_P_GN1_com,:,1:nvar_N1,:),ntheta_GN1_com,nvar_N1,nobs),[2 1 3]);
 
-            % permute(pagemtimes(Gsvd_N1_com.W',reshape(LamN1_T_ttns(inds_P_GN1_net,:,:,:),ntheta_GN1_net,ndim,nobs)),[2 1 3]);
+            % ndim x ntheta x nobs, Lambda matrices projected over candidate vfield space (sample of tangent bundle)
+            MuGnet_S = permute( ...
+                pagemtimes(Gsvd_N1_net.W',reshape(LamN1_T_ttns(inds_P_GN1_net,:,:,:),[ntheta_GN1_net ndim nobs])), ...
+            [2 1 3]);
+            % ndim x ntheta x nobs, Mu tangent bundle stripped of component in the direction of tvf
+            NuGnet_S = MuGnet_S-pagemtimes( reshape(tauN_S_mat,[ndim 1 nobs]) , ...
+                                            pagemtimes(reshape(tauN_S_mat,[1 ndim nobs]) , MuGnet_S) );
+            % the principle components of this matrix correspond to vector fields transversal to the tvf everywhere.
+            NuGnet_S_svd = Asvd_package( reshape(permute( NuGnet_S,[2 1 3]), [ntheta_GN1_net ndim*nobs] )' );
 
+            % keyboard
             %{
                 SVDs of Gnet and Gcom reveal kernal vfields of S. The latter are guaranteed to commute with the TVF.
 
@@ -708,6 +718,8 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
             t_O = [ 1 ; sNp1_O((nvar+1):end) ]; % tvf tangent vector in the N'th jet space at the origin
 
             %% use WGcom to validate flow transformation technique
+
+            % [] = compute_sO_W_tspc(NuGnet_S_svd.);
 
             tic0 = tic;
             [Gcom_sO_coords,Gcom_s0O_basis,Gcom_sNO_basis] = compute_sO_coords( ...
@@ -881,6 +893,8 @@ fprintf( '(%s err) [min,med,avg,max]=[%.1e,%.1e,%.1e,%.1e]. Success: [med,max] =
             mod_out.Gsvd_N1 = Gsvd_N1;
             mod_out.Gsvd_N1_com = Gsvd_N1_com;
             mod_out.Gsvd_N1_net = Gsvd_N1_net;
+
+            mod_out.NuGnet_S_svd = NuGnet_S_svd;
 
             mod_out.LamWG_svd = LamWG_svd;
             mod_out.tauT_LamWG_svd = tauT_LamWG_svd;
