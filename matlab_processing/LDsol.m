@@ -9,7 +9,6 @@ classdef LDsol
         lam0;
         lamRN1;
 
-
     end
     methods (Static)
         function mod_out = model_solspace(Sobs_,dat_,fmap_)
@@ -330,6 +329,56 @@ classdef LDsol
                     % VNspc_sO is B x nvar matrix, columns are vfield coeffs, span tangent space of SN at sNO, lie algebra at origin
                     [sNO_basis_out.Vspc_sO,sNO_basis_out.theta_tns_WV_sO] = complete_sO_Tspc_image( sNO_basis_out.theta_WV_sO );
                 end
+            end
+            function [Nsvd_out,sO_NT_basis_out,s0O_NT_basis_out,sNO_NT_basis_out] = compute_sO_nontrivial_basis(W_,iPv_,tS_,lvs_,Lam_v_T_ttns_,tO_,lam_sO_,Jltns_xi_)
+                [Plen_v,nvar_,ndim_,nobs_] = size(Lam_v_T_ttns_);
+                ntheta_v = Plen_v*nvar_;
+
+                lv_b_sO = lam_sO_.lrow_vals(iPv_);
+                dkxl_b_sO = lam_sO_.dkxl(1,iPv_);
+                lkx_b_sO = lam_sO_.lkx((end-ndep+1):end,iPv_,1);
+                % nvar x C matrix, columns span tangent space of S0 at s0O
+                V0spc_image = @(thtns_) reshape( ...
+                    pagemtimes( thtns_, lv_b_sO(:) ) , [nvar_ size(thtns_,3)] );
+                % VdNxuspc_sO is ndep x nvar matrix, columns are vfield coeffs of dNxu in jet space
+                VdNxuspc_image = @(thmat_,thtns_) reshape( ...
+                    pagemtimes( thtns_((end-ndep+1):end,:,:) , dkxl_b_sO(:) ) , [ndep size(thtns_,3)] ...
+                    ) - lkx_b_sO((end-ndep+1):end,:,1) * thmat_(1:Plen_v,:) ;
+                % B x nvar matrix, columns are vfield coeffs, span tangent space of SN at sNO, lie algebra at origin
+                VNspc_image = @(thmat_,thtns_) deal([V0spc_image(thtns_) ; VdNxuspc_image(thmat_,thtns_)],thtns_);
+                % thtns_ is nvar x Plen x nvar, pages are coordinate vfield parameter matrices, act on lambda vectors, yield coeffs
+                complete_sO_Tspc_image = @(thmat_) VNspc_image( ...
+                    thmat_ , permute(reshape(thmat_,Plen_v,nvar_,size(thmat_,2)),[2 1 3]) ...
+                );
+
+                tS_unit = tS_./sqrt( sum(tS_.*tS_,1) );
+                % ndim x ntheta x nobs, Lambda matrices projected over candidate vfield space (sample of tangent bundle)
+                Mu_S = permute( ...
+                    pagemtimes(W_',reshape(Lam_v_T_ttns_,[ntheta_v ndim_ nobs])), ...
+                [2 1 3]);
+                % ndim x ntheta x nobs, Mu tangent bundle stripped of component in the direction of tvf
+                Nu_S = Mu_S-pagemtimes( reshape(tS_unit,[ndim_ 1 nobs_]) , ...
+                                        pagemtimes(reshape(tS_unit,[1 ndim_ nobs_]) , Mu_S) );
+                % the principle components of this matrix correspond to vector fields transversal to the tvf everywhere.
+                Nsvd_out = Asvd_package( reshape(permute( Nu_S,[2 1 3]), [ntheta_v ndim_*nobs_] )' );
+
+                Theta_N = W_*(Nsvd_out.D/Nsvd_out.s(1));
+
+                [s0O_NT_basis_out,sNO_NT_basis_out] = compute_sO_W_tspc( ...
+                    Theta_N, iPv_, lam_sO_, tO_ ...
+                );
+
+                Theta_nu = Theta_N*sNO_NT_basis_out.V(:,1:nvar_);
+                [Nu_O,Theta_nu_tns] = complete_sO_Tspc_image(Theta_nu);
+                a_nu_tO = lsqminnorm(Nu_O,tO_);
+                theta_nu_tO = Theta_nu*a_nu_tO;
+
+                sNO_NT_basis_out.Theta_nu = Theta_nu;
+                sNO_NT_basis_out.a_nu_tO = a_nu_tO;
+                sNO_NT_basis_out.theta_nu_tO = theta_nu_tO;
+
+                sO_NT_basis_out = sNO_NT_basis_out;
+
             end
             function [sO_coords_out,s0O_basis_out,sNO_basis_out] = compute_sO_coords(Gsvd_,iPv_,lvs_,lam_sO_,tO_,Jltns_xi_,Lam_v_T_ttns_,Gmat_)
                 [nvar_,Plen_xi,nobs_] = size(Jltns_xi_);
@@ -681,17 +730,6 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
             Plen_GN1_com = ntheta_GN1_com / nvar_N1;
             % LamN0_tns_GN1_com = permute(reshape(LamN_T_ttns_RN1(inds_P_GN1_com,:,1:nvar_N1,:),ntheta_GN1_com,nvar_N1,nobs),[2 1 3]);
 
-            % ndim x ntheta x nobs, Lambda matrices projected over candidate vfield space (sample of tangent bundle)
-            MuGnet_S = permute( ...
-                pagemtimes(Gsvd_N1_net.W',reshape(LamN1_T_ttns(inds_P_GN1_net,:,:,:),[ntheta_GN1_net ndim nobs])), ...
-            [2 1 3]);
-            % ndim x ntheta x nobs, Mu tangent bundle stripped of component in the direction of tvf
-            NuGnet_S = MuGnet_S-pagemtimes( reshape(tauN_S_mat,[ndim 1 nobs]) , ...
-                                            pagemtimes(reshape(tauN_S_mat,[1 ndim nobs]) , MuGnet_S) );
-            % the principle components of this matrix correspond to vector fields transversal to the tvf everywhere.
-            NuGnet_S_svd = Asvd_package( reshape(permute( NuGnet_S,[2 1 3]), [ntheta_GN1_net ndim*nobs] )' );
-
-            % keyboard
             %{
                 SVDs of Gnet and Gcom reveal kernal vfields of S. The latter are guaranteed to commute with the TVF.
 
@@ -717,9 +755,14 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
             sNp1_O = [ s_O ; dxf_O0((end-ndep+1):end) ];
             t_O = [ 1 ; sNp1_O((nvar+1):end) ]; % tvf tangent vector in the N'th jet space at the origin
 
-            %% use WGcom to validate flow transformation technique
+            [Nsvd_N1_net,Nnet_sO_basis,Nnet_s0O_basis,Nnet_sNO_basis] = compute_sO_nontrivial_basis( ...
+                Gsvd_N1_net.W,inds_P_GN1_net,tauN_S_mat,lvs_RN1(inds_P_GN1_net,:),LamN1_T_ttns(inds_P_GN1_net,:,:,:),t_O,lamRN1_sO,Jltns_N1 ...
+            );
+            [Nsvd_N1_com,Ncom_sO_basis,Ncom_s0O_basis,Ncom_sNO_basis] = compute_sO_nontrivial_basis( ...
+                Gsvd_N1_com.W,inds_P_GN1_com,tauN_S_mat,lvs_RN1(inds_P_GN1_com,:),LamN1_T_ttns(inds_P_GN1_com,:,:,:),t_O,lamRN1_sO,Jltns_N1 ...
+            );
 
-            % [] = compute_sO_W_tspc(NuGnet_S_svd.);
+            %% use WGcom to validate flow transformation technique
 
             tic0 = tic;
             [Gcom_sO_coords,Gcom_s0O_basis,Gcom_sNO_basis] = compute_sO_coords( ...
@@ -894,7 +937,8 @@ fprintf( '(%s err) [min,med,avg,max]=[%.1e,%.1e,%.1e,%.1e]. Success: [med,max] =
             mod_out.Gsvd_N1_com = Gsvd_N1_com;
             mod_out.Gsvd_N1_net = Gsvd_N1_net;
 
-            mod_out.NuGnet_S_svd = NuGnet_S_svd;
+            mod_out.Nsvd_N1_net = Nsvd_N1_net;
+            mod_out.Nsvd_N1_com = Nsvd_N1_com;
 
             mod_out.LamWG_svd = LamWG_svd;
             mod_out.tauT_LamWG_svd = tauT_LamWG_svd;
@@ -906,6 +950,11 @@ fprintf( '(%s err) [min,med,avg,max]=[%.1e,%.1e,%.1e,%.1e]. Success: [med,max] =
             mod_out.Gcom_s0O_basis = Gcom_s0O_basis;
             mod_out.Gnet_sNO_basis = Gnet_sNO_basis;
             mod_out.Gnet_s0O_basis = Gnet_s0O_basis;
+
+            mod_out.Ncom_s0O_basis = Ncom_s0O_basis;
+            mod_out.Ncom_sNO_basis = Ncom_sNO_basis;
+            mod_out.Nnet_s0O_basis = Nnet_s0O_basis;
+            mod_out.Nnet_sNO_basis = Nnet_sNO_basis;
 
             mod_out.Gnet_sO_coords = Gnet_sO_coords;
             mod_out.Gcom_sO_coords = Gcom_sO_coords;
