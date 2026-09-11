@@ -864,7 +864,7 @@ classdef ldaux
             x0 = 0.0;
             ef = 9.5; % epsilon varies from e0 = 0 to ef > 0
 
-            ncrv = 10;
+            ncrv = 15;
             seed = 34; % nice to look at
             seed0 = rng(seed);
             u00_vals = 2*(rand(2,ncrv)-0.5);
@@ -883,7 +883,8 @@ classdef ldaux
             %}
             Odef = 3; % cubic permutation model (default)
             Pdef = (Odef+1)^(ndep+1);
-            nevl = 2*ceil( (ndep+1)*Pdef/(eor*ndep) ) + 1;
+            % nevl = 2*ceil( (ndep+1)*Pdef/(eor*ndep) ) + 1;
+            nevl = ceil( 0.5 * (ndep+1)*Pdef/(eor*ndep) ) + 1;
 
             trj_specs = struct( ...
                 's0', [ x0*ones(1,ncrv) ; u0_vals ], ...
