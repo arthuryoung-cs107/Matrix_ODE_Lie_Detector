@@ -65,8 +65,7 @@ classdef LDsol
             ndim_N1 = 1 + 2*ndep_N1;
             bor_N1 = 1;
             [Plen_N1, Pmat_N1, ~] = ldaux.count_set_P_len(bor_N1,ndep_N1+1);
-            % while ((Plen_N1 < nobs) && (bor_N1 < 10)) % order 10 should be more than enough
-            while ((Plen_N1 < nobs) && (bor_N1 < 8)) % order 10 should be more than enough
+            while ((Plen_N1 < nobs) && (bor_N1 < 10)) % order 10 should be more than enough
                 bor_N1 = bor_N1 + 1;
                 [Plen_N1, Pmat_N1, ~] = ldaux.count_set_P_len(bor_N1,ndep_N1+1);
             end
@@ -229,8 +228,6 @@ classdef LDsol
             Lam_dNxu_RN1_i = @(i_) LamN_tns_RN1((end-ndep+1):end,:,i_); % ndep x ntheta_N1, acts on theta vectors
 
             Jl_N1_svd = Asvd_package( reshape(permute(Jltns_N1,[2 1 3]),Plen_N1,nvar_N1*nobs)' );
-            Jl_N1_svd.YJl = Jl_N1_svd.V(:,1:(Jl_N1_svd.r));
-            Jl_N1_svd.H_YJl_svd = Asvd_package( normalize_Henc(Hmat_N1*Jl_N1_svd.YJl) );
 
             H_N1_svd = Asvd_package(normalize_Henc(Hmat_N1));
             H_0_svd = Asvd_package(normalize_Henc(Hmat_0));
@@ -291,9 +288,16 @@ classdef LDsol
                 sO_basis_out.Uscl = mag_tO_B; % choose to scale w.r.t. norm of trivial tvector at sO
                 % image of the trivial tvector over chosen basis for T_sO S
                 sO_basis_out.x_Tspc_t_sO = (sO_basis_out.Tspc_basis)' * tO_B;
+                % if (nargout==2)
+                %     [sO_PCA_out,U_PCA_sO] = Asvd_package( VW_sO_ - mean(VW_sO_,2) );
+                %     sO_PCA_out.U = U_PCA_sO;
+                % end
 
                 % decompose section of tangent space orthogonal to tvf tangent space
                 tO_B_unit = tO_B/mag_tO_B;
+                % [sO_nTVF,U_V_nTVF_sO] = Asvd_package(( eye(B_in) - tO_B_unit*(tO_B_unit') )*VW_sO_);
+                % sO_nTVF.U = U_V_nTVF_sO;
+                % sO_nTVF.Tspc_image = VW_sO_ * (( sO_nTVF.s(:)/sO_nTVF.s(1) )' .* sO_nTVF.V);
                 VW_YVW_sO = VW_sO_*sO_basis_out.V(:,1:nvar_N1);
                 [sO_nTVF,U_V_nTVF_sO] = Asvd_package((eye(B_in)-tO_B_unit*(tO_B_unit'))*VW_YVW_sO);
                 sO_nTVF.U = U_V_nTVF_sO;
@@ -301,6 +305,124 @@ classdef LDsol
                 sO_nTVF.nTVF_Tspc_image = (sO_nTVF.s(1:(nvar_N1-1)) / sO_nTVF.s(1))' .* U_V_nTVF_sO(:,1:(nvar_N1-1));
 
                 sO_basis_out.sO_nTVF = sO_nTVF;
+            end
+            function W_image = compute_sO_WG_image(Gsvd_,iP_,tO_,JtO_,lam_sO_)
+                lv_b_sO = lam_sO_.lrow_vals(iP_);
+                dkxl_b_sO = lam_sO_.dkxl(1,iP_);
+                lkx_b_sO = lam_sO_.lkx(:,iP_,1);
+
+                Jl_b_sO = lam_sO_.Jl(:,iP_);
+
+                nvar_ = 1+size(lkx_b_sO,1);
+                Plen_v = length(lv_b_sO);
+                ntheta_v = Plen_v*nvar_;
+
+                % nvar x C matrix, columns span tangent space of S0 at s0O
+                V0spc_image = @(thtns_) reshape( ...
+                    pagemtimes( thtns_, lv_b_sO(:) ) , [nvar_ size(thtns_,3)] );
+                % VdNxuspc_sO is ndep x nvar matrix, columns are vfield coeffs of dNxu in jet space
+                VdNxuspc_image = @(thmat_,thtns_) reshape( ...
+                    pagemtimes( thtns_((end-ndep+1):end,:,:) , dkxl_b_sO(:) ) , [ndep size(thtns_,3)] ...
+                    ) - lkx_b_sO((end-ndep+1):end,:,1) * thmat_(1:Plen_v,:) ;
+                % B x nvar matrix, columns are vfield coeffs, span tangent space of SN at sNO, lie algebra at origin
+                VNspc_image = @(thmat_,thtns_) deal([V0spc_image(thtns_) ; VdNxuspc_image(thmat_,thtns_)],thtns_);
+                % thtns_ is nvar x Plen x nvar, pages are coordinate vfield parameter matrices, act on lambda vectors, yield coeffs
+                complete_sO_Tspc_image = @(thmat_) VNspc_image( ...
+                    thmat_ , permute(reshape(thmat_,Plen_v,nvar_,size(thmat_,2)),[2 1 3]) ...
+                );
+                function VN_out = eval_muN_sO(W_mat_)
+                    ncol_Wmat = size(W_mat_,2);
+                    W_tns_ = permute(reshape(W_mat_,Plen_v,nvar_,ncol_Wmat) , [2 1 3]);
+                    VN_out = [  reshape(pagemtimes( W_tns_ , lv_b_sO(:) ), nvar_, ncol_Wmat) ; ...
+                                reshape( pagemtimes( W_tns_((end-ndep+1):end,:,:), dkxl_b_sO(1,:)' ), ndep, ncol_Wmat )  ...
+                                    - ( lkx_b_sO((end-ndep+1):end,:,1) * W_mat_(1:Plen_v,:) ) ];
+                end
+                function Lam_out = immerse_l_Lam0(l_)
+                    Lam_out = zeros(Plen_v,nvar_,nvar_);
+                    for ivar = 1:nvar_
+                        Lam_out(:,ivar,ivar) = l_(:);
+                    end
+                    Lam_out = reshape(Lam_out,ntheta_v,nvar_)'; % result is nvar x ntheta Lambda matrix at s_O
+                end
+
+                % nvar x ntheta Lambda^(0) matrix at the origin
+                Lam_b_sO = immerse_l_Lam0(lv_b_sO);
+
+                t0_sO = reshape(tO_(1:nvar_),nvar_,1);
+                dx_l_sO = t0_sO' * Jl_b_sO;
+                % nvar x ntheta dx(Lambda^(0)) at s_O, left commutativity condition
+                BLt0_sO = immerse_l_Lam0(dx_l_sO);
+                % nvar x ntheta, Jv1 Lambda^(0) at s_O, right commutativity condition
+                BRt0_sO = JtO_ * Lam_b_sO;
+                % nvar x ntheta, net commutator associated with v1
+                Bt0_sO = BLt0_sO - BRt0_sO;
+
+                Bt0_sO_unit = Bt0_sO / norm(Bt0_sO);
+                % kernal of this matrix consists of vector fields which commute with tvf at origin
+                Gsvd_tO_com = Asvd_package([ Gsvd_.D/Gsvd_.s(1) ; Bt0_sO_unit ]);
+                % ndim x ntheta, tangent vectors of candidate vector fields commuting w tvf at origin
+                VN_com_sO  = eval_muN_sO(Gsvd_tO_com.W);
+                [VN_com_sO_svd,U_VN_com_sO] = Asvd_package( VN_com_sO );
+                VN_com_sO_svd.U = U_VN_com_sO;
+
+                tNO_unit = tO_/norm(tO_);
+                [VN_com_nTVF_sO_svd,U_VN_com_nTVF_sO] = Asvd_package( (eye(length(tO_)) - tNO_unit*tNO_unit')*VN_com_sO );
+                VN_com_nTVF_sO_svd.U = U_VN_com_nTVF_sO;
+
+
+
+                %% evaluate image of parameter space at the origin
+                % nvar x Plen x ntheta, pages multiply column lambda vecs
+                Wtns = permute(reshape(Gsvd_.W,Plen_v,nvar_,ntheta_v) , [2 1 3]);
+                % V0_sO is nvar x ntheta, cols are base space vector coefficients which span T_sO S0
+                V0_sO = reshape(pagemtimes( Wtns , lv_b_sO(:) ), nvar_, ntheta_v);
+                % VdNxuW_sNO is ndep x ntheta, cols are N'th derivative vector field coefficients in N'th jet space
+                VdNxu_sO = reshape( pagemtimes( Wtns((end-ndep+1):end,:,:), dkxl_b_sO(1,:)' ), ndep, ntheta_v )  ...
+                    - ( lkx_b_sO((end-ndep+1):end,:,1) * Gsvd_.W(1:Plen_v,:) );
+
+                % VN_sO (aka mu^(1)_O) is ndim x ntheta, cols are N'th jet space tangent vector candidates
+                VN_sO =  [V0_sO ; VdNxu_sO];
+                % ntheta x 1, (sparse) linear combination of candidate tangent vectors, yield tN_O
+                a_VN_tO = lsqminnorm(VN_sO,tO_);
+                % linear combination of W columns, post multiply Lambda^(N)_O, yield tN_O
+                theta_tO = VN_sO*a_VN_tO;
+
+                % VN_sO is ndim x ntheta, cols are N'th jet space tangent vector candidates
+                mu_svd = Tspc_package( VN_sO,tO_ );
+                % U_mu is ndim x B0, cols are orthonormal basis for the tangent space of S at sO
+                mu_svd.U_mu = mu_svd.U(:,1:nvar_);
+                % Y_mu is ntheta x B0, cols linearly combine W, correspond to orthonormal tangent vectors in tangent space
+                mu_svd.Y_mu = mu_svd.V(:,1:nvar_);
+                % Theta_Ymu, ntheta x nvar, cols linearly combine Lambda, yield orthonormal tangent vectors in tangent space
+                Theta_Ymu = Gsvd_.W * mu_svd.Y_mu;
+                % muY_O, ndim x nvar, orthonormal tangent vectors in tangent space
+                muY_O = VN_sO * mu_svd.Y_mu;
+                % theta_WYmu_tO, ntheta x 1, linear combination of Theta_Ymu corresponding to tO, tvf at origin
+                theta_WYmu_tO = Theta_Ymu*lsqminnorm(muY_O,tO_);
+
+                % choose trivial vector field at the origin as first coordinate vector vield
+                theta_mat_WYmu_v1 = reshape(theta_WYmu_tO,Plen_v,nvar_);
+                % nvar x 1, base space tangent vector of v1 at the origin (should be equal to t0_O here)
+                v1_sO = theta_mat_WYmu_v1' * lv_b_sO(:);
+                % 1 x Plen, total derivative of lambda functions along the flow of v1
+                de1_l_sO = v1_sO' * Jl_b_sO;
+                % nvar x ntheta de1(Lambda^(0)) at s_O, left commutativity condition
+                BLv1_sO = immerse_l_Lam0(de1_l_sO);
+                % nvar x ntheta, Jv1 Lambda^(0) at s_O, right commutativity condition
+                BRv1_sO = (theta_mat_WYmu_v1' * Jl_b_sO') * Lam_b_sO;
+                % nvar x ntheta, net commutator associated with v1
+                Bv1_sO = BLv1_sO - BRv1_sO;
+
+
+                Bv1_sO_svd = Asvd_package(Bv1_sO*Theta_Ymu);
+
+                % keyboard
+                % J_tau_sO =
+
+                W_image = mu_svd;
+                W_image.mu = VN_sO;
+                W_image.a_mu_tO = a_VN_tO;
+                W_image.theta_tO = theta_tO;
             end
             function [s0O_basis_out,sNO_basis_out] = compute_sO_W_tspc(W_,iP_,lam_sO_,tO_)
                 lv_b_sO = lam_sO_.lrow_vals(iP_);
@@ -400,6 +522,221 @@ classdef LDsol
                 sO_NT_basis_out = sNO_NT_basis_out;
 
             end
+            function [sO_coords_out,s0O_basis_out,sNO_basis_out] = compute_sO_coords(Gsvd_,iPv_,lvs_,lam_sO_,tO_,Jltns_xi_,Lam_v_T_ttns_,Gmat_)
+                [nvar_,Plen_xi,nobs_] = size(Jltns_xi_);
+                Plen_v = size(lvs_,1);
+                ntheta_v = Plen_v*nvar_;
+
+                % [s0O_basis_out,sNO_basis_out] = compute_sO_W_tspc(Gsvd_.W,iP_,lam_sO_,tO_);
+                % sO_coords_out = s0O_basis_out;
+                % sO_coords_out = sNO_basis_out;
+                [sO_coords_out,s0O_basis_out,sNO_basis_out] = compute_sO_basis(Gsvd_.W,iPv_,lvs_,lam_sO_,tO_);
+
+
+                % nvar x nvar x nobs, page rows are transversal tangent vectors evaluated at observed solutions
+                Vspc_S = permute( ...
+                    reshape(pagemtimes( sO_coords_out.theta_tns_WV_sO , lvs_), nvar_, nobs_, nvar_), ...
+                [3 1 2]);
+                % nvar x Plen x nobs, pages are directional derivatives wrt coordinate vfields at s^(N-1) |_j
+                H_LamTheta_S = pagemtimes( Vspc_S , Jltns_xi_ );
+                % svd of nvar*nobs x Plen net H matrix. Kernel consists of globally constant functions (e.g. f(x,u) = 1)
+                Hsvd_LamTheta_S = Asvd_package( ...
+                    reshape(permute(H_LamTheta_S,[2 1 3]),Plen_xi,nvar_*nobs_)' ...
+                );
+                % normalize_Henc(reshape(permute(H_LamTheta_S,[2 1 3]),Plen_xi,nvar_*nobs_)') ...
+                % Plen x r_H, row space of global H svd over orthogonal vfield basis (at s_O), non globally constant fcns
+                YH = Hsvd_LamTheta_S.V(:,1:Hsvd_LamTheta_S.r);
+                % nobs x Plen x nvar, pages are Hmats (directional derivatives) over S = { s|_j } of each coordinate vfield
+                H_LamTheta_S = permute(H_LamTheta_S, [3 2 1]);
+
+                theta_xicoords_TspcO = zeros(Plen_xi,nvar_);
+                err_xicoords_TspcO = nan(nobs_,nvar_);
+                %% compute dependent variables of orthogonal tangent space basis at the origin
+                for ixi = 1:nvar_
+                    theta_xicoords_TspcO(:,ixi) = YH * lsqminnorm(H_LamTheta_S(:,:,ixi)*YH, ones(nobs_,1));
+                    err_xicoords_TspcO(:,ixi) = H_LamTheta_S(:,:,ixi)*theta_xicoords_TspcO(:,ixi) - ones(nobs_,1);
+                end
+                JXi_sO_TspcO = lamN1_sO.Jl * theta_xicoords_TspcO;
+                JXi_svd_sO_TspcO = Asvd_package(JXi_sO_TspcO);
+                theta_svd_xicoords_TspcO = Asvd_package(theta_xicoords_TspcO');
+
+                %% generate functionally independent canonical coordinate system
+                Theta_vcoords = zeros(Plen_v,nvar_,nvar_);
+                theta_xicoords = zeros(Plen_xi,nvar_);
+                err_xicoords = nan(nobs_,nvar_);
+
+                % parameters associated with principle coordinate vfield
+                Theta_vcoords(:,:,1) = reshape(sO_coords_out.theta_WV_sO(:,1),Plen_v,nvar_);
+                % directional derivatives wrt principle coordinate vfield
+                Hxi_i = H_LamTheta_S(:,:,1);
+                % restricted to non globally constant functions
+                Hxi_i_YH = Hxi_i*YH;
+                % svd of Hxi_i (nobs x r_H) : directional derivatives of non globally constant fcns, wrt i'th coord vfield
+                [Hxi_i_svd, U_Hxi_i] = Asvd_package( normalize_Henc(Hxi_i_YH) );
+                Hxi_i_svd.U = U_Hxi_i;
+
+                % % % r_H x 1, regularized least squares solution to Hxi_i * YH * a_xi = 1
+                % % Hxi_i_svd.a_xi = lsqminnorm(Hxi_i_YH,ones(nobs_,1));
+                % % r_H x 1, restricted, regularized least squares solution to Hxi_i * YH * YHYH aa_xi = 1
+                % Hxi_i_svd.a_xi = Hxi_i_svd.V(:,1:(Hxi_i_svd.r)) * lsqminnorm(Hxi_i_YH*Hxi_i_svd.V(:,1:(Hxi_i_svd.r)),ones(nobs_,1));
+                % Plen x 1, linear combination of YH almost surely satisfying Hxi_i * theta_xi = 1 everywhere
+                % theta_xicoords(:,1) = YH * Hxi_i_svd.a_xi;
+                theta_xicoords(:,1) = YH * Hxi_i_svd.V(:,1:(Hxi_i_svd.r))  ...
+                                            * lsqminnorm(Hxi_i_YH*Hxi_i_svd.V(:,1:(Hxi_i_svd.r)),ones(nobs_,1));
+                % theta_xicoords(:,1) = YH * lsqminnorm(Hxi_i_YH,ones(nobs_,1));
+
+                err_xicoords(:,1) = Hxi_i*theta_xicoords(:,1) - ones(nobs_,1);
+
+                H_Xi_svds(1) = Hxi_i_svd;
+                G_Xi_svds(1) = Gsvd_; % initial G matrix is just input infinitesimal criterion
+                GnetXi_i = [];
+
+                % Plen x 1, linear combination of YH almost surely satisfying Hxi_i * theta_xi = 1 everywhere
+                Lam_v_tns_ = permute(reshape(Lam_v_T_ttns_(iPv_,:,1:nvar_,:),ntheta_v,nvar_,nobs_),[2 1 3]);
+                % diagonalize canonical dependent variables
+                for ixi = 2:nvar_
+                    % GXi is an accumulating matrix with rows corresponding to gradients of identified dependent coords over observations
+                    GnetXi_i = [ GnetXi_i ; ...
+                                 reshape( pagemtimes( ...
+                                    reshape( pagemtimes(Jltns_xi_,theta_xicoords(:,ixi-1)) ,1,nvar_,nobs_), ...
+                                    Lam_v_tns_ ), ntheta_v,nobs_ )' ];
+                    % net infinitesimal criterion wrt xi gradients (and standard infinitesimal criterion)
+                    % G_Xi_svds(ixi) = Asvd_package([ Gsvd_.D' ; normalize_Genc(GnetXi_i) ]);
+                    G_Xi_svds(ixi) = Asvd_package(normalize_Genc([Gmat_ ; GnetXi_i]));
+
+                    GnetXi_i_sO_basis = compute_sO_basis(G_Xi_svds(ixi).W,iPv_,lvs_,lam_sO_,tO_);
+                    Theta_vcoords(:,:,ixi) = reshape(GnetXi_i_sO_basis.theta_WV_sO(:,1),Plen_v,nvar_);
+                    % nvar x nvar x nobs, page rows are transversal tangent vectors evaluated at observed solutions
+                    V1_GnetXi_i_S = reshape(Theta_vcoords(:,:,ixi)' * lvs_,[1 nvar_ nobs_]);
+
+                    % nobs x Plen, rows are directional derivatives wrt i'th coordinate vfield
+                    Hxi_i = reshape(pagemtimes( V1_GnetXi_i_S(1,:,:) , Jltns_xi_ ), Plen_xi, nobs_)';
+                    % restricted to non globally constant functions
+                    Hxi_i_YH = Hxi_i*YH;
+                    % svd of Hxi_i (nobs x r_H) : directional derivatives of non globally constant fcns, wrt i'th coord vfield
+                    [Hxi_i_svd, U_Hxi_i] = Asvd_package( normalize_Henc(Hxi_i_YH) );
+                    Hxi_i_svd.U = U_Hxi_i;
+
+                    % % % r_H x 1, regularized least squares solution to Hxi_i * YH * a_xi = 1
+                    % % Hxi_i_svd.a_xi = lsqminnorm(Hxi_i_YH,ones(nobs_,1));
+                    % % r_H x 1, restricted, regularized least squares solution to Hxi_i * YH * YHYH aa_xi = 1
+                    % Hxi_i_svd.a_xi = Hxi_i_svd.V(:,1:(Hxi_i_svd.r)) * lsqminnorm(Hxi_i_YH*Hxi_i_svd.V(:,1:(Hxi_i_svd.r)),ones(nobs_,1));
+                    % Plen x 1, linear combination of YH almost surely satisfying Hxi_i * theta_xi = 1 everywhere
+                    % theta_xicoords(:,ixi) = YH * Hxi_i_svd.a_xi;
+                    theta_xicoords(:,ixi) = YH * Hxi_i_svd.V(:,1:(Hxi_i_svd.r)) ...
+                                                * lsqminnorm(Hxi_i_YH*Hxi_i_svd.V(:,1:(Hxi_i_svd.r)),ones(nobs_,1));
+                    % theta_xicoords(:,ixi) = YH * lsqminnorm(Hxi_i_YH,ones(nobs_,1));
+
+                    err_xicoords(:,ixi) = Hxi_i*theta_xicoords(:,ixi) - ones(nobs_,1);
+
+                    H_Xi_svds(ixi) = Hxi_i_svd;
+                end
+                sO_coords_out.Hsvd_LamTheta_S = Hsvd_LamTheta_S;
+                sO_coords_out.H_LamTheta_S = H_LamTheta_S;
+                sO_coords_out.YH = YH;
+                sO_coords_out.theta_xicoords_TspcO = theta_xicoords_TspcO;
+                sO_coords_out.theta_svd_xicoords_TspcO = theta_svd_xicoords_TspcO;
+                sO_coords_out.err_xicoords_TspcO = err_xicoords_TspcO;
+                sO_coords_out.JXi_sO_TspcO = JXi_sO_TspcO;
+                sO_coords_out.JXi_svd_sO_TspcO = JXi_svd_sO_TspcO;
+                sO_coords_out.Theta_vcoords = Theta_vcoords;
+                sO_coords_out.theta_xicoords = theta_xicoords;
+                sO_coords_out.err_xicoords = err_xicoords;
+                sO_coords_out.H_Xi_svds = H_Xi_svds;
+                sO_coords_out.G_Xi_svds = G_Xi_svds;
+            end
+            function [sO_basis_out,s0O_basis_out,sNO_basis_out] = compute_sO_basis(W_,iP_,lvs_,lam_sO_,tO_)
+                [s0O_basis_out,sNO_basis_out] = compute_sO_W_tspc(W_,iP_,lam_sO_,tO_);
+
+                % % nvar x nobs x nvar, evaluated vector field basis (pages) over base space at each observed solution
+                % s0O_basis_out.LamTheta_S = reshape(pagemtimes( s0O_basis_out.theta_tns_WV_sO , lvs_ ), nvar_N1, nobs, nvar_N1);
+                % % nvar x nobs x nvar, evaluated vector field basis (pages) over base space at each observed solution
+                % sNO_basis_out.LamTheta_S = reshape(pagemtimes( sNO_basis_out.theta_tns_WV_sO , lvs_ ), nvar_N1, nobs, nvar_N1);
+
+                %% choose either base space or jet space orthonormal parameter basis
+                % sO_basis_out = s0O_basis_out;
+                sO_basis_out = sNO_basis_out;
+            end
+            function sO_coords_out = complete_sO_tvf_invariants(sO_coords_in_,lam_xi_sO_,Hmat_tvf_,lvs_xi_,lvs_v_,Jltns_xi_,Jl_xi_svd_)
+                %% identify differential invariants of the TVF by finding functionally independent conserved quantities at the origin
+                Hsvd_tvf_YH_S = Asvd_package( normalize_Henc(Hmat_tvf_*sO_coords_in_.YH) );
+                % P x kappa+1, non globally constant function parameters w gradient orthogonal to tvf
+                Theta_Eta_tvf_full = sO_coords_in_.YH*Hsvd_tvf_YH_S.W;
+                gEta_tvf_svd = Asvd_package(lam_xi_sO_.Jl*Theta_Eta_tvf_full);
+                % P x nvar, parameters of canonical independent coordinates with orthogonal gradients at the origin
+                gEta_tvf_svd.Theta_Eta_tvf = Theta_Eta_tvf_full*gEta_tvf_svd.V( :, 1:(size(lam_xi_sO_.Jl,1)-1) );
+
+                % 1 x nvar, image of tvf independent coordinates over sO (includes near null space solution)
+                Eta_tvf_sO = lam_xi_sO_.lrow_vals*(gEta_tvf_svd.Theta_Eta_tvf);
+                % nobs x nvar, image of tvf independent coordinates over S (includes near null space solution)
+                Eta_tvf_S = lvs_xi_'*(gEta_tvf_svd.Theta_Eta_tvf);
+
+                YJl = Jl_xi_svd_.V(:,1:(Jl_xi_svd_.r));
+                Hsvd_tvf_YJl_S = Asvd_package( normalize_Henc(Hmat_tvf_*YJl) );
+                % P x kappa+1, non globally constant function parameters w gradient orthogonal to tvf
+                Theta_Eta_tvf_YJl_full = YJl*Hsvd_tvf_YJl_S.W;
+                gEta_tvf_YJl_svd = Asvd_package(lam_xi_sO_.Jl*Theta_Eta_tvf_YJl_full);
+                % P x nvar, parameters of canonical independent coordinates with orthogonal gradients at the origin
+                gEta_tvf_YJl_svd.Theta_Eta_tvf = Theta_Eta_tvf_YJl_full * gEta_tvf_YJl_svd.V( :, 1:(nvar_N1-1) );
+
+                % 1 x nvar, image of tvf independent coordinates over sO (includes near null space solution)
+                Eta_tvf_YJl_sO = lam_xi_sO_.lrow_vals*(gEta_tvf_YJl_svd.Theta_Eta_tvf);
+                % nobs x nvar, image of tvf independent coordinates over S (includes near null space solution)
+                Eta_tvf_YJl_S = lvs_xi_'*(gEta_tvf_YJl_svd.Theta_Eta_tvf);
+
+                %% identify differential invariants of non trivial vfields
+                % ntheta x QN, parameters of non trivial vfields over S (transversal to TVF at origin)
+                Y_nTVF = sO_coords_in_.sO_nTVF.V(:,1:(nvar_N1-1)) / sO_coords_in_.sO_nTVF.s(1);
+                % C x QN, parameters of non trivial vfields over S in full coordinates, scaled,
+                theta_nTVF = sO_coords_in_.WYmu * Y_nTVF ...
+                                                .* (sO_coords_in_.sO_nTVF.s(1:(nvar_N1-1))' / sO_coords_in_.sO_nTVF.s(1));
+                % (QN+1) x Plen x QN, parameters of non-trivial vfields organized as matrices
+                theta_nTVF_tns = permute(reshape(theta_nTVF,[],nvar_N1,nvar_N1-1),[2 1 3]);
+                % QN x (QN+1) x nobs, non trivial vfield tangent vectors evaluated at every point
+                Vspc_nTVF_S = permute( ...
+                    reshape(pagemtimes( theta_nTVF_tns , lvs_v_), nvar_N1, nobs, nvar_N1-1 ), ...
+                [3 1 2]);
+                % QN x Plen x nobs, pages are directional derivatives wrt coordinate vfields at s^(N-1) |_j
+                Vspc_nTVF_Jl_S = pagemtimes( Vspc_nTVF_S,Jltns_xi_ );
+                Vspc_Jl_svd_S = Asvd_package( ...
+                    [ reshape(permute(Vspc_nTVF_Jl_S,[2 1 3]),[],(nvar_N1-1)*nobs)' ; Hmat_tvf_ ]*YJl ...
+                );
+                % [ reshape(permute(Vspc_nTVF_Jl_S,[2 1 3]),[],(nvar_N1-1)*nobs)' ; Hmat_tvf_ ] ...
+                % [ reshape(permute(Vspc_nTVF_Jl_S,[2 1 3]),[],(nvar_N1-1)*nobs)' ; Hmat_tvf_ ]*YJl ...
+                % normalize_Henc([ reshape(permute(Vspc_nTVF_Jl_S,[2 1 3]),[],(nvar_N1-1)*nobs)' ; Hmat_tvf_ ]*YJl) ...
+
+                % spans set of non-globally constant functions along transversal vector fields of S
+                Y_Vspc_Jl = YJl*Vspc_Jl_svd_S.V(:,1:Vspc_Jl_svd_S.r);
+                Hsvd_tvf_Y_VJl_S = Asvd_package( Hmat_tvf_*Y_Vspc_Jl );
+                % P x kappa+1, non globally constant function parameters w gradient orthogonal to tvf
+                Theta_Eta_tvf_Y_VJl_full = Y_Vspc_Jl*Hsvd_tvf_Y_VJl_S.W;
+                gEta_tvf_Y_VJl_svd = Asvd_package(lam_xi_sO_.Jl*Theta_Eta_tvf_Y_VJl_full);
+                % P x nvar, parameters of canonical independent coordinates with orthogonal gradients at the origin
+                gEta_tvf_Y_VJl_svd.Theta_Eta_tvf = Theta_Eta_tvf_Y_VJl_full * gEta_tvf_Y_VJl_svd.V( :, 1:(nvar_N1-1) );
+
+                % 1 x nvar, image of tvf independent coordinates over sO (includes near null space solution)
+                Eta_tvf_Y_VJl_sO = lam_xi_sO_.lrow_vals*(gEta_tvf_Y_VJl_svd.Theta_Eta_tvf);
+                % nobs x nvar, image of tvf independent coordinates over S (includes near null space solution)
+                Eta_tvf_Y_VJl_S = lvs_xi_'*(gEta_tvf_Y_VJl_svd.Theta_Eta_tvf);
+
+                %% assignments
+                sO_coords_out = sO_coords_in_;
+                sO_coords_out.Hsvd_tvf_YH_S = Hsvd_tvf_YH_S;
+
+                sO_coords_out.gEta_tvf_svd = gEta_tvf_svd;
+                sO_coords_out.Eta_tvf_sO = Eta_tvf_sO;
+                sO_coords_out.Eta_tvf_S = Eta_tvf_S;
+
+                sO_coords_out.gEta_tvf_YJl_svd = gEta_tvf_YJl_svd;
+                sO_coords_out.Eta_tvf_YJl_sO = Eta_tvf_YJl_sO;
+                sO_coords_out.Eta_tvf_YJl_S = Eta_tvf_YJl_S;
+
+                sO_coords_out.Vspc_Jl_svd_S = Vspc_Jl_svd_S;
+
+                sO_coords_out.gEta_tvf_Y_VJl_svd = gEta_tvf_Y_VJl_svd;
+                sO_coords_out.Eta_tvf_Y_VJl_sO = Eta_tvf_Y_VJl_sO;
+                sO_coords_out.Eta_tvf_Y_VJl_S = Eta_tvf_Y_VJl_S;
+            end
 
             tic0 = tic;
             inds_P_RN1 = 1:Plen_RN1;
@@ -482,16 +819,14 @@ fprintf('(LDsol::model_solspace) encoded G, %dx%dx%d, in %.2f seconds.\n', ...
             Bmat_tdxu_N1 = (reshape(permute(Btns_tdxu_N1,[2 1 3]),ntheta_GN1,ndep_N1*nobs))';
             Bsvd_tdxu_N1 = Asvd_package(normalize_Benc(Bmat_tdxu_N1));
 
-            Bsvd_tN_N1 = Asvd_package(normalize_Benc([ Bmat_t0_N1 ; Bmat_tdxu_N1 ]));
-
             %% assemble net G matrix, obeying prolongation, as well as optional tvf commutativity constraints
             tic0 = tic;
             [inds_P_GN1_full,inds_P_GN1_net,inds_P_GN1_com] = deal(1:Plen_GN1);
             Gmat_N1 = (reshape(permute(Gtns_N1,[2 1 3]),ntheta_GN1,ndep*nobs))';
             Gsvd_N1 = Asvd_package(normalize_Genc(Gmat_N1));
+            Gmat_N1_com = [ Gmat_N1 ; [ Hmat_RN1 , zeros(nobs,ntheta_GN1-Plen_RN1) ] ];
             nsvd = 1;
             if (kor>1)
-
                 % most general class of vector fields over solution space, likely underdetermined
                 Gmat_N1_net_full = [ Gmat_N1 ; DprN_mat ];
                 Gsvd_N1_net_full = Asvd_package(normalize_Genc(Gmat_N1_net_full));
@@ -510,6 +845,24 @@ fprintf('(LDsol::model_solspace) encoded G, %dx%dx%d, in %.2f seconds.\n', ...
                     Gmat_N1_net = Gmat_N1_net_full;
                     Gsvd_N1_net = Gsvd_N1_net_full;
                 end
+                % most restrictive class of vector fields, commute w tvf, possibly underdetermined
+                Gmat_N1_com_full = [ Gmat_N1_com ; DprN_mat ];
+                Gsvd_N1_com_full = Asvd_package(normalize_Genc(Gmat_N1_com_full));
+                nsvd = nsvd + 1;
+                [mrow_GN1_com,ntheta_GN1_com] = size(Gmat_N1_com_full);
+                % if Gmat_N1_com_full is underdetermined, pare down column space until overdetermined
+                if ( mrow_GN1_com<=ntheta_GN1_com )
+                    Gtns_T_com = reshape(Gmat_N1_com_full',Plen_GN1,nvar_N1,mrow_GN1_com);
+                    [inds_P_GN1_com,ntheta_GN1_com] = pare_colspc(Pmat_GN1_full,mrow_GN1_com);
+                    Gmat_N1_com = reshape(Gtns_T_com(inds_P_GN1_com,:,:),ntheta_GN1_com,mrow_GN1_com)';
+                    Gsvd_N1_com = Asvd_package( ...
+                        normalize_Genc(Gmat_N1_com) ...
+                    );
+                    nsvd = nsvd+1;
+                else
+                    Gmat_N1_com = Gmat_N1_com_full;
+                    Gsvd_N1_com = Gsvd_N1_com_full;
+                end
 
             else % N=1 => G matrix rows >= R matrix rows, nothing to do
                 DprN_mat = Gmat_N1; % reinforce infinitesimal criterion, if no consistent prolongation constraint is in play
@@ -517,7 +870,11 @@ fprintf('(LDsol::model_solspace) encoded G, %dx%dx%d, in %.2f seconds.\n', ...
                 [Gmat_N1_net,Gmat_N1_net_full] = deal(Gmat_N1);
                 [Gsvd_N1_net,Gsvd_N1_net_full] = deal(Gsvd_N1);
                 [mrow_GN1_net,ntheta_GN1_net] = size(Gmat_N1_net);
+
+                Gmat_N1_com_full = Gmat_N1_com;
+                [Gsvd_N1_com,Gsvd_N1_com_full] = deal( Asvd_package(normalize_Genc(Gmat_N1_com)) );
                 nsvd = nsvd+1;
+                [mrow_GN1_com,ntheta_GN1_com] = size(Gmat_N1_com);
             end
             toc1 = toc(tic0);
 fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: %dx%d (r=%d,k=%d) -> %dx%d (r=%d,k=%d,o0=%d,oN=%d,o=%d) \n', ...
@@ -526,6 +883,12 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
             mrow_GN1_net, Gsvd_N1_net.dim, Gsvd_N1_net.r, Gsvd_N1_net.dim - Gsvd_N1_net.r, ...
             max(sum(fspace_RN1.Pmat(1:nvar,inds_P_GN1_net),1)), max(sum(fspace_RN1.Pmat((nvar+1):end,inds_P_GN1_net),1)) , ...
             max(sum(fspace_RN1.Pmat(:,inds_P_GN1_net),1)) );
+
+            Plen_GN1_net = ntheta_GN1_net / nvar_N1;
+            % LamN0_tns_GN1_net = permute(reshape(LamN_T_ttns_RN1(inds_P_GN1_net,:,1:nvar_N1,:),ntheta_GN1_net,nvar_N1,nobs),[2 1 3]);
+
+            Plen_GN1_com = ntheta_GN1_com / nvar_N1;
+            % LamN0_tns_GN1_com = permute(reshape(LamN_T_ttns_RN1(inds_P_GN1_com,:,1:nvar_N1,:),ntheta_GN1_com,nvar_N1,nobs),[2 1 3]);
 
             %{
                 SVDs of Gnet and Gcom reveal kernal vfields of S. The latter are guaranteed to commute with the TVF.
@@ -538,17 +901,15 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
             RGsvd_N1_net = Asvd_package([ normalize_Renc(Rmat_N1_net) ; normalize_Genc(Gmat_N1) ]);
 
             % nullspace consists of vector fields that commute with tvf, constraints block decomposed together
-            Gsvd_N1_com = Asvd_package([ ...
+            Gsvd_N1_opt = Asvd_package([ ...
                 DprN_svd.D/DprN_svd.s(1) , ...
-                Bsvd_t0_N1.D/Bsvd_t0_N1.s(1), ...
                 Bsvd_tdxu_N1.D/Bsvd_tdxu_N1.s(1), ...
+                Bsvd_t0_N1.D/Bsvd_t0_N1.s(1), ...
                 Gsvd_N1.D/Gsvd_N1.s(1) ...
             ]');
-            % Bsvd_t0_N1.D/Bsvd_t0_N1.s(1), ...
-            % Bsvd_tdxu_N1.D/Bsvd_tdxu_N1.s(1), ...
-            % Bsvd_tN_N1.D/Bsvd_tN_N1.s(1), ...
-            inds_P_GN1_com = 1:Plen_GN1;
+            inds_P_GN1_opt = 1:Plen_GN1;
 
+            % Rsvd_N1.D/Rsvd_N1.s(1) ; ...
             %% choose an arbitrary origin for the generation of an intrinsic coordinate system
             [icrv_sO,i_sO_0,i_sO_1] = deal(1,1,2); % mid point between first and second observed solutions on curve 1, w.l.o.g.
             jt_O = LDsol.compute_trivial_Hermite_jet( ...
@@ -558,48 +919,104 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
             );
             s_O0 = [ jt_O.xh ; reshape( jt_O.Amat(1:kor,:)', ndep*(kor), 1 ) ]; % extract fitted base space origin, s_O0
             lamN1_sO = adlam( fspace_N1, s_O0 );
+            % [f_O0,dxf_O0,vth_sO,lamRN1_sO,Jtu_sO] = comp_f_s0(s_O0,fspace_RN1,Rsvd_N1_net.W,inds_P_RN1); % pass s_O0 to tvf model
             [f_O0,dxf_O0,vth_sO,lamRN1_sO,Jtu_sO] = comp_f_s0(s_O0,fspace_RN1,RGsvd_N1_net.W,inds_P_RN1); % pass s_O0 to tvf model
             s_O = [ s_O0 ; f_O0((end-ndep+1):end) ]; % set the jet space origin as the graph of tvf on s_O0
             sNp1_O = [ s_O ; dxf_O0((end-ndep+1):end) ];
             t_O = [ 1 ; sNp1_O((nvar+1):end) ]; % tvf tangent vector in the N'th jet space at the origin
 
-            % P x kappa+1, non globally constant function parameters w gradient orthogonal to tvf
-            Jl_N1_svd.YJlW_Eta_tvf = Jl_N1_svd.YJl * Jl_N1_svd.H_YJl_svd.W;
-            % svd of the candidate canonical independent coordinate variable gradients at origin
-            Jl_N1_svd.gEta_tvf_YJl_sO_svd = Asvd_package(lamN1_sO.Jl * Jl_N1_svd.YJlW_Eta_tvf );
-            % P x nvar, parameters of canonical independent coordinates with orthogonal gradients at the origin
-            Jl_N1_svd.Theta_Eta_tvf = Jl_N1_svd.YJlW_Eta_tvf * Jl_N1_svd.gEta_tvf_YJl_sO_svd.V( :, 1:(nvar_N1-1) );
-            % 1 x (nvar-1), image of tvf independent coordinates over sO (includes near null space solution)
-            Jl_N1_svd.Eta_tvf_sO = lamN1_sO.lrow_vals * Jl_N1_svd.Theta_Eta_tvf;
-            % nobs x (nvar-1), image of tvf independent coordinates over S (includes near null space solution)
-            Jl_N1_svd.Eta_tvf_S = lvs_N1' * Jl_N1_svd.Theta_Eta_tvf;
-
             %% compute non-trivial vector field bases
-            [~,Mcom_sO_basis] = compute_sO_W_tspc(Gsvd_N1_com.W,inds_P_GN1_com,lamRN1_sO,t_O);
-            [~,Mnet_sO_basis] = compute_sO_W_tspc(Gsvd_N1_net.W,inds_P_GN1_net,lamRN1_sO,t_O);
-
-            [Nsvd_N1_com,Ncom_sO_basis,~,~] = compute_sO_nontrivial_basis( ...
-                Gsvd_N1_com.W,inds_P_GN1_com,tauN_S_mat,lvs_RN1(inds_P_GN1_com,:),LamN1_T_ttns(inds_P_GN1_com,:,:,:),t_O,lamRN1_sO,Jltns_N1 ...
+            [Nsvd_N1_opt,Nopt_sO_basis,Nopt_s0O_basis,Nopt_sNO_basis] = compute_sO_nontrivial_basis( ...
+                Gsvd_N1_opt.W,inds_P_GN1_opt,tauN_S_mat,lvs_RN1(inds_P_GN1_opt,:),LamN1_T_ttns(inds_P_GN1_opt,:,:,:),t_O,lamRN1_sO,Jltns_N1 ...
             );
-            [Nsvd_N1_net,Nnet_sO_basis,~,~] = compute_sO_nontrivial_basis( ...
+            [Nsvd_N1_net,Nnet_sO_basis,Nnet_s0O_basis,Nnet_sNO_basis] = compute_sO_nontrivial_basis( ...
                 Gsvd_N1_net.W,inds_P_GN1_net,tauN_S_mat,lvs_RN1(inds_P_GN1_net,:),LamN1_T_ttns(inds_P_GN1_net,:,:,:),t_O,lamRN1_sO,Jltns_N1 ...
             );
+            [Nsvd_N1_com,Ncom_sO_basis,Ncom_s0O_basis,Ncom_sNO_basis] = compute_sO_nontrivial_basis( ...
+                Gsvd_N1_com.W,inds_P_GN1_com,tauN_S_mat,lvs_RN1(inds_P_GN1_com,:),LamN1_T_ttns(inds_P_GN1_com,:,:,:),t_O,lamRN1_sO,Jltns_N1 ...
+            );
 
-            %% validate flow transformation technique
-            flow_pckg = verify_flow_transformation(Gsvd_N1_com.W,inds_P_GN1_com,lamRN1_sO,t_O);
+            %% use WGnet to validate flow transformation technique
+            WGnet_sO_image = compute_sO_WG_image(Gsvd_N1_net,inds_P_GN1_net,t_O,[zeros(1,nvar_N1) ; Jtu_sO],lamRN1_sO);
 
-            function flow_out = verify_flow_transformation(W_,iPv_,lam_sO_,tO_)
-                lv_b_sO = lam_sO_.lrow_vals(iPv_);
-                dkxl_b_sO = lam_sO_.dkxl(1,iPv_);
-                lkx_b_sO = lam_sO_.lkx((end-ndep+1):end,iPv_,1);
+            %% use WGcom to validate flow transformation technique
 
-                Plen_v = length(lv_b_sO(:));
-                ntheta_v = nvar_N1*Plen_v;
+            % bases/coordinates
+            tic0 = tic;
+            [Gcom_sO_coords,Gcom_s0O_basis,Gcom_sNO_basis] = compute_sO_coords( ...
+                Gsvd_N1_com,inds_P_GN1_com,lvs_RN1(inds_P_GN1_com,:),lamRN1_sO,t_O,Jltns_N1,LamN_T_ttns_RN1,Gmat_N1_com ...
+            );
+            toc1 = toc(tic0);
+            fprintf('(LDsol::model_solspace) Generated %d canonical coordinates in  %.2f seconds\n', ...
+            nvar_N1, toc1 ...
+            );
+            Gcom_sO_coords = complete_sO_tvf_invariants(Gcom_sO_coords,lamN1_sO,Hmat_N1,lvs_N1,lvs_RN1(inds_P_GN1_com,:),Jltns_N1,Jl_N1_svd);
 
-                flow_out = 0;
+            tic0 = tic;
+            [Gnet_sO_coords,Gnet_s0O_basis,Gnet_sNO_basis] = compute_sO_coords( ...
+                Gsvd_N1_net,inds_P_GN1_net,lvs_RN1(inds_P_GN1_net,:),lamRN1_sO,t_O,Jltns_N1,LamN_T_ttns_RN1,Gmat_N1_net ...
+            );
+            toc1 = toc(tic0);
+            fprintf('(LDsol::model_solspace) Generated %d canonical coordinates in  %.2f seconds\n', ...
+            nvar_N1, toc1 ...
+            );
+            Gnet_sO_coords = complete_sO_tvf_invariants(Gnet_sO_coords,lamN1_sO,Hmat_N1,lvs_N1,lvs_RN1(inds_P_GN1_net,:),Jltns_N1,Jl_N1_svd);
+            GN1_sO_basis = Gnet_sO_coords;
+            GN1_s0O_basis = Gnet_s0O_basis;
+            GN1_sNO_basis = Gnet_sNO_basis;
+
+
+            % post process coordinate systems for canonical coordinate space
+
+            GN1_sO_basis.Xi_sO = Gnet_sO_coords.theta_xicoords' * lamN1_sO.lrow_vals(:) ;
+            GN1_sO_basis.Xi_S =  Gnet_sO_coords.theta_xicoords' * lvs_N1 ;
+            % GN1_sO_basis.Xi_sO = Gcom_sO_coords.theta_xicoords' * lamN1_sO.lrow_vals(:) ;
+            % GN1_sO_basis.Xi_S =  Gcom_sO_coords.theta_xicoords' * lvs_N1 ;
+
+            dXi_S_sO = GN1_sO_basis.Xi_S - GN1_sO_basis.Xi_sO;
+            [sortmags_dXi_S_sO,isrtmags_dXi_S_sO] = sort(sqrt(sum(dXi_S_sO.*dXi_S_sO,1)));
+            SXi_sO_wgtsrt = sortmags_dXi_S_sO(1)./(sortmags_dXi_S_sO) .* dXi_S_sO;
+
+            SXi_sO_svd = Asvd_package( SXi_sO_wgtsrt' );
+
+            dXi_S_sO_cell = cell([ncrv,1]);
+            minmags_dXi_S_sO_crv = nan(ncrv,1);
+            for icrv = 1:ncrv
+                dXi_S_sO_i = dXi_S_sO(:,ipts_crv(1,icrv):ipts_crv(2,icrv));
+                dXi_S_sO_cell{icrv} = dXi_S_sO_i;
+                minmags_dXi_S_sO_crv(icrv) = min(sum(dXi_S_sO_i.*dXi_S_sO_i,1));
             end
+            [sortmags_dXi_S_sO_crv,isrtmags_dXi_S_sO_crv] = sort(sqrt(minmags_dXi_S_sO_crv));
+
+            tau_S_mat = [ ones(1, nobs) ; uNp1_tvf_mat ];
+            i_s_1 = isrtmags_dXi_S_sO(1);
+            s_1 = Smat(:,i_s_1);
+            t_1 = tau_S_mat(:,i_s_1);
+            lam_s_1 = sols(i_s_1).lamRN1;
+            GN1_s1_basis = compute_sO_basis(Gsvd_N1_net.W, inds_P_GN1_net, lvs_RN1(inds_P_GN1_net,:), lam_s_1, t_1);
 
             %% bonus computations
+
+            %% refine G matrix kernel basis
+            % nvar x Plen x ntheta, pages are theta row vectors in base space coords, act on lambda column vectors
+            WG_tns = permute(reshape(Gsvd_N1_net.W, [Plen_GN1_net nvar_N1 Gsvd_N1_net.dim]),[2 1 3]);
+            % nvar x ntheta x nobs, pages are column vectors spanning base space tangent space at each point
+            Lam0_WG_tns = permute( pagemtimes(WG_tns,lvs_RN1(inds_P_GN1_net,:)),  [1 3 2] );
+            % ndep x ntheta x nobs, pages are column vectors spanning N'th jet space tangent space SECTION at each point
+            LamdNxu_WG_tns = permute(pagemtimes( WG_tns((end-ndep+1):end,:,:),dxl_RN1(inds_P_GN1_net,:) ), [1 3 2]) ...
+                - pagemtimes( lNx_RN1(:,inds_P_GN1_net,:), reshape(WG_tns(1,:,:),Plen_GN1_net,Gsvd_N1_net.dim) );
+            % ndim x ntheta x nobs, pages are column vectors spanning jet space tangent space at each point
+            Lam_WG_tns = cat(1,Lam0_WG_tns,LamdNxu_WG_tns);
+            % can be viewed as an SVD of a finite subset of the tangent bundle section
+            LamWG_svd = Asvd_package(reshape(permute(Lam_WG_tns,[2 1 3]),[ntheta_GN1_net,ndim*nobs])'); % no renormalization
+            %% find dominant WG columns parameterizing vfields which correlate with tvf
+            % nobs x ntheta, matrix of tangent vector inner product values wrt tvf over observations
+            tauT_LamWG_mat = reshape( ...
+                pagemtimes( permute(reshape([ones(1,nobs) ; uNp1_tvf_mat],ndim,1,nobs),[2 1 3]), Lam_WG_tns  ), ...
+                Gsvd_N1_net.dim, nobs ...
+            )';
+            % principle components have large component in the direction of tvf
+            tauT_LamWG_svd = Asvd_package(tauT_LamWG_mat);
 
             function err_stats(prefix_,err_)
                 err_tol = 1e-3;
@@ -633,6 +1050,10 @@ fprintf( '(%s err) [min,med,avg,max]=[%.1e,%.1e,%.1e,%.1e]. Success: [med,max] =
             err_tau_u_RN1_net = tau_u_RN1_net-dxuNtns;
             % err_stats( 'tau_u_RN1_net', comp_err_msr(tau_u_RN1_net) );
             err_stats( 'tau_u_RN1_net', abs(err_tau_u_RN1_net./dxuNtns) );
+
+            % for i = 1:ndep_N1
+            %     fspc.print_vshort_polynomial_theta_z(gEta_svd_tvf_N1.Theta_Eta_tvf(:,i),Pmat_N1,['e' num2str(i)],['\n'])
+            % end
 
             % keyboard
             mod_out = struct( ...
@@ -686,21 +1107,55 @@ fprintf( '(%s err) [min,med,avg,max]=[%.1e,%.1e,%.1e,%.1e]. Success: [med,max] =
 
             mod_out.Bsvd_t0_N1 = Bsvd_t0_N1;
             mod_out.Bsvd_tdxu_N1 = Bsvd_tdxu_N1;
-            mod_out.Bsvd_tN_N1 = Bsvd_tN_N1;
-
             mod_out.Gsvd_N1 = Gsvd_N1;
-
-            mod_out.Gsvd_N1_net = Gsvd_N1_net;
             mod_out.Gsvd_N1_com = Gsvd_N1_com;
+            mod_out.Gsvd_N1_net = Gsvd_N1_net;
+            mod_out.Gsvd_N1_opt = Gsvd_N1_opt;
 
             mod_out.Nsvd_N1_net = Nsvd_N1_net;
             mod_out.Nsvd_N1_com = Nsvd_N1_com;
+            mod_out.Nsvd_N1_opt = Nsvd_N1_opt;
 
-            mod_out.Mnet_sO_basis = Mnet_sO_basis;
-            mod_out.Mcom_sO_basis = Mcom_sO_basis;
-            mod_out.Nnet_sO_basis = Nnet_sO_basis;
-            mod_out.Ncom_sO_basis = Ncom_sO_basis;
+            mod_out.WGnet_sO_image = WGnet_sO_image;
 
+            mod_out.LamWG_svd = LamWG_svd;
+            mod_out.tauT_LamWG_svd = tauT_LamWG_svd;
+
+            mod_out.GN1_sO_basis = GN1_sO_basis;
+            mod_out.GN1_s0O_basis = GN1_s0O_basis;
+            mod_out.GN1_sNO_basis = GN1_sNO_basis;
+            mod_out.Gcom_sNO_basis = Gcom_sNO_basis;
+            mod_out.Gcom_s0O_basis = Gcom_s0O_basis;
+            mod_out.Gnet_sNO_basis = Gnet_sNO_basis;
+            mod_out.Gnet_s0O_basis = Gnet_s0O_basis;
+
+            mod_out.Ncom_s0O_basis = Ncom_s0O_basis;
+            mod_out.Ncom_sNO_basis = Ncom_sNO_basis;
+            mod_out.Nnet_s0O_basis = Nnet_s0O_basis;
+            mod_out.Nnet_sNO_basis = Nnet_sNO_basis;
+            mod_out.Nopt_s0O_basis = Nopt_s0O_basis;
+            mod_out.Nopt_sNO_basis = Nopt_sNO_basis;
+
+            mod_out.Gnet_sO_coords = Gnet_sO_coords;
+            mod_out.Gcom_sO_coords = Gcom_sO_coords;
+            % mod_out.GnetXi_svds = GnetXi_svds;
+            % mod_out.Hxi_svds = Hxi_svds;
+            % mod_out.Theta_v_coords = Theta_v_coords;
+            % mod_out.theta_xi_coords = theta_xi_coords;
+            % mod_out.err_xi_coords = err_xi_coords;
+
+            mod_out.dXi_S_sO = dXi_S_sO;
+            mod_out.sortmags_dXi_S_sO = sortmags_dXi_S_sO;
+            mod_out.isrtmags_dXi_S_sO = isrtmags_dXi_S_sO;
+            mod_out.SXi_sO_svd = SXi_sO_svd;
+
+            mod_out.dXi_S_sO_cell = dXi_S_sO_cell;
+            mod_out.sortmags_dXi_S_sO_crv = sortmags_dXi_S_sO_crv;
+            mod_out.isrtmags_dXi_S_sO_crv = isrtmags_dXi_S_sO_crv;
+
+            mod_out.s_1 = s_1;
+            mod_out.t_1 = t_1;
+            mod_out.GN1_s1_basis = GN1_s1_basis;
         end
         function jt_out = compute_trivial_Hermite_jet(s0_,s1_,ndep_)
             if (s0_(1) > s1_(1)) % enforce trivial flow in the positive direction

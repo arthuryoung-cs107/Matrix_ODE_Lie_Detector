@@ -296,7 +296,8 @@ classdef ldaux
             Pdef = (Odef+1)^(ndep+1);
             % nevl = ceil( (ndep+1)*Pdef/(eor*ndep) ) + 1;
             % nevl = 2*(ceil(1* (ndep+1)*Pdef/(eor*ndep) ) + 1 ); % number of observed solutions per observed integral curve
-            nevl = 1*(ceil(1* (ndep+1)*Pdef/(eor*ndep) ) + 1 ); % number of observed solutions per observed integral curve
+            % nevl = 1*(ceil( 1* (ndep+1)*Pdef/(eor*ndep) ) + 1 ); % number of observed solutions per observed integral curve
+            nevl = 1*(ceil( 0.5* (ndep+1)*Pdef/(eor*ndep) ) + 1 ); % number of observed solutions per observed integral curve
 
             xscl = 0.1*ef;
             s0 = [ x0 + xscl*rand(1,ncrv) ; u0_vals ];
@@ -656,6 +657,8 @@ classdef ldaux
                     F1_i = f1_i - d2xu1_i;
 
                     JF_out(1,:,i) = F1_i.Jac;
+
+                    dNp1xu_out(:,i) = linsolve(JF_out(:,(end-ndep+1):end,i),-JF_out(:,1:(end-ndep),i)*[1;s_((2+ndep):end,i)]);
                 end
             end
             fode = struct( ...

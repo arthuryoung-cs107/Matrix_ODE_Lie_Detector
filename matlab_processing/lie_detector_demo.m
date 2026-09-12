@@ -28,9 +28,9 @@ tic0 = tic;
 % [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_Van_der_Pol_data(); % N = 2, Q = 1
 % [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_oscillator_polr_data(); % N = 2, Q = 1, easier than VanderPol
 % [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_pendulum_polr_data(); % N = 2, Q = 1
-% [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_double_oscillator_data(); % N = 2, Q = 2, linear homogenous
+[Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_double_oscillator_data(); % N = 2, Q = 2, linear homogenous
 % [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_double_pendulum_data(); % N = 2, Q = 2, would be wild to learn anything
-[Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_Linden_bouyancy_data(); % N = 2, Q = 1
+% [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_Linden_bouyancy_data(); % N = 2, Q = 1
 toc1 = toc(tic0);
 fprintf('generated jet space data in %.3f seconds \n', toc1);
 
@@ -94,10 +94,10 @@ fprintf('built jet space model in %.3f seconds \n', toc1);
 
 mod
 sO = mod.s_O
-dat_plt0.Color = apv_plots.blue1;
-plt0 = apv_plots.plot_Sobs(plt0, Sobs{mod.isrtmags_dXi_S_sO_crv(1)},dat_plt0);
-dat_plt0.Color = apv_plots.red1;
-plt0 = apv_plots.plot_Sobs(plt0, Sobs{mod.isrtmags_dXi_S_sO_crv(2)},dat_plt0);
+% dat_plt0.Color = apv_plots.blue1;
+% plt0 = apv_plots.plot_Sobs(plt0, Sobs{mod.isrtmags_dXi_S_sO_crv(1)},dat_plt0);
+% dat_plt0.Color = apv_plots.red1;
+% plt0 = apv_plots.plot_Sobs(plt0, Sobs{mod.isrtmags_dXi_S_sO_crv(2)},dat_plt0);
 dat_plt0.Color = [1 1 1];
 plt0 = apv_plots.plot_Sobs(plt0, sO ,dat_plt0);
 dat_plt0.Color = apv_plots.green4;
@@ -123,7 +123,8 @@ plt1 = apv_plots('model_summary', ...
                 scrn_id);
 % [1 1],...
 % [1 1],[1 1], ...
-[plt1,plt2,plt3,plt4] = apv_plots.plot_LDsol_model_summary(plt1,mod,dat_plt1);
+% [plt1,plt2,plt3,plt4] = apv_plots.plot_LDsol_model_summary(plt1,mod,dat_plt1);
+[plt1,plt2] = apv_plots.plot_LDsol_model_summary(plt1,mod,dat_plt1);
 % plt1.write_figure('png',[getenv('HOME') '/Desktop/MATLAB_OUTPUT/'])
 % plt2.write_figure('png',[getenv('HOME') '/Desktop/MATLAB_OUTPUT/'])
 % plt3.write_figure('png',[getenv('HOME') '/Desktop/MATLAB_OUTPUT/'])
