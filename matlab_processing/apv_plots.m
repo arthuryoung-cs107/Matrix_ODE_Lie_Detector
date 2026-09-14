@@ -181,9 +181,7 @@ classdef apv_plots
             plt_jspc.show_toolbar
 
             function leg_out = plot_tvector(axi_,sx_,su_,vx_,vu_,clr_,LS_,mrkr_,name_)
-                % mrkr_= 'none';
-                % LS_ = 'none';
-                lw_def = 1; ms_def = 3;
+                lw_def = 2; ms_def = 3;
                 if (nargout == 0)
                     plot(axi_, ...
                         [sx_ , sx_+vx_], [su_ , su_+vu_], ...
@@ -342,7 +340,7 @@ classdef apv_plots
             [xO,uO] = deal( mod_.s_O(1),reshape(mod_.sNp1_O(2:end),ndep,kor+2) );
             t_sO = mod_.t_O;
 
-            M_sO_basis = mod_.Mcom_sO_basis;
+            % M_sO_basis = mod_.Mcom_sO_basis;
             % M_sO_basis = mod_.Mnet_sO_basis;
 
             % A_G_sO = M_sO_basis.U * diag(M_sO_basis.s) * M_sO_basis.V';
@@ -361,15 +359,23 @@ classdef apv_plots
             % A_G_sO = mod_.Nnet_sNO_basis.sO_nTVF.Tspc_image;
             % A_G_sO = mod_.Nnet_sNO_basis.sO_nTVF.nTVF_Tspc_image;
 
-            % A_G_sO = mod_.flow_pckg.VN_spc_sO;
-            A_G_sO = mod_.flow_pckg.Tspc_Nv_sO_tns(:,:,1);
+            % A_G_sO = mod_.flow_pckg.VN_spc_sO(:,2:end);
+            % A_G_sO = mod_.flow_pckg.Tspc_Nv_sO_tns(:,:,1);
+            % A_G_sO = A_G_sO./sqrt(sum(A_G_sO.^2,1));
+
+            A_G_sO = nan(ndim,length(mod_.flow_pckg.Tspc_N_sO_svds(:)));
+            for i = 1:size(A_G_sO,2)
+                A_G_sO(:,i) = sum(mod_.flow_pckg.Tspc_N_sO_svds(i).U .*  mod_.flow_pckg.Tspc_N_sO_svds(i).s' , 2);
+                A_G_sO(:,i) = A_G_sO(:,i)/norm(A_G_sO(:,i));
+            end
 
             A_G_sO = A_G_sO * ( norm(t_sO(1:ndim)) / sqrt(max(sum(A_G_sO.*A_G_sO,1))) ); % rescale wrt tvf
             A_G_sO_u = reshape(A_G_sO(2:end,:),ndep,kor+1,[]);
 
             % Aspc.cmat = apv_plots.orange1 .* ones(size(A_G_sO,2),3);
             % Aspc.cmat = nebula(size(A_G_sO,2));
-            Aspc.cmat = cool(size(A_G_sO,2));
+            Aspc.cmat = autumn(size(A_G_sO,2));
+            % Aspc.cmat = cool(size(A_G_sO,2));
             % Aspc.cmat = spring(size(A_G_sO,2));
             Aspc.lspc = ':';
             Aspc.mspc = 'd';

@@ -12,6 +12,8 @@ classdef LDsol
     end
     methods (Static)
         function mod_out = model_solspace(Sobs_,dat_,fmap_)
+            % bor_max = 8;
+            bor_max = 6;
 
             %% overarching package for all SVD usage
             function [Asvd_out,U_] = Asvd_package(A_);
@@ -67,7 +69,8 @@ classdef LDsol
             bor_N1 = 1;
             [Plen_N1, Pmat_N1, ~] = ldaux.count_set_P_len(bor_N1,ndep_N1+1);
             % while ((Plen_N1 < nobs) && (bor_N1 < 10)) % order 10 should be more than enough
-            while ((Plen_N1 < nobs) && (bor_N1 < 8)) % order 10 should be more than enough
+            % while ((Plen_N1 < nobs) && (bor_N1 < 8))
+            while ((Plen_N1 < nobs) && (bor_N1 < bor_max))
                 bor_N1 = bor_N1 + 1;
                 [Plen_N1, Pmat_N1, ~] = ldaux.count_set_P_len(bor_N1,ndep_N1+1);
             end
@@ -103,7 +106,7 @@ classdef LDsol
             fspace_N1 = adlam.init_fspace_family(fspace_N1);
 
             if (kor>1)
-                bor_0 = min([10 , max([ 1 , floor( ((nobs.*ndep)./nvar).^(1./nvar) - 1  ) ])]);
+                bor_0 = min([bor_max , max([ 1 , floor( ((nobs.*ndep)./nvar).^(1./nvar) - 1  ) ])]);
                 [Plen_0, Pmat_0, ~] = ldaux.count_set_P_len(bor_0,ndep+1);
 
                 fspace_0 = fmap_;
@@ -117,7 +120,9 @@ classdef LDsol
                 fspace_RN1 = fspace_N1;
                 ord_i = max(reshape(Pmat_N1((nvar+1):end,:),[],1));
                 mrow_RN1_net = nobs*(ndep*( 2*kor - 1 )); % = nobs*( ndep*kor + ndep*(kor-1) )
-                while ( (mrow_RN1_net <= fspace_RN1.ntheta)&&(ord_i>1) )
+                mrow_GN1_net_full = nobs*ndep;
+                % while ( (mrow_RN1_net <= fspace_RN1.ntheta)&&(ord_i>1) )
+                while ( (mrow_GN1_net_full <= fspace_RN1.ntheta)&&(ord_i>1) )
                     Pmat_i = fspace_RN1.Pmat;
                     ord_i = ord_i - 1;
                     fspace_RN1.Pmat = Pmat_i( :, sum(Pmat_i((nvar+1):end,:),1) <= ord_i );
@@ -668,6 +673,8 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                 VN_spc_unit_sO = zeros(ndim,nvar_N1);
                 VN_spc_unit_S = zeros(ndim,nobs,nvar_N1);
 
+                Gn_svd = Gsvd_N1_net;
+
                 VN_spc_sO(:,1) = tO_;
                 VN_spc_unit_sO(:,1) = tO_ / norm(tO_);
                 VN_spc_unit_S(:,:,1) = tauN_S_mat ./ sqrt( sum(tauN_S_mat.*tauN_S_mat,1) );
@@ -683,7 +690,7 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                 WGc = Gc_svd.W;
                 WGc_i = WGc;
                 for ivec = 1:ndep_N1
-                    % ndim x C x nobs, Lambda matrices projected over candidate vfield space (sample of tangent bundle)
+                    % ndim x ntheta x nobs, Lambda matrices projected over candidate vfield space (sample of tangent bundle)
                     Nu_S_i = permute(pagemtimes(WGc_i',reshape(LamN_T_v1_ttns,[ntheta_v ndim nobs])), [2 1 3]);
                     for iivec = 1:ivec
                         % ndim x ntheta x nobs, Mu tangent bundle stripped of component in the direction of vfield i
@@ -693,14 +700,15 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                     % the principle components of this matrix correspond to vfields not parallel to current basis everywhere.
                     N_v_svds(ivec) = Asvd_package( reshape(permute( Nu_S_i,[2 1 3]), ntheta_v, ndim*nobs )' );
                     % parameters of vector fields not parallel to current basis everywhere
-                    Theta_N_i = WGc_i * (N_v_svds(ivec).D/N_v_svds(ivec).s(1));
+                    Theta_N_i = WGc_i * (N_v_svds(ivec).D / N_v_svds(ivec).s(1));
                     %% identify subspace of candidate vector fields transversal to current basis at origin
                     [TTspc_i,Tspc_Nv_sO_tns(:,:,ivec)] = compute_transversal_Tspace(Theta_N_i, VN_spc_unit_sO(:,1:ivec));
                     [TTspc_svd_i, U_TTspc_i] = Asvd_package(TTspc_i);
                     TTspc_svd_i.U = U_TTspc_i;
                     Tspc_N_sO_svds(ivec) = TTspc_svd_i;
                     %% extract principle non-trivial vector field, identify as next coordinate vector field
-                    theta_v_coords(:,ivec) = Theta_N_i*Tspc_N_sO_svds(ivec).V(:,1);
+                    % theta_v_coords(:,ivec) = Theta_N_i*Tspc_N_sO_svds(ivec).V(:,1);
+                    theta_v_coords(:,ivec) = Theta_N_i*sum( Tspc_N_sO_svds(ivec).D / Tspc_N_sO_svds(ivec).s(1) , 2 );
 
                     [VN_spc_sO(:,ivec+1) VN_spc_S(:,:,ivec) Btns_vi_0 Btns_vi_dxu] = ...
                         compute_vth_sO_S_data(theta_v_coords(:,ivec));

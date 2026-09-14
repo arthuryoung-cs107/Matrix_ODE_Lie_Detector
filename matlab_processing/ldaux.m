@@ -79,7 +79,7 @@ classdef ldaux
             'JF_dxf', @(s_) JF_dxf_eqn(s_) ...
             );
 
-            ncrv = 15;
+            ncrv = 20;
             seed = 6; % Shay's choice
             seed0 = rng(seed);
 
