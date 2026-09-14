@@ -183,14 +183,15 @@ classdef apv_plots
             function leg_out = plot_tvector(axi_,sx_,su_,vx_,vu_,clr_,LS_,mrkr_,name_)
                 % mrkr_= 'none';
                 % LS_ = 'none';
+                lw_def = 1; ms_def = 3;
                 if (nargout == 0)
                     plot(axi_, ...
                         [sx_ , sx_+vx_], [su_ , su_+vu_], ...
                         'LineStyle', LS_, ...
-                        'LineWidth', 1, ...
+                        'LineWidth', lw_def, ...
                         'Color', clr_, ...
                         'Marker', mrkr_, ...
-                        'MarkerSize', 3, ...
+                        'MarkerSize', ms_def, ...
                         'MarkerFaceColor', clr_, ...
                         'MarkerEdgeColor', clr_, ...
                         'HandleVisibility','off' ...
@@ -204,10 +205,10 @@ classdef apv_plots
                     leg_out = plot(axi_, ...
                         [sx_ , sx_+vx_], [su_ , su_+vu_], ...
                         'LineStyle', LS_, ...
-                        'LineWidth', 1, ...
+                        'LineWidth', lw_def, ...
                         'Color', clr_, ...
                         'Marker', mrkr_, ...
-                        'MarkerSize', 3, ...
+                        'MarkerSize', ms_def, ...
                         'MarkerFaceColor', clr_, ...
                         'MarkerEdgeColor', clr_, ...
                         'DisplayName', leg_name_ ...
@@ -341,10 +342,12 @@ classdef apv_plots
             [xO,uO] = deal( mod_.s_O(1),reshape(mod_.sNp1_O(2:end),ndep,kor+2) );
             t_sO = mod_.t_O;
 
-            % M_sO_basis = mod_.Mcom_sO_basis;
-            M_sO_basis = mod_.Mnet_sO_basis;
+            M_sO_basis = mod_.Mcom_sO_basis;
+            % M_sO_basis = mod_.Mnet_sO_basis;
 
-            A_G_sO = M_sO_basis.U * diag(M_sO_basis.s) * M_sO_basis.V';
+            % A_G_sO = M_sO_basis.U * diag(M_sO_basis.s) * M_sO_basis.V';
+            % A_G_sO = mod_.flow_pckg. .* ()';
+            % A_G_sO = mod_.flow_pckg.Tspc_N_sO_svds(1) .* ()';
             % A_G_sO = A_G_sO * ( norm(t_sO(1:ndim)) / sqrt(max(sum(A_G_sO.*A_G_sO,1))) ); % rescale wrt tvf
 
             % A_G_sO = (mod_.Gnet_sO_coords.s') .* mod_.Gnet_sO_coords.U;
@@ -358,10 +361,24 @@ classdef apv_plots
             % A_G_sO = mod_.Nnet_sNO_basis.sO_nTVF.Tspc_image;
             % A_G_sO = mod_.Nnet_sNO_basis.sO_nTVF.nTVF_Tspc_image;
 
+            % A_G_sO = mod_.flow_pckg.VN_spc_sO;
+            A_G_sO = mod_.flow_pckg.Tspc_Nv_sO_tns(:,:,1);
+
             A_G_sO = A_G_sO * ( norm(t_sO(1:ndim)) / sqrt(max(sum(A_G_sO.*A_G_sO,1))) ); % rescale wrt tvf
             A_G_sO_u = reshape(A_G_sO(2:end,:),ndep,kor+1,[]);
 
-            Vspc_O = M_sO_basis.Vspc_sO;
+            % Aspc.cmat = apv_plots.orange1 .* ones(size(A_G_sO,2),3);
+            % Aspc.cmat = nebula(size(A_G_sO,2));
+            Aspc.cmat = cool(size(A_G_sO,2));
+            % Aspc.cmat = spring(size(A_G_sO,2));
+            Aspc.lspc = ':';
+            Aspc.mspc = 'd';
+
+            % Vspc_O = M_sO_basis.Vspc_sO;
+            % Vspc_O = mod_.flow_pckg.VN_spc_sO;
+            Vspc_svd_i = mod_.flow_pckg.Tspc_N_sO_svds(1);
+            Vspc_O = Vspc_svd_i.U(:,1:nvar_N1) .* ( Vspc_svd_i.s(1:nvar_N1) )';
+
             Vspc_O = Vspc_O*( norm(t_sO(1:ndim)) / sqrt(max(sum(Vspc_O.*Vspc_O,1))) ); % rescale wrt tvf
             Vspc_O_x = Vspc_O(1,:);
             Vspc_O_u = reshape( Vspc_O(2:end,:), ndep,kor+1,[] );
@@ -369,14 +386,15 @@ classdef apv_plots
             % J_xi_sO = J_xi_sO*( norm(t_sO(1:ndim)) / sqrt(max(sum(J_xi_sO.*J_xi_sO,1))) ); % rescale wrt tvf
             % J_xi_O_x = J_xi_sO(1,:);
             % J_xi_O_u = reshape( J_xi_sO(2:end,:), ndep,kor+1,[] );
-            cmat_i = hsv(nvar_N1);
+            % cmat_i = hsv(nvar_N1);
+            cmat_i = autumn(nvar_N1);
             for i = 1:ndep
                 tau_uiN = reshape(tau_uN_RN1_tns(i,:,:),kor,[]);
 
                 ui_str_i = [ 'u_{' num2str(i) '}'];
                 for itspc = 1:size(A_G_sO,2)
                     plot_tvector( ...
-                        axs_mat(i,1),xO,uO(i,1),A_G_sO(1,itspc),A_G_sO_u(i,1,itspc),apv_plots.orange1,'-','d');
+                        axs_mat(i,1),xO,uO(i,1),A_G_sO(1,itspc),A_G_sO_u(i,1,itspc),Aspc.cmat(itspc,:),Aspc.lspc,Aspc.mspc);
                 end
                 leg_ii(i,1,1) = plot2D( ...
                     axs_mat(i,1),xO,uO(i,1),'none',[1 1 1],'o',pspc.MarkerSize, ...
@@ -411,7 +429,7 @@ classdef apv_plots
                     );
                     for itspc = 1:size(A_G_sO,2)
                         plot_tvector( ...
-                            axs_mat(i,k),xO,uO(i,k),A_G_sO(1,itspc),A_G_sO_u(i,k,itspc),apv_plots.orange1,'-','d');
+                            axs_mat(i,k),xO,uO(i,k),A_G_sO(1,itspc),A_G_sO_u(i,k,itspc),Aspc.cmat(itspc,:),Aspc.lspc,Aspc.mspc);
                     end
                     leg_ii(i,2,1) = plot2D( ...
                         axs_mat(i,k),xO,uO(i,k),'none',[1 1 1],'o',pspc.MarkerSize, ...
@@ -452,7 +470,7 @@ classdef apv_plots
                     'HandleVisibility','off' ...
                 );
                 for itspc = 1:size(A_G_sO,2)
-                    plt3D_i([ sO_11, sO_11+[ A_G_sO(1,itspc) ; A_G_sO_u(1,1:2,itspc)' ] ],'none',apv_plots.orange1,'-')
+                    plt3D_i([ sO_11, sO_11+[ A_G_sO(1,itspc) ; A_G_sO_u(1,1:2,itspc)' ] ],'none',Aspc.cmat(itspc,:),Aspc.lspc);
                 end
                 plt3D_i(sO_11,'o',[1 1 1],'none')
                 plt3D_i([ sO_11, sO_11+[ t_sO(1) ; t_sO(2:3) ] ],'d',[1 1 1],'-')
@@ -494,6 +512,26 @@ classdef apv_plots
                 mod_.Nsvd_N1_com,  '$N_{\mathrm{com}}'; ...
             };
             nsvd_i = size(svds_i,1);
+
+            Bsvds_i = mod_.flow_pckg.B_v_svds;
+            for isvd = 1:length(Bsvds_i(:))
+                svds_i{isvd+nsvd_i,1} = Bsvds_i(isvd);
+                svds_i{isvd+nsvd_i,2} = ['$B_{' num2str(isvd) '}'];
+            end
+            nsvd_i = size(svds_i,1);
+            Nsvds_i = mod_.flow_pckg.N_v_svds;
+            for isvd = 1:length(Nsvds_i(:))
+                svds_i{isvd+nsvd_i,1} = Nsvds_i(isvd);
+                svds_i{isvd+nsvd_i,2} = ['$N_{' num2str(isvd) '}'];
+            end
+            nsvd_i = size(svds_i,1);
+            Gsvds_i = mod_.flow_pckg.Gc_v_svds;
+            for isvd = 1:length(Gsvds_i(:))
+                svds_i{isvd+nsvd_i,1} = Gsvds_i(isvd);
+                svds_i{isvd+nsvd_i,2} = ['$G_c^{' num2str(isvd) '}'];
+            end
+            nsvd_i = size(svds_i,1);
+
             svds = cell([ size(svds_i,1),1 ]);
             labels = cell([length(svds),1]);
             for isvd = 1:size(svds_i,1)
@@ -511,8 +549,16 @@ classdef apv_plots
                 mod_.Mnet_sO_basis , '$\Lambda^{(1)}_{O} W_{G_n}'; ...
                 mod_.Ncom_sO_basis , '$\Lambda^{(1)}_{O} W_{G_c} D_{N_c}'; ...
                 mod_.Nnet_sO_basis , '$\Lambda^{(1)}_{O} W_{G_n} D_{N_n}'; ...
-                mod_.flow_pckg , '$\mathcal{P}_{\tau_O} \Lambda^{(1)} |_{s_O} W_{G_c} D_{N_c}'; ...
             };
+            nsvd_i = size(svds_i,1);
+
+            Tsvds_i = mod_.flow_pckg.Tspc_N_sO_svds;
+            for isvd = 1:length(Tsvds_i(:))
+                svds_i{isvd+nsvd_i,1} = Tsvds_i(isvd);
+                svds_i{isvd+nsvd_i,2} = ['$T_{' num2str(isvd) '}'];
+            end
+            nsvd_i = size(svds_i,1);
+
             svds = cell([ size(svds_i,1),1 ]);
             labels = cell([length(svds),1]);
             for isvd = 1:size(svds_i,1)
