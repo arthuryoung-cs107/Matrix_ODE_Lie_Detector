@@ -118,11 +118,12 @@ classdef LDsol
                 fspace_0 = adlam.init_fspace_family(fspace_0);
 
                 fspace_RN1 = fspace_N1;
-                ord_i = max(reshape(Pmat_N1((nvar+1):end,:),[],1));
+                % ord_i = max( reshape(Pmat_N1((nvar+1):end,:),[],1) );
+                ord_i = max( sum(Pmat_N1((nvar+1):end,:),1) );
                 mrow_RN1_net = nobs*(ndep*( 2*kor - 1 )); % = nobs*( ndep*kor + ndep*(kor-1) )
-                mrow_GN1_net_full = nobs*ndep;
+                mrow_GN1_net_full = nobs*ndep*kor;
                 % while ( (mrow_RN1_net <= fspace_RN1.ntheta)&&(ord_i>1) )
-                while ( (mrow_GN1_net_full <= fspace_RN1.ntheta)&&(ord_i>1) )
+                while ( (mrow_GN1_net_full <= fspace_RN1.ntheta)&&(ord_i>1) ) % R and G same Lambda space
                     Pmat_i = fspace_RN1.Pmat;
                     ord_i = ord_i - 1;
                     fspace_RN1.Pmat = Pmat_i( :, sum(Pmat_i((nvar+1):end,:),1) <= ord_i );
@@ -600,6 +601,9 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                     thmat_ , permute(reshape(thmat_,Plen_v,nvar_N1,size(thmat_,2)),[2 1 3]) ...
                 );
 
+                % ndim x nobs x ndep, pages are unit gradient vectors (normalized row of Jacobian of F)
+                JF_S_unit_tns = permute(JF_N1 ./ sqrt(sum(JF_N1.^2,2)),[2 3 1]);
+
                 lvs_v0_mat = lvs_RN1(iPv_,:); % Plen x nobs
                 Jl_v0_tns = permute(Jltns_RN1(:,iPv_,:),[2 1 3]); % Plen x nvar_N1 x nobs
                 dxl_vdxu_mat = dxl_RN1(iPv_,:); % Plen x nobs
@@ -670,6 +674,8 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                 VN_spc_sO = zeros(ndim,nvar_N1);
                 VN_spc_S = zeros(ndim,nobs,ndep_N1);
 
+
+
                 VN_spc_unit_sO = zeros(ndim,nvar_N1);
                 VN_spc_unit_S = zeros(ndim,nobs,nvar_N1);
 
@@ -680,11 +686,20 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                 VN_spc_unit_S(:,:,1) = tauN_S_mat ./ sqrt( sum(tauN_S_mat.*tauN_S_mat,1) );
                 %% compute SVD of Gc : nullspace consists of vector fields that commute with tvf
                 Gc_svd = Asvd_package([ ...
-                    Gsvd_N1.D/Gsvd_N1.s(1), ...
-                    DprN_svd.D/DprN_svd.s(1), ...
-                    Bsvd_t0_N1.D/Bsvd_t0_N1.s(1) ...
-                ]');
+                    Gmat_N1_net_full ; ...
+                    Bmat_t0_N1
+                ]);
+                % Gc_svd = Asvd_package([ ...
+                %     Gsvd_N1.D/Gsvd_N1.s(1), ...
+                %     DprN_svd.D/DprN_svd.s(1), ...
+                %     Bsvd_t0_N1.D/Bsvd_t0_N1.s(1) ...
+                % ]');
+                % Gsvd_N1.D/Gsvd_N1.s(1), ...
+                % DprN_svd.D/DprN_svd.s(1), ...
                 % Bsvd_tN_N1.D/Bsvd_tN_N1.s(1) ...
+                % Bsvd_t0_N1.D/Bsvd_t0_N1.s(1) ...
+                % Bsvd_tdxu_N1.D/Bsvd_tdxu_N1.s(1) ...
+
                 % Gsvd_N1_net_full.D/Gsvd_N1_net_full.s(1), ...
                 %% parameters of candidate vector fields which commute with tvf
                 WGc = Gc_svd.W;
@@ -692,6 +707,11 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                 for ivec = 1:ndep_N1
                     % ndim x ntheta x nobs, Lambda matrices projected over candidate vfield space (sample of tangent bundle)
                     Nu_S_i = permute(pagemtimes(WGc_i',reshape(LamN_T_v1_ttns,[ntheta_v ndim nobs])), [2 1 3]);
+                    for iidep = 1:ndep
+                        % ndim x ntheta x nobs, Mu tangent bundle stripped of component in the direction of Jacobian row
+                        Nu_S_i = Nu_S_i-pagemtimes( reshape(JF_S_unit_tns(:,:,iidep),[ndim 1 nobs]) , ...
+                                            pagemtimes(reshape(JF_S_unit_tns(:,:,iidep),[1 ndim nobs]) , Nu_S_i) );
+                    end
                     for iivec = 1:ivec
                         % ndim x ntheta x nobs, Mu tangent bundle stripped of component in the direction of vfield i
                         Nu_S_i = Nu_S_i-pagemtimes( reshape(VN_spc_unit_S(:,:,iivec),[ndim 1 nobs]) , ...

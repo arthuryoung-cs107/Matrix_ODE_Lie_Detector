@@ -359,15 +359,15 @@ classdef apv_plots
             % A_G_sO = mod_.Nnet_sNO_basis.sO_nTVF.Tspc_image;
             % A_G_sO = mod_.Nnet_sNO_basis.sO_nTVF.nTVF_Tspc_image;
 
-            % A_G_sO = mod_.flow_pckg.VN_spc_sO(:,2:end);
+            A_G_sO = mod_.flow_pckg.VN_spc_sO(:,2:end);
             % A_G_sO = mod_.flow_pckg.Tspc_Nv_sO_tns(:,:,1);
             % A_G_sO = A_G_sO./sqrt(sum(A_G_sO.^2,1));
 
-            A_G_sO = nan(ndim,length(mod_.flow_pckg.Tspc_N_sO_svds(:)));
-            for i = 1:size(A_G_sO,2)
-                A_G_sO(:,i) = sum(mod_.flow_pckg.Tspc_N_sO_svds(i).U .*  mod_.flow_pckg.Tspc_N_sO_svds(i).s' , 2);
-                A_G_sO(:,i) = A_G_sO(:,i)/norm(A_G_sO(:,i));
-            end
+            % A_G_sO = nan(ndim,length(mod_.flow_pckg.Tspc_N_sO_svds(:)));
+            % for i = 1:size(A_G_sO,2)
+            %     A_G_sO(:,i) = sum(mod_.flow_pckg.Tspc_N_sO_svds(i).U .*  mod_.flow_pckg.Tspc_N_sO_svds(i).s' , 2);
+            %     A_G_sO(:,i) = A_G_sO(:,i)/norm(A_G_sO(:,i));
+            % end
 
             A_G_sO = A_G_sO * ( norm(t_sO(1:ndim)) / sqrt(max(sum(A_G_sO.*A_G_sO,1))) ); % rescale wrt tvf
             A_G_sO_u = reshape(A_G_sO(2:end,:),ndep,kor+1,[]);
