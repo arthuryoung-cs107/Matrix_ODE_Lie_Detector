@@ -359,7 +359,9 @@ classdef apv_plots
             % A_G_sO = mod_.Nnet_sNO_basis.sO_nTVF.Tspc_image;
             % A_G_sO = mod_.Nnet_sNO_basis.sO_nTVF.nTVF_Tspc_image;
 
-            A_G_sO = mod_.flow_pckg.VN_spc_sO(:,2:end);
+            % A_G_sO = mod_.flow_pckg.VN_spc_sO;
+            % A_G_sO = mod_.flow_pckg.VN_spc_sO(:,2:end);
+            A_G_sO = mod_.flow_pckg.Gn_bse.Tspc_Nv_sO_mat0;
             % A_G_sO = mod_.flow_pckg.Tspc_Nv_sO_tns(:,:,1);
             % A_G_sO = A_G_sO./sqrt(sum(A_G_sO.^2,1));
 
@@ -382,8 +384,12 @@ classdef apv_plots
 
             % Vspc_O = M_sO_basis.Vspc_sO;
             % Vspc_O = mod_.flow_pckg.VN_spc_sO;
-            Vspc_svd_i = mod_.flow_pckg.Tspc_N_sO_svds(1);
-            Vspc_O = Vspc_svd_i.U(:,1:nvar_N1) .* ( Vspc_svd_i.s(1:nvar_N1) )';
+            Vspc_O = mod_.flow_pckg.VN_spc_sO ./ sqrt(sum(mod_.flow_pckg.VN_spc_sO.^2,1));
+
+            % Vspc_svd_i = mod_.flow_pckg.Tspc_N_sO_svds(1);
+            % Vspc_O = M_sO_basis.Vspc_sO;
+            % Vspc_svd_i = mod_.flow_pckg.Gn_bse.TTspc_svd_0;
+            % Vspc_O = Vspc_svd_i.U(:,1:nvar_N1) .* ( Vspc_svd_i.s(1:nvar_N1) )';
 
             Vspc_O = Vspc_O*( norm(t_sO(1:ndim)) / sqrt(max(sum(Vspc_O.*Vspc_O,1))) ); % rescale wrt tvf
             Vspc_O_x = Vspc_O(1,:);

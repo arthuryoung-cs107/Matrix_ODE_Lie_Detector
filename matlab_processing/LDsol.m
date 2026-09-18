@@ -68,8 +68,6 @@ classdef LDsol
             iN1_2_N = [1:nvar_N1 (ndim_N1-ndep+1):ndim_N1];
             bor_N1 = 1;
             [Plen_N1, Pmat_N1, ~] = ldaux.count_set_P_len(bor_N1,ndep_N1+1);
-            % while ((Plen_N1 < nobs) && (bor_N1 < 10)) % order 10 should be more than enough
-            % while ((Plen_N1 < nobs) && (bor_N1 < 8))
             while ((Plen_N1 < nobs) && (bor_N1 < bor_max))
                 bor_N1 = bor_N1 + 1;
                 [Plen_N1, Pmat_N1, ~] = ldaux.count_set_P_len(bor_N1,ndep_N1+1);
@@ -579,9 +577,9 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
 
             %% validate flow transformation technique
             inds_P_GN1_com = 1:Plen_GN1;
-            [flow_pckg,Gsvd_N1_com,Gn_basis] = verify_flow_transformation(inds_P_GN1_com,t_O,JtuN_sO,lamRN1_sO);
+            [flow_pckg,Gsvd_N1_com] = verify_flow_transformation(inds_P_GN1_com,t_O,JtuN_sO,lamRN1_sO);
 
-            function [flow_out,Gc_svd,Gn_bse] = verify_flow_transformation(iPv_,tO_,JtuN_sO_,lam_sO_)
+            function [flow_out,Gc_svd] = verify_flow_transformation(iPv_,tO_,JtuN_sO_,lam_sO_)
                 lv_b_sO = lam_sO_.lrow_vals(iPv_);
                 dkxl_b_sO = lam_sO_.dkxl(1,iPv_);
                 lkx_b_sO = lam_sO_.lkx((end-ndep+1):end,iPv_,1);
@@ -700,9 +698,12 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                 % theta_v_coords(:,ivec) = Theta_N_0*TTspc_svd_0.V(:,1);
                 theta_v_coord0 = Theta_N_0*sum( TTspc_svd_0.D / TTspc_svd_0.s(1) , 2 );
                 [VN_spc_sO_0 VN_spc_S_0 Btns_v0_0 Btns_v0_dxu] = compute_vth_sO_S_data(theta_v_coord0);
-                B_v_svd_0 = Asvd_package(normalize_Benc([ ...
-                    reshape(permute(Btns_v0_0,[2 1 3]),ntheta_v,nobs*nvar_N1)'  ...
-                ]));
+                % B_v_svd_0 = Asvd_package(normalize_Benc([ ...
+                B_v_svd_0 = Asvd_package([ ...
+                    reshape(permute(Btns_v0_0,[2 1 3]),ntheta_v,nobs*nvar_N1)' ;
+                    reshape(permute(Btns_v0_dxu,[2 1 3]),ntheta_v,nobs*ndep_N1)'
+                ]);
+                % reshape(permute(Btns_v0_0,[2 1 3]),ntheta_v,nobs*nvar_N1)'  ...
                 % reshape(permute(Btns_v0_dxu,[2 1 3]),ntheta_v,nobs*ndep_N1)' ...
                 Gnc_svd = Asvd_package([ ...
                     Gn_svd.D/Gn_svd.s(1), ...
@@ -717,7 +718,7 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
 
                 %% compute SVD of Gc : nullspace consists of vector fields that commute with tvf
                 Gc_svd = Asvd_package([ ...
-                    Gmat_N1_net_full ; ...
+                    Gmat_N1_net_full ;
                     Bmat_t0_N1
                 ]);
                 % Gmat_N1
@@ -779,11 +780,11 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                         compute_vth_sO_S_data(theta_v_coords(:,ivec));
                     VN_spc_unit_sO(:,ivec+1) = VN_spc_sO(:,ivec+1) / norm(VN_spc_sO(:,ivec+1));
                     VN_spc_unit_S(:,:,ivec+1) = VN_spc_S(:,:,ivec) ./ sqrt(sum(VN_spc_S(:,:,ivec).^2,1));
-
-                    B_v_svds(ivec) = Asvd_package(normalize_Benc([ ...
-                        reshape(permute(Btns_vi_0,[2 1 3]),ntheta_v,nobs*nvar_N1)'  ...
-                    ]));
-                    % reshape(permute(Btns_vi_dxu,[2 1 3]),ntheta_v,nobs*ndep_N1)' ...
+                    % B_v_svds(ivec) = Asvd_package(normalize_Benc([ ...
+                    B_v_svds(ivec) = Asvd_package([ ...
+                        reshape(permute(Btns_vi_dxu,[2 1 3]),ntheta_v,nobs*ndep_N1)' ; 
+                        reshape(permute(Btns_vi_0,[2 1 3]),ntheta_v,nobs*nvar_N1)'
+                    ]);
                     BD_vN_tns(:,:,ivec) = B_v_svds(ivec).D / B_v_svds(ivec).s(1);
                     if (ivec>1)
                         BD_vnet_svd = Asvd_package(reshape(BD_vN_tns(:,:,1:ivec),ntheta_v,[])');
@@ -804,6 +805,7 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                     'VN_spc_S', VN_spc_S, ...
                     'Tspc_Nv_sO_tns', Tspc_Nv_sO_tns ...
                 );
+                flow_out.Gn_bse = Gn_bse;
                 flow_out.B_v_svds = B_v_svds;
                 flow_out.N_v_svds = N_v_svds;
                 flow_out.Tspc_N_sO_svds = Tspc_N_sO_svds;
