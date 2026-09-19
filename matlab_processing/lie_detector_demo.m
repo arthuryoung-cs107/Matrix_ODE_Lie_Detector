@@ -116,6 +116,10 @@ dNp1xu_sO_tru
 dNp1xu_sO_check = mod.t_O((end-ndep+1):end)
 err_dNp1xu_sO = abs((dNp1xu_sO_check-dNp1xu_sO_tru)./dNp1xu_sO_tru)
 
+norms_VN_sO = sqrt(sum(mod.flow_pckg.VN_spc_sO.^2,1))
+UJFT_VN_sO = mod.flow_pckg.JF_sO_svd.U' * mod.flow_pckg.VN_spc_unit_sO
+VNT_VN_sO = mod.flow_pckg.VN_spc_unit_sO' * mod.flow_pckg.VN_spc_unit_sO
+
 dat_plt1 = dat_plt0;
 plt1 = apv_plots('model_summary', ...
                 [1 1],...
