@@ -12,8 +12,12 @@ classdef LDsol
     end
     methods (Static)
         function mod_out = model_solspace(Sobs_,dat_,fmap_)
-            % bor_max = 8;
-            bor_max = 6;
+            if (isfield(dat_,'bor_max'))
+                bor_max = dat_.bor_max;
+            else
+                % bor_max = 8;
+                bor_max = 6;
+            end
 
             %% overarching package for all SVD usage
             function [Asvd_out,U_] = Asvd_package(A_);
@@ -618,8 +622,9 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                 LamN_T_vN_ttns = LamN_T_ttns_RN1(iPv_,:,:,:); % Plen x nvar_N1 x ndim_N1 x nobs
                 LamN_T_v1_ttns = LamN_T_vN_ttns(:,:,iN1_2_N,:); % Plen x nvar_N1 x ndim_N1 x nobs
                 LamN_T_v0_ttns = LamN_T_vN_ttns(:,:,1:nvar_N1,:); % Plen x nvar_N1 x nvar_N1 x nobs
-                function [vN_sO_vec vN_S_mat Btns_v0 Btns_vdxu] = compute_vth_sO_S_data(th_)
+                function [vN_sO_vec vN_S_mat Btns_v0 Btns_vdxu Bmat_v0_sO Bmat_vdxu_sO] = compute_vth_sO_S_data(th_)
                     vN_sO_vec = compute_sO_Tspc_image( th_(:,1) );
+
                     Th_v_mat = reshape(th_,[Plen_v nvar_N1]);
                     v_S_mat = compute_vTh_S(Th_v_mat);
                     vN_S_mat = v_S_mat([1:nvar_N1 (ndim_N1-ndep+1):ndim_N1],:);
@@ -644,10 +649,12 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                     Jv_dxu_S_tns = pagemtimes( Th_v_mat(:,2:end)', Jdxl_vN_tns ) ...
                                     - reshape(sum(Th_v_mat(:,1).*permute(Jl1x_vN_ttns,[2 1 3 4]), 1),[ndep_N1 ndim_N1 nobs]);
                     % nvar_N1 x ntheta x nobs, base space v Lie bracket commutativity condition encoded as matrix
-                    Btns_v0 = permute(reshape(de_Lam_0_ttns,[ntheta_v nvar_N1 nobs]),[2 1 3]) ...
+                    Btns_v0 =  ...
+                        permute(reshape(de_Lam_0_ttns,[ntheta_v nvar_N1 nobs]),[2 1 3]) ...
                         -pagemtimes(Jv_0_S_tns,permute(reshape(LamN_T_v0_ttns,[ntheta_v nvar_N1 nobs]),[2 1 3]));
                     % ndep_N1 x ntheta x nobs, jet space v Lie bracket commutativity condition encoded as matrix
-                    Btns_vdxu = permute(reshape(de_Lam_dxu_ttns,[ntheta_v ndep_N1 nobs]),[2 1 3]) ...
+                    Btns_vdxu = ...
+                        permute(reshape(de_Lam_dxu_ttns,[ntheta_v ndep_N1 nobs]),[2 1 3]) ...
                         -pagemtimes(Jv_dxu_S_tns,permute(reshape(LamN_T_vN_ttns,[ntheta_v ndim_N1 nobs]),[2 1 3]));
                 end
 
@@ -666,6 +673,18 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                     for ibse = 1:size(VNi_unit_sO_,2)
                         VNspc_Th_i = VNspc_Th_i - VNi_unit_sO_(:,ibse) * ( VNi_unit_sO_(:,ibse)' * VNspc_Th_i );
                     end
+                end
+                function [VNspc_Th_i,VNspc_Th_i0] = compute_orthogonal_Tspace(Th_,VNi_unit_sO_,BNi_sO_)
+                    VNspc_Th_i0 = compute_sO_Tspc_image(Th_);
+
+                    VNspc_Th_i = P_JF_sO*VNspc_Th_i0; % project away Jacobian components
+                    % Gramm-Schmidtt away current basis unit tangent vectors
+                    for ibse = 1:size(VNi_unit_sO_,2)
+                        VNspc_Th_i = VNspc_Th_i - VNi_unit_sO_(:,ibse) * ( VNi_unit_sO_(:,ibse)' * VNspc_Th_i );
+                    end
+
+                    PJF_VNspc_Th_svd = Asvd_package(VNspc_Th_i);
+
                 end
 
                 theta_v_coords = zeros(ntheta_v,ndep_N1);
@@ -754,6 +773,15 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                 %% parameters of candidate vector fields which commute with tvf
                 WGc = G0_svd.W;
                 WGc_i = WGc;
+
+                function out = build_Tspc_sO_basis(W_,v1_,B1_)
+
+                    [TTspc_i,Tspc_Nv_sO_tns(:,:,ivec)] = compute_orthogonal_Tspace(W_,VN_spc_unit_sO(:,1:ivec));
+
+
+                    out = 0
+                end
+
                 for ivec = 1:ndep_N1
                     % ndim x ntheta x nobs, Lambda matrices projected over candidate vfield space (sample of tangent bundle)
                     Mu_S_i = permute(pagemtimes(WGc_i',reshape(LamN_T_v1_ttns,[ntheta_v ndim nobs])), [2 1 3]);

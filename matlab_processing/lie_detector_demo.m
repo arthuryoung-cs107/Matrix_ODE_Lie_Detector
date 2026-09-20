@@ -23,7 +23,7 @@ scrn_id = 1;
 %}
 % % generate a data set
 tic0 = tic;
-[Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_Riccati_data_2(); % N = 1, Q = 1
+[Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_Riccati_data_2(); dat_true.bor_max = 3; % N = 1, Q = 1
 % [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_Brusselator_data(); % N = 1, Q = 2
 % [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_Van_der_Pol_data(); % N = 2, Q = 1
 % [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_oscillator_polr_data(); % N = 2, Q = 1, easier than VanderPol
