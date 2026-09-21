@@ -260,7 +260,7 @@ classdef LDsol
                                         - (sols(i).lamRN1.lkx(:,iP_,1) * th_(1:Plen_b,i) );
                 end
             end
-            function [f_s0_out, dxf_s0_out, vth_out, lam_out, Jtu_s0_out,JtuN_s0_out] = comp_f_s0(s0_,fspc_,W_,iP_)
+            function [f_s0_out,dxf_s0_out,vth_out,lam_out,Jtu_s0_out,JtuN_s0_out] = comp_f_s0(s0_,fspc_,W_,iP_)
                 nvar_ = length(s0_(:));
                 Plen_b = size(fspc_.Pmat(:,iP_),2);
                 lam_out = adlam( fspc_, s0_ );
@@ -586,9 +586,12 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
             function [flow_out,Gc_svd] = verify_flow_transformation(iPv_,tO_,JtuN_sO_,lam_sO_)
                 lv_b_sO = lam_sO_.lrow_vals(iPv_);
                 dkxl_b_sO = lam_sO_.dkxl(1,iPv_);
-                lkx_b_sO = lam_sO_.lkx((end-ndep+1):end,iPv_,1);
+                lkx_b_sO = lam_sO_.lkx(:,iPv_,1);
+                Jlv_b_sO = lam_sO_.Jl(:,iPv_);
+                Jdxlv_b_sO = lam_sO_.Jdkxl(:,iPv_,1);
                 Plen_v = length(lv_b_sO(:));
                 ntheta_v = nvar_N1*Plen_v;
+                Jl1xv_b_sO = reshape(lam_sO_.Jlkx(:,iPv_,1,:),ndep_N1,Plen_v,ndim_N1);
 
                 % nvar x C matrix, columns span tangent space of S0 at s0O
                 V0spc_image = @(thtns_) reshape( ...
@@ -603,6 +606,34 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                 compute_sO_Tspc_image = @(thmat_) VNspc_image( ...
                     thmat_ , permute(reshape(thmat_,Plen_v,nvar_N1,size(thmat_,2)),[2 1 3]) ...
                 );
+
+                LamN_v_tns_sO = zeros(Plen_v,nvar_N1,ndim_N1);
+                LamN_v_tns_sO(:,1,1) = lv_b_sO';
+                for idep = 1:ndep_N1
+                    LamN_v_tns_sO(:,idep+1,idep+1) = lv_b_sO';
+                    LamN_v_tns_sO(:,idep+1,idep+nvar_N1) = dkxl_b_sO';
+                    LamN_v_tns_sO(:,1,idep+nvar_N1) = -lkx_b_sO(idep,:)';
+                end
+                LamN_v_mat_sO = reshape(LamN_v_tns_sO,[ntheta_v ndim_N1])';
+                DprN_mat_sO = zeros(ndep*(kor-1),ntheta_v);
+                if (kor>1)
+                    DprN_tns_sO = zeros(ntheta_v,ndep,kor-1);
+                    iiLam0 = nvar + (1:ndep);
+                    iiLam1 = iiLam0-nvar+nvar_N1;
+                    for k = 2:kor
+                        DprN_tns_sO(:,:,k-1) = LamN_v_mat_sO(iiLam1,:)' - LamN_v_mat_sO(iiLam0,:)';
+                        iiLam0 = iiLam0 + ndep;
+                        iiLam1 = iiLam1 + ndep;
+                    end
+                    DprN_mat_sO = reshape(DprN_tns_sO,ntheta_v,[])';
+                end
+                tN_O_unit = tO_ / norm(tO_);
+                Jtu0_sO = [ zeros(1,ndim) ; [ JtuN_sO_(:,1:nvar_N1,1) , zeros((nvar_N1-1),ndep) ] ]; % ndep_N1 x nvar_N1
+                Jf_sO = Jtu0_sO( (end-ndep+1):end,1:nvar_N1 ); % ndep x nvar_N1, grad of N'th derivatives at sO
+                JF_sO = [ Jf_sO , -eye(ndep) ]; % ndep x ndim, JF = ( Jf , -I )
+                [JF_sO_svd,U_JF_sO] =  Asvd_package(JF_sO');
+                JF_sO_svd.U = U_JF_sO;
+                P_JF_sO = eye(ndim) - U_JF_sO*U_JF_sO';
 
                 % ndim x nobs x ndep, pages are unit gradient vectors (normalized row of Jacobian of F)
                 JF_S_unit_tns = permute(JF_N1 ./ sqrt(sum(JF_N1.^2,2)),[2 3 1]);
@@ -623,49 +654,66 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                 LamN_T_v1_ttns = LamN_T_vN_ttns(:,:,iN1_2_N,:); % Plen x nvar_N1 x ndim_N1 x nobs
                 LamN_T_v0_ttns = LamN_T_vN_ttns(:,:,1:nvar_N1,:); % Plen x nvar_N1 x nvar_N1 x nobs
                 function [vN_sO_vec vN_S_mat Btns_v0 Btns_vdxu Bmat_v0_sO Bmat_vdxu_sO] = compute_vth_sO_S_data(th_)
-                    vN_sO_vec = compute_sO_Tspc_image( th_(:,1) );
+                    % vN_sO_vec = compute_sO_Tspc_image( th_(:,1) );
 
                     Th_v_mat = reshape(th_,[Plen_v nvar_N1]);
+                    vN1_sO_vec = [  Th_v_mat' * lv_b_sO(:) ;
+                                    Th_v_mat(:,2:end)' * dkxl_b_sO(:) - lkx_b_sO*Th_v_mat(:,1) ];
+                    vN_sO_vec = [vN1_sO_vec(1:nvar_N1) ; vN1_sO_vec((end-ndep+1):end) ];
+
                     v_S_mat = compute_vTh_S(Th_v_mat);
                     vN_S_mat = v_S_mat([1:nvar_N1 (ndim_N1-ndep+1):ndim_N1],:);
                     v_S_tns = reshape(v_S_mat,[ndim_N1 1 nobs]);
+                    % Plen x 1, v^(0) ( lambda )
+                    de_l_sO_vec = vN1_sO_vec(1:nvar_N1)' * Jlv_b_sO;
                     % Plen x nobs, v^(0) ( lambda )
                     de_l_mat = reshape(pagemtimes(Jl_v0_tns,v_S_tns(1:nvar_N1,1,:)),[Plen_v nobs]);
+                    de_Lam_0_sO_tns = zeros(Plen_v,nvar_N1,nvar_N1);
                     de_Lam_0_ttns = zeros(Plen_v,nvar_N1,nvar_N1,nobs);
                     for ivar = 1:nvar_N1
+                        de_Lam_0_sO_tns(:,ivar,ivar) = de_l_sO_vec';
                         de_Lam_0_ttns(:,ivar,ivar,:) = de_l_mat;
                     end
+                    % keyboard
+                    % Plen x 1, v^(1) ( dx lambda )
+                    de_dxl_sO_vec = vN1_sO_vec' * Jdxlv_b_sO;
                     % Plen x nobs, v^(1) ( dx lambda )
                     de_dxl_mat = reshape(pagemtimes(Jdxl_vN_tns,v_S_tns),[Plen_v nobs]);
+                    de_Lam_dxu_sO_tns = zeros(Plen_v,nvar_N1,ndep_N1);
                     de_Lam_dxu_ttns = zeros(Plen_v,nvar_N1,ndep_N1,nobs);
                     for idep = 1:ndep_N1
+                        de_Lam_dxu_sO_tns(:,1,idep) = -reshape(Jl1xv_b_sO(idep,:,:),[Plen_v ndim_N1])*vN1_sO_vec;
+                        de_Lam_dxu_sO_tns(:,idep+1,idep) = de_dxl_sO_vec';
                         de_Lam_dxu_ttns(:,1,idep,:) = -pagemtimes( ...
                             reshape(Jl1x_vN_ttns(idep,:,:,:), [Plen_v ndim_N1 nobs]), v_S_tns );
                         de_Lam_dxu_ttns(:,idep+1,idep,:) = de_dxl_mat;
                     end
+                    
+                    % nvar_N1 x nvar_N1 , J ( v^(0) ), cols are partials
+                    Jv_0_sO_mat = Th_v_mat' * Jlv_b_sO' ;
+                    % ndep x ndim , J ( v_dxu ), cols are partials
+                    Jv_dxu_sO_mat = Th_v_mat(:,2:end)' * Jdxlv_b_sO' ...
+                                    - reshape(pagemtimes(Jl1xv_b_sO , Th_v_mat(:,1)),[ndep_N1,ndim_N1]);
                     % nvar_N1 x nvar_N1 x nobs, J ( v^(0) )
                     Jv_0_S_tns = pagemtimes( Th_v_mat' , Jl_v0_tns );
                     % ndep x ndim x nobs, J ( v_dxu )
                     Jv_dxu_S_tns = pagemtimes( Th_v_mat(:,2:end)', Jdxl_vN_tns ) ...
                                     - reshape(sum(Th_v_mat(:,1).*permute(Jl1x_vN_ttns,[2 1 3 4]), 1),[ndep_N1 ndim_N1 nobs]);
-                    % nvar_N1 x ntheta x nobs, base space v Lie bracket commutativity condition encoded as matrix
+
+                    % nvar_N1 x ntheta, base space v Lie bracket commutativity condition encoded as matrix
+                    Bmat_v0_sO = reshape(de_Lam_0_sO_tns,[ntheta_v nvar_N1])' - Jv_0_sO_mat * LamN_v_mat_sO(1:nvar_N1,:);
+                    % ndep_N1 x ntheta, jet space v Lie bracket commutativity condition encoded as matrix
+                    Bmat_vdxu_sO = reshape(de_Lam_dxu_sO_tns,[ntheta_v ndep_N1])' - Jv_dxu_sO_mat * LamN_v_mat_sO;
+                    % nvar_N1 x ntheta x nobs, base space v Lie bracket commutativity condition encoded as matrices
                     Btns_v0 =  ...
                         permute(reshape(de_Lam_0_ttns,[ntheta_v nvar_N1 nobs]),[2 1 3]) ...
                         -pagemtimes(Jv_0_S_tns,permute(reshape(LamN_T_v0_ttns,[ntheta_v nvar_N1 nobs]),[2 1 3]));
-                    % ndep_N1 x ntheta x nobs, jet space v Lie bracket commutativity condition encoded as matrix
+                    % ndep_N1 x ntheta x nobs, jet space v Lie bracket commutativity condition encoded as matrices
                     Btns_vdxu = ...
                         permute(reshape(de_Lam_dxu_ttns,[ntheta_v ndep_N1 nobs]),[2 1 3]) ...
                         -pagemtimes(Jv_dxu_S_tns,permute(reshape(LamN_T_vN_ttns,[ntheta_v ndim_N1 nobs]),[2 1 3]));
                 end
 
-                tN_O_unit = tO_ / norm(tO_);
-
-                Jtu0_sO = [ zeros(1,ndim) ; [ JtuN_sO_(:,1:nvar_N1,1) , zeros((nvar_N1-1),ndep) ] ]; % ndep_N1 x nvar_N1
-                Jf_sO = Jtu0_sO( (end-ndep+1):end,1:nvar_N1 ); % ndep x nvar_N1, grad of N'th derivatives at sO
-                JF_sO = [ Jf_sO , -eye(ndep) ]; % ndep x ndim, JF = ( Jf , -I )
-                [JF_sO_svd,U_JF_sO] =  Asvd_package(JF_sO');
-                JF_sO_svd.U = U_JF_sO;
-                P_JF_sO = eye(ndim) - U_JF_sO*U_JF_sO';
                 function [VNspc_Th_i,VNspc_Th_i0] = compute_transversal_Tspace(Th_,VNi_unit_sO_)
                     VNspc_Th_i0 = compute_sO_Tspc_image(Th_);
                     VNspc_Th_i = P_JF_sO*VNspc_Th_i0; % project away Jacobian components

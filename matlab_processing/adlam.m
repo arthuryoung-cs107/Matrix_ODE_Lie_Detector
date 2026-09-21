@@ -163,23 +163,23 @@ classdef adlam
             d1LmatP = adlam.dkLmatP(obj,1);
 
             % (transposed) Jacobian of l over the base space
-            JlT = zeros( nvar,Plen );
+            Jl = zeros( nvar,Plen );
             for iv = 1:nvar
-                JlT(iv,:) = 1;
+                Jl(iv,:) = 1;
                 for iiv = 1:(iv-1)
-                    JlT(iv,:) = JlT(iv,:) .* LmatP(iiv,:);
+                    Jl(iv,:) = Jl(iv,:) .* LmatP(iiv,:);
                 end
-                JlT(iv,:) = JlT(iv,:) .* d1LmatP(iv,:);
+                Jl(iv,:) = Jl(iv,:) .* d1LmatP(iv,:);
                 for iiv = (iv+1):nvar
-                    JlT(iv,:) = JlT(iv,:) .* LmatP(iiv,:);
+                    Jl(iv,:) = Jl(iv,:) .* LmatP(iiv,:);
                 end
             end
 
             obj.lrow_vals = adlam.lrowP(obj);
-            obj.Jl = JlT;
+            obj.Jl = Jl;
             % the base space is fully characterized by the lambda vector and its Jacobian
             pr0 = struct( ...
-                'l', adobj( prod( LmatP, 1 )', JlT' ), ...
+                'l', adobj( prod( LmatP, 1 )', Jl' ), ...
                 'v', @(o_,th_) (reshape( th_, length( o_.l.val ), [] ))' * o_.l.val ...
             );
             obj.pr0 = pr0;
@@ -221,9 +221,9 @@ classdef adlam
                 obj.lkx = zeros(ndep,Plen,kor);
                 obj.Jlkx = zeros(ndep,Plen,kor,ndim);
                 for iv = 1:nvar
-                    obj = adlam.prolong_vu_mvpolynomial(obj,1,iv,JlT(iv,:),pr0_data);
+                    obj = adlam.prolong_vu_mvpolynomial(obj,1,iv,Jl(iv,:),pr0_data);
                     for k = 1:kor
-                        obj = adlam.prolong_vx_mvpolynomials(obj,k,k,iv,JlT(iv,:),pr0_data);
+                        obj = adlam.prolong_vx_mvpolynomials(obj,k,k,iv,Jl(iv,:),pr0_data);
                     end
                 end
                 % obj = adlam.verify_prolongation(obj); % debugging
@@ -318,23 +318,23 @@ classdef adlam
             d1LmatP = adlam.dkLmatP(obj_out,1);
 
             % (transposed) Jacobian of l over the base space
-            JlT = zeros( nvar,Plen );
+            Jl = zeros( nvar,Plen );
             for iv = 1:nvar
-                JlT(iv,:) = 1;
+                Jl(iv,:) = 1;
                 for iiv = 1:(iv-1)
-                    JlT(iv,:) = JlT(iv,:) .* LmatP(iiv,:);
+                    Jl(iv,:) = Jl(iv,:) .* LmatP(iiv,:);
                 end
-                JlT(iv,:) = JlT(iv,:) .* d1LmatP(iv,:);
+                Jl(iv,:) = Jl(iv,:) .* d1LmatP(iv,:);
                 for iiv = (iv+1):nvar
-                    JlT(iv,:) = JlT(iv,:) .* LmatP(iiv,:);
+                    Jl(iv,:) = Jl(iv,:) .* LmatP(iiv,:);
                 end
             end
 
             obj_out.lrow_vals = adlam.lrowP(obj_out);
-            obj_out.Jl = JlT;
+            obj_out.Jl = Jl;
             % the base space is fully characterized by the lambda vector and its Jacobian
             pr0 = struct( ...
-                'l', adobj( prod( LmatP, 1 )', JlT' ), ...
+                'l', adobj( prod( LmatP, 1 )', Jl' ), ...
                 'v', @(o_,th_) (reshape( th_, length( o_.l.val ), [] ))' * o_.l.val ...
             );
             obj_out.pr0 = pr0;
@@ -373,9 +373,9 @@ classdef adlam
             obj_out.lkx = zeros(ndep,Plen,kor);
             obj_out.Jlkx = zeros(ndep,Plen,kor,ndim);
             for iv = 1:nvar
-                obj_out = adlam.prolong_vu_mvpolynomial(obj_out,1,iv,JlT(iv,:),pr0_data);
+                obj_out = adlam.prolong_vu_mvpolynomial(obj_out,1,iv,Jl(iv,:),pr0_data);
                 for k = 1:kor
-                    obj_out = adlam.prolong_vx_mvpolynomials(obj_out,k,k,iv,JlT(iv,:),pr0_data);
+                    obj_out = adlam.prolong_vx_mvpolynomials(obj_out,k,k,iv,Jl(iv,:),pr0_data);
                 end
             end
             % obj_out = adlam.verify_prolongation(obj_out); % debugging
