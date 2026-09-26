@@ -953,7 +953,10 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                 % BV_N1_sO(:,:,1) = B_tN1_sO;
 
                 %% parameters of candidate vector fields which commute with principle vector field
-                WGc_0 = G0_svd.W;
+                % WGc_0 = G0_svd.W;
+                WGc_0 = Gn_svd.W;
+                % WGc_0 = Gnc_svd.W;
+                WGc_0 = Gc_svd.W;
                 WGc_i = WGc_0;
                 for ivec = 1:ndep_N1
                     % ndim x ntheta x nobs, Lambda matrices projected over candidate vfield space (sample of tangent bundle)
