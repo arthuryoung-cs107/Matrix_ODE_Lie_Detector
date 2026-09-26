@@ -71,21 +71,6 @@ classdef fspc < jspc
             str_out.U = U_A;
             str_out.Y =  V_A.*( (s_A(:)/s_A(1))' );
 
-            % A_comp = A_;
-            % [W_A,r_A,s_A,V_A,Amat_] = fspc.safely_process_net_svd(A_comp);
-            % str_out = struct( ...
-            %     'mat', Amat_, ...
-            %     'ncol', length( s_A ), ...
-            %     'W', W_A, ...
-            %     'r', r_A, ...
-            %     's', s_A, ...
-            %     'V', V_A, ...
-            %     'Y',  V_A.*( (s_A(:)/s_A(1))' ),  ...
-            %     'D', @(svd_) [ svd_.V(:,1:(svd_.r)) , zeros(svd_.ncol,svd_.ncol-svd_.r) ], ...
-            %     'PK', @(svd_) [ zeros(svd_.ncol,svd_.r) , svd_.V(:,(svd_.r+1):end) ], ...
-            %     'PK_k', @(svd_,k_) [ zeros(svd_.ncol,svd_.ncol-k_) , svd_.V(:,(end-(k_-1)):end) ], ...
-            %     'PK_r', @(svd_,r_) [ zeros(svd_.ncol,r_) , svd_.V(:,(r_+1):end) ] ...
-            % );
         end
 
         function [s_scaled_pseudo_inverse,s_scl] = s_spi(s_)
@@ -157,22 +142,6 @@ classdef fspc < jspc
             ndim = 1 + ndep*(kor+1);
             ntheta = Plen*nvar;
 
-            % ncol_Lambda_u = ntheta-Plen;
-            % i_imm = zeros(ncol_Lambda_u,ndep);
-            % for i = 1:ndep
-            %     idel = (i-1)*Plen;
-            %     i_imm( (1+idel):(Plen+idel), i ) = 1;
-            % end
-            % i_imm_vec = logical( i_imm(:) );
-            % len_Lambda_u = prod(size(i_imm));
-            % l_imm_init = zeros(len_Lambda_u,1);
-            % ones_imm = ones(ndep,1);
-            % function l_imm = immerse_lambda(l_)
-            %     l_imm = l_imm_init;
-            %     l_imm(i_imm_vec) = reshape( (ones_imm.*(l_(:)'))', len_Lambda_u ,1);
-            %     l_imm = reshape(l_imm,ndep,ncol_Lambda_u);
-            %     % l_ -> [l_ 0 ... 0 ; 0 l_ ... 0 ; ...]
-            % end
             %% initialize injection into Lambda column space
             i_imm = zeros(ndep*Plen,ndep);
             for i = 1:ndep
