@@ -1,7 +1,7 @@
 classdef LDsol
     properties (Constant)
 
-        ndep0 = @(s_) length(s_.dNp1xu(:));
+        % ndep0 = @(s_) length(s_.dNp1xu(:)); % doesn't work as intended
 
     end
     properties
@@ -733,12 +733,28 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                 JF_S_unit_tns = permute(JF_N1 ./ sqrt(sum(JF_N1.^2,2)),[2 3 1]);
                 tauN_S_unit_mat = tauN_S_mat ./ sqrt( sum(tauN_S_mat.^2,1) );
                 tauN1_S_unit_mat = tauN1_S_mat ./ sqrt( sum(tauN1_S_mat.^2,1) );
-                % ndim_N1 x nobs, each col is ( 1^T * JF )^T
-                jF_N1_S = [  reshape(sum(JF_N1(:,1:nvar,:),1),nvar,nobs);
-                            [reshape(sum(JF_N1(:,(nvar+1):nvar_N1,:),1),nvar_N1-nvar,nobs) + ones(nvar_N1-nvar,nobs) ];
-                            -ones(ndep_N1-ndep,nobs);
-                            reshape(sum(JF_N1(:,(end-ndep+1):end,:),1),ndep,nobs) ];
-                jF_N1_S_unit = jF_N1_S ./ sqrt(sum(jF_N1_S.^2,1));
+
+                nDprN = ndep_N1-ndep; % = Q(N-1)
+                UUT_DprN1 = 0.5*[ ...
+                            zeros(nvar,ndim_N1) ;
+                    [ zeros(nDprN,1+nDprN) , eye(nDprN), -eye(nDprN) , zeros(nDprN) ] ;
+                    [ zeros(nDprN,1+nDprN) , -eye(nDprN), eye(nDprN) , zeros(nDprN) ] ;
+                            zeros(ndep,ndim_N1) ;
+                ];
+                P_DprN1 = eye(ndim_N1) - UUT_DprN1;
+                if (kor>1)
+                    jdxu_PDprN_JF = 0.5*reshape(sum(JF_N1(:,(nvar+1):nvar_N1,:),1),nDprN,nobs);
+                    jdxu_PDprN_JF = [ jdxu_PDprN_JF ; jdxu_PDprN_JF ];
+                else
+                    jdxu_PDprN_JF = zeros(0,nobs);
+                end
+                % ndim_N1 x nobs, each col is ( 1^T * PDprN JF )^T
+                j_PDprN_JF_N1_S = [  ...
+                        reshape(sum(JF_N1(:,1:nvar,:),1),nvar,nobs);
+                        jdxu_PDprN_JF;
+                        reshape(sum(JF_N1(:,(end-ndep+1):end,:),1),ndep,nobs);
+                ];
+                j_PDprN_JF_N1_S_unit = j_PDprN_JF_N1_S ./ sqrt(sum(j_PDprN_JF_N1_S.^2,1));
 
                 lvs_v0_mat = lvs_RN1(iPv_,:); % Plen x nobs
                 Jl_v0_tns = permute(Jltns_RN1(:,iPv_,:),[2 1 3]); % Plen x nvar_N1 x nobs
@@ -857,12 +873,15 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                 Nu_S_0 = Nu_S_0-pagemtimes( reshape(tauN1_S_unit_mat,[ndim_N1 1 nobs]) , ...
                                     pagemtimes(reshape(tauN1_S_unit_mat,[1 ndim_N1 nobs]) , Nu_S_0) );
                 % ndim_N1 x ntheta x nobs, Mu tangent bundle stripped of component in the direction of avg Jacobian comp.
-                Nu_S_0 = Nu_S_0-pagemtimes( reshape(jF_N1_S_unit,[ndim_N1 1 nobs]) , ...
-                                    pagemtimes(reshape(jF_N1_S_unit,[1 ndim_N1 nobs]) , Nu_S_0) );
+                Nu_S_0 = Nu_S_0-pagemtimes( reshape(j_PDprN_JF_N1_S_unit,[ndim_N1 1 nobs]) , ...
+                                    pagemtimes(reshape(j_PDprN_JF_N1_S_unit,[1 ndim_N1 nobs]) , Nu_S_0) );
+                % ndim_N1 x ntheta x nobs, Mu tangent bundle stripped of component failing prolongation constraints
+                if (kor>1)
+                    Nu_S_0 = pagemtimes(P_DprN1,Nu_S_0);
+                end
                 % the principle components of this matrix correspond to vfields not parallel to tvf everywhere
                 N_v_svd0 = Asvd_package( reshape(permute( Nu_S_0,[2 1 3]), ntheta_v, ndim_N1*nobs )' );
-
-                % parameters of vector fields not parallel to tvf everywhere
+                % parameters of dominant vector fields obeying imposed constraints
                 Theta_N_0 = Gn_svd.W * (N_v_svd0.D / N_v_svd0.s(1));
                 % Theta_N_0 = Gn_svd.W;
                 %% identify subspace of candidate vector fields transversal to current basis at origin
@@ -954,9 +973,10 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
 
                 %% parameters of candidate vector fields which commute with principle vector field
                 % WGc_0 = G0_svd.W;
-                WGc_0 = Gn_svd.W;
+                % WGc_0 = Gn_svd.W;
                 % WGc_0 = Gnc_svd.W;
-                WGc_0 = Gc_svd.W;
+                % WGc_0 = Gc_svd.W;
+                WGc_0 = Theta_N_0;
                 WGc_i = WGc_0;
                 for ivec = 1:ndep_N1
                     % ndim x ntheta x nobs, Lambda matrices projected over candidate vfield space (sample of tangent bundle)
@@ -981,12 +1001,9 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                     [TTspc_svd_i, U_TTspc_i] = Asvd_package(TTspc_i);
                     TTspc_svd_i.U = U_TTspc_i;
                     TTspc_svds(ivec) = TTspc_svd_i;
-                    % dimYi = ndim_N1;
-                    % dimYi = ndim_N1-(ivec-1);
-                    % dimYi = max([2 TTspc_svd_i.r]);
-                    % dimYi = max([2 , nvar_N1-ivec ]);
-                    dimYi = nvar_N1-(ivec-1);
-                    % dimYi = nvar_N1-ivec;
+
+                    % dimYi = nvar_N1-(ivec-1);
+                    dimYi = nvar_N1;
 
                     % [ [ JF_N1_sO ; VN1_spc_sO(:,1:ivec)' ] * Tspc_N1v_sO_mat0_i ] ; ...
                     % [ [ U_JF_N1_sO' ; VN1_spc_unit_sO(:,1:ivec)' ] * Tspc_N1v_sO_mat0_i ] ; ...

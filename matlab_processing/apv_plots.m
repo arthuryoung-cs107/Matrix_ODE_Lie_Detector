@@ -444,7 +444,7 @@ classdef apv_plots
             end
             if ( (ndep==kor)&&(kor==1) )
                 sO_11 = reshape(sO(1:3),[],1);
-                plt3D_i = @(s_,mrkr_,c_,LS_) plot3(axs_mat(1,end), ...
+                plt3D_i = @(s_,c_,LS_,mrkr_) plot3(axs_mat(1,end), ...
                     s_(1,:), s_(2,:), s_(3,:), ...
                     'LineStyle', LS_, ...
                     'LineWidth', 1, ...
@@ -455,13 +455,18 @@ classdef apv_plots
                     'MarkerEdgeColor', [0 0 0], ...
                     'HandleVisibility','off' ...
                 );
-                for itspc = 1:size(A_G_sO,2)
-                    plt3D_i([ sO_11, sO_11+[ A_G_sO(1,itspc) ; A_G_sO_u(1,1:2,itspc)' ] ],'none',Aspc.cmat(itspc,:),Aspc.lspc);
+                for iA = 1:size(Aspcs,1)
+                    for iiA = 1:size( Aspcs{iA,1} , 2 )
+                        plt3D_i([ sO_11, sO_11+[ Aspcs{iA,1}(1,iiA) ; Aspcs{iA,2}(1,1:2,iiA)' ] ],Aspcs{iA,3}(iiA,:),Aspcs{iA,4},Aspcs{iA,5});
+                    end
                 end
-                plt3D_i(sO_11,'o',[1 1 1],'none')
-                plt3D_i([ sO_11, sO_11+[ t_sO(1) ; t_sO(2:3) ] ],'d',[1 1 1],'-')
-                plt3D_i([ sO_11, sO_11+[ Vspc_O_x(1) ; Vspc_O_u(1,1:2,1)' ] ],'d',cmat_i(1,:),'-')
-                plt3D_i([ sO_11, sO_11+[ Vspc_O_x(2) ; Vspc_O_u(1,1:2,2)' ] ],'d',cmat_i(2,:),'-')
+                plt3D_i(sO_11,[1 1 1],'none','o')
+                plt3D_i([ sO_11, sO_11+[ t_sO(1) ; t_sO(2:3) ] ],[1 1 1],'-','d')
+                for iV = 1:size(Vspcs,1)
+                    for iiV = 1:length( Vspcs{iV,1} )
+                        plt3D_i([ sO_11, sO_11+[ Vspcs{iV,1}(iiV) ; Vspcs{iV,2}(1,1:2,iiV)' ] ],Vspcs{iV,3}(iiV,:),Vspcs{iV,4},Vspcs{iV,5});
+                    end
+                end
             end
             % keyboard
 
@@ -494,6 +499,7 @@ classdef apv_plots
                 mod_.Gsvd_N1_com,  '$G_{\mathrm{com}}', '>'; ...
                 mod_.Nsvd_N1_net,  '$N_{\mathrm{net}}', '^'; ...
                 mod_.Nsvd_N1_com,  '$N_{\mathrm{com}}', 'v'; ...
+                mod_.flow_pckg.Gn_bse,  '$N_{\mathrm{bse}}', 'p'; ...
             };
 
             nsvd_i = size(svds_i,1);
