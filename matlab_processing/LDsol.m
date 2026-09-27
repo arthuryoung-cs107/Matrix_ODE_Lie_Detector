@@ -775,11 +775,12 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                     VN1spc_Th_i0 = compute_sO_N1_Tspc_image(Th_);
                     VNspc_Th_i0 = [ VN1spc_Th_i0(1:nvar_N1,:) ; VN1spc_Th_i0((end-ndep+1):end,:) ];
 
-                    Vspc_Th_i = P_JF_N1_sO*VN1spc_Th_i0; % project away Jacobian components
-                    % Gramm-Schmidtt away current basis unit tangent vectors
+                    Vspc_Th_i = VN1spc_Th_i0;
+                    % Gramm-Schmidtt away given basis unit tangent vectors
                     for ibse = 1:size(VNi_unit_sO_,2)
                         Vspc_Th_i = Vspc_Th_i - VNi_unit_sO_(:,ibse) * ( VNi_unit_sO_(:,ibse)' * Vspc_Th_i );
                     end
+                    Vspc_Th_i = P_JF_N1_sO*Vspc_Th_i; % project away Jacobian components
                 end
                 function [vN_sO_vec vN1_sO_vec vN_S_mat Btns_v0 Btns_vdxu Bmat_vN1_sO] = compute_vth_sO_S_data(th_)
                     % vN_sO_vec = compute_sO_Tspc_image( th_(:,1) );
@@ -854,9 +855,36 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                 VN_spc_unit_S = zeros(ndim,nobs,nvar_N1);
                 BV_N1_sO = zeros(ndim_N1,ntheta_v,nvar_N1);
 
+                %% compute SVD of Gc : nullspace consists of vector fields that commute with tvf
+                Gc_svd = Asvd_package([ ...
+                    Gmat_N1_net_full ;
+                    Bmat_t0_N1 ;
+                    Bmat_tdxu_N1 ;
+                ]);
+                % Gmat_N1
+                % DprN_mat
+                % Gmat_N1_net_full
+                % Bmat_t0_N1
+                % Bmat_tdxu_N1
+                % Gc_svd = Asvd_package([ ...
+                %     Gsvd_N1.D/Gsvd_N1.s(1), ...
+                %     DprN_svd.D/DprN_svd.s(1), ...
+                %     Bsvd_t0_N1.D/Bsvd_t0_N1.s(1) ...
+                % ]');
+                % Gsvd_N1.D/Gsvd_N1.s(1), ...
+                % DprN_svd.D/DprN_svd.s(1), ...
+                % Bsvd_tN_N1.D/Bsvd_tN_N1.s(1) ...
+                % Bsvd_t0_N1.D/Bsvd_t0_N1.s(1) ...
+                % Bsvd_tdxu_N1.D/Bsvd_tdxu_N1.s(1) ...
+                % Gsvd_N1_net_full.D/Gsvd_N1_net_full.s(1), ...
+
+
+                %% choose a G matrix kernel with which to build a basis
                 % Gn_svd = Gsvd_N1_net;
                 Gn_svd = Asvd_package([ ...
-                    Gmat_N1_net_full
+                    Gmat_N1_net_full ;
+                    Bmat_t0_N1 ;
+                    Bmat_tdxu_N1 ;
                 ]);
 
                 % Mu_S_0 = permute(pagemtimes((Gn_svd.W)',reshape(LamN_T_v1_ttns,[ntheta_v ndim nobs])), [2 1 3]);
@@ -879,7 +907,7 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                 if (kor>1)
                     Nu_S_0 = pagemtimes(P_DprN1,Nu_S_0);
                 end
-                % the principle components of this matrix correspond to vfields not parallel to tvf everywhere
+                % the principle components of this matrix correspond to loudest vfields not violating constraints
                 N_v_svd0 = Asvd_package( reshape(permute( Nu_S_0,[2 1 3]), ntheta_v, ndim_N1*nobs )' );
                 % parameters of dominant vector fields obeying imposed constraints
                 Theta_N_0 = Gn_svd.W * (N_v_svd0.D / N_v_svd0.s(1));
@@ -930,46 +958,23 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                 Gn_bse.gspc_sO_svd_0 = gspc_sO_svd_0;
                 Gn_bse.theta_v_coord0 = theta_v_coord0;
 
-                %% compute SVD of Gc : nullspace consists of vector fields that commute with tvf
-                Gc_svd = Asvd_package([ ...
-                    Gmat_N1_net_full ;
-                    Bmat_t0_N1 ;
-                    Bmat_tdxu_N1 ;
-                ]);
-                % Gmat_N1
-                % DprN_mat
-                % Gmat_N1_net_full
-                % Bmat_t0_N1
-                % Bmat_tdxu_N1
-                % Gc_svd = Asvd_package([ ...
-                %     Gsvd_N1.D/Gsvd_N1.s(1), ...
-                %     DprN_svd.D/DprN_svd.s(1), ...
-                %     Bsvd_t0_N1.D/Bsvd_t0_N1.s(1) ...
-                % ]');
-                % Gsvd_N1.D/Gsvd_N1.s(1), ...
-                % DprN_svd.D/DprN_svd.s(1), ...
-                % Bsvd_tN_N1.D/Bsvd_tN_N1.s(1) ...
-                % Bsvd_t0_N1.D/Bsvd_t0_N1.s(1) ...
-                % Bsvd_tdxu_N1.D/Bsvd_tdxu_N1.s(1) ...
-                % Gsvd_N1_net_full.D/Gsvd_N1_net_full.s(1), ...
-
-                G0_svd = Gn_svd;
+                % G0_svd = Gn_svd;
                 % G0_svd = Gnc_svd;
-                % G0_svd = Gc_svd;
-                VN_spc_sO(:,1) = vN_sO_0;
-                VN1_spc_sO(:,1) = vN1_sO_0;
-                VN_spc_unit_sO(:,1) = vN_sO_0 / norm(vN_sO_0);
-                VN1_spc_unit_sO(:,1) = vN1_sO_0 / norm(vN1_sO_0);
-                VN_spc_unit_S(:,:,1) = VN_spc_S_0 ./ sqrt(sum(VN_spc_S_0.^2,1));
-                BV_N1_sO(:,:,1) = B_v0_N1_sO;
+                G0_svd = Gc_svd;
 
-                % G0_svd = Gc_svd;
-                % VN_spc_sO(:,1) = tO_;
-                % VN1_spc_sO(:,1) = tN1_O;
-                % VN_spc_unit_sO(:,1) = tN_O_unit;
-                % VN1_spc_unit_sO(:,1) = tN1_O_unit;
-                % VN_spc_unit_S(:,:,1) = tauN_S_unit_mat;
-                % BV_N1_sO(:,:,1) = B_tN1_sO;
+                % VN_spc_sO(:,1) = vN_sO_0;
+                % VN1_spc_sO(:,1) = vN1_sO_0;
+                % VN_spc_unit_sO(:,1) = vN_sO_0 / norm(vN_sO_0);
+                % VN1_spc_unit_sO(:,1) = vN1_sO_0 / norm(vN1_sO_0);
+                % VN_spc_unit_S(:,:,1) = VN_spc_S_0 ./ sqrt(sum(VN_spc_S_0.^2,1));
+                % BV_N1_sO(:,:,1) = B_v0_N1_sO;
+
+                VN_spc_sO(:,1) = tO_;
+                VN1_spc_sO(:,1) = tN1_O;
+                VN_spc_unit_sO(:,1) = tN_O_unit;
+                VN1_spc_unit_sO(:,1) = tN1_O_unit;
+                VN_spc_unit_S(:,:,1) = tauN_S_unit_mat;
+                BV_N1_sO(:,:,1) = B_tN1_sO;
 
                 %% parameters of candidate vector fields which commute with principle vector field
                 % WGc_0 = G0_svd.W;
@@ -1019,8 +1024,9 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                         compute_vth_sO_S_data(theta_v_coords(:,ivec));
 
                     VN_spc_unit_sO(:,ivec+1) = VN_spc_sO(:,ivec+1) / norm(VN_spc_sO(:,ivec+1));
-                    VN_spc_unit_S(:,:,ivec+1) = VN_spc_S(:,:,ivec) ./ sqrt(sum(VN_spc_S(:,:,ivec).^2,1));
                     VN1_spc_unit_sO(:,ivec+1) = VN1_spc_sO(:,ivec+1) ./ norm(VN1_spc_sO(:,ivec+1));
+
+                    VN_spc_unit_S(:,:,ivec+1) = VN_spc_S(:,:,ivec) ./ sqrt(sum(VN_spc_S(:,:,ivec).^2,1));
 
                     % compute global commutativity
                     B_v_svds(ivec) = Asvd_package([ ...
