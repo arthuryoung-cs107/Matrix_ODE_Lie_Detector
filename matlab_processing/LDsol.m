@@ -869,10 +869,12 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                 BV_N1_sO = zeros(ndim_N1,ntheta_v,nvar_N1);
 
                 %% compute candidate coordinate chart at the origin
-                Jlf_sO = lamf_sO_.Jl;
-                D_Jlf_S = Jl_N1_svd.D/Jl_N1_svd.s(1);
-                [E_sO_svd,U_E_sO] = Asvd_package(Jlf_sO * D_Jlf_S); E_sO_svd.U = U_E_sO;
-
+                D_Jlf_S = Jl_N1_svd.D/Jl_N1_svd.s(1); % candidate coordinate chart function parameters
+                Jlf_sO = lamf_sO_.Jl; % Jacobian of lambda library at the origin
+                E_sO = Jlf_sO * D_Jlf_S; % gradients of candidate coordinate chart functions at origin
+                [E_sO_svd,U_E_sO] = Asvd_package(E_sO); E_sO_svd.U = U_E_sO; % expected to be full rank
+                theta_f_chart_sO = D_Jlf_S * E_sO_svd.V; % B = 1 + QN smooth functions with orthogonal gradients at origin
+                Jf_chart_sO = Jlf_sO*theta_f_chart_sO; % nearly orthogonal gradient basis
 
                 %% compute SVD of Gc : nullspace consists of vector fields that commute with tvf
                 Gc_svd = Asvd_package([ ...
@@ -896,7 +898,6 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                 % Bsvd_t0_N1.D/Bsvd_t0_N1.s(1) ...
                 % Bsvd_tdxu_N1.D/Bsvd_tdxu_N1.s(1) ...
                 % Gsvd_N1_net_full.D/Gsvd_N1_net_full.s(1), ...
-
 
                 %% choose a G matrix kernel with which to build a basis
                 % Gn_svd = Gsvd_N1_net;
@@ -1067,6 +1068,24 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                     WGc_i = Gc_v_svds(ivec).W;
                 end
 
+                %{
+                    given a set of transversal base space tangent vectors,
+                    v = [v_1, ... , v_B0] (B0 x B0, rank(v) = B0),
+                    and f = (f_1, ... , f_B0) smooth functions such that Jf is nearly orthogonal,
+                    there exists a unique matrix g = (g_1, ... , g_B0) such that
+                    v^T * Jf^T * g
+                    = (v_1^T ; ... ; v_B0^T) ( Df_1 , ... , Df_B0 ) ( g_1 , ... , g_B0 )
+                    = (v_1^T ; ... ; v_B0^T) ( Dxi_1 , ... , Dxi_B0 )
+                    = I
+                    issuing a canonical coordinate chart for the vector field basis
+                %}
+                % gxi_sO = lsqminnorm( VN_spc_sO(1:nvar_N1,:)' * Jf_chart_sO , eye(nvar_N1) );
+                [JXi_svd,U_JXi] = Asvd_package(VN_spc_sO(1:nvar_N1,:)' * Jf_chart_sO);
+                r_Jxi = JXi_svd.r;
+                gxi_sO = JXi_svd.V(:,1:r_Jxi)*diag(1.0./JXi_svd.s(1:r_Jxi))*U_JXi(1:r_Jxi,:)'; % pseudo inverse of JXi
+                theta_xi_sO = theta_f_chart_sO*gxi_sO; % parameters of smooth canonical coordinate functions
+                Jxi_sO = Jlf_sO*theta_xi_sO; % gradients of smooth canonical coordinate functions at origin
+
                 flow_out = struct( ...
                     'theta_v_coords', theta_v_coords, ...
                     'BD_vN_tns', BD_vN_tns, ...
@@ -1086,7 +1105,10 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                 flow_out.JF_sO_svd = JF_sO_svd;
                 flow_out.JF_N1_sO_svd = JF_N1_sO_svd;
 
-                % flow_out.mu_N1_sO_svd = Asvd_package( LamN1_v_mat_sO*WGc_0 );
+                flow_out.theta_f_chart_sO = theta_f_chart_sO;
+                flow_out.gxi_sO = gxi_sO;
+                flow_out.theta_xi_sO = theta_xi_sO;
+                flow_out.Jxi_sO = Jxi_sO;
             end
 
             %% compute non-trivial vector field bases
