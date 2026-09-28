@@ -11,10 +11,12 @@ classdef LDsol
         lam0;
         lamRN1;
 
+        % core data
         lam_v;
         s;
         dNp1xu;
 
+        % trivial vector field data
         WR;
         iPv;
         vth;
@@ -22,6 +24,7 @@ classdef LDsol
 
         tN;
         JF;
+
     end
     methods
         function obj = LDsol(xu_)
@@ -644,17 +647,25 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
 
             %% validate flow transformation technique
             inds_P_GN1_com = 1:Plen_GN1;
-            [flow_pckg,Gsvd_N1_com] = verify_flow_transformation(inds_P_GN1_com,t_O,JtuN_sO,lamRN1_sO);
+            % [flow_pckg,Gsvd_N1_com] = verify_flow_transformation(inds_P_GN1_com,t_O,JtuN_sO,lamRN1_sO);
+            [flow_pckg,Gsvd_N1_com] = verify_flow_transformation(sol_O);
 
-            function [flow_out,Gc_svd] = verify_flow_transformation(iPv_,tO_,JtuN_sO_,lam_sO_)
-                lv_b_sO = lam_sO_.lrow_vals(iPv_);
-                dxl_b_sO = lam_sO_.dkxl(1,iPv_);
-                l1x_b_sO = lam_sO_.lkx(:,iPv_,1);
-                Jlv_b_sO = lam_sO_.Jl(:,iPv_);
-                Jdxlv_b_sO = lam_sO_.Jdkxl(:,iPv_,1);
+            % function [flow_out,Gc_svd] = verify_flow_transformation(iPv_,tO_,JtuN_sO_,lam_sO_)
+            function [flow_out,Gc_svd] = verify_flow_transformation(solO_)
+                iPv_ = solO_.iPv;
+                tO_ = solO_.tN;
+                JtuN_sO_ = solO_.JtuN;
+                lamv_sO_ = solO_.lam_v;
+                lamf_sO_ = solO_.lamN1;
+
+                lv_b_sO = lamv_sO_.lrow_vals(iPv_);
+                dxl_b_sO = lamv_sO_.dkxl(1,iPv_);
+                l1x_b_sO = lamv_sO_.lkx(:,iPv_,1);
+                Jlv_b_sO = lamv_sO_.Jl(:,iPv_);
+                Jdxlv_b_sO = lamv_sO_.Jdkxl(:,iPv_,1);
                 Plen_v = length(lv_b_sO(:));
                 ntheta_v = nvar_N1*Plen_v;
-                Jl1xv_b_sO = reshape(lam_sO_.Jlkx(:,iPv_,1,:),[ndep_N1 Plen_v ndim_N1]);
+                Jl1xv_b_sO = reshape(lamv_sO_.Jlkx(:,iPv_,1,:),[ndep_N1 Plen_v ndim_N1]);
 
                 % nvar x C matrix, columns span tangent space of S0 at s0O
                 V0spc_image = @(thtns_) reshape( ...
@@ -695,6 +706,7 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                 [JF_N1_sO_svd, U_JF_N1_sO] = Asvd_package(JF_N1_sO');
                 JF_N1_sO_svd.U = U_JF_N1_sO;
                 P_JF_N1_sO = eye(ndim_N1) - U_JF_N1_sO*U_JF_N1_sO';
+
 
                 LamN1_v_tns_sO = zeros(Plen_v,nvar_N1,ndim_N1);
                 LamN1_v_tns_sO(:,1,1) = lv_b_sO';
@@ -843,6 +855,7 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                         -pagemtimes(Jv_dxu_S_tns,permute(reshape(LamN_T_vN_ttns,[ntheta_v ndim_N1 nobs]),[2 1 3]));
                 end
 
+                %% key output quantities
                 theta_v_coords = zeros(ntheta_v,ndep_N1);
                 BD_vN_tns = zeros(ntheta_v,ntheta_v,ndep_N1);
                 Tspc_Nv_sO_tns = zeros(ndim,ntheta_v,ndep_N1);
@@ -854,6 +867,12 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                 VN1_spc_unit_sO = zeros(ndim_N1,nvar_N1);
                 VN_spc_unit_S = zeros(ndim,nobs,nvar_N1);
                 BV_N1_sO = zeros(ndim_N1,ntheta_v,nvar_N1);
+
+                %% compute candidate coordinate chart at the origin
+                Jlf_sO = lamf_sO_.Jl;
+                D_Jlf_S = Jl_N1_svd.D/Jl_N1_svd.s(1);
+                [E_sO_svd,U_E_sO] = Asvd_package(Jlf_sO * D_Jlf_S); E_sO_svd.U = U_E_sO;
+
 
                 %% compute SVD of Gc : nullspace consists of vector fields that commute with tvf
                 Gc_svd = Asvd_package([ ...
@@ -883,9 +902,9 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                 % Gn_svd = Gsvd_N1_net;
                 Gn_svd = Asvd_package([ ...
                     Gmat_N1_net_full ;
-                    Bmat_t0_N1 ;
-                    Bmat_tdxu_N1 ;
                 ]);
+                % Bmat_t0_N1 ;
+                % Bmat_tdxu_N1 ;
 
                 % Mu_S_0 = permute(pagemtimes((Gn_svd.W)',reshape(LamN_T_v1_ttns,[ntheta_v ndim nobs])), [2 1 3]);
                 % Nu_S_0 = Mu_S_0;
@@ -958,23 +977,23 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                 Gn_bse.gspc_sO_svd_0 = gspc_sO_svd_0;
                 Gn_bse.theta_v_coord0 = theta_v_coord0;
 
-                % G0_svd = Gn_svd;
+                G0_svd = Gn_svd;
                 % G0_svd = Gnc_svd;
-                G0_svd = Gc_svd;
+                % G0_svd = Gc_svd;
 
-                % VN_spc_sO(:,1) = vN_sO_0;
-                % VN1_spc_sO(:,1) = vN1_sO_0;
-                % VN_spc_unit_sO(:,1) = vN_sO_0 / norm(vN_sO_0);
-                % VN1_spc_unit_sO(:,1) = vN1_sO_0 / norm(vN1_sO_0);
-                % VN_spc_unit_S(:,:,1) = VN_spc_S_0 ./ sqrt(sum(VN_spc_S_0.^2,1));
-                % BV_N1_sO(:,:,1) = B_v0_N1_sO;
+                VN_spc_sO(:,1) = vN_sO_0;
+                VN1_spc_sO(:,1) = vN1_sO_0;
+                VN_spc_unit_sO(:,1) = vN_sO_0 / norm(vN_sO_0);
+                VN1_spc_unit_sO(:,1) = vN1_sO_0 / norm(vN1_sO_0);
+                VN_spc_unit_S(:,:,1) = VN_spc_S_0 ./ sqrt(sum(VN_spc_S_0.^2,1));
+                BV_N1_sO(:,:,1) = B_v0_N1_sO;
 
-                VN_spc_sO(:,1) = tO_;
-                VN1_spc_sO(:,1) = tN1_O;
-                VN_spc_unit_sO(:,1) = tN_O_unit;
-                VN1_spc_unit_sO(:,1) = tN1_O_unit;
-                VN_spc_unit_S(:,:,1) = tauN_S_unit_mat;
-                BV_N1_sO(:,:,1) = B_tN1_sO;
+                % VN_spc_sO(:,1) = tO_;
+                % VN1_spc_sO(:,1) = tN1_O;
+                % VN_spc_unit_sO(:,1) = tN_O_unit;
+                % VN1_spc_unit_sO(:,1) = tN1_O_unit;
+                % VN_spc_unit_S(:,:,1) = tauN_S_unit_mat;
+                % BV_N1_sO(:,:,1) = B_tN1_sO;
 
                 %% parameters of candidate vector fields which commute with principle vector field
                 % WGc_0 = G0_svd.W;
@@ -1057,6 +1076,7 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                     'VN_spc_S', VN_spc_S, ...
                     'Tspc_Nv_sO_tns', Tspc_Nv_sO_tns ...
                 );
+                flow_out.E_sO_svd = E_sO_svd;
                 flow_out.Gn_bse = Gn_bse;
                 flow_out.B_v_svds = B_v_svds;
                 flow_out.N_v_svds = N_v_svds;
