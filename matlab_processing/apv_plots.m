@@ -340,7 +340,11 @@ classdef apv_plots
             % A_G_sO = mod_.Nnet_sNO_basis.sO_nTVF.nTVF_Tspc_image;
 
             % A_G_sO = mod_.flow_pckg.VN_spc_sO;
-            A_G_sO = mod_.flow_pckg.JF_sO_svd.U;
+            % A_G_sO = mod_.flow_pckg.JF_sO_svd.U;
+
+            % A_G_sO = mod_.flow_pckg.JF_sO_svd.U;
+            A_G_sO = mod_.flow_pckg.Gn_bse.Tspc_Nv_sO_mat0;
+
             % A_G_sO = mod_.flow_pckg.VN_spc_sO(:,2:end);
             % A_G_sO = mod_.flow_pckg.Gn_bse.Tspc_Nv_sO_mat0;
             % A_G_sO = mod_.flow_pckg.Tspc_Nv_sO_tns(:,:,1);
@@ -357,9 +361,9 @@ classdef apv_plots
 
 
             Aspcs = { ...
-                A_G_sO, A_G_sO_u, autumn(size(A_G_sO,2)), ':', 'd' ; ...
+                A_G_sO, A_G_sO_u, hot(size(A_G_sO,2)), ':', 'd' ; ...
             };
-
+            % A_G_sO, A_G_sO_u, autumn(size(A_G_sO,2)), ':', 'd' ; ...
             % Vspc_O = M_sO_basis.Vspc_sO;
             % Vspc_O = mod_.flow_pckg.VN_spc_sO;
             Vspc_O = mod_.flow_pckg.VN_spc_unit_sO;
@@ -380,8 +384,9 @@ classdef apv_plots
 
             cmat_i = autumn(nvar_N1);
             Vspcs = { ...
-                Vspc_O_x, Vspc_O_u, cmat_i, '-','none', upy_str ; ...
+                % Vspc_O_x, Vspc_O_u, cmat_i, '-','none', upy_str ; ...
             };
+            % Vspc_O_x, Vspc_O_u, cmat_i, '-','none', upy_str ; ...
             for i = 1:ndep
                 tau_uiN = reshape(tau_uN_RN1_tns(i,:,:),kor,[]);
 
@@ -400,11 +405,13 @@ classdef apv_plots
                     axs_mat(i,1),xO,uO(i,1),1,uO(i,2),[1 1 1],'-','none', ...
                     ['$ (1, \tau_{' ui_str_i '} ) |_{s_O} ) $'] ...
                 );
-                for iq = 1:nvar_N1
-                    plot_tvector( ...
-                        axs_mat(i,1),xO,uO(i,1),Vspc_O_x(iq),Vspc_O_u(i,1,iq),cmat_i(iq,:),'-','none', ...
-                        ['$ ( ' upy_str(iq) '_x,' upy_str(iq) '_{' ui_str_i '} ) |_{s_O} $'] ...
-                    );
+                for iV = 1:size(Vspcs,1)
+                    for iiV = 1:length( Vspcs{iV,1} )
+                        plot_tvector( ...
+                            axs_mat(i,1),xO,uO(i,1),Vspcs{iV,1}(iiV),Vspcs{iV,2}(i,1,iiV),Vspcs{iV,3}(iiV,:),Vspcs{iV,4},Vspcs{iV,5}, ...
+                            ['$ ( ' Vspcs{iV,6}(iiV) '_x,' Vspcs{iV,6}(iiV) '_{' dkxui_str(0,i) '} ) |_{s_O} $'] ...
+                        );
+                    end
                 end
 
                 for k = 2:(kor+1)
