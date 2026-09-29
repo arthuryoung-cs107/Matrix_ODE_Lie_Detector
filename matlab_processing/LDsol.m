@@ -869,6 +869,13 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                 BV_N1_sO = zeros(ndim_N1,ntheta_v,nvar_N1);
 
                 %% compute candidate coordinate chart at the origin
+
+                % use the vector field coefficient library for invariants
+                Jlv_S_svd = Asvd_package(reshape(Jl_v0_tns,[Plen_v,nvar_N1*nobs])');
+                Jdxlv_S_svd = Asvd_package(reshape(Jdxl_vN_tns,[Plen_v,ndim_N1*nobs])');
+                Jl1v_S_svd = Asvd_package([ Jlv_S_svd.D' ; Jdxlv_S_svd.D' ]);
+
+                % use a larger smooth function library for invariants
                 D_Jlf_S = Jl_N1_svd.D/Jl_N1_svd.s(1); % candidate coordinate chart function parameters
                 Jlf_sO = lamf_sO_.Jl; % Jacobian of lambda library at the origin
                 E_sO = Jlf_sO * D_Jlf_S; % gradients of candidate coordinate chart functions at origin
@@ -1104,6 +1111,10 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                 flow_out.Gc_v_svds = Gc_v_svds;
                 flow_out.JF_sO_svd = JF_sO_svd;
                 flow_out.JF_N1_sO_svd = JF_N1_sO_svd;
+
+                flow_out.Jlv_S_svd = Jlv_S_svd;
+                flow_out.Jdxlv_S_svd = Jdxlv_S_svd;
+                flow_out.Jl1v_S_svd = Jl1v_S_svd;
 
                 flow_out.theta_f_chart_sO = theta_f_chart_sO;
                 flow_out.gxi_sO = gxi_sO;
