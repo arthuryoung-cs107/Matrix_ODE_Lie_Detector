@@ -121,14 +121,16 @@ err_dNp1xu_sO = abs((dNp1xu_sO_check-dNp1xu_sO_tru)./dNp1xu_sO_tru)
 VN_sO_unit = mod.flow_pckg.VN_spc_unit_sO
 VN1_sO_unit = mod.flow_pckg.VN1_spc_unit_sO
 JF_Vspc_sO = mod.sol_O.JF * mod.flow_pckg.VN_spc_sO
+
 norms_VN_sO = sqrt(sum(mod.flow_pckg.VN_spc_sO.^2,1))
+
 UJFT_VN_sO = mod.flow_pckg.JF_sO_svd.U' * mod.flow_pckg.VN_spc_unit_sO
 UJFT_VN1_sO = mod.flow_pckg.JF_N1_sO_svd.U' * mod.flow_pckg.VN1_spc_unit_sO
 VNT_VN_sO = mod.flow_pckg.VN_spc_unit_sO' * mod.flow_pckg.VN_spc_unit_sO
 VN1T_VN1_sO = mod.flow_pckg.VN1_spc_unit_sO' * mod.flow_pckg.VN1_spc_unit_sO
 
-Jxi_sO = mod.flow_pckg.Jxi_sO
-V0T_Jxi_sO = mod.flow_pckg.VN_spc_unit_sO( 1:(1+ndep*eor),: )' * mod.flow_pckg.Jxi_sO
+% Jxi_sO = mod.flow_pckg.Jxi_sO
+% V0T_Jxi_sO = mod.flow_pckg.VN_spc_unit_sO( 1:(1+ndep*eor),: )' * mod.flow_pckg.Jxi_sO
 
 dat_plt1 = dat_plt0;
 plt1 = apv_plots('model_summary', ...

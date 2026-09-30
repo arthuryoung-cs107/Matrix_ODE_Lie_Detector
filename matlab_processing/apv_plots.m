@@ -181,7 +181,7 @@ classdef apv_plots
             plt_jspc.show_toolbar
 
             function leg_out = plot_tvector(axi_,sx_,su_,vx_,vu_,clr_,LS_,mrkr_,name_)
-                lw_def = 2; ms_def = 3;
+                lw_def = 1.5; ms_def = 3;
                 if (nargin==9)
                     handle_vis_ = 'on';
                     leg_name_ = name_;
@@ -324,9 +324,6 @@ classdef apv_plots
             % M_sO_basis = mod_.Mnet_sO_basis;
 
             % A_G_sO = M_sO_basis.U * diag(M_sO_basis.s) * M_sO_basis.V';
-            % A_G_sO = mod_.flow_pckg. .* ()';
-            % A_G_sO = mod_.flow_pckg.gspc_sO_svds(1) .* ()';
-            % A_G_sO = A_G_sO * ( norm(t_sO(1:ndim)) / sqrt(max(sum(A_G_sO.*A_G_sO,1))) ); % rescale wrt tvf
 
             % A_G_sO = (mod_.Gnet_sO_coords.s') .* mod_.Gnet_sO_coords.U;
             % A_G_sO = mod_.Gcom_sO_coords.sO_nTVF.Tspc_image;
@@ -343,7 +340,7 @@ classdef apv_plots
             % A_G_sO = mod_.flow_pckg.JF_sO_svd.U;
 
             % A_G_sO = mod_.flow_pckg.JF_sO_svd.U;
-            A_G_sO = mod_.flow_pckg.Gn_bse.Tspc_Nv_sO_mat0;
+            % A_G_sO = mod_.flow_pckg.Gn_bse.Tspc_Nv_sO_mat0;
 
             % A_G_sO = mod_.flow_pckg.VN_spc_sO(:,2:end);
             % A_G_sO = mod_.flow_pckg.Gn_bse.Tspc_Nv_sO_mat0;
@@ -356,13 +353,24 @@ classdef apv_plots
             %     A_G_sO(:,i) = A_G_sO(:,i)/norm(A_G_sO(:,i));
             % end
 
-            A_G_sO = A_G_sO * ( norm(t_sO(1:ndim)) / sqrt(max(sum(A_G_sO.*A_G_sO,1))) ); % rescale wrt tvf
-            A_G_sO_u = reshape(A_G_sO(2:end,:),ndep,kor+1,[]);
-
-
-            Aspcs = { ...
-                A_G_sO, A_G_sO_u, hot(size(A_G_sO,2)), ':', 'd' ; ...
+            normalize_vplt = @(A_) A_ * ( norm(t_sO(1:ndim)) / sqrt(max(sum(A_.*A_,1))) ); % rescale wrt tvf
+            make_vplt_dat = @(A_) normalize_vplt([ A_(1:nvar_N1,:) ; A_((end-ndep+1):end,:) ]);
+            Aspcs_i = { ...
+                -mod_.flow_pckg.JF_N1_sO_svd.U .* mod_.flow_pckg.JF_N1_sO_svd.s', ...
+                    @(n_) winter(n_) , '--', 'd' ; ...
+                mod_.flow_pckg.Gn_bse.mu_N1_sO_svd.U .* mod_.flow_pckg.Gn_bse.mu_N1_sO_svd.s' , ...
+                    @(n_) autumn(n_) , ':', 'd' ; ...
             };
+            % mod_.flow_pckg.Gn_bse.Tspc_Nv_sO_mat0, ...
+
+            Aspcs = cell([ size(Aspcs_i,1), 1+size(Aspcs_i,2) ]);
+            for iA = 1:size(Aspcs_i,1)
+                Aspcs{iA,1} = make_vplt_dat( Aspcs_i{iA,1} );
+                Aspcs{iA,2} = reshape(Aspcs{iA,1}(2:end,:),ndep,kor+1,[]);
+                Aspcs{iA,3} = Aspcs_i{iA,2}( size(Aspcs{iA,1},2) );
+                Aspcs(iA,4:end) =  Aspcs_i(iA,3:end);
+            end
+
             % A_G_sO, A_G_sO_u, autumn(size(A_G_sO,2)), ':', 'd' ; ...
             % Vspc_O = M_sO_basis.Vspc_sO;
             % Vspc_O = mod_.flow_pckg.VN_spc_sO;
@@ -383,10 +391,25 @@ classdef apv_plots
             % cmat_i = hsv(nvar_N1);
 
             cmat_i = autumn(nvar_N1);
-            Vspcs = { ...
-                % Vspc_O_x, Vspc_O_u, cmat_i, '-','none', upy_str ; ...
+            Vspcs_i = { ...
+                mod_.flow_pckg.Vc_bse.VN1_c_spc_sO , ...
+                    @(n_) autumn(n_) , '-', 'none', upy_str ; ...
+                mod_.flow_pckg.Vc_tvf_bse.VN1_c_spc_sO(:,2:end) , ...
+                    @(n_) cool(n_) , ':', 'none', @(y_) ['\nu^{' num2str(y_) '}'] ; ...
             };
-            % Vspc_O_x, Vspc_O_u, cmat_i, '-','none', upy_str ; ...
+            % mod_.flow_pckg.VN1_spc_sO, ...
+            %     @(n_) autumn(n_) , '-', 'none', upy_str ; ...
+            % mod_.flow_pckg.VN1_spc_sO
+            % mod_.flow_pckg.VN1_spc_unit_sO, ...
+
+            Vspcs = cell([ size(Vspcs_i,1), 1+size(Vspcs_i,2) ]);
+            for iV = 1:size(Vspcs_i,1)
+                vplt_dat_iV = make_vplt_dat( Vspcs_i{iV,1} );
+                Vspcs{iV,1} = vplt_dat_iV(1,:);
+                Vspcs{iV,2} = reshape(vplt_dat_iV(2:end,:),ndep,kor+1,[]);
+                Vspcs{iV,3} = Vspcs_i{iV,2}( size(Vspcs{iV,1},2) );
+                Vspcs(iV,4:end) =  Vspcs_i(iV,3:end);
+            end
             for i = 1:ndep
                 tau_uiN = reshape(tau_uN_RN1_tns(i,:,:),kor,[]);
 
