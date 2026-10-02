@@ -29,6 +29,103 @@ classdef ldaux
     end
 
     methods (Static)
+        function [Sobs,dat_out,JF,dNp1xu] = generate_Lorenz_data()
+            % equation specification
+            fcn_name = 'generate_Lorenz_data';
+            eqn_name = 'Lorenz';
+            eor = 1;
+            ndep = 3;
+            ndim = 1 + ndep*(eor+1);
+            fprintf('(ldaux::%s) Generating %s observations (ndep=%d, eor=%d) : \n' , ...
+                fcn_name,eqn_name,eor,ndep);
+
+            sigma_Lorenz = 10;
+            rho_Lorenz   = 28;
+            beta_Lorenz  = 8/3;
+
+            f_eqn = @(u1_,u2_,u3_) [ ...
+                sigma_Lorenz*(u2_-u1_) ;
+                u1_.*(rho_Lorenz - u3_) - u2_
+                u1_.*u2_ - beta_Lorenz*u3_
+            ];
+            function [JF_out,dNp1xu_out] = JF_dxf_eqn(s_)
+                npts_evl = size(s_,2);
+                JF_out = zeros(ndep,ndim,npts_evl);
+                dNp1xu_out = zeros(ndep,npts_evl);
+                for i = 1:npts_evl
+                    sol_i = adobj.seed_sol(s_(1:ndim,i));
+                    % x_i = sol_i.qdim(1); % autonomous
+                    u1_i = sol_i.qdim(2);
+                    u2_i = sol_i.qdim(3);
+                    u3_i = sol_i.qdim(4);
+                    dxu1_i = sol_i.qdim(5);
+                    dxu2_i = sol_i.qdim(6);
+                    dxu3_i = sol_i.qdim(7);
+
+                    f1_i = sigma_Lorenz.*(u2_i - u1_i);
+                    f2_i = u1_i.*(rho_Lorenz - u3_i) - u2_i;
+                    f3_i = u1_i.*u2_i - beta_Lorenz.*u3_i;
+
+                    F1_i = f1_i - dxu1_i;
+                    F2_i = f2_i - dxu2_i;
+                    F3_i = f3_i - dxu3_i;
+
+                    [JF_out(1,:,i),JF_out(2,:,i),JF_out(3,:,i)] = deal(F1_i.Jac,F2_i.Jac,F3_i.Jac);
+
+                    dNp1xu_out(:,i) = linsolve(JF_out(:,(end-ndep+1):end,i),-JF_out(:,1:(end-ndep),i)*[1;s_((2+ndep):end,i)]);
+                end
+            end
+            Fode_sys_evl = @(e_,s_) [ ...
+                ones(1,size(s_,2)) ; ...
+                f_eqn( s_(2,:) , s_(3,:), s_(4,:) ) ...
+            ];
+            fode = struct( ...
+            'name', eqn_name, ...
+            'eor', eor, ...
+            'ndep', ndep, ...
+            'f', @(s_) f_eqn( s_(2,:),s_(3,:),s_(4,:) ), ...
+            'JF_dxf', @(s_) JF_dxf_eqn(s_) ...
+            );
+            x0 = 0.0;
+            ef = 20; % epsilon varies from e0 = 0 to ef > 0
+
+            ncrv = 10;
+            seed = 34; % nice to look at
+            seed0 = rng(seed);
+            u00_vals = 2*(rand(eor*ndep,ncrv)-0.5);
+            % figure
+            % scatter(u00_vals(1,:), u00_vals(2,:))
+            % pause
+            u0_vals = u00_vals .* (0.75*[ 1.0 ; 1.0 ; 1.0 ]) + [ 1.0 ; 1.0 ; 1.0 ];
+
+            %{
+                Uniform count of observed points per curve (M)
+                Induces MNQ R matrix constraints per curve,
+                so we'd like M >= ((Q+1)*P)/(NQ) observations
+                for a well defined P = (O+1)^(Q+1) local curve model,
+                where O = 3 (cubic permutation) by default
+                Does not actually need to be this many, but convenient.
+            %}
+            Odef = 3; % cubic permutation model (default)
+            Pdef = (Odef+1)^(ndep+1);
+            % nevl = 2*ceil( (ndep+1)*Pdef/(eor*ndep) ) + 1;
+            nevl = ceil( 0.25 * (ndep+1)*Pdef/(eor*ndep) ) + 1;
+
+            trj_specs = struct( ...
+                's0', [ x0*ones(1,ncrv) ; u0_vals ], ...
+                'epsevl', linspace(0.0,ef,nevl), ...
+                'epsf',  ef ...
+            );
+
+            [Sobs,trjs,JF,dNp1xu] = ldaux.evaluate_trajectories(Fode_sys_evl,fode,trj_specs);
+
+            fprintf(' nobs=%d, ncrv=%d \n', ...
+                ncrv*nevl, ncrv );
+
+            dat_out = fode;
+
+        end
+
         function [Sobs,dat_out,JF,dNp1xu] = generate_Linden_bouyancy_data()
             % equation specification
             fcn_name = 'generate_Linden_bouyancy_data';

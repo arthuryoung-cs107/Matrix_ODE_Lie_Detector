@@ -28,9 +28,10 @@ tic0 = tic;
 % [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_Van_der_Pol_data(); % N = 2, Q = 1
 % [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_oscillator_polr_data(); % N = 2, Q = 1, easier than VanderPol
 % [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_pendulum_polr_data(); % N = 2, Q = 1
-[Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_double_oscillator_data(); dat_true.bor_max = 3; % N = 2, Q = 2, linear homogenous
+% [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_double_oscillator_data(); dat_true.bor_max = 3; % N = 2, Q = 2, linear homogenous
 % [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_double_pendulum_data(); % N = 2, Q = 2, would be wild to learn anything
-% [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_Linden_bouyancy_data(); dat_true.bor_max = 6; % N = 2, Q = 1
+[Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_Linden_bouyancy_data(); dat_true.bor_max = 6; % N = 2, Q = 1
+% [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_Lorenz_data(); dat_true.bor_max = 3; % N = 2, Q = 1
 toc1 = toc(tic0);
 fprintf('generated jet space data in %.3f seconds \n', toc1);
 
@@ -55,6 +56,7 @@ ndim = 1+ndep*(eor + 1);
     plot observations
     ----------------------------
 %}
+
 plt0 = apv_plots('jetspace', ...
                 [3 6],...
                 [1 4],[2 2], ...
@@ -72,6 +74,7 @@ plt0 = apv_plots.plot_Sobs(plt0,Sobs{icrv_check}(:,isol_check) ,dat_plt0);
 dat_plt0.Color = apv_plots.green4;
 plt0.show_toolbar
 
+% keyboard
 % return
 %{
     ----------------------------
@@ -129,6 +132,9 @@ UJFT_VN1_sO = mod.flow_pckg.JF_N1_sO_svd.U' * mod.flow_pckg.VN1_spc_unit_sO
 VNT_VN_sO = mod.flow_pckg.VN_spc_unit_sO' * mod.flow_pckg.VN_spc_unit_sO
 VN1T_VN1_sO = mod.flow_pckg.VN1_spc_unit_sO' * mod.flow_pckg.VN1_spc_unit_sO
 
+mu_svd_sO = mod.flow_pckg.Gn_bse.mu_N1_sO_svd;
+check = mu_svd_sO.U * diag(mu_svd_sO.s) * mu_svd_sO.V';
+% check(:,1:10)
 % Jxi_sO = mod.flow_pckg.Jxi_sO
 % V0T_Jxi_sO = mod.flow_pckg.VN_spc_unit_sO( 1:(1+ndep*eor),: )' * mod.flow_pckg.Jxi_sO
 
