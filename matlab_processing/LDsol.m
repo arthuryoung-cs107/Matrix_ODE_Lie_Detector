@@ -785,6 +785,7 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                 Jl_v0_tns = permute(Jltns_RN1(:,iPv_,:),[2 1 3]); % Plen x nvar_N1 x nobs
                 dxl_vdxu_mat = dxl_RN1(iPv_,:); % Plen x nobs
                 Jdxl_vN_tns = permute( Jdxl_N1_tns(:,iPv_,:) , [2 1 3] ); % Plen x ndim_N1 x nobs
+                d2xl_vdxu_mat = reshape(pagemtimes(Jdxl_vN_tns,reshape(tauN1_S_mat,ndim_N1,1,nobs)),[Plen_v,nobs])';
                 l1x_vdxu_tns = lNx_RN1(:,iPv_,:); % ndep x Plen x nobs
                 Jl1x_vN_ttns = Jl1x_N1_ttns(:,iPv_,:,:); % ndep x Plen x ndim_N1 x nobs
                 LamN_T_vN_ttns = LamN_T_ttns_RN1(iPv_,:,:,:); % Plen x nvar_N1 x ndim_N1 x nobs
@@ -981,13 +982,27 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
 
                 %% choose a G matrix kernel with which to build a basis
                 % Gn_svd = Gsvd_N1_net;
-                Gn_svd = Asvd_package([ ...
+                % Gn_svd = Asvd_package([ ...
+                Gn_svd = Asvd_package(normalize_Genc([ ...
                     Gmat_N1_net_full ;
-                ]);
+                ]));
+                % ]);
                 % Bmat_t0_N1 ;
                 % Bmat_tdxu_N1 ;
+                d2xl_v_svd = Asvd_package(normalize_Henc([ ...
+                    d2xl_vdxu_mat ;
+                ]));
+                Gnn_svd = Asvd_package([ ...
+                    Gn_svd.D' / Gn_svd.s(1) ;
+                    [d2xl_v_svd.D' / d2xl_v_svd.s(1) , zeros(Plen_v,ntheta_v-Plen_v)] ;
+                ]);
+                % Gmat_N1_net_full ;
+                % [d2xl_vdxu_mat , zeros(nobs,ntheta_v-Plen_v)] ;
 
-                Mu_S_0 = permute(pagemtimes((Gn_svd.W)',reshape(LamN_T_vN_ttns,[ntheta_v ndim_N1 nobs])), [2 1 3]);
+                % WG_bse = Gn_svd.W;
+                WG_bse = Gnn_svd.W;
+
+                Mu_S_0 = permute(pagemtimes(WG_bse',reshape(LamN_T_vN_ttns,[ntheta_v ndim_N1 nobs])), [2 1 3]);
                 M_v_svd0 = Asvd_package( reshape(permute( Mu_S_0,[2 1 3]), ntheta_v, ndim_N1*nobs )' );
 
                 Mu_S = Proj_JFN1_S(Mu_S_0);
@@ -1001,9 +1016,12 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                 N_v_svd0 = Asvd_package( reshape(permute( Nu_S_0,[2 1 3]), ntheta_v, ndim_N1*nobs )' );
 
                 % parameters of dominant vector fields obeying imposed constraints
-                Theta_N_0 = Gn_svd.W * (N_v_svd0.D / N_v_svd0.s(1)); % principle non trivial vector fields of S
+                % Theta_N_0 = WG_bse * (N_v_svd0.D / N_v_svd0.s(1)); % principle non trivial vector field of S
+                Theta_N_0 = WG_bse * (M_v_svd.D / M_v_svd.s(1)); % principle vector fields of S
+                % Theta_N_0 = WG_bse * (M_v_svd0.D / M_v_svd0.s(1)); % principle vector fields of S
 
                 %% compute candidate coordinate chart at the origin
+
                 % use the vector field coefficient library for invariants
                 Jlv_S_svd = Asvd_package(reshape(Jl_v0_tns,[Plen_v,nvar_N1*nobs])');
                 Jdxlv_S_svd = Asvd_package(reshape(Jdxl_vN_tns,[Plen_v,ndim_N1*nobs])');
@@ -1015,6 +1033,7 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                 [E_sO_svd,U_E_sO] = Asvd_package(E_sO); E_sO_svd.U = U_E_sO; % expected to be full rank
                 theta_f_chart_sO = D_Jlf_S * E_sO_svd.V; % B = 1 + QN smooth functions with orthogonal gradients at origin
                 Jf_chart_sO = Jlf_sO*theta_f_chart_sO; % nearly orthogonal gradient basis
+
 
                 %% identify subspace of candidate vector fields transversal to current basis at origin
                 [TTspc_0,Tspc_Nv_sO_mat0,Tspc_N1v_sO_mat0] = compute_transversal_Tspace(Theta_N_0, tN1_O_unit);
@@ -1033,22 +1052,26 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                 %% identify 1st coord vfield by tangent vector with minimal component in the gradient space of S
                 % theta_v_coord0 = Theta_N_0*mu_N1_sO_svd.V(:,isrt_UJFT_Umu(1));
                 %% identify 1st coord vfield by principle non trivial vector field, unique up to the solution set
-                theta_v_coord0 = Gn_svd.W * N_v_svd0.V(:,1);
+                % theta_v_coord0 = WG_bse * N_v_svd0.V(:,1);
+                theta_v_coord0 = WG_bse * M_v_svd.V(:,1);
+                % theta_v_coord0 = WG_bse * M_v_svd0.V(:,1);
                 % %% extract null tangent vector, identify as 1st coordinate vector field
                 % theta_v_coord0 = Theta_N_0*TTspc_svd_0.V(:,1:dimY0)*gspc_sO_svd_0.V(:,end);
 
                 % compute local and global Lie brackets over Lambda space
                 [vN_sO_0 vN1_sO_0 VN_spc_S_0 Btns_v0_0 Btns_v0_dxu B_v0_N1_sO] = ...
                     compute_vth_sO_S_data(theta_v_coord0);
-                B_v_svd_0 = Asvd_package([ ...
+                % B_v_svd_0 = Asvd_package([ ...
+                B_v_svd_0 = Asvd_package(normalize_Benc([ ...
                     reshape(permute(Btns_v0_0,[2 1 3]),ntheta_v,nobs*nvar_N1)' ;
                     reshape(permute(Btns_v0_dxu,[2 1 3]),ntheta_v,nobs*ndep_N1)'
-                ]);
+                ]));
+                % ]);
                 % compute global commutativity
                 Gnc_svd = Asvd_package([ ...
-                    Gn_svd.D/Gn_svd.s(1), ...
-                    B_v_svd_0.D/B_v_svd_0.s(1) ...
-                ]');
+                    Gn_svd.D' / Gn_svd.s(1) ; ...
+                    B_v_svd_0.D' / B_v_svd_0.s(1) ...
+                ]);
                 % Gn_svd.D/Gn_svd.s(1), ...
                 % B_v_svd_0.D/B_v_svd_0.s(1) ...
 
@@ -1067,14 +1090,14 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                 Gn_bse.gspc_sO_svd_0 = gspc_sO_svd_0;
                 Gn_bse.theta_v_coord0 = theta_v_coord0;
 
-                % Vc_bse = build_local_commutative_basis(Theta_N_0,vN1_sO_0,B_v0_N1_sO); % no global computations
-                Vc_bse = build_local_commutative_basis( Gn_svd.W * (N_v_svd0.D / N_v_svd0.s(1)) ,vN1_sO_0,B_v0_N1_sO); % no global computations
-                % Vc_bse = build_local_commutative_basis( Gn_svd.W * (M_v_svd.D / M_v_svd.s(1)) ,vN1_sO_0,B_v0_N1_sO); % no global computations
-                % Vc_bse = build_local_commutative_basis( Gn_svd.W * (M_v_svd0.D / M_v_svd0.s(1)) ,vN1_sO_0,B_v0_N1_sO); % no global computations
-                % Vc_bse = build_local_commutative_basis( Gn_svd.W ,vN1_sO_0,B_v0_N1_sO); % no global computations
+                Vc_bse = build_local_commutative_basis(Theta_N_0,vN1_sO_0,B_v0_N1_sO); % no global computations
+                % Vc_bse = build_local_commutative_basis( WG_bse * (N_v_svd0.D / N_v_svd0.s(1)) ,vN1_sO_0,B_v0_N1_sO); % no global computations
+                % Vc_bse = build_local_commutative_basis( WG_bse * (M_v_svd.D / M_v_svd.s(1)) ,vN1_sO_0,B_v0_N1_sO); % no global computations
+                % Vc_bse = build_local_commutative_basis( WG_bse * (M_v_svd0.D / M_v_svd0.s(1)) ,vN1_sO_0,B_v0_N1_sO); % no global computations
+                % Vc_bse = build_local_commutative_basis( WG_bse ,vN1_sO_0,B_v0_N1_sO); % no global computations
                 % Vc_tvf_bse = build_local_commutative_basis(Theta_N_0,tN1_O,B_tN1_sO); % no global computations
-                % Vc_tvf_bse = build_local_commutative_basis( Gn_svd.W * (M_v_svd0.D / M_v_svd0.s(1)),tN1_O,B_tN1_sO); % no global computations
-                % Vc_tvf_bse = build_local_commutative_basis( Gn_svd.W * (M_v_svd.D / M_v_svd.s(1)),tN1_O,B_tN1_sO); % no global computations
+                % Vc_tvf_bse = build_local_commutative_basis( WG_bse * (M_v_svd0.D / M_v_svd0.s(1)),tN1_O,B_tN1_sO); % no global computations
+                % Vc_tvf_bse = build_local_commutative_basis( WG_bse * (M_v_svd.D / M_v_svd.s(1)),tN1_O,B_tN1_sO); % no global computations
                 Vc_tvf_bse = build_local_commutative_basis(Gc_svd.W,tN1_O,B_tN1_sO); % no global computations
 
                 VN_spc_sO(:,1) = vN_sO_0;
@@ -1092,19 +1115,19 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                 % BV_N1_sO(:,:,1) = B_tN1_sO;
 
                 %% parameters of candidate vector fields to orthogonalize against principle vfield
-                % WGc_0 = Gn_svd.W;
+                % WGc_0 = WG_bse;
                 % WGc_0 = Gnc_svd.W;
                 % WGc_0 = Gc_svd.W;
 
                 % WGc_0 = Theta_N_0;
-                % WGc_0 = Gn_svd.W * (N_v_svd0.D / N_v_svd0.s(1));
-                % WGc_0 = Gn_svd.W * (M_v_svd0.D / M_v_svd0.s(1));
+                % WGc_0 = WG_bse * (N_v_svd0.D / N_v_svd0.s(1));
+                % WGc_0 = WG_bse * (M_v_svd0.D / M_v_svd0.s(1));
 
-                % WGc_0 = Gn_svd.W * (M_v_svd.D / M_v_svd.s(1));
+                % WGc_0 = WG_bse * (M_v_svd.D / M_v_svd.s(1));
                 WGc_0 = Gnc_svd.W;
 
                 % WGc_0 = Gc_svd.W;
-                % WGc_0 = Gn_svd.W;
+                % WGc_0 = WG_bse;
 
                 % keyboard
                 for ivec = 1:ndep_N1
@@ -1209,6 +1232,8 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                 );
                 % flow_out.BD_vN_tns = BD_vN_tns;
                 % flow_out.VN_spc_S = VN_spc_S;
+
+                flow_out.VN_spc_S_0 = VN_spc_S_0;
 
                 flow_out.Jlv_S_svd = Jlv_S_svd;
                 flow_out.Jdxlv_S_svd = Jdxlv_S_svd;
