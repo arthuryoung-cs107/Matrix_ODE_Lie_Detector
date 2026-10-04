@@ -23,11 +23,11 @@ scrn_id = 1;
 %}
 % % generate a data set
 tic0 = tic;
-[Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_Riccati_data_2(); dat_true.bor_max = 3; % N = 1, Q = 1
+% [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_Riccati_data_2(); dat_true.bor_max = 3; % N = 1, Q = 1
 % [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_Brusselator_data(); % N = 1, Q = 2
 % [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_Van_der_Pol_data(); % N = 2, Q = 1
 % [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_oscillator_polr_data(); % N = 2, Q = 1, easier than VanderPol
-% [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_pendulum_polr_data(); % N = 2, Q = 1
+[Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_pendulum_polr_data(); % N = 2, Q = 1
 % [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_double_oscillator_data(); dat_true.bor_max = 3; % N = 2, Q = 2, linear homogenous
 % [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_double_pendulum_data(); % N = 2, Q = 2, would be wild to learn anything
 % [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_Linden_bouyancy_data(); dat_true.bor_max = 6; % N = 2, Q = 1
@@ -135,8 +135,11 @@ VN1T_VN1_sO = mod.flow_pckg.VN1_spc_unit_sO' * mod.flow_pckg.VN1_spc_unit_sO
 mu_svd_sO = mod.flow_pckg.Gn_bse.mu_N1_sO_svd;
 check = mu_svd_sO.U * diag(mu_svd_sO.s) * mu_svd_sO.V';
 % check(:,1:10)
-% Jxi_sO = mod.flow_pckg.Jxi_sO
+Jxi_sO = mod.flow_pckg.Jxi_sO;
+cond_Jxi_sO = cond(Jxi_sO)
+rank_Jxi_sO = rank(Jxi_sO)
 % V0T_Jxi_sO = mod.flow_pckg.VN_spc_unit_sO( 1:(1+ndep*eor),: )' * mod.flow_pckg.Jxi_sO
+V0T_Jxi_sO = mod.flow_pckg.VN_spc_sO( 1:(1+ndep*eor),: )' * mod.flow_pckg.Jxi_sO
 
 dat_plt1 = dat_plt0;
 plt1 = apv_plots('model_summary', ...

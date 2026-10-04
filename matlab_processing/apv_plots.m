@@ -320,56 +320,31 @@ classdef apv_plots
             [xO,uO] = deal( mod_.s_O(1),reshape(mod_.sNp1_O(2:end),ndep,kor+2) );
             t_sO = mod_.t_O;
 
-            % M_sO_basis = mod_.Mcom_sO_basis;
-            % M_sO_basis = mod_.Mnet_sO_basis;
-
-            % A_G_sO = M_sO_basis.U * diag(M_sO_basis.s) * M_sO_basis.V';
-
-            % A_G_sO = (mod_.Gnet_sO_coords.s') .* mod_.Gnet_sO_coords.U;
-            % A_G_sO = mod_.Gcom_sO_coords.sO_nTVF.Tspc_image;
-            % A_G_sO = mod_.Gcom_sO_coords.sO_nTVF.nTVF_Tspc_image;
-            % A_G_sO = mod_.Gnet_sO_coords.sO_nTVF.Tspc_image;
-            % A_G_sO = mod_.Gnet_sO_coords.sO_nTVF.nTVF_Tspc_image;
-
-            % A_G_sO = mod_.Ncom_sNO_basis.sO_nTVF.Tspc_image;
-            % A_G_sO = mod_.Ncom_sNO_basis.sO_nTVF.nTVF_Tspc_image;
-            % A_G_sO = mod_.Nnet_sNO_basis.sO_nTVF.Tspc_image;
-            % A_G_sO = mod_.Nnet_sNO_basis.sO_nTVF.nTVF_Tspc_image;
-
-            % A_G_sO = mod_.flow_pckg.VN_spc_sO;
-            % A_G_sO = mod_.flow_pckg.JF_sO_svd.U;
-
-            % A_G_sO = mod_.flow_pckg.JF_sO_svd.U;
-            % A_G_sO = mod_.flow_pckg.Gn_bse.Tspc_Nv_sO_mat0;
-
-            % A_G_sO = mod_.flow_pckg.VN_spc_sO(:,2:end);
-            % A_G_sO = mod_.flow_pckg.Gn_bse.Tspc_Nv_sO_mat0;
-            % A_G_sO = mod_.flow_pckg.Tspc_Nv_sO_tns(:,:,1);
-            % A_G_sO = A_G_sO./sqrt(sum(A_G_sO.^2,1));
-
-            % A_G_sO = nan(ndim,length(mod_.flow_pckg.gspc_sO_svds(:)));
-            % for i = 1:size(A_G_sO,2)
-            %     A_G_sO(:,i) = sum(mod_.flow_pckg.gspc_sO_svds(i).U .*  mod_.flow_pckg.gspc_sO_svds(i).s' , 2);
-            %     A_G_sO(:,i) = A_G_sO(:,i)/norm(A_G_sO(:,i));
-            % end
-
-
             xvec_S = mod_.Smat(1,:);
             utns_S = reshape(mod_.Smat(2:end,:),ndep,[],nobs);
+            tN_S = [ones(1,nobs) ; reshape(mod_.tau_uN_RN1_net,[],nobs)];
 
-            iS_A = 1:5:size(mod_.Smat,2);
-            % iS_A = 1:2:30;
+            cVn = autumn(nvar_N1);
+            cJ = winter(nvar_N1-1);
 
+            icrv_plt = 1;
+            iS_A = mod_.ipts_crv(1,icrv_plt):2:mod_.ipts_crv(2,icrv_plt);
+            % iS_A = mod_.ipts_crv(1,icrv_plt):2:mod_.ipts_crv(2,icrv_plt+1);
+            % iS_A = 1:floor(size(mod_.Smat,2)/40):size(mod_.Smat,2);
             Aspcs_i = { ...
-                mod_.flow_pckg.Gn_bse.mu_N1_sO_svd.U .* mod_.flow_pckg.Gn_bse.mu_N1_sO_svd.s' , ...
-                    @(n_) autumn(n_) , ':', 'd', @(ii_) xO, @(ii_,i_,k_) uO(i_,k_); ...
-                mod_.flow_pckg.VN_spc_S_0(:,iS_A) , ...
-                   @(n_) ones(n_,1).*[1 0 0], ':', 'd', @(ii_) xvec_S(iS_A(ii_)), @(ii_,i_,k_) utns_S(i_,k_,iS_A(ii_)) ; ...
                 -reshape(sum(mod_.JF_N1(:,:,iS_A),1),ndim,[]) , ...
-                   @(n_) ones(n_,1).*apv_plots.blue5, ':', 'd', @(ii_) xvec_S(iS_A(ii_)), @(ii_,i_,k_) utns_S(i_,k_,iS_A(ii_)) ; ...
+                   @(n_) ones(n_,1).*cJ(1,:),':','d',@(ii_) xvec_S(iS_A(ii_)),@(ii_,i_,k_) utns_S(i_,k_,iS_A(ii_)); ...
+                mod_.flow_pckg.Gn_bse.mu_N1_sO_svd.U .* mod_.flow_pckg.Gn_bse.mu_N1_sO_svd.s' , ...
+                    @(n_) autumn(n_) , '-.', 'd', @(ii_) xO, @(ii_,i_,k_) uO(i_,k_); ...
+                [ones(1,length(iS_A)) ; reshape(mod_.tau_uN_RN1_net(:,:,iS_A),[],length(iS_A))] , ...
+                    @(n_) ones(n_,1).*[1 1 1], ':', 'd', @(ii_) xvec_S(iS_A(ii_)), @(ii_,i_,k_) utns_S(i_,k_,iS_A(ii_)); ...
+                mod_.flow_pckg.Gn_bse.VN_spc_S_0(:,iS_A) , ...
+                    @(n_) ones(n_,1).*cVn(1,:), ':', 'd', @(ii_) xvec_S(iS_A(ii_)), @(ii_,i_,k_) utns_S(i_,k_,iS_A(ii_)); ...
+                mod_.flow_pckg.VN_spc_S(:,iS_A,1) , ...
+                    @(n_) ones(n_,1).*cVn(2,:),':','d',@(ii_) xvec_S(iS_A(ii_)),@(ii_,i_,k_) utns_S(i_,k_,iS_A(ii_)); ...
+                % mod_.flow_pckg.Gc_bse.VN_spc_S_0(:,iS_A) , ...
+                %     @(n_) ones(n_,1).*apv_plots.blue1,':','d',@(ii_) xvec_S(iS_A(ii_)), @(ii_,i_,k_) utns_S(i_,k_,iS_A(ii_)); ...
             };
-            % mod_.flow_pckg.Gn_bse.mu_N1_sO_svd.U .* mod_.flow_pckg.Gn_bse.mu_N1_sO_svd.s' , ...
-            %     @(n_) autumn(n_) , ':', 'd' ; ...
             % -mod_.flow_pckg.JF_N1_sO_svd.U .* mod_.flow_pckg.JF_N1_sO_svd.s', ...
             %     @(n_) winter(n_) , '--', 'd' ; ...
             % mod_.flow_pckg.Gn_bse.Tspc_Nv_sO_mat0, ...
@@ -408,11 +383,11 @@ classdef apv_plots
                     @(n_) winter(n_) , '--', 'd' , @(i_) ['\mathcal{J}^{' num2str(i_) '}'] ; ...
                 mod_.flow_pckg.VN1_spc_sO , ...
                     @(n_) autumn(n_) , '-', 'none', @(i_) ['\mu^{' num2str(i_) '}'] ; ...
-                mod_.flow_pckg.Vc_bse.VN1_c_spc_sO , ...
-                    @(n_) summer(n_) , '-.', 'none', upy_str ; ...
                 mod_.flow_pckg.Vc_tvf_bse.VN1_c_spc_sO(:,2:end) , ...
-                    @(n_) cool(n_) , ':', 'none', @(i_) ['\nu^{' num2str(i_) '}'] ; ...
+                    @(n_) cool(n_) , '-', 'none', @(i_) ['\nu^{' num2str(i_) '}'] ; ...
             };
+            % mod_.flow_pckg.Vc_bse.VN1_c_spc_sO , ...
+            %     @(n_) summer(n_) , '-.', 'none', upy_str ; ...
             % mod_.flow_pckg.VN1_spc_sO , ...
             % mod_.flow_pckg.Vc_tvf_bse.VN1_c_spc_sO(:,2:end) , ...
             %     @(n_) cool(n_) , ':', 'none', @(i_) ['\nu^{' num2str(i_) '}'] ; ...
@@ -518,6 +493,26 @@ classdef apv_plots
                 end
             end
             % keyboard
+            % if (ndim==3)
+            %     plt_Xispc_width = 2;
+            % else
+            %     plt_Xispc_width = 1;
+            % end
+            plt_Xispc_width = 2;
+            plt_xi_spc = apv_plots('Xi_spc', ...
+                [ndim 2],...
+                [nvar_N1 plt_Xispc_width],[ndim 1], ...
+                1);
+            plt_xi_spc.show_toolbar
+            d_xi = pspc;
+            d_xi.ndep = nvar_N1-1;
+            d_xi.eor = 0;
+            d_xi.LineStyle = '-';
+            Sobs_Xi = cell(size(mod_.Sobs));
+            for i = 1:length(mod_.Sobs)
+                Sobs_Xi{i} = [ mod_.flow_pckg.D_O_Xi_S(:, mod_.ipts_crv(1,i):mod_.ipts_crv(2,i) )];
+            end
+            [plt_xi_spc,pspc_xi,leg_xi_1] = apv_plots.plot_Sobs(plt_xi_spc,Sobs_Xi,d_xi);
 
             %% visualize model diagnostics
             plt = p_;
@@ -538,6 +533,7 @@ classdef apv_plots
                 'Interpreter','Latex','FontSize',12 );
             svds_i = { ...
                 mod_.Jl_N1_svd , '$J_{\lambda_f} |_{ \{ s_j \} } ', 's'; ...
+                mod_.d2xl_N1_svd, '$d^2_x \lambda_v |_{ \{ s_j \} } ', '*'; ...
                 mod_.H_N1_svd , '$H^{(0)}_{\textrm{tvf}}', 's'; ...
                 mod_.DprN_svd, '$D_{\textrm{pr}}', 's'; ...
                 mod_.Rsvd_N1_net, '$R^1_{\mathrm{net}}', 'd'; ...
@@ -554,27 +550,13 @@ classdef apv_plots
                 mod_.flow_pckg.Gn_bse,  '$\Lambda W', 'o'; ...
                 mod_.flow_pckg.Gn_bse.M_svd,  '$M_{\mathrm{bse}}', 'd'; ...
                 mod_.flow_pckg.Gn_bse.N_svd,  '$N_{\mathrm{bse}}', 'p'; ...
+                mod_.flow_pckg.Gn_bse.H0v_YJl_svd,  '$v_1 (\lambda_f) |_{ \{ s_j \} } ', 's'; ...
             };
-
             % nsvd_i = size(svds_i,1);
             % Bsvds_i = mod_.flow_pckg.B_v_svds;
             % for isvd = 1:length(Bsvds_i(:))
             %     svds_i{isvd+nsvd_i,1} = Bsvds_i(isvd);
             %     svds_i{isvd+nsvd_i,2} = ['$B_{' num2str(isvd) '}'];
-            %     svds_i{isvd+nsvd_i,3} = 'o';
-            % end
-            % nsvd_i = size(svds_i,1);
-            % Nsvds_i = mod_.flow_pckg.N_v_svds;
-            % for isvd = 1:length(Nsvds_i(:))
-            %     svds_i{isvd+nsvd_i,1} = Nsvds_i(isvd);
-            %     svds_i{isvd+nsvd_i,2} = ['$N_{' num2str(isvd) '}'];
-            %     svds_i{isvd+nsvd_i,3} = 'o';
-            % end
-            % nsvd_i = size(svds_i,1);
-            % Gsvds_i = mod_.flow_pckg.Gc_v_svds;
-            % for isvd = 1:length(Gsvds_i(:))
-            %     svds_i{isvd+nsvd_i,1} = Gsvds_i(isvd);
-            %     svds_i{isvd+nsvd_i,2} = ['$G_c^{' num2str(isvd) '}'];
             %     svds_i{isvd+nsvd_i,3} = 'o';
             % end
 
@@ -610,6 +592,13 @@ classdef apv_plots
                 svds_i{isvd+nsvd_i,1} = Tsvds_i(isvd);
                 svds_i{isvd+nsvd_i,2} = ['$T_{' num2str(isvd) '} |_{s_O}'];
                 svds_i{isvd+nsvd_i,3} = 's';
+            end
+            nsvd_i = size(svds_i,1);
+            nsvds_i = mod_.flow_pckg.nspc_sO_svds;
+            for isvd = 1:length(nsvds_i(:))
+                svds_i{isvd+nsvd_i,1} = nsvds_i(isvd);
+                svds_i{isvd+nsvd_i,2} = ['$n_{' num2str(isvd) '} |_{s_O}'];
+                svds_i{isvd+nsvd_i,3} = 'd';
             end
             nsvd_i = size(svds_i,1);
             bsvds_i = mod_.flow_pckg.bspc_sO_svds;
@@ -691,7 +680,6 @@ classdef apv_plots
             xlabel(axi, '$ x $', 'Interpreter','Latex','FontSize',16);
             ylabel(axi, '$ \left\| \eta^i_{\textrm{tvf}} |_S - \eta^i_{\textrm{tvf}} |_{s_O} \right\| $', 'Interpreter','Latex','FontSize',16);
 
-
             plt_jspc.set_axis_lims(lims0);
 
         end
@@ -716,8 +704,9 @@ classdef apv_plots
             axs = plt.axs;
             axs_mat = plt.axs_mat;
             if (eor==0) % canonical coordinate plot
-                xlabel(axs(1:ndep), '$$ x $$', 'Interpreter','Latex','FontSize',16);
-                yname = @(i_,k_) ['$$ \xi_' num2str(i_) '$$'];
+                % xlabel(axs(1:ndep), '$$ x $$', 'Interpreter','Latex','FontSize',16);
+                xlabel(axs(1:ndep), '$$ \xi_1 $$', 'Interpreter','Latex','FontSize',16);
+                yname = @(i_,k_) ['$$ \xi_' num2str(i_+1) '$$'];
                 xname_3D = '$$ \xi_1 $$';
                 yname_3D = '$$ \xi_2 $$';
                 zname_3D = '$$ \xi_3 $$';
