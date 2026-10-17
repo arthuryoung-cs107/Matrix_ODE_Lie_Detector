@@ -87,7 +87,8 @@ classdef ldaux
             'JF_dxf', @(s_) JF_dxf_eqn(s_) ...
             );
             x0 = 0.0;
-            ef = 20; % epsilon varies from e0 = 0 to ef > 0
+            % ef = 20; % epsilon varies from e0 = 0 to ef > 0
+            ef = 50; % epsilon varies from e0 = 0 to ef > 0
 
             ncrv = 10;
             seed = 34; % nice to look at

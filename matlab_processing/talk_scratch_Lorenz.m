@@ -93,8 +93,8 @@ sprintf('$ j = %d , x_j = %.2f $',1,0), ...
 );
 
 % trjvid = VideoWriter([sim_name '.avi'], 'Motion JPEG AVI');
-trjvid = VideoWriter([[getenv('HOME') '/Desktop/MATLAB_OUTPUT/'] 'Lorenz' '.mp4'], 'MPEG-4');
-open(trjvid)
+% trjvid = VideoWriter([[getenv('HOME') '/Desktop/MATLAB_OUTPUT/'] 'Lorenz' '.mp4'], 'MPEG-4');
+% open(trjvid)
 j = 1;
 for k = 1:frameSkip:length(t)
 
@@ -118,11 +118,11 @@ for k = 1:frameSkip:length(t)
     title_i.String = sprintf('$ j = %d , x_j = %.2f $',j,t(k));
     j = j+1;
 
-    writeVideo(trjvid,getframe(fig_trj));
+    % writeVideo(trjvid,getframe(fig_trj));
 
-    % pause(0.05)
     % drawnow
-    % drawnow limitrate;
+    drawnow limitrate;
+    pause(0.05)
 
 end
-close(trjvid);
+% close(trjvid);

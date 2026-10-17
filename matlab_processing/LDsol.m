@@ -869,20 +869,6 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                     DprN_mat_sO = reshape(DprN_tns_sO,ntheta_v,[])';
                 end
 
-                % compute candidate coordinate chart at the origin
-                % use the vector field coefficient library for invariants
-                Jlv_S_svd = Asvd_package(reshape(Jl_v0_tns,[Plen_v,nvar_N1*nobs])');
-                Jdxlv_S_svd = Asvd_package(reshape(Jdxl_vN_tns,[Plen_v,ndim_N1*nobs])');
-                Jl1v_S_svd = Asvd_package([ Jlv_S_svd.D' ; Jdxlv_S_svd.D' ]);
-
-                % use a larger smooth function library for invariants
-                D_Jlf_S = Jl_N1_svd.V(:,1:Jl_N1_svd.r);
-                Jlf_sO = lamf_sO_.Jl; % Jacobian of lambda library at the origin
-                E_sO = Jlf_sO * D_Jlf_S; % gradients of candidate coordinate chart functions at origin
-                [E_sO_svd,U_E_sO] = Asvd_package(E_sO); E_sO_svd.U = U_E_sO; % expected to be full rank
-                theta_f_chart_sO = D_Jlf_S * E_sO_svd.V; % B = 1 + QN smooth functions with orthogonal gradients at origin
-                Jf_chart_sO = Jlf_sO*theta_f_chart_sO; % nearly orthogonal gradient basis
-
                 function [Vspc_Th_i,VNspc_Th_i0,VN1spc_Th_i0] = compute_transversal_Tspace(Th_,VNi_unit_sO_)
                     VN1spc_Th_i0 = compute_sO_N1_Tspc_image(Th_);
                     VNspc_Th_i0 = [ VN1spc_Th_i0(1:nvar_N1,:) ; VN1spc_Th_i0((end-ndep+1):end,:) ];
@@ -1029,6 +1015,20 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
 
                     bout.Hv_0_spc = Hv_0_YJl_svd;
                 end
+
+                % compute candidate coordinate chart at the origin
+                % use the vector field coefficient library for invariants
+                Jlv_S_svd = Asvd_package(reshape(Jl_v0_tns,[Plen_v,nvar_N1*nobs])');
+                Jdxlv_S_svd = Asvd_package(reshape(Jdxl_vN_tns,[Plen_v,ndim_N1*nobs])');
+                Jl1v_S_svd = Asvd_package([ Jlv_S_svd.D' ; Jdxlv_S_svd.D' ]);
+
+                % use a larger smooth function library for invariants
+                D_Jlf_S = Jl_N1_svd.V(:,1:Jl_N1_svd.r);
+                Jlf_sO = lamf_sO_.Jl; % Jacobian of lambda library at the origin
+                E_sO = Jlf_sO * D_Jlf_S; % gradients of candidate coordinate chart functions at origin
+                [E_sO_svd,U_E_sO] = Asvd_package(E_sO); E_sO_svd.U = U_E_sO; % expected to be full rank
+                theta_f_chart_sO = D_Jlf_S * E_sO_svd.V; % B = 1 + QN smooth functions with orthogonal gradients at origin
+                Jf_chart_sO = Jlf_sO*theta_f_chart_sO; % nearly orthogonal gradient basis
 
                 % Bt_svd = Asvd_package(normalize_Benc([ ...
                 %     Bmat_t0_N1 ;
