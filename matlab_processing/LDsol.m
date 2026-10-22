@@ -1029,6 +1029,14 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                 [E_sO_svd,U_E_sO] = Asvd_package(E_sO); E_sO_svd.U = U_E_sO; % expected to be full rank
                 theta_f_chart_sO = D_Jlf_S * E_sO_svd.V; % B = 1 + QN smooth functions with orthogonal gradients at origin
                 Jf_chart_sO = Jlf_sO*theta_f_chart_sO; % nearly orthogonal gradient basis
+                function JXi_coord_out = compute_local_canonical_coordinates(Vin_)
+                    [JXi_coord_out,U_JXi_coord] = Asvd_package(Vin_(1:nvar_N1,:)' * Jf_chart_sO);
+                    r_Jxi = JXi_coord_out.r;
+                    gxi_sO = JXi_coord_out.V(:,1:r_Jxi) * diag(1.0./JXi_coord_out.s(1:r_Jxi)) * U_JXi_coord(:,1:r_Jxi)'; % pseudo inverse of JXi
+                    JXi_coord_out.theta_xi_sO = theta_f_chart_sO*gxi_sO; % parameters of smooth canonical coordinate functions
+                    JXi_coord_out.Jxi_sO = Jlf_sO*JXi_coord_out.theta_xi_sO; % gradients of smooth canonical coordinate functions at origin
+                end
+
 
                 % Bt_svd = Asvd_package(normalize_Benc([ ...
                 %     Bmat_t0_N1 ;
@@ -1166,7 +1174,14 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                 gxi_sO = JXi_svd.V(:,1:r_Jxi) * diag(1.0./JXi_svd.s(1:r_Jxi)) * U_JXi(:,1:r_Jxi)'; % pseudo inverse of JXi
                 theta_xi_sO = theta_f_chart_sO*gxi_sO; % parameters of smooth canonical coordinate functions
                 Jxi_sO = Jlf_sO*theta_xi_sO; % gradients of smooth canonical coordinate functions at origin
-                D_O_Xi_S = theta_xi_sO'*( lvs_N1 - lamf_sO_.lrow_vals' );
+
+                Vc_bse.canon_coords = compute_local_canonical_coordinates(Vc_bse.VN1_c_spc_sO);
+                Vc_tvf_bse.canon_coords = compute_local_canonical_coordinates(Vc_tvf_bse.VN1_c_spc_sO);
+
+                % Displacement between all observations and the origin solution in Xi space
+                % D_O_Xi_S = theta_xi_sO'*( lvs_N1 - lamf_sO_.lrow_vals' );
+                % D_O_Xi_S = Vc_tvf_bse.canon_coords.theta_xi_sO'*( lvs_N1 - lamf_sO_.lrow_vals' );
+                D_O_Xi_S = Vc_bse.canon_coords.theta_xi_sO'*( lvs_N1 - lamf_sO_.lrow_vals' );
 
                 flow_out = struct( ...
                     'theta_v_coords', theta_v_coords, ...
