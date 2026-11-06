@@ -1186,7 +1186,7 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                 % D_O_Xi_S = theta_xi_sO'*( lvs_N1 - lamf_sO_.lrow_vals' );
                 % D_O_Xi_S = Vc_bse.canon_coords.theta_xi_sO'*( lvs_N1 - lamf_sO_.lrow_vals' );
                 D_O_Xi_S = Vc_tvf_bse.canon_coords.theta_xi_sO'*( lvs_N1 - lamf_sO_.lrow_vals' );
-                
+
                 % keyboard
 
                 theta_v_sO_2_S = [ Gc_bse.theta_v_0 Vc_tvf_bse.theta_Vc ] * D_O_Xi_S; % unique Lambda vfield passing through origin and each observation
@@ -1243,6 +1243,8 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                 flow_out.isrt_magD_O_Xi_S = isrt_magD_O_Xi_S;
 
             end
+
+
 
             %% compute non-trivial vector field bases
             [~,Mcom_sO_basis] = compute_sO_W_tspc(Gsvd_N1_com.W,inds_P_GN1_com,lamRN1_sO,t_O);
@@ -1362,6 +1364,23 @@ fprintf( '(%s err) [min,med,avg,max]=[%.1e,%.1e,%.1e,%.1e]. Success: [med,max] =
             mod_out.Ncom_sO_basis = Ncom_sO_basis;
 
             mod_out.flow_pckg = flow_pckg;
+        end
+        function jt_out = compute_cubic_Hermite_jet(s0_,v0_,s1_,v1_,del_eps_)
+            if (nargin==5)
+                del_eps = del_eps_;
+            else
+                del_eps = 1;
+            end
+
+            ndim = size(s0_(:));
+
+            Jor = ; % 2*(kor+1) - 1;
+            Jorp1 = Jor+1;
+            Jorp1_h = Jorp1/2;
+
+            [V0,V1] = deal( zeros(Jorp1_h , Jorp1) );
+
+
         end
         function jt_out = compute_trivial_Hermite_jet(s0_,s1_,ndep_)
             if (s0_(1) > s1_(1)) % enforce trivial flow in the positive direction
