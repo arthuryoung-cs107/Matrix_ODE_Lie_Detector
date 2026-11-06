@@ -1371,10 +1371,11 @@ fprintf( '(%s err) [min,med,avg,max]=[%.1e,%.1e,%.1e,%.1e]. Success: [med,max] =
             else
                 del_eps = 1;
             end
+            eps_h = 0.5*(x0+x1);
 
             ndim = size(s0_(:));
 
-            Jor = ; % 2*(kor+1) - 1;
+            Jor = 3; % 2*(kor+1) - 1;
             Jorp1 = Jor+1;
             Jorp1_h = Jorp1/2;
 
