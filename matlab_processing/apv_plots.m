@@ -514,33 +514,21 @@ classdef apv_plots
             d_xi.ndep = nvar_N1-1;
             d_xi.eor = 0;
             d_xi.LineStyle = '-';
-            Sobs_Xi = cell(size(mod_.Sobs));
-            for i = 1:length(mod_.Sobs)
-                Sobs_Xi{i} = [ mod_.flow_pckg.D_O_Xi_S(:, mod_.ipts_crv(1,i):mod_.ipts_crv(2,i) )];
-                [minv_icrv_mag(i),imin_icrv_mag(i)] = min( sqrt(sum( Sobs_Xi{i}.^2, 1 )) );
-            end
+
+            Sobs_Xi = mod_.flow_pckg.Sobs_Xi;
+
             [plt_xi_spc,pspc_xi,leg_xi_1] = apv_plots.plot_Sobs(plt_xi_spc,Sobs_Xi,d_xi);
 
-            [~,iisrt_icrv_mag] = sort(minv_icrv_mag);
-            icrv_nghbr_1 = iisrt_icrv_mag(1);
-            icrv_nghbr_2 = iisrt_icrv_mag(2);
-            % [plt_jspc,pspc_i,leg_S_2] = apv_plots.plot_Sobs(plt_jspc, mod_.Sobs{mod_.icrv_sO},pspc_i);
-            % pspc_i.Color =
-            % [plt_jspc,pspc_i,leg_S_2] = apv_plots.plot_Sobs(plt_jspc, mod_.Sobs{mod_.icrv_sO},pspc_i);
-
-            % keyboard
-
             d_xi_i = d_xi;
-            d_xi_i.Color = [1 1 1]; Sobs_Xi_i = zeros(size(mod_.flow_pckg.D_O_Xi_S,1),1);
+            d_xi_i.Color = [1 1 1]; Sobs_Xi_i = zeros(size(Sobs_Xi{1},1),1);
             [plt_xi_spc,pspc_xi_i,leg_xi_i] = apv_plots.plot_Sobs(plt_xi_spc,Sobs_Xi_i,d_xi_i);
 
             d_xi_i.Color = apv_plots.grey1;
-                % Sobs_Xi_i = Sobs_Xi{icrv_nghbr_1}(:,imin_icrv_mag(icrv_nghbr_1));
-                Sobs_Xi_i = Sobs_Xi{icrv_nghbr_1};
+                Sobs_Xi_i = Sobs_Xi{mod_.icrv_sO};
             [plt_xi_spc,pspc_xi_i,leg_xi_i] = apv_plots.plot_Sobs(plt_xi_spc,Sobs_Xi_i,d_xi_i);
 
             d_xi_i.Color = apv_plots.grey3;
-                Sobs_Xi_i = Sobs_Xi{icrv_nghbr_2};
+                Sobs_Xi_i = Sobs_Xi{mod_.flow_pckg.icrv_nghbr};
             [plt_xi_spc,pspc_xi_i,leg_xi_i] = apv_plots.plot_Sobs(plt_xi_spc,Sobs_Xi_i,d_xi_i);
 
             %% visualize model diagnostics

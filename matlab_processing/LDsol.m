@@ -615,10 +615,23 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
             W_R_sO = RGsvd_N1_net.W;
 
             %% choose an arbitrary origin for the generation of an intrinsic coordinate system
-            [icrv_sO,i_sO_0,i_sO_1] = deal(1,1,2); % mid point between first and second observed solutions on curve 1, w.l.o.g.
+            % mid point between first and second observed solutions on curve 1, w.l.o.g.
+            [icrv_sO,i_sO_0,i_sO_1] = deal(1,1,2);
+                % overwrite, if different choice from input
+                if ( isfield(dat_,'icrv_sO') )
+                    icrv_sO = dat_.icrv_sO;
+                end
+                if ( isfield(dat_,'i_sO_0') )
+                    i_sO_0 = dat_.i_sO_0;
+                end
+                if ( isfield(dat_,'i_sO_1') )
+                    i_sO_1 = dat_.i_sO_1;
+                end
+            ii_sO_0 = ipts_crv(1,icrv_sO) + (i_sO_0-1);
+            ii_sO_1 = ipts_crv(1,icrv_sO) + (i_sO_1-1);
             jt_O = LDsol.compute_trivial_Hermite_jet( ...
-                [Smat(:,i_sO_0) ; tau_uN_RN1_net((end-ndep+1):end,2,i_sO_0)], ...
-                [Smat(:,i_sO_1) ; tau_uN_RN1_net((end-ndep+1):end,2,i_sO_1)], ...
+                [Smat(:,ii_sO_0) ; tau_uN_RN1_net((end-ndep+1):end,2,ii_sO_0)], ...
+                [Smat(:,ii_sO_1) ; tau_uN_RN1_net((end-ndep+1):end,2,ii_sO_1)], ...
                 ndep ...
             );
             s_O0 = [ jt_O.xh ; reshape( jt_O.Amat(1:kor,:)', ndep*(kor), 1 ) ]; % extract fitted base space origin, s_O0
@@ -1195,6 +1208,24 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                 magD_O_Xi_S = sqrt(sum(D_O_Xi_S.*D_O_Xi_S,1));
                 [srtd_magD_O_Xi_S,isrt_magD_O_Xi_S] = sort(magD_O_Xi_S);
 
+                Sobs_Xi = cell(size(Sobs_));
+                Sobs_v_sO = cell(size(Sobs_));
+                for i = 1:length(Sobs_)
+                    iipts_crv = ipts_crv(1,i):ipts_crv(2,i);
+                    Sobs_Xi{i} = D_O_Xi_S(:, iipts_crv );
+                    Sobs_v_sO{i} = v_sO_2_S( :,iipts_crv );
+                    [minv_icrv_mag(i),imin_icrv_mag(i)] = min( sqrt(sum( Sobs_Xi{i}.^2, 1 )) );
+                end
+                [~,iisrt_icrv_mag] = sort(minv_icrv_mag);
+                icrv_nghbr = iisrt_icrv_mag(1);
+                if ( icrv_nghbr==icrv_sO )
+                    icrv_nghbr = iisrt_icrv_mag(2);
+                end
+
+                % LDsol.compute_cubic_Hermite_jet();
+
+
+
                 flow_out = struct( ...
                     'theta_v_coords', theta_v_coords, ...
                     'VN1_spc_sO', VN1_spc_sO, ...
@@ -1242,6 +1273,8 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                 flow_out.srtd_magD_O_Xi_S = srtd_magD_O_Xi_S;
                 flow_out.isrt_magD_O_Xi_S = isrt_magD_O_Xi_S;
 
+                flow_out.Sobs_Xi = Sobs_Xi;
+                flow_out.icrv_nghbr = icrv_nghbr;
             end
 
 
@@ -1365,37 +1398,32 @@ fprintf( '(%s err) [min,med,avg,max]=[%.1e,%.1e,%.1e,%.1e]. Success: [med,max] =
 
             mod_out.flow_pckg = flow_pckg;
         end
-        function jt_out = compute_cubic_Hermite_jet(s0_,v0_,s1_,v1_,del_eps_)
-            if (nargin==5)
-                del_eps = del_eps_;
-            else
-                del_eps = 1;
-            end
-            eps_a = 0.0;
-            eps_b = del_eps;
-            eps_h = 0.5*del_eps;
+        function jt_out = compute_cubic_Hermite_jet(sa_,va_,epsa_,sb_,vb_,epsb_,epsc_)
+            % eh_pow = eps_h .^ ( 0:3 );
+            ea_pow = (epsa_-epsc_) .^ ( 0:3 );
+            eb_pow = (epsb_-epsc_) .^ ( 0:3 );
+            Va = [ ...
+                1 , ea_pow(2) , 0.5*ea_pow(3)/2 , ea_pow(4)/6 ;
+                0 , 1         , ea_pow(2)       , 0.5*ea_pow(3) ;
+            ];
+            Vb = [ ...
+                1 , eb_pow(2) , 0.5*eb_pow(3)/2 , eb_pow(4)/6 ;
+                0 , 1         , eb_pow(2)       , 0.5*eb_pow(3) ;
+            ];
+            Vmat = [ Va ; Vb ];
+            Umat = [
+                [sa_,va_]' ;
+                [sb_,vb_]' ;
+            ]
+            Amat = lsqminnorm(Vmat, Umat); % Tikhinov regularized when rank deficient
 
-            ndim = size(s0_(:));
-
-            Jor = 3; % 2*(kor+1) - 1;
-            Jorp1 = Jor+1;
-            Jorp1_h = Jorp1/2;
-
-            p_z2J = 0:Jor;
-            pm_Jor = (-1).^p_z2J;
-            dh1_Jor = ( eps_b-eps_h ).^p_z2J; % strictly positive
-            dh0_Jor = dh1_Jor.*pm_Jor; % alternating sign
-
-            [V0,V1] = deal( zeros(Jorp1_h , Jorp1) );
-            fJ = [1, cumprod( p_z2J(2:end) )];
-            ch = fJ.^(-1);
-            V1(1,:) = ch.*dh1_Jor(1:(end-1+1)); % = ch.*(d).^pdi
-            V0(1,:) = ch.*dh0_Jor(1:(end-1+1)); % = ch.*(-d).^pdi
-
-            i = 2;
-            ch(i:end) = ch(i:end) .* p_z2J( 2:(end-(i-1)+1) );
-            V1(i,i:end) = ch(i:end) .* dh1_Jor( 1:(end-i+1) );
-            V0(i,i:end) = ch(i:end) .* dh0_Jor( 1:(end-i+1) );
+            jt_out = struct( ...
+                'xh', xh, ...
+                'fJ', fJ, ...
+                'Vmat', Vmat, ...
+                'Umat', Umat, ...
+                'Amat', Amat ...
+            );
 
         end
         function jt_out = compute_trivial_Hermite_jet(s0_,s1_,ndep_)

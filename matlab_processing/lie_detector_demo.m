@@ -23,14 +23,14 @@ scrn_id = 1;
 %}
 % % generate a data set
 tic0 = tic;
-% [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_Riccati_data_2(); dat_true.bor_max = 3; % N = 1, Q = 1
+[Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_Riccati_data_2(); dat_true.bor_max = 3; % N = 1, Q = 1
 % [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_Brusselator_data(); % N = 1, Q = 2
 % [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_Van_der_Pol_data(); % N = 2, Q = 1
 % [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_oscillator_polr_data(); % N = 2, Q = 1, easier than VanderPol
 % [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_pendulum_polr_data(); % N = 2, Q = 1
 % [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_double_oscillator_data(); dat_true.bor_max = 3; % N = 2, Q = 2, linear homogenous
 % [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_double_pendulum_data(); % N = 2, Q = 2, would be wild to learn anything
-[Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_Linden_bouyancy_data(); dat_true.bor_max = 6; % N = 2, Q = 1
+% [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_Linden_bouyancy_data(); dat_true.bor_max = 6; % N = 2, Q = 1
 % [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_Lorenz_data(); dat_true.bor_max = 3; % N = 2, Q = 1
 toc1 = toc(tic0);
 fprintf('generated jet space data in %.3f seconds \n', toc1);
@@ -45,6 +45,11 @@ isol_check = 10;
 iisol_check = sum(npts_per_crv(1:(icrv_check-1))) + isol_check;
 
 dat = struct('ndep',dat_true.ndep,'eor',dat_true.eor);
+    %% choose an arbitrary origin for the generation of an intrinsic coordinate system
+    dat.icrv_sO = 2;
+        % dat.i_sO_0 = 1;
+        dat.i_sO_0 = ceil(npts_per_crv(dat.icrv_sO)/2);
+            dat.i_sO_1 = dat.i_sO_0+1;
 
 ndep = dat.ndep;
 eor = dat.eor;
@@ -99,10 +104,8 @@ fprintf('built jet space model in %.3f seconds \n', toc1);
 
 mod
 sO = mod.s_O
-% dat_plt0.Color = apv_plots.blue1;
-% plt0 = apv_plots.plot_Sobs(plt0, Sobs{mod.isrtmags_dXi_S_sO_crv(1)},dat_plt0);
-% dat_plt0.Color = apv_plots.red1;
-% plt0 = apv_plots.plot_Sobs(plt0, Sobs{mod.isrtmags_dXi_S_sO_crv(2)},dat_plt0);
+dat_plt0.Color = apv_plots.grey3;
+plt0 = apv_plots.plot_Sobs(plt0, Sobs{mod.flow_pckg.icrv_nghbr},dat_plt0);
 dat_plt0.Color = [1 1 1];
 plt0 = apv_plots.plot_Sobs(plt0, sO ,dat_plt0);
 dat_plt0.Color = apv_plots.green4;
