@@ -1203,7 +1203,7 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                 % keyboard
 
                 theta_v_sO_2_S = [ Gc_bse.theta_v_0 Vc_tvf_bse.theta_Vc ] * D_O_Xi_S; % unique Lambda vfield passing through origin and each observation
-                v_sO_2_S = compute_sO_N1_Tspc_image(theta_v_sO_2_S); % tangent vector of these vfields at origin
+                vO_sO_2_S = compute_sO_N1_Tspc_image(theta_v_sO_2_S); % tangent vector of these vfields at origin
 
                 magD_O_Xi_S = sqrt(sum(D_O_Xi_S.*D_O_Xi_S,1));
                 [srtd_magD_O_Xi_S,isrt_magD_O_Xi_S] = sort(magD_O_Xi_S);
@@ -1211,9 +1211,7 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                 Sobs_Xi = cell(size(Sobs_));
                 Sobs_v_sO = cell(size(Sobs_));
                 for i = 1:length(Sobs_)
-                    iipts_crv = ipts_crv(1,i):ipts_crv(2,i);
-                    Sobs_Xi{i} = D_O_Xi_S(:, iipts_crv );
-                    Sobs_v_sO{i} = v_sO_2_S( :,iipts_crv );
+                    Sobs_Xi{i} = D_O_Xi_S(:, ipts_crv(1,i):ipts_crv(2,i) );
                     [minv_icrv_mag(i),imin_icrv_mag(i)] = min( sqrt(sum( Sobs_Xi{i}.^2, 1 )) );
                 end
                 [~,iisrt_icrv_mag] = sort(minv_icrv_mag);
@@ -1221,10 +1219,24 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                 if ( icrv_nghbr==icrv_sO )
                     icrv_nghbr = iisrt_icrv_mag(2);
                 end
+                isol_nghbr = ipts_crv(1,icrv_nghbr) + (imin_icrv_mag(icrv_nghbr)-1);
+                isol_nghbr_p1 = isol_nghbr+1;
 
-                % LDsol.compute_cubic_Hermite_jet();
+                s0_a = solO_.s( 1:(end-ndep) );
+                s0_b = Smat( 1:(end-ndep), isol_nghbr ); th_b = theta_v_sO_2_S(:,isol_nghbr);
+                s0_c = Smat( 1:(end-ndep), isol_nghbr_p1 ); th_c = theta_v_sO_2_S(:,isol_nghbr_p1);
+
+                v0_ab_a = reshape( th_b ,Plen_v,[] )' * lv_b_sO(:);
+                v0_ac_a = reshape( th_c ,Plen_v,[] )' * lv_b_sO(:);
+
+                v0_ab_b = reshape( th_b ,Plen_v,[] )' * lvs_RN1( iPv_,isol_nghbr );
+                v0_ac_c = reshape( th_c ,Plen_v,[] )' * lvs_RN1( iPv_,isol_nghbr_p1 );
+
+                jt_ab = LDsol.compute_cubic_Hermite_jet(s0_a,v0_ab_a,0.0,s0_b,v0_ab_b,1.0,0.5);
+                jt_ac = LDsol.compute_cubic_Hermite_jet(s0_a,v0_ab_a,0.0,s0_c,v0_ac_c,1.0,0.5);
 
 
+                % jt_nu1 = LDsol.compute_cubic_Hermite_jet(Smat);
 
                 flow_out = struct( ...
                     'theta_v_coords', theta_v_coords, ...
@@ -1268,13 +1280,16 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                 flow_out.D_O_Xi_S = D_O_Xi_S;
 
                 flow_out.theta_v_sO_2_S = theta_v_sO_2_S;
-                flow_out.v_sO_2_S = v_sO_2_S;
+                flow_out.vO_sO_2_S = vO_sO_2_S;
 
                 flow_out.srtd_magD_O_Xi_S = srtd_magD_O_Xi_S;
                 flow_out.isrt_magD_O_Xi_S = isrt_magD_O_Xi_S;
 
                 flow_out.Sobs_Xi = Sobs_Xi;
                 flow_out.icrv_nghbr = icrv_nghbr;
+                flow_out.isol_nghbr = isol_nghbr;
+                flow_out.jt_ab = jt_ab;
+                flow_out.jt_ac = jt_ac;
             end
 
 
@@ -1400,8 +1415,9 @@ fprintf( '(%s err) [min,med,avg,max]=[%.1e,%.1e,%.1e,%.1e]. Success: [med,max] =
         end
         function jt_out = compute_cubic_Hermite_jet(sa_,va_,epsa_,sb_,vb_,epsb_,epsc_)
             % eh_pow = eps_h .^ ( 0:3 );
-            ea_pow = (epsa_-epsc_) .^ ( 0:3 );
-            eb_pow = (epsb_-epsc_) .^ ( 0:3 );
+            ea = epsa_-epsc_; eb = epsb_-epsc_;
+            ea_pow = ea .^ ( 0:3 );
+            eb_pow = eb .^ ( 0:3 );
             Va = [ ...
                 1 , ea_pow(2) , 0.5*ea_pow(3)/2 , ea_pow(4)/6 ;
                 0 , 1         , ea_pow(2)       , 0.5*ea_pow(3) ;
@@ -1418,8 +1434,8 @@ fprintf( '(%s err) [min,med,avg,max]=[%.1e,%.1e,%.1e,%.1e]. Success: [med,max] =
             Amat = lsqminnorm(Vmat, Umat); % Tikhinov regularized when rank deficient
 
             jt_out = struct( ...
-                'xh', xh, ...
-                'fJ', fJ, ...
+                'ea', ea, ...
+                'eb', eb, ...
                 'Vmat', Vmat, ...
                 'Umat', Umat, ...
                 'Amat', Amat ...

@@ -69,9 +69,10 @@ plt0 = apv_plots('jetspace', ...
 dat_plt0 = dat;
 dat_plt0.LineStyle = '-';
 dat_plt0.Color = apv_plots.green4;
+dat_plt0.MarkerSize = 6;
 plt0 = apv_plots.plot_Sobs(plt0,Sobs,dat_plt0);
 
-dat_plt0.Color = [1 1 1];
+dat_plt0.Color = apv_plots.blue1;
 plt0 = apv_plots.plot_Sobs(plt0,Sobs{icrv_check},dat_plt0);
 dat_plt0.Color = apv_plots.blue5;
 plt0 = apv_plots.plot_Sobs(plt0,Sobs{icrv_check}(:,isol_check) ,dat_plt0);
