@@ -225,6 +225,91 @@ classdef ldaux
             dat_out = fode;
 
         end
+        function [Sobs,dat_out,JF,dNp1xu] = generate_Gilmore_data()
+            % equation specification
+            fcn_name = 'generate_Gilmore_data';
+            eqn_name = 'Gilmore';
+            eor = 1;
+            ndep = 1;
+            ndim = 1 + ndep*(eor+1);
+            fprintf('(ldaux::%s) Generating %s observations (ndep=%d, eor=%d) : \n' , ...
+                fcn_name,eqn_name,eor,ndep);
+            cm = [ ...
+                1.0,1.0,-1.0 ...
+            ];
+            f_eqn = @(x_,u_) ( cm(1,2).*( u_ ) + cm(1,3).*(u_.*u_) )./( -x_ .* cm(1,1) );
+            function [JF_out,dNp1xu_out] = JF_dxf_eqn(s_)
+                npts_evl = size(s_,2);
+                JF_out = zeros(ndep,ndim,npts_evl);
+                dNp1xu_out = zeros(ndep,npts_evl);
+                for i = 1:npts_evl
+                    sol_i = adobj.seed_sol(s_(1:ndim,i));
+                    x_i = sol_i.qdim(1);
+                    u1_i = sol_i.qdim(2);
+                    dxu1_i = sol_i.qdim(3);
+
+                    % f1_i = cm(1,1).*(u1_i./x_i) + cm(1,2).*x_i.*x_i.*u1_i.*u1_i;
+                    F1_i = cm(1,1).*x_i.*dxu1_i + cm(1,2).*u1_i + cm(1,3).*u1_i.*u1_i ;
+
+                    JF_out(1,:,i) = F1_i.Jac;
+
+                    dNp1xu_out(:,i) = linsolve( ...
+                        JF_out(:,(end-ndep+1):end,i) , ...
+                        -JF_out(:,1:(end-ndep),i)*[1 ; s_((2+ndep):end,i)] );
+                end
+            end
+            Fode_sys_evl = @(e_,s_) [ ...
+                ones(1,size(s_,2)) ; ...
+                f_eqn( s_(1,:) , s_(2,:) ) ...
+            ];
+            fode = struct( ...
+            'name', eqn_name, ...
+            'eor', eor, ...
+            'ndep', ndep, ...
+            'f', @(s_) f_eqn(s_(1,:),s_(2,:)), ...
+            'JF_dxf', @(s_) JF_dxf_eqn(s_) ...
+            );
+
+            ncrv = 30;
+            seed = 7;
+            seed0 = rng(seed);
+
+            x0 = 1e-1; % lower bound for starting x
+            % ef = 10.0; % epsilon varies from e0 = 0 to ef > 0
+            ef = 1.1;
+
+            % trajectory specification
+            % u0_vals = logspace(-1,1,ncrv);
+            u0_vals = 1e-1*( 2*rand(1,ncrv) - 1 );
+
+            % nevl = 33; % one more than the cubic Rmat curve matrix
+            Odef = 3; % cubic permutation model (default)
+            Pdef = (Odef+1)^(ndep+1);
+            % nevl = 2*(ceil(1* (ndep+1)*Pdef/(eor*ndep) ) + 1);
+            nevl = 1*(ceil(1* (ndep+1)*Pdef/(eor*ndep) ) + 1);
+            % nevl = 1*(ceil(0.75* (ndep+1)*Pdef/(eor*ndep) ) + 1);
+
+            xscl = 0.05*ef;
+            s0 = [ x0 + xscl*rand(1,ncrv) ; u0_vals ];
+            epsf =  ef + xscl*rand(ncrv,1);
+            epsevl = cell([ncrv,1]);
+            del_edge =  xscl.*rand(ncrv,2);
+            for icrv = 1:ncrv
+                epsevl{icrv,1} = linspace(del_edge(icrv,1), ef - del_edge(icrv,2), nevl);
+            end
+            trj_specs = struct( ...
+                's0', s0, ...
+                'epsf',  epsf ...
+            );
+            trj_specs.epsevl = epsevl;
+
+            [Sobs,trjs,JF,dNp1xu] = ldaux.evaluate_trajectories(Fode_sys_evl,fode,trj_specs);
+
+            fprintf(' nobs=%d, ncrv=%d \n', ...
+                ncrv*nevl, ncrv );
+
+            dat_out = fode;
+        end
         function [Sobs,dat_out,JF,dNp1xu] = generate_Riccati_data_2()
             % equation specification
             fcn_name = 'generate_Riccati_data';

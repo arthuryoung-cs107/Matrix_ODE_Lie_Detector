@@ -32,6 +32,7 @@ tic0 = tic;
 % [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_double_pendulum_data(); % N = 2, Q = 2, would be wild to learn anything
 [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_Linden_bouyancy_data(); dat_true.bor_max = 6; % N = 2, Q = 1
 % [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_Lorenz_data(); dat_true.bor_max = 3; % N = 2, Q = 1
+% [Sobs,dat_true,JF_obs,dNp1xu_obs] = ldaux.generate_Gilmore_data(); dat_true.bor_max = 3; % N = 2, Q = 1
 toc1 = toc(tic0);
 fprintf('generated jet space data in %.3f seconds \n', toc1);
 
@@ -48,7 +49,12 @@ dat = struct('ndep',dat_true.ndep,'eor',dat_true.eor);
     %% choose an arbitrary origin for the generation of an intrinsic coordinate system
     dat.icrv_sO = 2;
         % dat.i_sO_0 = 1;
+        % dat.i_sO_0 = ceil(npts_per_crv(dat.icrv_sO)/10);
+        % dat.i_sO_0 = ceil(npts_per_crv(dat.icrv_sO)/5);
+        % dat.i_sO_0 = ceil(npts_per_crv(dat.icrv_sO)/4);
+        % dat.i_sO_0 = ceil(npts_per_crv(dat.icrv_sO)/3);
         dat.i_sO_0 = ceil(npts_per_crv(dat.icrv_sO)/2);
+        % dat.i_sO_0 = ceil(npts_per_crv(dat.icrv_sO)*(2/3));
     dat.i_sO_1 = dat.i_sO_0+1;
 
 ndep = dat.ndep;
@@ -104,12 +110,20 @@ toc1 = toc(tic0);
 fprintf('built jet space model in %.3f seconds \n', toc1);
 
 mod
-sO = mod.s_O
+MarkerSize_0 = dat_plt0.MarkerSize;
+dat_plt0.MarkerSize = ceil(0.8*MarkerSize_0);
+% sO = mod.s_O
 dat_plt0.Color = apv_plots.grey3;
 plt0 = apv_plots.plot_Sobs(plt0, Sobs{mod.flow_pckg.icrv_nghbr},dat_plt0);
 dat_plt0.Color = [1 1 1];
-plt0 = apv_plots.plot_Sobs(plt0, sO ,dat_plt0);
+plt0 = apv_plots.plot_Sobs(plt0, mod.s_O ,dat_plt0);
+dat_plt0.Color = apv_plots.orange3;
+plt0 = apv_plots.plot_Sobs(plt0, mod.flow_pckg.s_E ,dat_plt0);
+dat_plt0.Color = apv_plots.red5;
+plt0 = apv_plots.plot_Sobs(plt0, mod.flow_pckg.s_D ,dat_plt0);
+
 dat_plt0.Color = apv_plots.green4;
+dat_plt0.MarkerSize = MarkerSize_0;
 
 Jf_RN1_check = mod.J_tau_u_RN1(:,:,1,iisol_check)
 Jdxf_RN1_check = mod.J_tau_u_RN1(:,:,2,iisol_check)

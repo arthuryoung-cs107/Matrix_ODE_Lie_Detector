@@ -1000,6 +1000,7 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                 VN1_spc_sO = zeros(ndim_N1,nvar_N1);
                 VN_spc_S = zeros(ndim,nobs,ndep_N1);
 
+                % yields ndim_N1 x C x M tensor of candidate vector fields, col corresponding with W_
                 comp_W_image = @(W_) permute(pagemtimes(W_',reshape(LamN_T_vN_ttns,[size(W_,2) ndim_N1 nobs])), [2 1 3]);
                 vtns2mat = @(v_) reshape(permute( v_,[2 1 3]), size(v_,2), ndim_N1*nobs )';
                 function bout = compute_v0_sO_S_data(Thmat_)
@@ -1196,47 +1197,88 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                 Vc_tvf_bse.canon_coords = compute_local_canonical_coordinates(Vc_tvf_bse.VN1_c_spc_sO);
 
                 %% Displacement between all observations and the origin solution in chosen Xi space
-                % D_O_Xi_S = theta_xi_sO'*( lvs_N1 - lamf_sO_.lrow_vals' );
-                % D_O_Xi_S = Vc_bse.canon_coords.theta_xi_sO'*( lvs_N1 - lamf_sO_.lrow_vals' );
-                D_O_Xi_S = Vc_tvf_bse.canon_coords.theta_xi_sO'*( lvs_N1 - lamf_sO_.lrow_vals' );
+                D_lf_SmO = lvs_N1 - lamf_sO_.lrow_vals';
+                function SXi_img = map_S_Xi(theta_Xi_bse_,theta_v_bse_)
+                    D_Xi_SmO = theta_Xi_bse_' * D_lf_SmO;
+                    theta_v_SmO = theta_v_bse_ * D_Xi_SmO;
+                    vN1_O_SmO = compute_sO_N1_Tspc_image(theta_v_SmO);
+                    magD_Xi_SmO = sqrt(sum(D_Xi_SmO.*D_Xi_SmO,1));
+                    [srtd_magD_Xi_SmO,isrt_magD_Xi_SmO] = sort(magD_Xi_SmO);
 
-                % keyboard
+                    Sobs_DXi = cell(size(Sobs_));
+                    [min_DXi_icrv_mag,imin_DXi_icrv_mag] = deal(nan(size(Sobs_)));
+                    for i = 1:length(Sobs_)
+                        Sobs_DXi{i} = D_Xi_SmO( :, ipts_crv(1,i):ipts_crv(2,i) );
+                        [min_DXi_icrv_mag(i),imin_DXi_icrv_mag(i)] = min( sqrt(sum( Sobs_DXi{i}.^2, 1 )) );
+                    end
+                    [~,iisrt_DXi_icrv_mag] = sort(min_DXi_icrv_mag);
+                    icrv_DXi_nghbr = iisrt_DXi_icrv_mag(1);
+                    if ( icrv_DXi_nghbr==icrv_sO )
+                        icrv_DXi_nghbr = iisrt_icrv_mag(2);
+                    end
+                    isol_DXi_nghbr = ipts_crv(1,icrv_DXi_nghbr) + (imin_DXi_icrv_mag(icrv_DXi_nghbr)-1);
 
-                theta_v_sO_2_S = [ Gc_bse.theta_v_0 Vc_tvf_bse.theta_Vc ] * D_O_Xi_S; % unique Lambda vfield passing through origin and each observation
-                vO_sO_2_S = compute_sO_N1_Tspc_image(theta_v_sO_2_S); % tangent vector of these vfields at origin
-
-                magD_O_Xi_S = sqrt(sum(D_O_Xi_S.*D_O_Xi_S,1));
-                [srtd_magD_O_Xi_S,isrt_magD_O_Xi_S] = sort(magD_O_Xi_S);
-
-                Sobs_Xi = cell(size(Sobs_));
-                Sobs_v_sO = cell(size(Sobs_));
-                for i = 1:length(Sobs_)
-                    Sobs_Xi{i} = D_O_Xi_S(:, ipts_crv(1,i):ipts_crv(2,i) );
-                    [minv_icrv_mag(i),imin_icrv_mag(i)] = min( sqrt(sum( Sobs_Xi{i}.^2, 1 )) );
+                    SXi_img = struct('D_Xi_SmO', D_Xi_SmO);
+                    SXi_img.theta_Xi_bse = theta_Xi_bse_;
+                    SXi_img.theta_v_bse = theta_v_bse_;
+                    SXi_img.theta_v_SmO = theta_v_SmO;
+                    SXi_img.vN1_O_SmO = vN1_O_SmO;
+                    SXi_img.isrt_magD_Xi_SmO = isrt_magD_Xi_SmO;
+                    SXi_img.Sobs_DXi = Sobs_DXi;
+                    SXi_img.icrv_DXi_nghbr = icrv_DXi_nghbr;
+                    SXi_img.isol_DXi_nghbr = isol_DXi_nghbr;
                 end
-                [~,iisrt_icrv_mag] = sort(minv_icrv_mag);
-                icrv_nghbr = iisrt_icrv_mag(1);
-                if ( icrv_nghbr==icrv_sO )
-                    icrv_nghbr = iisrt_icrv_mag(2);
-                end
-                isol_nghbr = ipts_crv(1,icrv_nghbr) + (imin_icrv_mag(icrv_nghbr)-1);
-                isol_nghbr_p1 = isol_nghbr+1;
+
+                S_Xi_image_ntvf = map_S_Xi( Vc_bse.canon_coords.theta_xi_sO,[ Gn_bse.theta_v_0 Vc_bse.theta_Vc ]);
+                S_Xi_image_ctvf = map_S_Xi( Vc_tvf_bse.canon_coords.theta_xi_sO,[ Gc_bse.theta_v_0 Vc_tvf_bse.theta_Vc ]);
+
+                S_Xi_img = S_Xi_image_ctvf;
+                th_v_SmO = S_Xi_img.theta_v_SmO;
+                icrv_nghbr = S_Xi_img.icrv_DXi_nghbr;
+                isol_nghbr = S_Xi_img.isol_DXi_nghbr;
+                    isol_nghbr_p1 = isol_nghbr+1;
 
                 s0_a = solO_.s( 1:(end-ndep) );
-                s0_b = Smat( 1:(end-ndep), isol_nghbr ); th_b = theta_v_sO_2_S(:,isol_nghbr);
-                s0_c = Smat( 1:(end-ndep), isol_nghbr_p1 ); th_c = theta_v_sO_2_S(:,isol_nghbr_p1);
+                s0_b = Smat( 1:(end-ndep), isol_nghbr );
+                    th_ab = th_v_SmO(:,isol_nghbr);
+                s0_c = Smat( 1:(end-ndep), isol_nghbr_p1 );
+                    th_ac = th_v_SmO(:,isol_nghbr_p1);
 
-                v0_ab_a = reshape( th_b ,Plen_v,[] )' * lv_b_sO(:);
-                v0_ac_a = reshape( th_c ,Plen_v,[] )' * lv_b_sO(:);
+                v0_ab_a = reshape( th_ab ,Plen_v,[] )' * lv_b_sO(:);
+                v0_ac_a = reshape( th_ac ,Plen_v,[] )' * lv_b_sO(:);
 
-                v0_ab_b = reshape( th_b ,Plen_v,[] )' * lvs_RN1( iPv_,isol_nghbr );
-                v0_ac_c = reshape( th_c ,Plen_v,[] )' * lvs_RN1( iPv_,isol_nghbr_p1 );
+                v0_ab_b = reshape( th_ab ,Plen_v,[] )' * lvs_RN1( iPv_,isol_nghbr );
+                v0_ac_c = reshape( th_ac ,Plen_v,[] )' * lvs_RN1( iPv_,isol_nghbr_p1 );
 
                 jt_ab = LDsol.compute_cubic_Hermite_jet(s0_a,v0_ab_a,0.0,s0_b,v0_ab_b,1.0,0.5);
                 jt_ac = LDsol.compute_cubic_Hermite_jet(s0_a,v0_ab_a,0.0,s0_c,v0_ac_c,1.0,0.5);
+                % get center of spline patch
+                s0_e = jt_ac.Amat(1,1:nvar_N1)';
 
+                % compute lambda and jet space image of sE
+                [sol_E,f_E0,dxf_E0,vth_sE,lamRN1_sE,Jtu_sE,JtuN_sE] = LDsol.initialize_origin( ...
+                    s0_e, ...
+                    fspace_RN1, W_R_sO, inds_P_RN1, ndep ...
+                );
+                s_E = [ s0_e ; f_E0((end-ndep+1):end) ]; % use tvf model to determine N'th jet space image of s_E
+                % sol_E.lamN1 = adlam(fspace_N1,s0_e);
+                % sol_E.lamRN1 = lamRN1_sE;
 
-                % jt_nu1 = LDsol.compute_cubic_Hermite_jet(Smat);
+                th_bd = th_ac - 2*th_ab;
+                v0_bd_b = reshape( th_bd ,Plen_v,[] )' * lvs_RN1( iPv_,isol_nghbr );
+                v0_bd_e = reshape( th_bd ,Plen_v,[] )' * lamRN1_sE.lrow_vals(iPv_)';
+
+                jt_bd = LDsol.compute_cubic_Hermite_jet(s0_b,v0_bd_b,-1.0,s0_e,v0_bd_e,-0.5,0.0);
+
+                s0_d = jt_bd.Amat(1,1:nvar_N1)';
+                % compute lambda and jet space image of sD
+                [sol_D,f_D0,dxf_D0,vth_sD,lamRN1_sD,Jtu_sD,JtuN_sD] = LDsol.initialize_origin( ...
+                    s0_d, ...
+                    fspace_RN1, W_R_sO, inds_P_RN1, ndep ...
+                );
+                s_D = [ s0_d ; f_D0((end-ndep+1):end) ]; % use tvf model to determine N'th jet space image of s_D
+                sNp1_D = [ s_D ; dxf_D0((end-ndep+1):end) ];
+                t_D = [ 1 ; sNp1_D((nvar+1):end) ]; % tvf tangent vector in the N'th jet space at s_D
 
                 flow_out = struct( ...
                     'theta_v_coords', theta_v_coords, ...
@@ -1277,19 +1319,26 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                 flow_out.gxi_sO = gxi_sO;
                 flow_out.theta_xi_sO = theta_xi_sO;
                 flow_out.Jxi_sO = Jxi_sO;
-                flow_out.D_O_Xi_S = D_O_Xi_S;
 
-                flow_out.theta_v_sO_2_S = theta_v_sO_2_S;
-                flow_out.vO_sO_2_S = vO_sO_2_S;
+                flow_out.S_Xi_image_ntvf = S_Xi_image_ntvf;
+                flow_out.S_Xi_image_ctvf = S_Xi_image_ctvf;
 
-                flow_out.srtd_magD_O_Xi_S = srtd_magD_O_Xi_S;
-                flow_out.isrt_magD_O_Xi_S = isrt_magD_O_Xi_S;
-
-                flow_out.Sobs_Xi = Sobs_Xi;
                 flow_out.icrv_nghbr = icrv_nghbr;
                 flow_out.isol_nghbr = isol_nghbr;
+
                 flow_out.jt_ab = jt_ab;
+
                 flow_out.jt_ac = jt_ac;
+                flow_out.sol_E = sol_E;
+                flow_out.s_E = s_E;
+
+                flow_out.jt_bd = jt_bd;
+                flow_out.sol_D = sol_D;
+                flow_out.s_D = s_D;
+                flow_out.sNp1_D = sNp1_D;
+                flow_out.t_D = t_D;
+
+
             end
 
 
