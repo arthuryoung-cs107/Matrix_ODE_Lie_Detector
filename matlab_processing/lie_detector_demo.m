@@ -76,6 +76,7 @@ dat_plt0 = dat;
 dat_plt0.LineStyle = '-';
 dat_plt0.Color = apv_plots.green4;
 dat_plt0.MarkerSize = 6;
+
 plt0 = apv_plots.plot_Sobs(plt0,Sobs,dat_plt0);
 
 dat_plt0.Color = apv_plots.blue1;
@@ -116,7 +117,14 @@ dat_plt0.MarkerSize = ceil(0.8*MarkerSize_0);
 dat_plt0.Color = apv_plots.grey3;
 plt0 = apv_plots.plot_Sobs(plt0, Sobs{mod.flow_pckg.icrv_nghbr},dat_plt0);
 dat_plt0.Color = [1 1 1];
+plt0 = apv_plots.plot_Sobs(plt0, Sobs{dat.icrv_sO},dat_plt0);
+dat_plt0.MarkerSize = ceil(1.5*MarkerSize_0);
+
 plt0 = apv_plots.plot_Sobs(plt0, mod.s_O ,dat_plt0);
+dat_plt0.Color = apv_plots.grey2;
+plt0 = apv_plots.plot_Sobs(plt0, mod.Smat(:,mod.flow_pckg.isol_nghbr) ,dat_plt0);
+dat_plt0.Color = apv_plots.grey4;
+plt0 = apv_plots.plot_Sobs(plt0, mod.Smat(:,mod.flow_pckg.isol_nghbr+1) ,dat_plt0);
 dat_plt0.Color = apv_plots.orange3;
 plt0 = apv_plots.plot_Sobs(plt0, mod.flow_pckg.s_E ,dat_plt0);
 dat_plt0.Color = apv_plots.red5;

@@ -1209,12 +1209,15 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                     [min_DXi_icrv_mag,imin_DXi_icrv_mag] = deal(nan(size(Sobs_)));
                     for i = 1:length(Sobs_)
                         Sobs_DXi{i} = D_Xi_SmO( :, ipts_crv(1,i):ipts_crv(2,i) );
-                        [min_DXi_icrv_mag(i),imin_DXi_icrv_mag(i)] = min( sqrt(sum( Sobs_DXi{i}.^2, 1 )) );
+                        DXi_icrv_mag_i = sqrt(sum( Sobs_DXi{i}.^2, 1 ));
+                        [~,isrt_DXi_icrv_mag_i] = sort( DXi_icrv_mag_i );
+                        imin_DXi_icrv_mag(i) = min( [ isrt_DXi_icrv_mag_i(1), ipts_crv(2,i)-ipts_crv(1,i) ] );
+                        min_DXi_icrv_mag(i) = DXi_icrv_mag_i( imin_DXi_icrv_mag(i) );
                     end
                     [~,iisrt_DXi_icrv_mag] = sort(min_DXi_icrv_mag);
                     icrv_DXi_nghbr = iisrt_DXi_icrv_mag(1);
                     if ( icrv_DXi_nghbr==icrv_sO )
-                        icrv_DXi_nghbr = iisrt_icrv_mag(2);
+                        icrv_DXi_nghbr = iisrt_DXi_icrv_mag(2);
                     end
                     isol_DXi_nghbr = ipts_crv(1,icrv_DXi_nghbr) + (imin_DXi_icrv_mag(icrv_DXi_nghbr)-1);
 
@@ -1251,7 +1254,7 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                 v0_ac_c = reshape( th_ac ,Plen_v,[] )' * lvs_RN1( iPv_,isol_nghbr_p1 );
 
                 jt_ab = LDsol.compute_cubic_Hermite_jet(s0_a,v0_ab_a,0.0,s0_b,v0_ab_b,1.0,0.5);
-                jt_ac = LDsol.compute_cubic_Hermite_jet(s0_a,v0_ab_a,0.0,s0_c,v0_ac_c,1.0,0.5);
+                jt_ac = LDsol.compute_cubic_Hermite_jet(s0_a,v0_ac_a,0.0,s0_c,v0_ac_c,1.0,0.5);
                 % get center of spline patch
                 s0_e = jt_ac.Amat(1,1:nvar_N1)';
 
@@ -1468,18 +1471,18 @@ fprintf( '(%s err) [min,med,avg,max]=[%.1e,%.1e,%.1e,%.1e]. Success: [med,max] =
             ea_pow = ea .^ ( 0:3 );
             eb_pow = eb .^ ( 0:3 );
             Va = [ ...
-                1 , ea_pow(2) , 0.5*ea_pow(3)/2 , ea_pow(4)/6 ;
+                1 , ea_pow(2) , 0.5*ea_pow(3) , ea_pow(4)/6 ;
                 0 , 1         , ea_pow(2)       , 0.5*ea_pow(3) ;
             ];
             Vb = [ ...
-                1 , eb_pow(2) , 0.5*eb_pow(3)/2 , eb_pow(4)/6 ;
+                1 , eb_pow(2) , 0.5*eb_pow(3) , eb_pow(4)/6 ;
                 0 , 1         , eb_pow(2)       , 0.5*eb_pow(3) ;
             ];
             Vmat = [ Va ; Vb ];
             Umat = [
                 [sa_,va_]' ;
                 [sb_,vb_]' ;
-            ]
+            ];
             Amat = lsqminnorm(Vmat, Umat); % Tikhinov regularized when rank deficient
 
             jt_out = struct( ...
