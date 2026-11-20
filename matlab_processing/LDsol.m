@@ -94,6 +94,31 @@ classdef LDsol
                     'W',[(s_(end)./s_(:))',ones(1,size(V_,2)-length(s_))].*V_ ... % nullspace (kernal) K approx. basis
                 );
             end
+            function [Asvd_out,U_,V_] = A_page_svd_package(A_);
+                [nArows,nAcols,nApges] = size(A_);
+                [dim_mat,dim_scl] = bounds([nArows,nAcols]);
+                if (nargout==1)
+                    [~,S_,V_] = pagesvd(A_,'econ');
+                elseif (nargout==2)
+                    [U_,S_,V_] = pagesvd(A_,'econ');
+                else
+                    [U_,S_,V_] = pagesvd(A_);
+                end
+                s_ = zeros(dim_mat,nApges);
+                for ipge = 1:nApges, s_(:,ipge) = diag(S_(:,:,ipge)); end
+                r_ = sum( double(s_ > dim_scl*eps(max(s_(1,:)))) , 1 ); % default matlab tol
+                Asvd_out = struct( ...
+                    'mrow', nArows, ...
+                    'ncol', nAcols, ...
+                    'lpge', nApges, ...
+                    'dim', dim_mat, ...
+                    'r', r_, ...
+                    's', s_, ...
+                    'V', V_, ...
+                    'D', reshape([s_;zeros(size(V_,2)-dim_mat,nApges)],1,[],nApges).*V_, ... % rowspace (domain) Y approx. basis
+                    'W',reshape([s_(end,:)./s_;ones(size(V_,2)-dim_mat,nApges)],1,[],nApges).*V_ ... % nullspace (kernal) K approx. basis
+                );
+            end
             normalize_Renc = @(r_) r_./sqrt(sum(r_.*r_,2)); % unit length Rmat rows
             normalize_DprN = @(d_) d_./sqrt( sum(d_.*d_,2) ); % unit length DprN cols (rows after transposition)
             normalize_Genc = @(g_) g_./sqrt(sum(g_.*g_,2)); % unit length Gmat rows
@@ -285,7 +310,16 @@ classdef LDsol
             ndep_N1*nobs, ntheta_RN1, ...
             toc1);
 
+            % yields ndim_N1 x C x M tensor of candidate vector fields, cols corresponding with V_ cols
+            compute_LamN1Th_S = @(V_) cat( 1, ...
+                permute(pagemtimes(reshape(V_,[Plen_RN1 nvar_N1 size(V_,2)]), lvs_RN1),[1 3 2]), ...
+                pagemtimes(-lNx_RN1,V_(1:Plen_RN1,:)) ...
+                    + permute(pagemtimes(reshape(V_,[Plen_RN1 nvar_N1 size(V_,2)]), dxl_RN1),[1 3 2]) ...
+            );
             LamN_T_ttns_RN1 = reshape(LamN_T_tns_RN1,[Plen_RN1 nvar_N1 ndim_N1 nobs]);
+                % yields ndim_N1 x C x M tensor of candidate vector fields, cols corresponding with V_ cols
+                comp_N1_image = @(V_) permute(pagemtimes(V_',reshape(LamN_T_ttns_RN1,[size(V_,2) ndim_N1 nobs])), [2 1 3]);
+
             % Plen x nvar_N1 x ndim x nobs, Lambda tensors over first jet space
             LamN1_T_ttns = LamN_T_ttns_RN1(:,:,[ 1:nvar_N1 (ndim_N1-ndep+1):ndim_N1 ],:);
             LamN_tns_RN1 = permute(LamN_T_tns_RN1,[2 1 3]); % --> ndim (N1) x ntheta_N1 x nobs
@@ -556,6 +590,30 @@ fprintf('(LDsol::model_solspace) encoded G, %dx%dx%d, in %.2f seconds.\n', ...
             Bsvd_tdxu_N1 = Asvd_package(normalize_Benc(Bmat_tdxu_N1));
 
             Bsvd_tN_N1 = Asvd_package(normalize_Benc([ Bmat_t0_N1 ; Bmat_tdxu_N1 ]));
+
+            % JF_pge_svd = A_page_svd_package(cat(1, ...
+            %     permute(reshape(DprN_T_ttns,ntheta_GN1,ndep*(kor-1),nobs),[2 1 3]) ...
+            % ));
+
+            Gn_pge_svd = A_page_svd_package(cat(1, ...
+                reshape([d2xl_N1_mat , zeros(nobs,ntheta_GN1-Plen_GN1)]',1,ntheta_GN1,nobs), ...
+                Gtns_N1, ...
+                permute(reshape(DprN_T_ttns,ntheta_GN1,ndep*(kor-1),nobs),[2 1 3]) ...
+            ));
+            Gc_pge_svd = A_page_svd_package(cat(1, ...
+                Btns_t0_N1, ...
+                Btns_tdxu_N1, ...
+                reshape([d2xl_N1_mat , zeros(nobs,ntheta_GN1-Plen_GN1)]',1,ntheta_GN1,nobs), ...
+                Gtns_N1, ...
+                permute(reshape(DprN_T_ttns,ntheta_GN1,ndep*(kor-1),nobs),[2 1 3]) ...
+            ));
+            GGc_tns = Gc_pge_svd.D;
+            for iobs = 1:nobs, GGc_tns(:,(Gc_pge_svd.r(iobs)+1):end,iobs) = 0; end
+            GGc_tns = GGc_tns ./ reshape( sqrt(sum( Gc_pge_svd.s.^2,1 )), [1 1 nobs] );
+            GGc_svd = Asvd_package( reshape(GGc_tns,ntheta_GN1,[])' );
+
+            % compute_LamN1Th_S()
+
 
             %% assemble net G matrix, obeying prolongation, as well as optional tvf commutativity constraints
             tic0 = tic;
@@ -1052,6 +1110,7 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                     JXi_coord_out.Jxi_sO = Jlf_sO*JXi_coord_out.theta_xi_sO; % gradients of smooth canonical coordinate functions at origin
                 end
 
+                Asvd_package(vtns2mat(Proj_JFN1_S(Proj_tN1_S(comp_W_image(Thmat_)))));
 
                 % Bt_svd = Asvd_package(normalize_Benc([ ...
                 %     Bmat_t0_N1 ;
@@ -1082,10 +1141,12 @@ fprintf('(LDsol::model_solspace) Decomposed %d G+DprN matrices in %.2f seconds: 
                 %     Bmat_t0_N1 ;
                 %     Bmat_tdxu_N1 ;
                 % ]));
+                % Gc_svd = GGc_svd;
                 Gc_svd = Asvd_package([ ...
                     Gn_svd.D' / Gn_svd.s(1) ;
-                    Bt_svd.D' / Bt_svd.s(1) ;
+                    Bt2_svd.D' / Bt2_svd.s(1) ;
                 ]);
+                % Bt_svd.D' / Bt_svd.s(1) ;
                 % Bt2_svd.D' / Bt2_svd.s(1) ;
                 % Bt_svd.D' ;
                 Gc_bse = compute_v0_sO_S_data(Gc_svd.W);
@@ -1462,6 +1523,11 @@ fprintf( '(%s err) [min,med,avg,max]=[%.1e,%.1e,%.1e,%.1e]. Success: [med,max] =
             mod_out.Mcom_sO_basis = Mcom_sO_basis;
             mod_out.Nnet_sO_basis = Nnet_sO_basis;
             mod_out.Ncom_sO_basis = Ncom_sO_basis;
+
+            mod_out.Gn_pge_svd = Gn_pge_svd; % will contain the latter svds
+            mod_out.Gc_pge_svd = Gc_pge_svd;
+
+            mod_out.GGc_svd = GGc_svd;
 
             mod_out.flow_pckg = flow_pckg;
         end
